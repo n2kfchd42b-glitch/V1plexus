@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderOpen, ClipboardList, Bell,
-  FlaskConical, LogOut, User
+  FlaskConical, LogOut, Settings
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,7 @@ const navItems = [
   { href: '/projects', label: 'Projects', icon: FolderOpen },
   { href: '/reviews', label: 'Reviews', icon: ClipboardList },
   { href: '/notifications', label: 'Notifications', icon: Bell },
+  { href: '/settings/sso', label: 'SSO Settings', icon: Settings },
 ]
 
 interface SidebarProps {
