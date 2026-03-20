@@ -1,4 +1,8 @@
 export type UserRole = 'researcher' | 'supervisor' | 'admin'
+export type DatasetSource = 'upload' | 'kobo' | 'redcap' | 'csv' | 'excel' | 'spss'
+export type AnalysisEngine = 'r' | 'python'
+export type AnalysisStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+export type OutputType = 'table' | 'figure' | 'log' | 'summary' | 'file'
 export type ProjectStatus = 'draft' | 'active' | 'completed' | 'archived'
 export type DocumentStatus = 'draft' | 'in_review' | 'revision_requested' | 'approved'
 export type DocumentType = 'general' | 'protocol' | 'consent_form' | 'ethics_application' | 'report'
@@ -144,6 +148,71 @@ export interface Notification {
   resource_type: string | null
   resource_id: string | null
   is_read: boolean
+  created_at: string
+}
+
+export interface ColumnSchema {
+  name: string
+  type: 'string' | 'number' | 'date' | 'boolean' | 'unknown'
+  null_count: number
+  unique_count: number
+  total_count: number
+  min?: number | string
+  max?: number | string
+  sample_values: (string | number | boolean | null)[]
+}
+
+export interface Dataset {
+  id: string
+  project_id: string
+  name: string
+  description: string | null
+  source: DatasetSource
+  file_path: string
+  file_name: string
+  file_size: number | null
+  file_hash: string | null
+  mime_type: string | null
+  row_count: number | null
+  column_count: number | null
+  schema_info: ColumnSchema[] | null
+  uploaded_by: string | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+  uploader?: Profile
+}
+
+export interface AnalysisJob {
+  id: string
+  project_id: string
+  dataset_id: string | null
+  title: string | null
+  engine: AnalysisEngine
+  script_content: string | null
+  status: AnalysisStatus
+  started_at: string | null
+  completed_at: string | null
+  duration_ms: number | null
+  error_log: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  dataset?: Dataset
+  creator?: Profile
+  outputs?: AnalysisOutput[]
+}
+
+export interface AnalysisOutput {
+  id: string
+  job_id: string
+  output_type: OutputType
+  title: string | null
+  content: { headers: string[]; rows: (string | number | null)[][] } | Record<string, unknown> | null
+  file_path: string | null
+  file_name: string | null
+  metadata: Record<string, unknown>
+  sort_order: number
   created_at: string
 }
 
