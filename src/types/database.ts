@@ -161,3 +161,39 @@ export interface EthicsApplication {
   created_at: string
   updated_at: string
 }
+
+export interface AuditLog {
+  id: string
+  timestamp: string
+  actor_id: string | null
+  action: string
+  resource_type: string
+  resource_id: string
+  project_id: string | null
+  institution_id: string | null
+  details: Record<string, unknown>
+  ip_address: string | null
+  prev_hash: string | null
+  entry_hash: string
+  actor?: Profile
+}
+
+export interface AIUsageLog {
+  id: string
+  user_id: string
+  action: string
+  document_id: string | null
+  input_tokens: number | null
+  output_tokens: number | null
+  model: string | null
+  created_at: string
+}
+
+export type AIAction = 'suggest' | 'generate_section' | 'format_table' | 'grammar_check'
+
+export interface GrammarSuggestion {
+  original: string
+  suggestion: string
+  type: 'grammar' | 'clarity' | 'style'
+  explanation: string
+}

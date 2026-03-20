@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderOpen, ClipboardList, Bell,
-  FlaskConical, LogOut, User
+  FlaskConical, LogOut, Shield, ClipboardCheck
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,11 @@ const navItems = [
   { href: '/projects', label: 'Projects', icon: FolderOpen },
   { href: '/reviews', label: 'Reviews', icon: ClipboardList },
   { href: '/notifications', label: 'Notifications', icon: Bell },
+]
+
+const institutionItems = [
+  { href: '/institution/compliance', label: 'Compliance', icon: ClipboardCheck },
+  { href: '/institution/audit', label: 'Audit Log', icon: Shield },
 ]
 
 interface SidebarProps {
@@ -37,7 +42,7 @@ export function Sidebar({ profile, onSignOut }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {navItems.map(item => {
           const Icon = item.icon
           const active = pathname === item.href || pathname.startsWith(item.href + '/')
@@ -53,6 +58,25 @@ export function Sidebar({ profile, onSignOut }: SidebarProps) {
             </Link>
           )
         })}
+
+        <div className="pt-3 pb-1">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-1">Institution</p>
+          {institutionItems.map(item => {
+            const Icon = item.icon
+            const active = pathname === item.href || pathname.startsWith(item.href + '/')
+            return (
+              <Link key={item.href} href={item.href}>
+                <Button
+                  variant={active ? 'secondary' : 'ghost'}
+                  className={cn('w-full justify-start gap-3', active && 'font-medium')}
+                >
+                  <Icon className="h-4 w-4" />
+                  {item.label}
+                </Button>
+              </Link>
+            )
+          })}
+        </div>
       </nav>
 
       {/* User */}

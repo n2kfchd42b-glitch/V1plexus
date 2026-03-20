@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import Link from 'next/link'
 import {
-  Plus, FileText, ArrowLeft, ExternalLink
+  Plus, FileText, ArrowLeft, ExternalLink, Activity
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -16,9 +16,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ApprovalGateList } from '@/components/approval/ApprovalGateList'
+import { ActivityFeed } from '@/components/audit/ActivityFeed'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatRelative, statusColor, statusLabel } from '@/lib/utils'
+import { logAudit } from '@/lib/audit'
 import type { Project, Document } from '@/types/database'
 
 export default function ProjectPage() {
@@ -60,6 +62,7 @@ export default function ProjectPage() {
       .select()
       .single()
     if (data) {
+      await logAudit('document.create', 'document', data.id, { title: data.title, document_type: docType }, projectId)
       router.push(`/projects/${projectId}/documents/${data.id}`)
     }
     setLoading(false)
@@ -100,6 +103,10 @@ export default function ProjectPage() {
         <TabsList className="mb-4">
           <TabsTrigger value="documents">Documents ({documents.length})</TabsTrigger>
           <TabsTrigger value="gates">Approval Gates</TabsTrigger>
+          <TabsTrigger value="activity" className="gap-1.5">
+            <Activity className="h-3.5 w-3.5" />
+            Activity
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="documents">
@@ -152,6 +159,12 @@ export default function ProjectPage() {
         <TabsContent value="gates">
           <div className="max-w-2xl">
             <ApprovalGateList projectId={projectId} currentProfile={profile} />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="activity">
+          <div className="border rounded-lg overflow-hidden">
+            <ActivityFeed projectId={projectId} />
           </div>
         </TabsContent>
       </Tabs>
