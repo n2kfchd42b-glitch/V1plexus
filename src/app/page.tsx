@@ -1,3 +1,7 @@
+import { redirect } from "next/navigation";
+
+export default function Home() {
+  redirect("/dashboard");
 import Link from 'next/link'
 import {
   FlaskConical, ArrowRight, CheckCircle, BarChart3, FileText,

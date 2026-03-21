@@ -1,6 +1,10 @@
 {
   "framework": "nextjs",
   "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": "@plexus_supabase_url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@plexus_supabase_anon_key"
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "env": {

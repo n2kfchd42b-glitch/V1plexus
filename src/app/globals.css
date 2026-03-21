@@ -4,6 +4,23 @@
 
 @layer base {
   :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+  }
+
+  * {
+    @apply border-gray-200;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+  }
+}
+
+/* TipTap editor styles */
+.ProseMirror {
+  outline: none;
+  min-height: 400px;
     /* ─── Radix/shadcn compatibility vars (HSL) ─── */
     --background: 0 0% 98%;
     --foreground: 240 10% 11%;
@@ -228,11 +245,62 @@
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
+  color: #9ca3af;
   color: var(--text-tertiary);
   pointer-events: none;
   height: 0;
 }
 
+.ProseMirror h1 {
+  @apply text-3xl font-bold mt-6 mb-3;
+}
+
+.ProseMirror h2 {
+  @apply text-2xl font-semibold mt-5 mb-2;
+}
+
+.ProseMirror h3 {
+  @apply text-xl font-semibold mt-4 mb-2;
+}
+
+.ProseMirror p {
+  @apply mb-3 leading-relaxed;
+}
+
+.ProseMirror ul {
+  @apply list-disc list-inside mb-3 space-y-1;
+}
+
+.ProseMirror ol {
+  @apply list-decimal list-inside mb-3 space-y-1;
+}
+
+.ProseMirror blockquote {
+  @apply border-l-4 border-gray-300 pl-4 italic text-gray-600 my-3;
+}
+
+.ProseMirror hr {
+  @apply border-t border-gray-200 my-6;
+}
+
+.ProseMirror a {
+  @apply text-blue-600 underline;
+}
+
+.ProseMirror strong {
+  @apply font-bold;
+}
+
+.ProseMirror em {
+  @apply italic;
+}
+
+.ProseMirror u {
+  @apply underline;
+}
+
+.ProseMirror s {
+  @apply line-through;
 .ProseMirror h1 { font-size: var(--text-2xl); font-weight: 700; margin-top: 1.5em; margin-bottom: 0.5em; }
 .ProseMirror h2 { font-size: var(--text-xl);  font-weight: 600; margin-top: 1.25em; margin-bottom: 0.4em; }
 .ProseMirror h3 { font-size: var(--text-lg);  font-weight: 600; margin-top: 1em; margin-bottom: 0.3em; }
