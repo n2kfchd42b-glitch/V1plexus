@@ -21,7 +21,7 @@ const statusIcons = {
 
 export function ApprovalGateCard({ gate, currentProfile, onApprove, onBlock }: ApprovalGateCardProps) {
   const Icon = statusIcons[gate.status] ?? Clock
-  const canApprove = currentProfile?.role === 'supervisor' || currentProfile?.role === 'admin'
+  const canApprove = currentProfile?.role === 'pi' || currentProfile?.role === 'coordinator' || currentProfile?.role === 'admin'
 
   return (
     <div className={cn(

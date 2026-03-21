@@ -89,7 +89,7 @@ export function CommentThread({ comment, currentProfile, onResolve, onRefresh }:
                 <Reply className="h-3 w-3 mr-1" />
                 Reply
               </Button>
-              {(currentProfile?.id === comment.author_id || currentProfile?.role === 'supervisor' || currentProfile?.role === 'admin') && (
+              {(currentProfile?.id === comment.author_id || currentProfile?.role === 'pi' || currentProfile?.role === 'coordinator' || currentProfile?.role === 'admin') && (
                 <Button
                   variant="ghost"
                   size="sm"

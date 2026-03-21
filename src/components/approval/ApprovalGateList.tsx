@@ -67,7 +67,7 @@ export function ApprovalGateList({ projectId, currentProfile }: ApprovalGateList
     fetchGates()
   }
 
-  const canManage = currentProfile?.role === 'supervisor' || currentProfile?.role === 'admin'
+  const canManage = currentProfile?.role === 'pi' || currentProfile?.role === 'coordinator' || currentProfile?.role === 'admin'
 
   return (
     <div className="space-y-3">

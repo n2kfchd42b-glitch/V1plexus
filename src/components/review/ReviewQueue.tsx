@@ -37,7 +37,7 @@ export function ReviewQueue({ currentProfile, activeReviewId, onSelectReview }: 
         .order('created_at', { ascending: false })
 
       // Supervisors/admins see all reviews assigned to them; researchers see ones they submitted
-      if (currentProfile.role === 'supervisor' || currentProfile.role === 'admin') {
+      if (currentProfile.role === 'pi' || currentProfile.role === 'coordinator' || currentProfile.role === 'admin') {
         query = query.eq('assigned_to', currentProfile.id)
       } else {
         query = query.eq('requested_by', currentProfile.id)

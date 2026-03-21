@@ -1,9 +1,12 @@
-export type UserRole = 'researcher' | 'supervisor' | 'admin'
+export type UserRole = 'researcher' | 'pi' | 'coordinator' | 'admin'
 export type DatasetSource = 'upload' | 'kobo' | 'redcap' | 'csv' | 'excel' | 'spss' | 'merge' | 'append' | 'clean' | 'branch'
 export type AnalysisEngine = 'r' | 'python'
 export type AnalysisStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 export type OutputType = 'table' | 'figure' | 'log' | 'summary' | 'file'
-export type ProjectStatus = 'draft' | 'active' | 'completed' | 'archived'
+export type ProjectStatus = 'draft' | 'active' | 'on_hold' | 'completed' | 'archived'
+export type ProjectPhase = 'design' | 'data_collection' | 'analysis' | 'writing' | 'submitted' | 'published'
+export type InstitutionType = 'university' | 'hospital' | 'research_institute' | 'ngo' | 'government' | 'other'
+export type ProjectMemberRole = 'owner' | 'pi' | 'member' | 'viewer'
 export type DocumentStatus = 'draft' | 'in_review' | 'revision_requested' | 'approved'
 export type DocumentType = 'general' | 'protocol' | 'consent_form' | 'ethics_application' | 'report'
 export type ReviewStatus = 'pending' | 'in_review' | 'feedback_given' | 'revision_submitted' | 'approved' | 'rejected'
@@ -11,14 +14,44 @@ export type ReviewPriority = 'low' | 'normal' | 'high' | 'urgent'
 export type GateStatus = 'pending' | 'approved' | 'blocked'
 export type NotificationType = 'review_request' | 'review_complete' | 'ethics_expiry' | 'comment' | 'gate_approved'
 
+export interface Institution {
+  id: string
+  name: string
+  type: InstitutionType | null
+  country: string | null
+  city: string | null
+  website: string | null
+  email: string | null
+  phone: string | null
+  logo_url: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Department {
+  id: string
+  institution_id: string
+  name: string
+  description: string | null
+  head_id: string | null
+  created_at: string
+  updated_at: string
+  institution?: Institution
+  head?: Profile
+}
+
 export interface Profile {
   id: string
   email: string
   full_name: string | null
   avatar_url: string | null
   role: UserRole
+  institution_id: string | null
+  department_id: string | null
   created_at: string
   updated_at: string
+  institution?: Institution
+  department?: Department
 }
 
 export interface Project {
@@ -26,9 +59,15 @@ export interface Project {
   title: string
   description: string | null
   status: ProjectStatus
+  phase: ProjectPhase | null
   owner_id: string
+  institution_id: string | null
+  department_id: string | null
+  start_date: string | null
+  end_date: string | null
   created_at: string
   updated_at: string
+  deleted_at: string | null
   owner?: Profile
 }
 
@@ -36,7 +75,7 @@ export interface ProjectMember {
   id: string
   project_id: string
   user_id: string
-  role: 'member' | 'supervisor' | 'admin'
+  role: ProjectMemberRole
   joined_at: string
   user?: Profile
 }
