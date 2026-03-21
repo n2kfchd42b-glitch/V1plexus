@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderOpen, ClipboardList, Bell,
+  FlaskConical, LogOut, Database
   FlaskConical, LogOut, Settings
   FlaskConical, LogOut, Shield, ClipboardCheck
 } from 'lucide-react'
@@ -31,6 +32,12 @@ interface SidebarProps {
 
 export function Sidebar({ profile, onSignOut }: SidebarProps) {
   const pathname = usePathname()
+
+  // Extract project ID if we're inside a project route
+  const projectMatch = pathname.match(/\/projects\/([^/]+)/)
+  const projectId = projectMatch?.[1]
+  const dataHref = projectId ? `/projects/${projectId}/data` : null
+  const dataActive = dataHref ? pathname.startsWith(dataHref) : false
 
   return (
     <aside className="w-64 bg-card border-r flex flex-col h-screen sticky top-0">
@@ -61,6 +68,23 @@ export function Sidebar({ profile, onSignOut }: SidebarProps) {
           )
         })}
 
+        {/* Contextual data link when inside a project */}
+        {dataHref && (
+          <>
+            <div className="pt-3 pb-1">
+              <p className="text-xs font-medium text-muted-foreground px-3 uppercase tracking-wider">Current Project</p>
+            </div>
+            <Link href={dataHref}>
+              <Button
+                variant={dataActive ? 'secondary' : 'ghost'}
+                className={cn('w-full justify-start gap-3', dataActive && 'font-medium')}
+              >
+                <Database className="h-4 w-4" />
+                Data
+              </Button>
+            </Link>
+          </>
+        )}
         <div className="pt-3 pb-1">
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-1">Institution</p>
           {institutionItems.map(item => {

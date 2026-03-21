@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import Link from 'next/link'
 import {
+  Plus, FileText, ArrowLeft, ExternalLink, Database
   Plus, FileText, ArrowLeft, ExternalLink, Activity
   Plus, FileText, ArrowLeft, ExternalLink, Database, FlaskConical
   Plus, FileText, ArrowLeft, ExternalLink, BarChart2
@@ -110,6 +111,11 @@ export default function ProjectPage() {
             Analysis
           </TabsTrigger>
           <TabsTrigger value="gates">Approval Gates</TabsTrigger>
+          <TabsTrigger value="data" asChild>
+            <Link href={`/projects/${projectId}/data`}>
+              <Database className="h-3.5 w-3.5 mr-1.5" />
+              Data
+            </Link>
           <TabsTrigger value="activity" className="gap-1.5">
             <Activity className="h-3.5 w-3.5" />
             Activity
