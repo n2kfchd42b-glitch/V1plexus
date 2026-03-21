@@ -1,13 +1,28 @@
 "use client"
 
-import { useEffect } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
+import { Header } from '@/components/layout/Header'
+import { CommandPalette } from '@/components/layout/CommandPalette'
+import { ShortcutOverlay } from '@/components/layout/ShortcutOverlay'
 import { useAuth } from '@/hooks/useAuth'
+import { useGlobalShortcuts } from '@/hooks/useKeyboardShortcuts'
+import { Toaster } from 'sonner'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, profile, loading, signOut } = useAuth()
   const router = useRouter()
+  const [cmdOpen, setCmdOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+
+  const openCommandPalette = useCallback(() => setCmdOpen(true), [])
+  const openShortcuts = useCallback(() => setShortcutsOpen(true), [])
+
+  useGlobalShortcuts({
+    onCommandPalette: openCommandPalette,
+    onShortcutOverlay: openShortcuts,
+  })
 
   useEffect(() => {
     if (!loading && !user) {
@@ -17,8 +32,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-muted-foreground text-sm">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-app)]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 rounded-full border-2 border-[var(--border-default)] border-t-[var(--accent-blue)] animate-spin" />
+          <p className="text-sm text-[var(--text-tertiary)]">Loading…</p>
+        </div>
       </div>
     )
   }
@@ -26,11 +44,49 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!user) return null
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar profile={profile} onSignOut={signOut} />
-      <main className="flex-1 overflow-hidden">
-        {children}
-      </main>
+    <div className="flex min-h-screen bg-[var(--bg-app)]">
+      <Sidebar
+        profile={profile}
+        onSignOut={signOut}
+        onCommandPalette={openCommandPalette}
+      />
+
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <Header profile={profile} />
+        <main className="flex-1 overflow-y-auto">
+          <div className="page-content">
+            {children}
+          </div>
+        </main>
+      </div>
+
+      {/* Global overlays */}
+      <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
+      <ShortcutOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+
+      {/* Toast system */}
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            fontFamily: 'var(--font-geist-sans, system-ui)',
+            fontSize: '13px',
+            borderRadius: 'var(--radius-lg)',
+            border: '1px solid var(--border-default)',
+            boxShadow: 'var(--shadow-lg)',
+          },
+        }}
+      />
+
+      {/* Shortcut hint button */}
+      <button
+        onClick={() => setShortcutsOpen(true)}
+        className="fixed bottom-4 right-4 h-8 w-8 flex items-center justify-center rounded-full bg-[var(--bg-surface)] border border-[var(--border-default)] shadow-sm text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:shadow-md transition-all duration-150 text-sm font-medium z-40"
+        title="Keyboard shortcuts (?)"
+      >
+        ?
+      </button>
     </div>
   )
 }
