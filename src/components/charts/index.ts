@@ -1,0 +1,8 @@
+export { BarChart } from './BarChart'
+export { LineChart } from './LineChart'
+export { ScatterPlot } from './ScatterPlot'
+export { Histogram } from './Histogram'
+export { BoxPlot } from './BoxPlot'
+export { PieChart } from './PieChart'
+export { Heatmap } from './Heatmap'
+export { AreaChart } from './AreaChart'

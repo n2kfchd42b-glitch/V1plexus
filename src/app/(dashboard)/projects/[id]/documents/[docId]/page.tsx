@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { CollaborativeEditor } from '@/components/document/CollaborativeEditor'
 import { SubmitForReviewModal } from '@/components/review/SubmitForReviewModal'
+import { ExportDropdown } from '@/components/export/ExportDropdown'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
 import { cn, statusColor, statusLabel } from '@/lib/utils'
@@ -77,6 +78,7 @@ export default function DocumentPage() {
           <Badge className={cn('text-xs border', statusColor(document.status))}>
             {statusLabel(document.status)}
           </Badge>
+          <ExportDropdown documentId={docId} documentTitle={document.title} />
           {canSubmit && (
             <Button size="sm" className="h-7 text-xs" onClick={() => setShowSubmitModal(true)}>
               <Send className="h-3.5 w-3.5 mr-1" />

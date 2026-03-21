@@ -6,6 +6,9 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderOpen, ClipboardList, Bell,
   FlaskConical, LogOut, ChevronLeft, ChevronRight, Command
+  FlaskConical, LogOut, Database
+  FlaskConical, LogOut, Settings
+  FlaskConical, LogOut, Shield, ClipboardCheck
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import type { Profile } from '@/types/database'
@@ -15,6 +18,16 @@ const navItems = [
   { href: '/projects',      label: 'Projects',  icon: FolderOpen,      shortcut: 'G P' },
   { href: '/reviews',       label: 'Reviews',   icon: ClipboardList,   shortcut: 'G R' },
   { href: '/notifications', label: 'Inbox',     icon: Bell,            shortcut: 'G N' },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/projects', label: 'Projects', icon: FolderOpen },
+  { href: '/reviews', label: 'Reviews', icon: ClipboardList },
+  { href: '/notifications', label: 'Notifications', icon: Bell },
+  { href: '/settings/sso', label: 'SSO Settings', icon: Settings },
+]
+
+const institutionItems = [
+  { href: '/institution/compliance', label: 'Compliance', icon: ClipboardCheck },
+  { href: '/institution/audit', label: 'Audit Log', icon: Shield },
 ]
 
 interface SidebarProps {
@@ -52,6 +65,12 @@ export function Sidebar({ profile, onSignOut, onCommandPalette }: SidebarProps) 
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
+  // Extract project ID if we're inside a project route
+  const projectMatch = pathname.match(/\/projects\/([^/]+)/)
+  const projectId = projectMatch?.[1]
+  const dataHref = projectId ? `/projects/${projectId}/data` : null
+  const dataActive = dataHref ? pathname.startsWith(dataHref) : false
+
   return (
     <aside
       className={cn(
@@ -81,6 +100,8 @@ export function Sidebar({ profile, onSignOut, onCommandPalette }: SidebarProps) 
       {/* Navigation */}
       <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
         {navItems.map((item, i) => {
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        {navItems.map(item => {
           const Icon = item.icon
           const active = pathname === item.href || pathname.startsWith(item.href + '/')
           return (
@@ -137,6 +158,41 @@ export function Sidebar({ profile, onSignOut, onCommandPalette }: SidebarProps) 
             </div>
           )}
         </button>
+        {/* Contextual data link when inside a project */}
+        {dataHref && (
+          <>
+            <div className="pt-3 pb-1">
+              <p className="text-xs font-medium text-muted-foreground px-3 uppercase tracking-wider">Current Project</p>
+            </div>
+            <Link href={dataHref}>
+              <Button
+                variant={dataActive ? 'secondary' : 'ghost'}
+                className={cn('w-full justify-start gap-3', dataActive && 'font-medium')}
+              >
+                <Database className="h-4 w-4" />
+                Data
+              </Button>
+            </Link>
+          </>
+        )}
+        <div className="pt-3 pb-1">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-1">Institution</p>
+          {institutionItems.map(item => {
+            const Icon = item.icon
+            const active = pathname === item.href || pathname.startsWith(item.href + '/')
+            return (
+              <Link key={item.href} href={item.href}>
+                <Button
+                  variant={active ? 'secondary' : 'ghost'}
+                  className={cn('w-full justify-start gap-3', active && 'font-medium')}
+                >
+                  <Icon className="h-4 w-4" />
+                  {item.label}
+                </Button>
+              </Link>
+            )
+          })}
+        </div>
       </nav>
 
       {/* User + collapse controls */}

@@ -191,6 +191,8 @@ function KanbanView({ projects, onStatusChange }: {
 }
 
 // ─── Main page ───────────────────────────────────────────────────
+const PAGE_SIZE = 20
+
 export default function ProjectsPage() {
   const { profile } = useAuth()
   const searchParams = useSearchParams()
@@ -210,16 +212,38 @@ export default function ProjectsPage() {
   }, [searchParams])
 
   const fetchProjects = useCallback(async () => {
+  const [loading, setLoading] = useState(false)
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [totalCount, setTotalCount] = useState(0)
+  const supabase = createClient()
+
+  const fetchProjects = async (pageNum = 0) => {
     if (!profile) return
-    const { data } = await supabase
+    const from = pageNum * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
+    const { data, count } = await supabase
       .from('projects')
-      .select('*')
+      .select('*', { count: 'exact' })
       .order('updated_at', { ascending: false })
     if (data) setProjects(data)
     setLoading(false)
   }, [profile]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchProjects() }, [fetchProjects])
+      .range(from, to)
+    if (data) {
+      if (pageNum === 0) setProjects(data)
+      else setProjects(prev => [...prev, ...data])
+    }
+    if (count !== null) {
+      setTotalCount(count)
+      setHasMore(from + PAGE_SIZE < count)
+    }
+    setPage(pageNum)
+  }
+
+  useEffect(() => { fetchProjects(0) }, [profile])
 
   const handleCreate = async () => {
     if (!title.trim() || !profile) return
@@ -263,6 +287,12 @@ export default function ProjectsPage() {
       if (original) setProjects(prev => prev.map(p => p.id === id ? original : p))
       toast.error('Failed to update status')
     }
+    if (data) {
+      setProjects(prev => [data, ...prev])
+      setTotalCount(prev => prev + 1)
+    }
+    setTitle(''); setDescription(''); setShowNew(false)
+    setLoading(false)
   }
 
   const filtered = projects.filter(p =>
@@ -278,6 +308,8 @@ export default function ProjectsPage() {
           <p className="text-sm text-[var(--text-tertiary)] mt-0.5">
             {projects.length} project{projects.length !== 1 ? 's' : ''}
           </p>
+          <h1 className="text-2xl font-bold">Projects</h1>
+          <p className="text-muted-foreground text-sm mt-1">{totalCount} project{totalCount !== 1 ? 's' : ''}</p>
         </div>
         <button
           onClick={() => setShowNew(true)}
@@ -362,6 +394,18 @@ export default function ProjectsPage() {
       )}
 
       {/* New project dialog */}
+      {/* Load More */}
+      {hasMore && !search && (
+        <div className="mt-6 text-center">
+          <Button
+            variant="outline"
+            onClick={() => fetchProjects(page + 1)}
+          >
+            Load More
+          </Button>
+        </div>
+      )}
+
       <Dialog open={showNew} onOpenChange={setShowNew}>
         <DialogContent className="max-w-md">
           <DialogHeader>
