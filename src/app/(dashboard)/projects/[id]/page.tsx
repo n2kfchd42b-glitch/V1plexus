@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import Link from 'next/link'
 import {
+  Plus, FileText, ArrowLeft, ExternalLink, Activity
   Plus, FileText, ArrowLeft, ExternalLink, Database, FlaskConical
   Plus, FileText, ArrowLeft, ExternalLink, BarChart2
 } from 'lucide-react'
@@ -17,10 +18,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ApprovalGateList } from '@/components/approval/ApprovalGateList'
+import { ActivityFeed } from '@/components/audit/ActivityFeed'
 import { AnalysisHub } from '@/components/analysis/AnalysisHub'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatRelative, statusColor, statusLabel } from '@/lib/utils'
+import { logAudit } from '@/lib/audit'
 import type { Project, Document } from '@/types/database'
 
 export default function ProjectPage() {
@@ -62,6 +65,7 @@ export default function ProjectPage() {
       .select()
       .single()
     if (data) {
+      await logAudit('document.create', 'document', data.id, { title: data.title, document_type: docType }, projectId)
       router.push(`/projects/${projectId}/documents/${data.id}`)
     }
     setLoading(false)
@@ -106,6 +110,9 @@ export default function ProjectPage() {
             Analysis
           </TabsTrigger>
           <TabsTrigger value="gates">Approval Gates</TabsTrigger>
+          <TabsTrigger value="activity" className="gap-1.5">
+            <Activity className="h-3.5 w-3.5" />
+            Activity
           <TabsTrigger value="data">
             <Database className="h-3.5 w-3.5 mr-1.5" />
             Data
@@ -173,6 +180,9 @@ export default function ProjectPage() {
           </div>
         </TabsContent>
 
+        <TabsContent value="activity">
+          <div className="border rounded-lg overflow-hidden">
+            <ActivityFeed projectId={projectId} />
         <TabsContent value="data">
           <div className="flex flex-col items-center justify-center py-12 border rounded-lg bg-muted/20 gap-3">
             <Database className="h-10 w-10 text-muted-foreground/40" />

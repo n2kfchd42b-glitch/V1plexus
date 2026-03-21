@@ -17,9 +17,12 @@ import { OnlineUsers, type OnlineUser } from './OnlineUsers'
 import { EditorToolbar } from './EditorToolbar'
 import { CommentsSidebar } from './CommentsSidebar'
 import { Button } from '@/components/ui/button'
-import { MessageSquare, Save, Send } from 'lucide-react'
+import { MessageSquare, Save, Send, Sparkles, SpellCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Profile } from '@/types/database'
+import { AIAssistPopover } from '@/components/ai/AIAssistPopover'
+import { GenerateSectionModal } from '@/components/ai/GenerateSectionModal'
+import { GrammarCheckPanel } from '@/components/ai/GrammarCheckPanel'
 
 interface CollaborativeEditorProps {
   documentId: string
@@ -44,6 +47,8 @@ export function CollaborativeEditor({
   const providerRef = useRef<SupabaseProvider | null>(null)
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([])
   const [showComments, setShowComments] = useState(false)
+  const [showGrammar, setShowGrammar] = useState(false)
+  const [showGenerateModal, setShowGenerateModal] = useState(false)
   const [saving, setSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -153,6 +158,28 @@ export function CollaborativeEditor({
           <EditorToolbar editor={editor} />
           <div className="flex items-center gap-2 shrink-0">
             <OnlineUsers users={onlineUsers} />
+            {editor && (
+              <AIAssistPopover editor={editor} documentId={documentId} />
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={() => setShowGenerateModal(true)}
+              title="Generate section with AI"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Generate
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={() => setShowGrammar(!showGrammar)}
+            >
+              <SpellCheck className="h-3.5 w-3.5" />
+              Check
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -206,7 +233,24 @@ export function CollaborativeEditor({
             onClose={() => setShowComments(false)}
           />
         )}
+
+        {showGrammar && editor && (
+          <GrammarCheckPanel
+            editor={editor}
+            documentId={documentId}
+            onClose={() => setShowGrammar(false)}
+          />
+        )}
       </div>
+
+      {showGenerateModal && editor && (
+        <GenerateSectionModal
+          open={showGenerateModal}
+          onClose={() => setShowGenerateModal(false)}
+          editor={editor}
+          documentId={documentId}
+        />
+      )}
     </div>
   )
 }
