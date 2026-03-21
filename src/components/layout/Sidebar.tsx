@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderOpen, ClipboardList, Bell,
+  FlaskConical, LogOut, Settings
   FlaskConical, LogOut, Shield, ClipboardCheck
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
@@ -15,6 +16,7 @@ const navItems = [
   { href: '/projects', label: 'Projects', icon: FolderOpen },
   { href: '/reviews', label: 'Reviews', icon: ClipboardList },
   { href: '/notifications', label: 'Notifications', icon: Bell },
+  { href: '/settings/sso', label: 'SSO Settings', icon: Settings },
 ]
 
 const institutionItems = [

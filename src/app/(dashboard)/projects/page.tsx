@@ -15,6 +15,8 @@ import { createClient } from '@/lib/supabase/client'
 import { cn, formatRelative, statusColor, statusLabel } from '@/lib/utils'
 import type { Project } from '@/types/database'
 
+const PAGE_SIZE = 20
+
 export default function ProjectsPage() {
   const { profile } = useAuth()
   const [projects, setProjects] = useState<Project[]>([])
@@ -23,18 +25,32 @@ export default function ProjectsPage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [loading, setLoading] = useState(false)
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [totalCount, setTotalCount] = useState(0)
   const supabase = createClient()
 
-  const fetchProjects = async () => {
+  const fetchProjects = async (pageNum = 0) => {
     if (!profile) return
-    const { data } = await supabase
+    const from = pageNum * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
+    const { data, count } = await supabase
       .from('projects')
-      .select('*')
+      .select('*', { count: 'exact' })
       .order('updated_at', { ascending: false })
-    if (data) setProjects(data)
+      .range(from, to)
+    if (data) {
+      if (pageNum === 0) setProjects(data)
+      else setProjects(prev => [...prev, ...data])
+    }
+    if (count !== null) {
+      setTotalCount(count)
+      setHasMore(from + PAGE_SIZE < count)
+    }
+    setPage(pageNum)
   }
 
-  useEffect(() => { fetchProjects() }, [profile])
+  useEffect(() => { fetchProjects(0) }, [profile])
 
   const handleCreate = async () => {
     if (!title.trim() || !profile) return
@@ -44,7 +60,10 @@ export default function ProjectsPage() {
       .insert({ title: title.trim(), description: description.trim() || null, owner_id: profile.id })
       .select()
       .single()
-    if (data) setProjects(prev => [data, ...prev])
+    if (data) {
+      setProjects(prev => [data, ...prev])
+      setTotalCount(prev => prev + 1)
+    }
     setTitle(''); setDescription(''); setShowNew(false)
     setLoading(false)
   }
@@ -58,7 +77,7 @@ export default function ProjectsPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Projects</h1>
-          <p className="text-muted-foreground text-sm mt-1">{projects.length} projects</p>
+          <p className="text-muted-foreground text-sm mt-1">{totalCount} project{totalCount !== 1 ? 's' : ''}</p>
         </div>
         <Button onClick={() => setShowNew(true)}>
           <Plus className="h-4 w-4 mr-2" />
@@ -115,6 +134,18 @@ export default function ProjectsPage() {
               </Card>
             </Link>
           ))}
+        </div>
+      )}
+
+      {/* Load More */}
+      {hasMore && !search && (
+        <div className="mt-6 text-center">
+          <Button
+            variant="outline"
+            onClick={() => fetchProjects(page + 1)}
+          >
+            Load More
+          </Button>
         </div>
       )}
 
