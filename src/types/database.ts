@@ -1,5 +1,5 @@
 export type UserRole = 'researcher' | 'supervisor' | 'admin'
-export type DatasetSource = 'upload' | 'kobo' | 'redcap' | 'csv' | 'excel' | 'spss'
+export type DatasetSource = 'upload' | 'kobo' | 'redcap' | 'csv' | 'excel' | 'spss' | 'merge' | 'append' | 'clean' | 'branch'
 export type AnalysisEngine = 'r' | 'python'
 export type AnalysisStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 export type OutputType = 'table' | 'figure' | 'log' | 'summary' | 'file'
@@ -151,17 +151,6 @@ export interface Notification {
   created_at: string
 }
 
-export interface ColumnSchema {
-  name: string
-  type: 'string' | 'number' | 'date' | 'boolean' | 'unknown'
-  null_count: number
-  unique_count: number
-  total_count: number
-  min?: number | string
-  max?: number | string
-  sample_values: (string | number | boolean | null)[]
-export type ColumnType = 'numeric' | 'categorical' | 'date' | 'text' | 'binary'
-
 export interface DatasetColumn {
   name: string
   type: ColumnType
@@ -170,26 +159,6 @@ export interface DatasetColumn {
   sample_values?: (string | number)[]
 }
 
-export interface Dataset {
-  id: string
-  project_id: string
-  name: string
-  description: string | null
-  source: DatasetSource
-  file_path: string
-  file_name: string
-  file_size: number | null
-  file_hash: string | null
-  mime_type: string | null
-  row_count: number | null
-  column_count: number | null
-  schema_info: ColumnSchema[] | null
-  uploaded_by: string | null
-  created_at: string
-  updated_at: string
-  deleted_at: string | null
-  uploader?: Profile
-}
 
 export interface AnalysisJob {
   id: string
@@ -222,27 +191,6 @@ export interface AnalysisOutput {
   metadata: Record<string, unknown>
   sort_order: number
   created_at: string
-  file_path: string | null
-  file_name: string | null
-  file_size: number | null
-  row_count: number | null
-  columns: DatasetColumn[]
-  sample_data: Record<string, unknown>[] | null
-  created_by: string
-  created_at: string
-  updated_at: string
-}
-
-export interface DatasetVersion {
-  id: string
-  dataset_id: string
-  version_number: number
-  file_path: string | null
-  row_count: number | null
-  columns: DatasetColumn[]
-  change_summary: string | null
-  created_by: string
-  created_at: string
 }
 
 export type AnalysisType =
@@ -269,8 +217,6 @@ export type AnalysisType =
   | 'spatial_analysis'
   | 'outbreak_investigation'
   | 'sample_size'
-
-export type AnalysisStatus = 'pending' | 'running' | 'completed' | 'failed'
 
 export interface AnalysisRun {
   id: string
@@ -310,8 +256,12 @@ export interface EthicsApplication {
 // PHASE 4A: DATA INFRASTRUCTURE TYPES
 // ════════════════════════════════════════
 
-export type DatasetSource = 'upload' | 'kobo' | 'redcap' | 'merge' | 'append' | 'clean' | 'branch'
-export type ColumnType = 'text' | 'number' | 'integer' | 'decimal' | 'date' | 'boolean' | 'categorical'
+export type ColumnType =
+  | 'numeric' | 'integer' | 'decimal' | 'number'
+  | 'categorical' | 'text' | 'string'
+  | 'date'
+  | 'binary' | 'boolean'
+  | 'unknown'
 export type ChartType =
   | 'bar' | 'line' | 'scatter' | 'histogram' | 'box' | 'pie' | 'area'
   | 'violin' | 'heatmap' | 'bubble' | 'treemap' | 'donut' | 'radar'
@@ -359,6 +309,12 @@ export interface Dataset {
   description: string | null
   source: DatasetSource
   parent_id: string | null
+  file_path?: string | null
+  file_name?: string | null
+  file_size?: number | null
+  row_count?: number | null
+  column_count?: number | null
+  schema_info?: ColumnSchema[] | null
   uploaded_by: string | null
   created_at: string
   updated_at: string
@@ -440,6 +396,8 @@ export interface ParsedDataset {
   columns: ColumnSchema[]
   row_count: number
   column_count: number
+}
+
 export interface AuditLog {
   id: string
   timestamp: string

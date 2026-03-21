@@ -348,10 +348,9 @@ INSERT INTO document_templates (name, doc_type, standard, description, content) 
 
 -- ════════════════════════════════════════
 -- STORAGE: ethics-documents bucket
--- (Run in Supabase Dashboard or via CLI)
--- insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
--- values (
---   'ethics-documents', 'ethics-documents', false, 10485760,
---   '{application/pdf,image/png,image/jpeg,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document}'
--- );
 -- ════════════════════════════════════════
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'ethics-documents', 'ethics-documents', false, 10485760,
+  '{application/pdf,image/png,image/jpeg,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document}'
+) ON CONFLICT (id) DO NOTHING;

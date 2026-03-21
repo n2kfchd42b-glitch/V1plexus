@@ -192,3 +192,16 @@ BEGIN
   LIMIT result_limit;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================================
+-- 6. Storage bucket for exported documents
+-- ============================================================
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'document-exports', 'document-exports', false, 52428800,
+  ARRAY[
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/x-latex'
+  ]
+) ON CONFLICT (id) DO NOTHING;

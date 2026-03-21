@@ -214,19 +214,20 @@ CREATE TRIGGER set_updated_at BEFORE UPDATE ON dataset_explorations
 
 
 -- ════════════════════════════════════════
--- STORAGE BUCKETS (run via Supabase dashboard or CLI)
+-- STORAGE BUCKETS
 -- ════════════════════════════════════════
--- INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
--- VALUES (
---   'datasets', 'datasets', false, 104857600,
---   ARRAY[
---     'text/csv', 'application/json',
---     'application/vnd.ms-excel',
---     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
---     'text/tab-separated-values',
---     'application/octet-stream'
---   ]
--- );
---
--- INSERT INTO storage.buckets (id, name, public, file_size_limit)
--- VALUES ('chart-thumbnails', 'chart-thumbnails', false, 2097152);
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'datasets', 'datasets', false, 104857600,
+  ARRAY[
+    'text/csv', 'application/json',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/tab-separated-values',
+    'application/octet-stream'
+  ]
+) ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit)
+VALUES ('chart-thumbnails', 'chart-thumbnails', false, 2097152)
+ON CONFLICT (id) DO NOTHING;

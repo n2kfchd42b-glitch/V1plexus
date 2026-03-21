@@ -67,7 +67,7 @@ export function AnalysisWorkbench({ projectId, datasets, profile, onJobSaved }: 
 
   const getCsvData = useCallback(async (dsId: string): Promise<string | undefined> => {
     const dataset = datasets.find(d => d.id === dsId)
-    if (!dataset) return undefined
+    if (!dataset || !dataset.file_path) return undefined
     const { data, error } = await supabase.storage.from('datasets').download(dataset.file_path)
     if (error || !data) return undefined
     return data.text()
