@@ -3,14 +3,16 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium transition-colors",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
-        secondary: "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        destructive: "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
-        outline: "text-foreground",
+        default:     "bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)] border border-blue-200",
+        secondary:   "bg-[var(--bg-surface-active)] text-[var(--text-secondary)] border border-[var(--border-default)]",
+        destructive: "bg-[var(--status-error-bg)] text-[var(--status-error-text)] border border-red-200",
+        outline:     "border border-[var(--border-default)] text-[var(--text-secondary)]",
+        success:     "bg-[var(--status-success-bg)] text-[var(--status-success-text)] border border-green-200",
+        warning:     "bg-[var(--status-warning-bg)] text-[var(--status-warning-text)] border border-amber-200",
       },
     },
     defaultVariants: { variant: "default" },

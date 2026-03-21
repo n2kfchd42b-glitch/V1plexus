@@ -1,6 +1,11 @@
 "use client"
 
+import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
+import Link from 'next/link'
+import { ChevronRight } from 'lucide-react'
 import { NotificationBell } from '@/components/notification/NotificationBell'
+import { cn } from '@/lib/utils'
 import type { Profile } from '@/types/database'
 
 interface HeaderProps {
@@ -8,11 +13,81 @@ interface HeaderProps {
   title?: string
 }
 
+// Build breadcrumbs from pathname
+function useBreadcrumbs(pathname: string) {
+  const segments = pathname.split('/').filter(Boolean)
+  const crumbs: { label: string; href: string }[] = []
+
+  const labelMap: Record<string, string> = {
+    dashboard:     'Dashboard',
+    projects:      'Projects',
+    reviews:       'Reviews',
+    notifications: 'Notifications',
+    analysis:      'Analysis',
+    documents:     'Documents',
+    new:           'New',
+    settings:      'Settings',
+  }
+
+  segments.forEach((seg, i) => {
+    const href = '/' + segments.slice(0, i + 1).join('/')
+    // Skip UUIDs in display but include in href
+    const isId = /^[0-9a-f-]{36}$/.test(seg) || /^[0-9a-f]{20,}$/.test(seg)
+    const label = isId ? '…' : (labelMap[seg] ?? seg.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()))
+    crumbs.push({ label, href })
+  })
+
+  return crumbs
+}
+
 export function Header({ profile, title }: HeaderProps) {
+  const pathname = usePathname()
+  const breadcrumbs = useBreadcrumbs(pathname)
+  const [scrolled, setScrolled] = useState(false)
+
+  useEffect(() => {
+    const el = document.querySelector('main')
+    if (!el) return
+    const handler = () => setScrolled(el.scrollTop > 4)
+    el.addEventListener('scroll', handler, { passive: true })
+    return () => el.removeEventListener('scroll', handler)
+  }, [])
+
   return (
-    <header className="h-14 border-b bg-card/50 backdrop-blur px-6 flex items-center justify-between sticky top-0 z-10">
-      <h1 className="font-semibold text-sm text-muted-foreground">{title}</h1>
-      <div className="flex items-center gap-2">
+    <header
+      className={cn(
+        'h-12 px-5 flex items-center justify-between sticky top-0 z-20 transition-all duration-150',
+        'bg-[var(--bg-app)]',
+        scrolled
+          ? 'border-b border-[var(--border-default)] backdrop-blur-sm bg-[var(--bg-app)]/90'
+          : 'border-b border-transparent'
+      )}
+    >
+      {/* Breadcrumbs */}
+      <nav className="flex items-center gap-1 min-w-0">
+        {breadcrumbs.map((crumb, i) => (
+          <div key={crumb.href} className="flex items-center gap-1 min-w-0">
+            {i > 0 && (
+              <ChevronRight className="h-3.5 w-3.5 text-[var(--text-tertiary)] flex-shrink-0" />
+            )}
+            {i === breadcrumbs.length - 1 ? (
+              <span className="text-sm font-medium text-[var(--text-primary)] truncate">
+                {title ?? crumb.label}
+              </span>
+            ) : (
+              <Link
+                href={crumb.href}
+                className="text-sm text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors duration-100 truncate"
+              >
+                {crumb.label}
+              </Link>
+            )}
+          </div>
+        ))}
+      </nav>
+
+      {/* Right actions */}
+      <div className="flex items-center gap-1 flex-shrink-0">
         {profile && <NotificationBell userId={profile.id} />}
       </div>
     </header>
