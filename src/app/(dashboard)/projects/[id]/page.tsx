@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Plus, FileText, ArrowLeft, ExternalLink, Database, FlaskConical
+  Plus, FileText, ArrowLeft, ExternalLink, BarChart2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -16,6 +17,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ApprovalGateList } from '@/components/approval/ApprovalGateList'
+import { AnalysisHub } from '@/components/analysis/AnalysisHub'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatRelative, statusColor, statusLabel } from '@/lib/utils'
@@ -99,6 +101,10 @@ export default function ProjectPage() {
       <Tabs defaultValue="documents">
         <TabsList className="mb-4">
           <TabsTrigger value="documents">Documents ({documents.length})</TabsTrigger>
+          <TabsTrigger value="analysis">
+            <BarChart2 className="h-3.5 w-3.5 mr-1.5" />
+            Analysis
+          </TabsTrigger>
           <TabsTrigger value="gates">Approval Gates</TabsTrigger>
           <TabsTrigger value="data">
             <Database className="h-3.5 w-3.5 mr-1.5" />
@@ -155,6 +161,10 @@ export default function ProjectPage() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="analysis">
+          <AnalysisHub projectId={projectId} />
         </TabsContent>
 
         <TabsContent value="gates">

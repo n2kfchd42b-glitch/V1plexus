@@ -160,6 +160,14 @@ export interface ColumnSchema {
   min?: number | string
   max?: number | string
   sample_values: (string | number | boolean | null)[]
+export type ColumnType = 'numeric' | 'categorical' | 'date' | 'text' | 'binary'
+
+export interface DatasetColumn {
+  name: string
+  type: ColumnType
+  unique_values?: number
+  missing?: number
+  sample_values?: (string | number)[]
 }
 
 export interface Dataset {
@@ -214,6 +222,73 @@ export interface AnalysisOutput {
   metadata: Record<string, unknown>
   sort_order: number
   created_at: string
+  file_path: string | null
+  file_name: string | null
+  file_size: number | null
+  row_count: number | null
+  columns: DatasetColumn[]
+  sample_data: Record<string, unknown>[] | null
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+export interface DatasetVersion {
+  id: string
+  dataset_id: string
+  version_number: number
+  file_path: string | null
+  row_count: number | null
+  columns: DatasetColumn[]
+  change_summary: string | null
+  created_by: string
+  created_at: string
+}
+
+export type AnalysisType =
+  | 'descriptive'
+  | 'frequency'
+  | 'chi_square'
+  | 't_test'
+  | 'anova'
+  | 'correlation'
+  | 'simple_regression'
+  | 'multiple_regression'
+  | 'logistic_regression'
+  | 'multinomial_regression'
+  | 'ordinal_regression'
+  | 'poisson_regression'
+  | 'negbinomial_regression'
+  | 'kaplan_meier'
+  | 'cox_regression'
+  | 'time_series'
+  | 'pca'
+  | 'factor_analysis'
+  | 'cluster_analysis'
+  | 'meta_analysis'
+  | 'spatial_analysis'
+  | 'outbreak_investigation'
+  | 'sample_size'
+
+export type AnalysisStatus = 'pending' | 'running' | 'completed' | 'failed'
+
+export interface AnalysisRun {
+  id: string
+  project_id: string
+  dataset_id: string | null
+  version_id: string | null
+  analysis_type: AnalysisType
+  title: string | null
+  config: Record<string, unknown>
+  results: Record<string, unknown> | null
+  chart_config: Record<string, unknown> | null
+  status: AnalysisStatus
+  error_message: string | null
+  interpretation: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+  dataset?: Dataset
 }
 
 export interface EthicsApplication {
