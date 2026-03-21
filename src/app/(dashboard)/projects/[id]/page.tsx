@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import Link from 'next/link'
 import {
-  Plus, FileText, ArrowLeft, ExternalLink
+  Plus, FileText, ArrowLeft, ExternalLink, Database
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -100,6 +100,12 @@ export default function ProjectPage() {
         <TabsList className="mb-4">
           <TabsTrigger value="documents">Documents ({documents.length})</TabsTrigger>
           <TabsTrigger value="gates">Approval Gates</TabsTrigger>
+          <TabsTrigger value="data" asChild>
+            <Link href={`/projects/${projectId}/data`}>
+              <Database className="h-3.5 w-3.5 mr-1.5" />
+              Data
+            </Link>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="documents">

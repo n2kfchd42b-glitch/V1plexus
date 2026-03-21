@@ -161,3 +161,139 @@ export interface EthicsApplication {
   created_at: string
   updated_at: string
 }
+
+// ════════════════════════════════════════
+// PHASE 4A: DATA INFRASTRUCTURE TYPES
+// ════════════════════════════════════════
+
+export type DatasetSource = 'upload' | 'kobo' | 'redcap' | 'merge' | 'append' | 'clean' | 'branch'
+export type ColumnType = 'text' | 'number' | 'integer' | 'decimal' | 'date' | 'boolean' | 'categorical'
+export type ChartType =
+  | 'bar' | 'line' | 'scatter' | 'histogram' | 'box' | 'pie' | 'area'
+  | 'violin' | 'heatmap' | 'bubble' | 'treemap' | 'donut' | 'radar'
+  | 'scatter_matrix' | 'mosaic' | 'dumbbell' | 'ridge' | 'waffle'
+  | 'funnel' | 'forest' | 'kaplan_meier' | 'roc' | 'epi_curve'
+  | 'choropleth' | 'dot' | 'sparkline' | 'qqplot' | 'correlogram'
+
+export type JoinType = 'left' | 'inner' | 'full_outer'
+
+export interface ColumnSchema {
+  name: string
+  type: ColumnType
+  null_count: number
+  unique_count: number
+  min?: number | string | null
+  max?: number | string | null
+  mean?: number | null
+  median?: number | null
+  mode?: string | number | null
+  sample_values: (string | number | boolean | null)[]
+  value_counts?: Record<string, number>
+}
+
+export type CleaningOperation =
+  | { type: 'rename_column'; column: string; new_name: string }
+  | { type: 'retype_column'; column: string; new_type: ColumnType }
+  | { type: 'delete_column'; column: string }
+  | { type: 'reorder_columns'; order: string[] }
+  | { type: 'drop_missing'; columns: string[] }
+  | { type: 'fill_missing'; column: string; strategy: 'value' | 'mean' | 'median' | 'mode' | 'forward_fill' | 'backward_fill'; value?: string | number }
+  | { type: 'filter_rows'; column: string; operator: FilterOperator; value: string | number | boolean | null; keep: boolean }
+  | { type: 'remove_duplicates'; columns: string[] }
+  | { type: 'sort_rows'; column: string; direction: 'asc' | 'desc' }
+  | { type: 'computed_column'; name: string; formula: string; column_type: ColumnType }
+  | { type: 'recode_values'; column: string; mapping: Record<string, string | number | null> }
+  | { type: 'bin_numeric'; column: string; new_column: string; bins: Array<{ min: number | null; max: number | null; label: string }> }
+  | { type: 'standardize_text'; column: string; operations: Array<'trim' | 'lowercase' | 'uppercase' | 'titlecase' | 'remove_special'> }
+
+export type FilterOperator = '=' | '!=' | '>' | '>=' | '<' | '<=' | 'contains' | 'not_contains' | 'starts_with' | 'ends_with' | 'is_null' | 'is_not_null'
+
+export interface Dataset {
+  id: string
+  project_id: string
+  name: string
+  description: string | null
+  source: DatasetSource
+  parent_id: string | null
+  uploaded_by: string | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+  uploader?: Profile
+  latest_version?: DatasetVersion
+}
+
+export interface DatasetVersion {
+  id: string
+  dataset_id: string
+  version_number: number
+  parent_version: string | null
+  commit_message: string
+  file_path: string
+  file_hash: string
+  file_size: number | null
+  row_count: number
+  column_count: number
+  schema_info: ColumnSchema[]
+  operations: CleaningOperation[]
+  created_by: string | null
+  created_at: string
+  creator?: Profile
+}
+
+export interface DatasetBranch {
+  id: string
+  dataset_id: string
+  name: string
+  head_version: string
+  is_default: boolean
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  head?: DatasetVersion
+}
+
+export interface DatasetExploration {
+  id: string
+  dataset_id: string
+  version_id: string | null
+  title: string
+  chart_type: ChartType
+  config: ChartConfig
+  thumbnail_path: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  creator?: Profile
+}
+
+export interface ChartConfig {
+  x_axis?: string
+  y_axis?: string
+  color?: string
+  size?: string
+  facet?: string
+  aggregation?: 'count' | 'sum' | 'mean' | 'median' | 'min' | 'max'
+  sort?: 'ascending' | 'descending' | 'none'
+  show_values?: boolean
+  trend_line?: boolean
+  log_scale_x?: boolean
+  log_scale_y?: boolean
+  palette?: string
+  title?: string
+  x_label?: string
+  y_label?: string
+  filters?: Array<{ column: string; operator: FilterOperator; value: string | number | boolean | null }>
+  bin_count?: number
+  chart_specific?: Record<string, unknown>
+}
+
+// Parsed row data (in-memory representation)
+export type DataRow = Record<string, string | number | boolean | null>
+
+export interface ParsedDataset {
+  rows: DataRow[]
+  columns: ColumnSchema[]
+  row_count: number
+  column_count: number
+}
