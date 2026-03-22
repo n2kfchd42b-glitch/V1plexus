@@ -52,6 +52,12 @@ export interface Profile {
   full_name: string | null
   avatar_url: string | null
   role: UserRole
+  title: string | null
+  bio: string | null
+  orcid_id: string | null
+  phone: string | null
+  website: string | null
+  subscription_tier: string
   institution_id: string | null
   department_id: string | null
   onboarding_completed: boolean

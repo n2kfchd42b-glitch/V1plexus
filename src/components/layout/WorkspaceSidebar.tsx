@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { FlaskConical, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { WorkspaceSwitcher } from '@/components/workspace/WorkspaceSwitcher'
@@ -84,15 +85,23 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
 
       {/* User + collapse controls */}
       <div className="border-t border-white/10">
-        <div className={cn(
-          'flex items-center gap-2.5 transition-all duration-200',
-          collapsed ? 'px-2 py-2 justify-center' : 'px-3 py-3'
-        )}>
+        <Link
+          href="/settings"
+          title="Profile settings"
+          className={cn(
+            'flex items-center gap-2.5 transition-all duration-200 rounded-lg hover:bg-white/5 group',
+            collapsed ? 'px-2 py-2 justify-center' : 'px-3 py-3'
+          )}
+        >
           <div className={cn(
-            'flex items-center justify-center rounded-full bg-[#1B3A5C] text-white text-xs font-bold flex-shrink-0',
+            'flex items-center justify-center rounded-full bg-[#1B3A5C] text-white text-xs font-bold flex-shrink-0 ring-2 ring-transparent group-hover:ring-blue-500/40 transition-all',
             'h-7 w-7'
           )}>
-            {getInitials(profile?.full_name)}
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" />
+            ) : (
+              getInitials(profile?.full_name)
+            )}
           </div>
           {!collapsed && (
             <div className="flex-1 min-w-0">
@@ -104,7 +113,7 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
               </p>
             </div>
           )}
-        </div>
+        </Link>
 
         <div className={cn(
           'flex items-center border-t border-white/5 transition-all duration-200',

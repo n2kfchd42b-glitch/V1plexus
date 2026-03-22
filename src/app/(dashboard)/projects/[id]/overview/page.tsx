@@ -13,30 +13,6 @@ const PHASES = [
   { key: "published",       label: "Published" },
 ] as const
 
-function PhaseStep({ label, state }: { label: string; state: "done" | "current" | "upcoming" }) {
-  return (
-    <div className="flex flex-col items-center gap-1 min-w-0">
-      <div className={`h-7 w-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-        state === "done"    ? "bg-blue-600 border-blue-600" :
-        state === "current" ? "bg-white border-blue-600" :
-                              "bg-white border-[var(--border-default)]"
-      }`}>
-        {state === "done" ? (
-          <CheckCircle className="h-4 w-4 text-white fill-blue-600 stroke-white" />
-        ) : state === "current" ? (
-          <div className="h-2.5 w-2.5 rounded-full bg-blue-600" />
-        ) : (
-          <div className="h-2 w-2 rounded-full bg-[var(--border-default)]" />
-        )}
-      </div>
-      <span className={`text-[10px] font-medium text-center leading-tight max-w-[56px] ${
-        state === "current" ? "text-blue-600" :
-        state === "done"    ? "text-[var(--text-secondary)]" :
-                              "text-[var(--text-tertiary)]"
-      }`}>{label}</span>
-    </div>
-  )
-}
 
 export default async function ProjectOverviewPage({
   params,
@@ -166,24 +142,45 @@ export default async function ProjectOverviewPage({
 
       {/* Phase stepper */}
       <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-5 mb-6">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-tertiary)] mb-4">Research Phase</h3>
-        <div className="flex items-start justify-between gap-1">
-          {PHASES.map((phase, i) => {
-            const state = phaseIndex < 0 ? "upcoming" : i < phaseIndex ? "done" : i === phaseIndex ? "current" : "upcoming"
-            return (
-              <div key={phase.key} className="flex-1 flex flex-col items-center">
-                <div className="flex items-center w-full">
-                  {i > 0 && (
-                    <div className={`flex-1 h-0.5 -ml-0.5 ${i <= phaseIndex ? "bg-blue-600" : "bg-[var(--border-default)]"}`} />
-                  )}
-                  <PhaseStep label={phase.label} state={state} />
-                  {i < PHASES.length - 1 && (
-                    <div className={`flex-1 h-0.5 -mr-0.5 ${i < phaseIndex ? "bg-blue-600" : "bg-[var(--border-default)]"}`} />
-                  )}
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-tertiary)] mb-5">Research Phase</h3>
+        <div className="relative">
+          {/* Background track */}
+          <div className="absolute top-3.5 left-3.5 right-3.5 h-0.5 bg-[var(--border-default)]" />
+          {/* Progress track */}
+          {phaseIndex > 0 && (
+            <div
+              className="absolute top-3.5 h-0.5 bg-blue-600"
+              style={{ left: 14, width: `calc(${(phaseIndex / (PHASES.length - 1)) * 100}% - ${(phaseIndex / (PHASES.length - 1)) * 28}px)` }}
+            />
+          )}
+          {/* Steps row */}
+          <div className="relative flex justify-between">
+            {PHASES.map((phase, i) => {
+              const state = phaseIndex < 0 ? "upcoming" : i < phaseIndex ? "done" : i === phaseIndex ? "current" : "upcoming"
+              return (
+                <div key={phase.key} className="flex flex-col items-center gap-2">
+                  <div className={`h-7 w-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                    state === "done"    ? "bg-blue-600 border-blue-600" :
+                    state === "current" ? "bg-[var(--bg-surface)] border-blue-600" :
+                                          "bg-[var(--bg-surface)] border-[var(--border-default)]"
+                  }`}>
+                    {state === "done" ? (
+                      <CheckCircle className="h-4 w-4 text-white fill-blue-600 stroke-white" />
+                    ) : state === "current" ? (
+                      <div className="h-2.5 w-2.5 rounded-full bg-blue-600" />
+                    ) : (
+                      <div className="h-2 w-2 rounded-full bg-[var(--border-default)]" />
+                    )}
+                  </div>
+                  <span className={`text-[10px] font-medium text-center leading-tight max-w-[52px] ${
+                    state === "current" ? "text-blue-600" :
+                    state === "done"    ? "text-[var(--text-secondary)]" :
+                                          "text-[var(--text-tertiary)]"
+                  }`}>{phase.label}</span>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
       </div>
 
