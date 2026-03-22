@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, FileText, ShieldCheck, GitMerge, BarChart2, Database } from "lucide-react";
+import { LayoutDashboard, FileText, ShieldCheck, GitMerge, BarChart2, Database, Users } from "lucide-react";
 
 export function ProjectTabNav({ projectId }: { projectId: string }) {
   const pathname = usePathname();
@@ -12,6 +12,7 @@ export function ProjectTabNav({ projectId }: { projectId: string }) {
 
   const tabs = [
     { href: `/projects/${projectId}/overview`,  label: "Overview",  icon: LayoutDashboard },
+    { href: `/projects/${projectId}/team`,      label: "Team",      icon: Users },
     { href: `/projects/${projectId}/documents`, label: "Documents", icon: FileText },
     { href: `/projects/${projectId}/ethics`,    label: "Ethics",    icon: ShieldCheck },
     { href: `/projects/${projectId}/approvals`, label: "Approvals", icon: GitMerge },

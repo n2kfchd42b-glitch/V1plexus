@@ -40,7 +40,8 @@ export function SubmitForReviewModal({
       const { data } = await supabase
         .from('profiles')
         .select('*')
-        .in('role', ['supervisor', 'admin'])
+        .in('role', ['pi', 'coordinator', 'admin'])
+        .neq('id', currentProfile?.id ?? '')
       if (data) setSupervisors(data)
     }
     fetchSupervisors()
