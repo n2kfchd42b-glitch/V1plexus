@@ -33,7 +33,7 @@ function detectType(values: (string | number | boolean | null | undefined)[]): C
   return 'text'
 }
 
-function coerceValue(value: string | number | boolean | null | undefined, type: ColumnType): string | number | boolean | null {
+function coerceValue(value: string | number | boolean | null | undefined, type: ColumnType): string | number | null {
   if (value === null || value === undefined || value === '') return null
 
   switch (type) {
@@ -43,10 +43,7 @@ function coerceValue(value: string | number | boolean | null | undefined, type: 
       const n = Number(value)
       return isNaN(n) ? null : n
     }
-    case 'boolean': {
-      const s = String(value).toLowerCase()
-      return s === 'true' || s === '1' || s === 'yes' || s === 'y'
-    }
+    // boolean, categorical, text, date — always preserve the original string
     default:
       return String(value)
   }
