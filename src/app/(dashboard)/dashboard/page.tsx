@@ -7,6 +7,7 @@ import {
   AlertCircle, Clock, ArrowRight, Plus, Activity
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
+import { useWorkspace } from '@/hooks/useWorkspace'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatRelative, statusLabel } from '@/lib/utils'
 import type { Project, ReviewRequest } from '@/types/database'
@@ -73,6 +74,7 @@ function PhaseBadge({ status }: { status: string }) {
 
 export default function DashboardPage() {
   const { profile, loading: authLoading } = useAuth()
+  const { activeWorkspace } = useWorkspace()
   const [stats, setStats] = useState<DashboardStats>({ projects: 0, documents: 0, pendingReviews: 0, unreadNotifications: 0 })
   const [recentProjects, setRecentProjects] = useState<Project[]>([])
   const [recentReviews, setRecentReviews] = useState<ReviewRequest[]>([])
@@ -85,15 +87,18 @@ export default function DashboardPage() {
 
     const fetchData = async () => {
       try {
+        const projectsQuery = (q: ReturnType<typeof supabase.from>) =>
+          activeWorkspace ? q.eq('workspace_id', activeWorkspace.id) : q
+
         const [projectsRes, docsRes, reviewsRes, notifsRes, recentProjectsRes, recentReviewsRes] = await Promise.all([
-          supabase.from('projects').select('id', { count: 'exact', head: true }),
+          projectsQuery(supabase.from('projects').select('id', { count: 'exact', head: true })),
           supabase.from('documents').select('id', { count: 'exact' }).eq('created_by', profile.id),
           supabase.from('review_requests').select('id', { count: 'exact' })
             .or(`requested_by.eq.${profile.id},assigned_to.eq.${profile.id}`)
             .in('status', ['pending', 'in_review']),
           supabase.from('notifications').select('id', { count: 'exact' })
             .eq('user_id', profile.id).eq('is_read', false),
-          supabase.from('projects').select('*')
+          projectsQuery(supabase.from('projects').select('*'))
             .order('updated_at', { ascending: false }).limit(6),
           supabase.from('review_requests')
             .select(`*, document:documents(id, title), requester:profiles!requested_by(id, full_name)`)
@@ -116,7 +121,7 @@ export default function DashboardPage() {
     }
 
     fetchData()
-  }, [profile, authLoading]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profile, authLoading, activeWorkspace]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const firstName = profile?.full_name?.split(' ')[0] ?? 'Researcher'
   const hour = new Date().getHours()

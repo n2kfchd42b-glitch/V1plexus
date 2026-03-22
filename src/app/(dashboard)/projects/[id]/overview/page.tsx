@@ -2,7 +2,41 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/utils";
-import { FileText, ShieldCheck, Calendar, ClipboardList, GitMerge, CheckCircle, Clock } from "lucide-react";
+import { FileText, ShieldCheck, Calendar, ClipboardList, GitMerge, CheckCircle, Clock, Circle } from "lucide-react";
+
+const PHASES = [
+  { key: "design",          label: "Design" },
+  { key: "data_collection", label: "Data Collection" },
+  { key: "analysis",        label: "Analysis" },
+  { key: "writing",         label: "Writing" },
+  { key: "submitted",       label: "Submitted" },
+  { key: "published",       label: "Published" },
+] as const
+
+function PhaseStep({ label, state }: { label: string; state: "done" | "current" | "upcoming" }) {
+  return (
+    <div className="flex flex-col items-center gap-1 min-w-0">
+      <div className={`h-7 w-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+        state === "done"    ? "bg-blue-600 border-blue-600" :
+        state === "current" ? "bg-white border-blue-600" :
+                              "bg-white border-[var(--border-default)]"
+      }`}>
+        {state === "done" ? (
+          <CheckCircle className="h-4 w-4 text-white fill-blue-600 stroke-white" />
+        ) : state === "current" ? (
+          <div className="h-2.5 w-2.5 rounded-full bg-blue-600" />
+        ) : (
+          <div className="h-2 w-2 rounded-full bg-[var(--border-default)]" />
+        )}
+      </div>
+      <span className={`text-[10px] font-medium text-center leading-tight max-w-[56px] ${
+        state === "current" ? "text-blue-600" :
+        state === "done"    ? "text-[var(--text-secondary)]" :
+                              "text-[var(--text-tertiary)]"
+      }`}>{label}</span>
+    </div>
+  )
+}
 
 export default async function ProjectOverviewPage({
   params,
@@ -28,6 +62,7 @@ export default async function ProjectOverviewPage({
     { count: ethicsCount },
     { count: pendingReviewCount },
     { data: gates },
+    { data: milestones },
   ] = await Promise.all([
     supabase
       .from("documents")
@@ -48,6 +83,12 @@ export default async function ProjectOverviewPage({
       .select("id, title, status, gate_type")
       .eq("project_id", id)
       .order("created_at", { ascending: true }),
+    supabase
+      .from("project_milestones")
+      .select("id, title, due_date, completed_at, status")
+      .eq("project_id", id)
+      .order("sort_order", { ascending: true })
+      .limit(8),
   ]);
 
   const approvedGates = gates?.filter(g => g.status === "approved").length ?? 0;
@@ -92,6 +133,10 @@ export default async function ProjectOverviewPage({
     purple: { bg: "bg-purple-50 dark:bg-purple-950/30", icon: "text-purple-600", hover: "hover:border-purple-200 dark:hover:border-purple-800" },
   };
 
+  // Compute phase stepper state
+  const currentPhase = project.phase as string | null
+  const phaseIndex = PHASES.findIndex(p => p.key === currentPhase)
+
   return (
     <div className="p-8 max-w-3xl mx-auto">
       {/* Header */}
@@ -119,6 +164,29 @@ export default async function ProjectOverviewPage({
         <p className="text-sm text-[var(--text-secondary)] mb-7 leading-relaxed">{project.description}</p>
       )}
 
+      {/* Phase stepper */}
+      <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-5 mb-6">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-tertiary)] mb-4">Research Phase</h3>
+        <div className="flex items-start justify-between gap-1">
+          {PHASES.map((phase, i) => {
+            const state = phaseIndex < 0 ? "upcoming" : i < phaseIndex ? "done" : i === phaseIndex ? "current" : "upcoming"
+            return (
+              <div key={phase.key} className="flex-1 flex flex-col items-center">
+                <div className="flex items-center w-full">
+                  {i > 0 && (
+                    <div className={`flex-1 h-0.5 -ml-0.5 ${i <= phaseIndex ? "bg-blue-600" : "bg-[var(--border-default)]"}`} />
+                  )}
+                  <PhaseStep label={phase.label} state={state} />
+                  {i < PHASES.length - 1 && (
+                    <div className={`flex-1 h-0.5 -mr-0.5 ${i < phaseIndex ? "bg-blue-600" : "bg-[var(--border-default)]"}`} />
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
       {/* Quick stats grid */}
       <div className="grid grid-cols-2 gap-3 mb-8">
         {statCards.map(({ href, label, count, icon: Icon, color, sub }) => {
@@ -143,6 +211,42 @@ export default async function ProjectOverviewPage({
           );
         })}
       </div>
+
+      {/* Milestones */}
+      {milestones && milestones.length > 0 && (
+        <div className="mb-8">
+          <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
+            <Clock className="h-4 w-4 text-[var(--text-tertiary)]" />
+            Milestones
+          </h3>
+          <div className="space-y-1.5">
+            {milestones.map(milestone => {
+              const isComplete = !!milestone.completed_at || milestone.status === "completed"
+              const isOverdue = !isComplete && milestone.due_date && new Date(milestone.due_date) < new Date()
+              return (
+                <div
+                  key={milestone.id}
+                  className="flex items-center gap-3 p-3 bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg"
+                >
+                  {isComplete ? (
+                    <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                  ) : (
+                    <Circle className={`h-4 w-4 flex-shrink-0 ${isOverdue ? "text-red-400" : "text-[var(--text-tertiary)]"}`} />
+                  )}
+                  <span className={`text-sm flex-1 ${isComplete ? "line-through text-[var(--text-tertiary)]" : "text-[var(--text-primary)]"}`}>
+                    {milestone.title}
+                  </span>
+                  {milestone.due_date && (
+                    <span className={`text-xs flex-shrink-0 ${isOverdue ? "text-red-500 font-medium" : "text-[var(--text-tertiary)]"}`}>
+                      {isOverdue ? "Overdue · " : ""}{formatDate(milestone.due_date)}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Approval Gates summary */}
       {totalGates > 0 && (

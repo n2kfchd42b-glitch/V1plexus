@@ -23,6 +23,7 @@ export function InstitutionCreateForm() {
   const [slug, setSlug] = useState('')
   const [type, setType] = useState('university')
   const [country, setCountry] = useState('')
+  const [logoUrl, setLogoUrl] = useState('')
   const [departments, setDepartments] = useState<string[]>([''])
   const [loading, setLoading] = useState(false)
   const router = useRouter()
@@ -56,7 +57,7 @@ export function InstitutionCreateForm() {
     // Create institution
     const { data: inst, error: instErr } = await supabase
       .from('institutions')
-      .insert({ name: name.trim(), type, country: country || null })
+      .insert({ name: name.trim(), type, country: country || null, logo_url: logoUrl || null })
       .select('id')
       .single()
 
@@ -218,6 +219,18 @@ export function InstitutionCreateForm() {
                 onChange={e => setCountry(e.target.value)}
                 className="mt-1"
               />
+            </div>
+
+            <div>
+              <Label htmlFor="instLogo">Logo URL <span className="text-gray-400 text-xs">(optional)</span></Label>
+              <Input
+                id="instLogo"
+                placeholder="https://example.com/logo.png"
+                value={logoUrl}
+                onChange={e => setLogoUrl(e.target.value)}
+                className="mt-1 text-sm"
+              />
+              <p className="text-xs text-gray-400 mt-1">Paste a URL to your institution&apos;s logo image.</p>
             </div>
 
             {/* Departments */}

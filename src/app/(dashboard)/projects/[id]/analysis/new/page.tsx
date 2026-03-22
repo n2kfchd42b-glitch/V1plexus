@@ -102,10 +102,7 @@ export default function NewAnalysisPage() {
     setSelectedType(type)
     setResult(null)
     setConfig({})
-  }
-
-  const handleNextStep = () => {
-    if (selectedType) setStep('config')
+    setStep('config')
   }
 
   const handleData = (rows: DataRow[], cols: DatasetColumn[], name: string) => {
@@ -192,17 +189,7 @@ export default function NewAnalysisPage() {
 
       {/* Step 1: Type Picker */}
       {step === 'type' && (
-        <div>
-          <AnalysisTypePicker selected={selectedType} onSelect={handleTypeSelect} />
-          {selectedType && (
-            <div className="mt-4 flex justify-end">
-              <Button onClick={handleNextStep}>
-                Continue with {typeInfo?.label}
-                <ChevronRight className="h-4 w-4 ml-1.5" />
-              </Button>
-            </div>
-          )}
-        </div>
+        <AnalysisTypePicker selected={selectedType} onSelect={handleTypeSelect} />
       )}
 
       {/* Step 2: Config + Run */}

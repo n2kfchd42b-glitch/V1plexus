@@ -10,6 +10,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { ArrowLeft, History } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { EditorToolbar } from "./EditorToolbar";
+import { AIAssistPopover } from "@/components/ai/AIAssistPopover";
 import { VersionHistory } from "./VersionHistory";
 import { SaveVersionButton } from "./SaveVersionButton";
 import { DocumentStatusBadge } from "./DocumentStatusBadge";
@@ -185,7 +186,15 @@ export function DocumentEditor({
       </div>
 
       {/* Toolbar */}
-      <EditorToolbar editor={editor} />
+      <div className="flex items-center gap-1 px-2 py-1 border-b border-gray-200 flex-wrap">
+        <EditorToolbar editor={editor} />
+        {editor && (
+          <>
+            <div className="h-5 w-px bg-gray-200 mx-1" />
+            <AIAssistPopover editor={editor} documentId={doc.id} />
+          </>
+        )}
+      </div>
 
       {/* Content area + history panel */}
       <div className="flex flex-1 overflow-hidden">

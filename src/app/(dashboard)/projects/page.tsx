@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ViewToggle, type ViewMode } from '@/components/ui/view-toggle'
 import { useAuth } from '@/hooks/useAuth'
+import { useWorkspace } from '@/hooks/useWorkspace'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatRelative, statusLabel } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -177,6 +178,7 @@ function KanbanView({ projects, onStatusChange }: {
 
 export default function ProjectsPage() {
   const { profile, loading: authLoading } = useAuth()
+  const { activeWorkspace } = useWorkspace()
   const searchParams = useSearchParams()
   const [projects, setProjects] = useState<Project[]>([])
   const [search, setSearch] = useState('')
@@ -195,13 +197,12 @@ export default function ProjectsPage() {
   const fetchProjects = useCallback(async () => {
     if (authLoading) return
     if (!profile) { setLoading(false); return }
-    const { data } = await supabase
-      .from('projects')
-      .select('*')
-      .order('updated_at', { ascending: false })
+    let query = supabase.from('projects').select('*')
+    if (activeWorkspace) query = query.eq('workspace_id', activeWorkspace.id)
+    const { data } = await query.order('updated_at', { ascending: false })
     if (data) setProjects(data)
     setLoading(false)
-  }, [profile, authLoading]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profile, authLoading, activeWorkspace]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchProjects() }, [fetchProjects])
 
@@ -224,7 +225,12 @@ export default function ProjectsPage() {
 
     const { data, error } = await supabase
       .from('projects')
-      .insert({ title: optimistic.title, description: optimistic.description, owner_id: profile.id })
+      .insert({
+        title: optimistic.title,
+        description: optimistic.description,
+        owner_id: profile.id,
+        ...(activeWorkspace ? { workspace_id: activeWorkspace.id } : {}),
+      })
       .select()
       .single()
 

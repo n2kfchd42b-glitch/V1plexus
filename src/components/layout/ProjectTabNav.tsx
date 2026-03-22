@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, FileText, ShieldCheck, GitMerge, BarChart2, Database, Users } from "lucide-react";
+import { LayoutDashboard, FileText, ShieldCheck, GitMerge, BarChart2, Database, Users, Settings } from "lucide-react";
 
 export function ProjectTabNav({ projectId }: { projectId: string }) {
   const pathname = usePathname();
@@ -18,6 +18,7 @@ export function ProjectTabNav({ projectId }: { projectId: string }) {
     { href: `/projects/${projectId}/approvals`, label: "Approvals", icon: GitMerge },
     { href: `/projects/${projectId}/data`,      label: "Data",      icon: Database },
     { href: `/projects/${projectId}/analysis`,  label: "Analysis",  icon: BarChart2 },
+    { href: `/projects/${projectId}/settings`,  label: "Settings",  icon: Settings },
   ];
 
   // Alt+1–6 to switch tabs

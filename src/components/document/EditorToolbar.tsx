@@ -4,7 +4,7 @@ import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough,
   Heading1, Heading2, Heading3, List, ListOrdered,
   AlignLeft, AlignCenter, AlignRight, Link as LinkIcon,
-  Highlighter, Undo, Redo, Code, Quote, Table2, BarChart2
+  Highlighter, Undo, Redo, Code, Quote, Table2, BarChart2, Minus
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -151,6 +151,12 @@ export function EditorToolbar({ editor, onInsertData }: EditorToolbarProps) {
         title="Quote"
       >
         <Quote className="h-3.5 w-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        onClick={() => editor.chain().focus().setHorizontalRule().run()}
+        title="Horizontal Rule"
+      >
+        <Minus className="h-3.5 w-3.5" />
       </ToolbarButton>
 
       <Separator orientation="vertical" className="h-5 mx-1" />
