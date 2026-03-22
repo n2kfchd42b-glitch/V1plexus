@@ -29,6 +29,8 @@ interface ChartBuilderProps {
   onBack?: () => void
   onSave?: (chartType: ChartType, config: ChartConfig) => void
   onInsertIntoDocument?: (chartType: ChartType, config: ChartConfig) => void
+  initialChartType?: ChartType
+  initialConfig?: ChartConfig
 }
 
 // ─── Chart type definitions ───────────────────────────────────────────────────
@@ -192,9 +194,9 @@ function RenderChart({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function ChartBuilder({ rows, columns, datasetId: _datasetId, versionId: _versionId, onBack, onSave, onInsertIntoDocument }: ChartBuilderProps) {
-  const [chartType, setChartType] = useState<ChartType>('bar')
-  const [config, setConfig] = useState<ChartConfig>({})
+export function ChartBuilder({ rows, columns, datasetId: _datasetId, versionId: _versionId, onBack, onSave, onInsertIntoDocument, initialChartType, initialConfig }: ChartBuilderProps) {
+  const [chartType, setChartType] = useState<ChartType>(initialChartType ?? 'bar')
+  const [config, setConfig] = useState<ChartConfig>(initialConfig ?? {})
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     numeric: true,
     categorical: true,

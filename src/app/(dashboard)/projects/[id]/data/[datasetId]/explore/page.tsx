@@ -1,9 +1,19 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { ChartBuilder } from '@/components/explorer/ChartBuilder'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { loadVersionData } from '@/lib/data/storage'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
@@ -30,7 +40,18 @@ export default function DatasetExplorePage() {
   const [metaLoading, setMetaLoading] = useState(true)
   const [dataLoading, setDataLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Save dialog
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false)
+  const [pendingSave, setPendingSave] = useState<{ chartType: ChartType; config: ChartConfig } | null>(null)
+  const [chartTitle, setChartTitle] = useState('')
   const [saving, setSaving] = useState(false)
+  const titleInputRef = useRef<HTMLInputElement>(null)
+
+  // Load saved exploration (from ?load=id query param, set by client-side)
+  const [initialChartType, setInitialChartType] = useState<ChartType | undefined>()
+  const [initialConfig, setInitialConfig] = useState<ChartConfig | undefined>()
+  const [explorationLoaded, setExplorationLoaded] = useState(false)
 
   const supabase = createClient()
 
@@ -71,7 +92,6 @@ export default function DatasetExplorePage() {
 
         setVersions(versionList)
 
-        // Use head version of default branch, or latest version
         const defaultBranch = branchList.find(b => b.is_default) ?? branchList[0]
         if (defaultBranch) {
           const headVersion = versionList.find(v => v.id === defaultBranch.head_version)
@@ -112,23 +132,70 @@ export default function DatasetExplorePage() {
     loadData()
   }, [activeVersionId, versions])
 
-  async function handleSave(chartType: ChartType, config: ChartConfig) {
-    if (!user || !activeVersionId) return
+  // Read ?load= param and fetch that exploration's config
+  useEffect(() => {
+    if (!user) return
+    const params = new URLSearchParams(window.location.search)
+    const loadId = params.get('load')
+
+    if (!loadId) {
+      setExplorationLoaded(true)
+      return
+    }
+
+    supabase
+      .from('dataset_explorations')
+      .select('*')
+      .eq('id', loadId)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setInitialChartType(data.chart_type as ChartType)
+          setInitialConfig(data.config as ChartConfig)
+          setChartTitle(data.title ?? '')
+        }
+        setExplorationLoaded(true)
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
+
+  // Open save dialog when ChartBuilder calls onSave
+  function handleRequestSave(chartType: ChartType, config: ChartConfig) {
+    setPendingSave({ chartType, config })
+    // Pre-fill title from config if available
+    setChartTitle(prev => prev || config.title || `${chartType} chart`)
+    setSaveDialogOpen(true)
+    // Focus input after dialog opens
+    setTimeout(() => titleInputRef.current?.focus(), 50)
+  }
+
+  async function handleConfirmSave() {
+    if (!pendingSave || !user || !activeVersionId) return
     setSaving(true)
     try {
       const { error } = await supabase.from('dataset_explorations').insert({
         dataset_id: datasetId,
         version_id: activeVersionId,
-        title: config.title ?? `${chartType} chart`,
-        chart_type: chartType,
-        config,
+        title: chartTitle.trim() || `${pendingSave.chartType} chart`,
+        chart_type: pendingSave.chartType,
+        config: { ...pendingSave.config, title: chartTitle.trim() || pendingSave.config.title },
         created_by: user.id,
       })
       if (error) throw new Error(error.message)
-      // Navigate back to dataset page after save
-      router.push(`/projects/${projectId}/data/${datasetId}`)
+
+      setSaveDialogOpen(false)
+      setPendingSave(null)
+      toast.success('Chart saved', {
+        description: `"${chartTitle.trim()}" saved to this dataset.`,
+        action: {
+          label: 'View all charts',
+          onClick: () => router.push(`/projects/${projectId}/data/${datasetId}?tab=charts`),
+        },
+      })
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save chart')
+      toast.error('Failed to save chart', {
+        description: e instanceof Error ? e.message : 'Something went wrong',
+      })
     } finally {
       setSaving(false)
     }
@@ -158,7 +225,7 @@ export default function DatasetExplorePage() {
     )
   }
 
-  if (dataLoading || !parsedData) {
+  if (dataLoading || !parsedData || !explorationLoaded) {
     return (
       <div className="flex flex-col items-center justify-center h-full min-h-[400px] gap-3">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -183,23 +250,46 @@ export default function DatasetExplorePage() {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {saving && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-background rounded-lg p-6 flex items-center gap-3 shadow-xl">
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            <span className="text-sm font-medium">Saving chart…</span>
-          </div>
-        </div>
-      )}
-
       <ChartBuilder
         rows={parsedData.rows}
         columns={parsedData.columns}
         datasetId={datasetId}
         versionId={activeVersionId}
         onBack={handleBack}
-        onSave={handleSave}
+        onSave={handleRequestSave}
+        initialChartType={initialChartType}
+        initialConfig={initialConfig}
       />
+
+      {/* Save dialog */}
+      <Dialog open={saveDialogOpen} onOpenChange={open => { if (!saving) setSaveDialogOpen(open) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Save Chart</DialogTitle>
+            <DialogDescription>
+              Give your chart a name so you can find it later.
+            </DialogDescription>
+          </DialogHeader>
+          <input
+            ref={titleInputRef}
+            type="text"
+            placeholder={`e.g. Viral Load by Sex`}
+            value={chartTitle}
+            onChange={e => setChartTitle(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !saving && handleConfirmSave()}
+            className="w-full h-9 px-3 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setSaveDialogOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleConfirmSave} disabled={saving || !chartTitle.trim()}>
+              {saving && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+              Save Chart
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

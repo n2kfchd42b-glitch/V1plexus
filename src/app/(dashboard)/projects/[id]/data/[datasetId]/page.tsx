@@ -1,9 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Wand2, BarChart2, GitMerge, GitCommit, Loader2, RefreshCw } from 'lucide-react'
+import {
+  ArrowLeft, Wand2, BarChart2, GitMerge, GitCommit, Loader2, RefreshCw,
+  BarChart, LineChart, ScatterChart, TrendingUp, PieChart, Box, Grid3x3,
+  Trash2, ExternalLink,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DatasetTable } from '@/components/data/DatasetTable'
 import { VersionSelector } from '@/components/data/VersionSelector'
@@ -11,11 +15,32 @@ import { BranchSelector } from '@/components/data/BranchSelector'
 import { loadVersionData } from '@/lib/data/storage'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
-import type { Dataset, DatasetVersion, DatasetBranch, ParsedDataset } from '@/types/database'
+import type { Dataset, DatasetVersion, DatasetBranch, ParsedDataset, DatasetExploration, ChartType, ChartConfig } from '@/types/database'
+
+// ─── Chart type metadata ──────────────────────────────────────────────────────
+
+const CHART_META: Partial<Record<ChartType, { label: string; icon: React.ReactNode; color: string }>> = {
+  bar:       { label: 'Bar',       icon: <BarChart size={14} />,     color: 'bg-indigo-100 text-indigo-700' },
+  line:      { label: 'Line',      icon: <LineChart size={14} />,    color: 'bg-blue-100 text-blue-700' },
+  area:      { label: 'Area',      icon: <TrendingUp size={14} />,   color: 'bg-cyan-100 text-cyan-700' },
+  scatter:   { label: 'Scatter',   icon: <ScatterChart size={14} />, color: 'bg-violet-100 text-violet-700' },
+  histogram: { label: 'Histogram', icon: <BarChart size={14} />,     color: 'bg-purple-100 text-purple-700' },
+  box:       { label: 'Box Plot',  icon: <Box size={14} />,          color: 'bg-emerald-100 text-emerald-700' },
+  pie:       { label: 'Pie',       icon: <PieChart size={14} />,     color: 'bg-rose-100 text-rose-700' },
+  donut:     { label: 'Donut',     icon: <PieChart size={14} />,     color: 'bg-pink-100 text-pink-700' },
+  heatmap:   { label: 'Heatmap',   icon: <Grid3x3 size={14} />,      color: 'bg-amber-100 text-amber-700' },
+}
+
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DatasetViewerPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const projectId = params.id as string
   const datasetId = params.datasetId as string
   const { user, loading: authLoading } = useAuth()
@@ -30,6 +55,16 @@ export default function DatasetViewerPage() {
   const [dataLoading, setDataLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Tabs
+  const [activeTab, setActiveTab] = useState<'data' | 'charts'>(
+    searchParams.get('tab') === 'charts' ? 'charts' : 'data'
+  )
+
+  // Saved charts
+  const [savedCharts, setSavedCharts] = useState<DatasetExploration[]>([])
+  const [chartsLoading, setChartsLoading] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
   const supabase = createClient()
 
   useEffect(() => {
@@ -38,7 +73,7 @@ export default function DatasetViewerPage() {
     }
   }, [authLoading, user, router])
 
-  // Fetch dataset metadata: record, versions, branches
+  // Fetch dataset metadata
   useEffect(() => {
     if (!user) return
 
@@ -69,7 +104,6 @@ export default function DatasetViewerPage() {
         setVersions(versionList)
         setBranches(branchList)
 
-        // Set defaults: default branch and its head version
         const defaultBranch = branchList.find(b => b.is_default) ?? branchList[0]
         if (defaultBranch) {
           setActiveBranchId(defaultBranch.id)
@@ -116,18 +150,37 @@ export default function DatasetViewerPage() {
     loadData()
   }, [activeVersionId, versions])
 
-  const handleVersionChange = (versionId: string) => {
-    setActiveVersionId(versionId)
+  // Fetch saved charts when Charts tab becomes active
+  useEffect(() => {
+    if (activeTab !== 'charts' || !user) return
+    setChartsLoading(true)
+    supabase
+      .from('dataset_explorations')
+      .select('*')
+      .eq('dataset_id', datasetId)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        setSavedCharts((data as DatasetExploration[]) ?? [])
+        setChartsLoading(false)
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, user, datasetId])
+
+  async function handleDeleteChart(id: string) {
+    setDeletingId(id)
+    await supabase.from('dataset_explorations').delete().eq('id', id)
+    setSavedCharts(prev => prev.filter(c => c.id !== id))
+    setDeletingId(null)
   }
+
+  const handleVersionChange = (versionId: string) => setActiveVersionId(versionId)
 
   const handleBranchChange = (branchId: string) => {
     setActiveBranchId(branchId)
     const branch = branches.find(b => b.id === branchId)
     if (branch) {
       const headVersion = versions.find(v => v.id === branch.head_version)
-      if (headVersion) {
-        setActiveVersionId(headVersion.id)
-      }
+      if (headVersion) setActiveVersionId(headVersion.id)
     }
   }
 
@@ -141,9 +194,7 @@ export default function DatasetViewerPage() {
     )
   }
 
-  if (!user) {
-    return null
-  }
+  if (!user) return null
 
   if (!dataset) {
     return (
@@ -156,7 +207,7 @@ export default function DatasetViewerPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-6 pt-6 pb-4 border-b bg-white">
+      <div className="px-6 pt-6 pb-0 border-b bg-white shrink-0">
         <Link href={`/projects/${projectId}/data`}>
           <Button variant="ghost" size="sm" className="mb-3 h-7 text-xs -ml-2">
             <ArrowLeft className="h-3.5 w-3.5 mr-1" />
@@ -227,9 +278,35 @@ export default function DatasetViewerPage() {
             )}
           </div>
         )}
+
+        {/* Tabs */}
+        <div className="flex items-center gap-0 mt-4">
+          {(['data', 'charts'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+                activeTab === tab
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {tab === 'data' ? 'Data' : (
+                <>
+                  Charts
+                  {savedCharts.length > 0 && (
+                    <span className="text-[10px] bg-primary/10 text-primary rounded-full px-1.5 py-0.5 font-mono leading-none">
+                      {savedCharts.length}
+                    </span>
+                  )}
+                </>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Data area */}
+      {/* Content area */}
       <div className="flex-1 overflow-hidden">
         {error && (
           <div className="m-6 p-4 bg-red-50 text-red-700 rounded-lg text-sm flex items-center justify-between">
@@ -254,24 +331,125 @@ export default function DatasetViewerPage() {
           </div>
         )}
 
-        {dataLoading ? (
-          <div className="flex items-center justify-center h-full min-h-[300px]">
-            <div className="text-center">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">Loading data...</p>
+        {/* ── Data tab ── */}
+        {activeTab === 'data' && (
+          dataLoading ? (
+            <div className="flex items-center justify-center h-full min-h-[300px]">
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">Loading data...</p>
+              </div>
             </div>
+          ) : parsedData ? (
+            <DatasetTable
+              rows={parsedData.rows}
+              columns={parsedData.columns}
+              className="h-full"
+            />
+          ) : !error ? (
+            <div className="flex items-center justify-center h-full min-h-[300px]">
+              <p className="text-sm text-muted-foreground">No data available for this version.</p>
+            </div>
+          ) : null
+        )}
+
+        {/* ── Charts tab ── */}
+        {activeTab === 'charts' && (
+          <div className="h-full overflow-y-auto p-6">
+            {chartsLoading ? (
+              <div className="flex items-center justify-center h-48">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : savedCharts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
+                <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center">
+                  <BarChart2 className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="font-medium text-sm">No saved charts yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Open the Explorer, build a chart, and save it to see it here.
+                  </p>
+                </div>
+                <Link href={`/projects/${projectId}/data/${datasetId}/explore`}>
+                  <Button size="sm">
+                    <BarChart2 className="h-3.5 w-3.5 mr-1.5" />
+                    Open Explorer
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-sm font-medium">{savedCharts.length} saved chart{savedCharts.length !== 1 ? 's' : ''}</p>
+                  <Link href={`/projects/${projectId}/data/${datasetId}/explore`}>
+                    <Button variant="outline" size="sm">
+                      <BarChart2 className="h-3.5 w-3.5 mr-1.5" />
+                      New Chart
+                    </Button>
+                  </Link>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {savedCharts.map(chart => {
+                    const meta = CHART_META[chart.chart_type] ?? { label: chart.chart_type, icon: <BarChart2 size={14} />, color: 'bg-gray-100 text-gray-700' }
+                    const cfg = chart.config as ChartConfig
+                    return (
+                      <div
+                        key={chart.id}
+                        className="border rounded-xl bg-white p-4 flex flex-col gap-3 hover:shadow-md transition-shadow"
+                      >
+                        {/* Type badge */}
+                        <div className="flex items-center justify-between">
+                          <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${meta.color}`}>
+                            {meta.icon}
+                            {meta.label}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">{fmtDate(chart.created_at)}</span>
+                        </div>
+
+                        {/* Title */}
+                        <div>
+                          <p className="font-semibold text-sm truncate">{chart.title}</p>
+                          {(cfg.x_axis || cfg.y_axis) && (
+                            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                              {[cfg.x_axis, cfg.y_axis].filter(Boolean).join(' → ')}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-2 mt-auto pt-1">
+                          <Link
+                            href={`/projects/${projectId}/data/${datasetId}/explore?load=${chart.id}`}
+                            className="flex-1"
+                          >
+                            <Button variant="outline" size="sm" className="w-full gap-1.5">
+                              <ExternalLink size={12} />
+                              Open
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-muted-foreground hover:text-destructive px-2"
+                            onClick={() => handleDeleteChart(chart.id)}
+                            disabled={deletingId === chart.id}
+                          >
+                            {deletingId === chart.id
+                              ? <Loader2 size={13} className="animate-spin" />
+                              : <Trash2 size={13} />
+                            }
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            )}
           </div>
-        ) : parsedData ? (
-          <DatasetTable
-            rows={parsedData.rows}
-            columns={parsedData.columns}
-            className="h-full"
-          />
-        ) : !error ? (
-          <div className="flex items-center justify-center h-full min-h-[300px]">
-            <p className="text-sm text-muted-foreground">No data available for this version.</p>
-          </div>
-        ) : null}
+        )}
       </div>
     </div>
   )
