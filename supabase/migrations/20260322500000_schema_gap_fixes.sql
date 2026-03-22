@@ -28,7 +28,8 @@ ALTER TABLE project_milestones
 ALTER TABLE document_templates
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
 
-CREATE TRIGGER IF NOT EXISTS set_updated_at_document_templates
+DROP TRIGGER IF EXISTS set_updated_at_document_templates ON document_templates;
+CREATE TRIGGER set_updated_at_document_templates
   BEFORE UPDATE ON document_templates
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
