@@ -87,19 +87,21 @@ export default function DashboardPage() {
 
     const fetchData = async () => {
       try {
-        const projectsQuery = (q: ReturnType<typeof supabase.from>) =>
-          activeWorkspace ? q.eq('workspace_id', activeWorkspace.id) : q
+        const wsFilter = activeWorkspace ? { workspace_id: activeWorkspace.id } : null
 
         const [projectsRes, docsRes, reviewsRes, notifsRes, recentProjectsRes, recentReviewsRes] = await Promise.all([
-          projectsQuery(supabase.from('projects').select('id', { count: 'exact', head: true })),
+          wsFilter
+            ? supabase.from('projects').select('id', { count: 'exact', head: true }).eq('workspace_id', wsFilter.workspace_id)
+            : supabase.from('projects').select('id', { count: 'exact', head: true }),
           supabase.from('documents').select('id', { count: 'exact' }).eq('created_by', profile.id),
           supabase.from('review_requests').select('id', { count: 'exact' })
             .or(`requested_by.eq.${profile.id},assigned_to.eq.${profile.id}`)
             .in('status', ['pending', 'in_review']),
           supabase.from('notifications').select('id', { count: 'exact' })
             .eq('user_id', profile.id).eq('is_read', false),
-          projectsQuery(supabase.from('projects').select('*'))
-            .order('updated_at', { ascending: false }).limit(6),
+          wsFilter
+            ? supabase.from('projects').select('*').eq('workspace_id', wsFilter.workspace_id).order('updated_at', { ascending: false }).limit(6)
+            : supabase.from('projects').select('*').order('updated_at', { ascending: false }).limit(6),
           supabase.from('review_requests')
             .select(`*, document:documents(id, title), requester:profiles!requested_by(id, full_name)`)
             .or(`requested_by.eq.${profile.id},assigned_to.eq.${profile.id}`)

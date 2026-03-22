@@ -84,7 +84,7 @@ export default function ProjectSettingsPage() {
       toast.error('Failed to save changes')
     } else {
       toast.success('Project settings saved')
-      setProject(prev => prev ? { ...prev, title: title.trim(), description: description.trim() || null, status, phase: phase || null } : prev)
+      setProject(prev => prev ? { ...prev, title: title.trim(), description: description.trim() || null, status } : prev)
     }
     setSaving(false)
   }
