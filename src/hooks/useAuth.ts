@@ -12,24 +12,23 @@ export function useAuth() {
   const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
-    const fetchProfile = async (userId: string) => {
-      const { data: { user } } = await supabase.auth.getUser()
-      // Use maybeSingle() — .single() throws 406 when no row exists
+    const fetchProfile = async (authUser: import('@supabase/supabase-js').User) => {
+      // maybeSingle() — never throws 406 on 0 rows
       let { data } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('id', authUser.id)
         .maybeSingle()
 
-      // Profile missing (user created before trigger was applied) — create it now
-      if (!data && user) {
+      // Profile missing (user predates the auto-create trigger) — upsert now
+      if (!data) {
         const { data: created } = await supabase
           .from('profiles')
           .upsert({
-            id: userId,
-            email: user.email ?? '',
-            full_name: user.user_metadata?.full_name ?? user.user_metadata?.name ?? null,
-            avatar_url: user.user_metadata?.avatar_url ?? null,
+            id: authUser.id,
+            email: authUser.email ?? '',
+            full_name: authUser.user_metadata?.full_name ?? authUser.user_metadata?.name ?? null,
+            avatar_url: authUser.user_metadata?.avatar_url ?? null,
           }, { onConflict: 'id' })
           .select('*')
           .maybeSingle()
@@ -39,19 +38,14 @@ export function useAuth() {
       setProfile(data)
     }
 
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      if (user) await fetchProfile(user.id)
-      setLoading(false)
-    }
-
-    getUser()
-
+    // onAuthStateChange fires immediately with the current session —
+    // no need for a separate getUser() call, which would race for the
+    // same auth lock and trigger the Supabase 5 s lock warning in
+    // React Strict Mode.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_, session) => {
       setUser(session?.user ?? null)
       if (session?.user) {
-        await fetchProfile(session.user.id)
+        await fetchProfile(session.user)
       } else {
         setProfile(null)
       }
