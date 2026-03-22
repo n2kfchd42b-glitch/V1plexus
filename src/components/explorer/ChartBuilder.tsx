@@ -576,7 +576,7 @@ export function ChartBuilder({ rows, columns, datasetId: _datasetId, versionId: 
                   </label>
                 )}
 
-                {/* Log X (scatter only) */}
+                  {/* Log X (scatter only) */}
                 {chartType === 'scatter' && (
                   <label className="flex items-center gap-2 text-xs cursor-pointer">
                     <input
@@ -588,6 +588,67 @@ export function ChartBuilder({ rows, columns, datasetId: _datasetId, versionId: 
                     Log scale X
                   </label>
                 )}
+
+                {/* Histogram specific */}
+                {chartType === 'histogram' && (
+                  <label className="flex items-center gap-2 text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={(config.chart_specific as Record<string, unknown> | undefined)?.show_density as boolean ?? false}
+                      onChange={e => patchConfig({ chart_specific: { ...(config.chart_specific as object), show_density: e.target.checked } })}
+                      className="rounded"
+                    />
+                    Distribution curve
+                  </label>
+                )}
+
+                {/* Box plot specific */}
+                {chartType === 'box' && (
+                  <>
+                    <label className="flex items-center gap-2 text-xs cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={(config.chart_specific as Record<string, unknown> | undefined)?.show_points as boolean ?? false}
+                        onChange={e => patchConfig({ chart_specific: { ...(config.chart_specific as object), show_points: e.target.checked } })}
+                        className="rounded"
+                      />
+                      Show data points
+                    </label>
+                    <label className="flex items-center gap-2 text-xs cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={(config.chart_specific as Record<string, unknown> | undefined)?.show_mean as boolean ?? false}
+                        onChange={e => patchConfig({ chart_specific: { ...(config.chart_specific as object), show_mean: e.target.checked } })}
+                        className="rounded"
+                      />
+                      Show mean (◇)
+                    </label>
+                  </>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Appearance */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Appearance</Label>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground/70">Color palette</Label>
+                  <Select
+                    value={config.palette ?? 'default'}
+                    onValueChange={v => patchConfig({ palette: v === 'default' ? undefined : v })}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">Default</SelectItem>
+                      <SelectItem value="ggplot">ggplot2</SelectItem>
+                      <SelectItem value="tableau">Tableau</SelectItem>
+                      <SelectItem value="cool">Cool blues</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <Separator />

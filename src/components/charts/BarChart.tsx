@@ -22,10 +22,12 @@ interface BarChartProps {
   height?: number | `${number}%`
 }
 
-const DEFAULT_COLORS = [
-  '#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b',
-  '#ef4444', '#ec4899', '#14b8a6', '#f97316', '#84cc16',
-]
+const PALETTES: Record<string, string[]> = {
+  default:  ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#f97316', '#84cc16'],
+  ggplot:   ['#F8766D', '#7CAE00', '#00BFC4', '#C77CFF', '#FF7F00', '#A3A500', '#00B0F6', '#E76BF3'],
+  tableau:  ['#4E79A7', '#F28E2B', '#E15759', '#76B7B2', '#59A14F', '#EDC948', '#B07AA1', '#FF9DA7'],
+  cool:     ['#00BFC4', '#619CFF', '#5E81F4', '#00A9FF', '#00C5CD', '#4682B4', '#6A5ACD', '#00BFFF'],
+}
 
 function aggregateData(
   rows: DataRow[],
@@ -107,6 +109,7 @@ export function BarChart({ data, config, columns: _columns, width = ('100%' as `
     )
   }
 
+  const colors = PALETTES[config.palette ?? 'default'] ?? PALETTES.default
   const xCol = config.x_axis
   const yCol = config.y_axis ?? 'COUNT'
   const aggregation = config.aggregation ?? 'count'
@@ -160,14 +163,14 @@ export function BarChart({ data, config, columns: _columns, width = ('100%' as `
 
         {colorValues.length > 0
           ? colorValues.map((cv, i) => (
-              <Bar key={cv} dataKey={cv} fill={DEFAULT_COLORS[i % DEFAULT_COLORS.length]} radius={[3, 3, 0, 0]}>
+              <Bar key={cv} dataKey={cv} fill={colors[i % colors.length]} radius={[3, 3, 0, 0]}>
                 {config.show_values && <LabelList dataKey={cv} position="top" style={{ fontSize: 10 }} />}
               </Bar>
             ))
           : (
             <Bar dataKey="value" radius={[3, 3, 0, 0]}>
               {aggregated.map((_, i) => (
-                <Cell key={i} fill={DEFAULT_COLORS[i % DEFAULT_COLORS.length]} />
+                <Cell key={i} fill={colors[i % colors.length]} />
               ))}
               {config.show_values && (
                 <LabelList dataKey="value" position="top" style={{ fontSize: 10 }} />
