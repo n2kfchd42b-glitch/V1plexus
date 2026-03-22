@@ -232,6 +232,7 @@ export function CleaningWorkbench({
         <OperationFormDialog
           type={addOpType}
           columns={currentColumns}
+          rows={currentRows}
           onAdd={addOperation}
           onClose={() => setAddOpType(null)}
         />
@@ -284,11 +285,12 @@ export function CleaningWorkbench({
 interface OperationFormDialogProps {
   type: string
   columns: ColumnSchema[]
+  rows: DataRow[]
   onAdd: (op: CleaningOperation) => void
   onClose: () => void
 }
 
-function OperationFormDialog({ type, columns, onAdd, onClose }: OperationFormDialogProps) {
+function OperationFormDialog({ type, columns, rows, onAdd, onClose }: OperationFormDialogProps) {
   const colNames = columns.map(c => c.name)
   const [col, setCol] = useState(colNames[0] ?? '')
   const [col2, setCol2] = useState(colNames[0] ?? '')
@@ -302,6 +304,19 @@ function OperationFormDialog({ type, columns, onAdd, onClose }: OperationFormDia
   const [selectedCols, setSelectedCols] = useState<string[]>(colNames.slice(0, 1))
   const [mappingRows, setMappingRows] = useState<{ from: string; to: string }[]>([{ from: '', to: '' }])
   const [binRows, setBinRows] = useState<{ min: string; max: string; label: string }[]>([{ min: '', max: '', label: '' }])
+
+  // Unique non-null values for the currently selected column, derived from live data
+  const uniqueColValues = useMemo(() => {
+    const seen = new Set<string>()
+    for (const row of rows) {
+      const v = row[col]
+      if (v !== null && v !== undefined && String(v).trim() !== '') {
+        seen.add(String(v))
+        if (seen.size >= 300) break // cap to keep UI fast
+      }
+    }
+    return Array.from(seen).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+  }, [rows, col])
 
   const handleAdd = () => {
     let op: CleaningOperation | null = null
@@ -393,7 +408,7 @@ function OperationFormDialog({ type, columns, onAdd, onClose }: OperationFormDia
           {['rename_column', 'retype_column', 'delete_column', 'fill_missing', 'filter_rows', 'sort_rows', 'standardize_text'].includes(type) && (
             <div>
               <Label>Column</Label>
-              <Select value={col} onValueChange={setCol}>
+              <Select value={col} onValueChange={v => { setCol(v); setValue('') }}>
                 <SelectTrigger className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
@@ -460,7 +475,17 @@ function OperationFormDialog({ type, columns, onAdd, onClose }: OperationFormDia
               {strategy === 'value' && (
                 <div>
                   <Label>Fill Value</Label>
-                  <Input value={value} onChange={e => setValue(e.target.value)} placeholder="0" className="mt-1" />
+                  <input
+                    list="fill-values-list"
+                    value={value}
+                    onChange={e => setValue(e.target.value)}
+                    placeholder="Type or pick an existing value…"
+                    className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                  <datalist id="fill-values-list">
+                    {uniqueColValues.map(v => <option key={v} value={v} />)}
+                  </datalist>
+                  <p className="text-xs text-gray-500 mt-1">Suggestions show existing values in this column</p>
                 </div>
               )}
             </>
@@ -480,7 +505,16 @@ function OperationFormDialog({ type, columns, onAdd, onClose }: OperationFormDia
               {operator !== 'is_null' && operator !== 'is_not_null' && (
                 <div>
                   <Label>Value</Label>
-                  <Input value={value} onChange={e => setValue(e.target.value)} placeholder="value to compare" className="mt-1" />
+                  <input
+                    list="filter-values-list"
+                    value={value}
+                    onChange={e => setValue(e.target.value)}
+                    placeholder="Type or pick a value…"
+                    className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                  <datalist id="filter-values-list">
+                    {uniqueColValues.map(v => <option key={v} value={v} />)}
+                  </datalist>
                 </div>
               )}
               <div>
@@ -563,7 +597,7 @@ function OperationFormDialog({ type, columns, onAdd, onClose }: OperationFormDia
             <>
               <div>
                 <Label>Column</Label>
-                <Select value={col} onValueChange={setCol}>
+                <Select value={col} onValueChange={v => { setCol(v); setMappingRows([{ from: '', to: '' }]) }}>
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {colNames.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
@@ -571,23 +605,40 @@ function OperationFormDialog({ type, columns, onAdd, onClose }: OperationFormDia
                 </Select>
               </div>
               <div>
-                <Label>Value Mappings</Label>
-                <p className="text-xs text-gray-500 mb-2">Map each existing value to a new value (e.g. "Yes" → "1", "No" → "0")</p>
+                <div className="flex items-center justify-between mb-1">
+                  <Label>Value Mappings</Label>
+                  {uniqueColValues.length > 0 && (
+                    <button
+                      className="text-xs text-blue-600 hover:underline"
+                      onClick={() => setMappingRows(uniqueColValues.map(v => ({ from: v, to: '' })))}
+                    >
+                      Auto-populate all {uniqueColValues.length} values
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mb-2">Select an existing value on the left, type the replacement on the right</p>
                 <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
                   {mappingRows.map((row, i) => (
                     <div key={i} className="flex items-center gap-2">
-                      <Input
+                      <Select
                         value={row.from}
-                        onChange={e => setMappingRows(prev => prev.map((r, j) => j === i ? { ...r, from: e.target.value } : r))}
-                        placeholder="Old value"
-                        className="h-8 text-sm"
-                      />
+                        onValueChange={v => setMappingRows(prev => prev.map((r, j) => j === i ? { ...r, from: v } : r))}
+                      >
+                        <SelectTrigger className="h-8 text-sm flex-1">
+                          <SelectValue placeholder="Pick value…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {uniqueColValues.map(v => (
+                            <SelectItem key={v} value={v}>{v}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <span className="text-gray-400 shrink-0">→</span>
                       <Input
                         value={row.to}
                         onChange={e => setMappingRows(prev => prev.map((r, j) => j === i ? { ...r, to: e.target.value } : r))}
                         placeholder="New value"
-                        className="h-8 text-sm"
+                        className="h-8 text-sm flex-1"
                       />
                       <button
                         onClick={() => setMappingRows(prev => prev.filter((_, j) => j !== i))}
@@ -603,7 +654,7 @@ function OperationFormDialog({ type, columns, onAdd, onClose }: OperationFormDia
                   onClick={() => setMappingRows(prev => [...prev, { from: '', to: '' }])}
                   className="mt-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
                 >
-                  <PlusCircle className="h-3.5 w-3.5" /> Add mapping row
+                  <PlusCircle className="h-3.5 w-3.5" /> Add row
                 </button>
               </div>
             </>
