@@ -32,40 +32,45 @@ export default function ProjectDataPage() {
   const fetchDatasets = async () => {
     setLoading(true)
     try {
-      const [datasetsRes, versionsRes] = await Promise.all([
-        supabase
-          .from('datasets')
-          .select('*')
-          .eq('project_id', projectId)
-          .is('deleted_at', null)
-          .order('updated_at', { ascending: false }),
-        supabase
-          .from('dataset_versions')
-          .select('*')
-          .order('version_number', { ascending: false }),
-      ])
+      const datasetsRes = await supabase
+        .from('datasets')
+        .select('*')
+        .eq('project_id', projectId)
+        .is('deleted_at', null)
+        .order('updated_at', { ascending: false })
 
-      if (datasetsRes.data) {
-        const datasetList: Dataset[] = datasetsRes.data
+      if (!datasetsRes.data?.length) {
+        setDatasets([])
+        return
+      }
 
-        // Build a map of dataset_id -> latest version
-        const latestVersionMap = new Map<string, DatasetVersion>()
-        if (versionsRes.data) {
-          for (const version of versionsRes.data as DatasetVersion[]) {
-            if (!latestVersionMap.has(version.dataset_id)) {
-              latestVersionMap.set(version.dataset_id, version)
-            }
+      const datasetList: Dataset[] = datasetsRes.data
+
+      // Fetch only versions for this project's datasets (not the entire table)
+      const datasetIds = datasetList.map(d => d.id)
+      const versionsRes = await supabase
+        .from('dataset_versions')
+        .select('*')
+        .in('dataset_id', datasetIds)
+        .order('version_number', { ascending: false })
+
+      // Build a map of dataset_id -> latest version
+      const latestVersionMap = new Map<string, DatasetVersion>()
+      if (versionsRes.data) {
+        for (const version of versionsRes.data as DatasetVersion[]) {
+          if (!latestVersionMap.has(version.dataset_id)) {
+            latestVersionMap.set(version.dataset_id, version)
           }
         }
-
-        // Attach latest_version to each dataset
-        const datasetsWithVersions: Dataset[] = datasetList.map(ds => ({
-          ...ds,
-          latest_version: latestVersionMap.get(ds.id) ?? undefined,
-        }))
-
-        setDatasets(datasetsWithVersions)
       }
+
+      // Attach latest_version to each dataset
+      const datasetsWithVersions: Dataset[] = datasetList.map(ds => ({
+        ...ds,
+        latest_version: latestVersionMap.get(ds.id) ?? undefined,
+      }))
+
+      setDatasets(datasetsWithVersions)
     } finally {
       setLoading(false)
     }

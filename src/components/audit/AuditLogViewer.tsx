@@ -45,20 +45,14 @@ export function AuditLogViewer({ projectId, institutionId, compact = false }: Au
     if (filters.resourceType) query = query.eq('resource_type', filters.resourceType)
     if (filters.dateFrom) query = query.gte('timestamp', filters.dateFrom)
     if (filters.dateTo) query = query.lte('timestamp', filters.dateTo + 'T23:59:59Z')
+    // Push text search to the database using ilike on action and resource_type
+    if (filters.search) {
+      const term = `%${filters.search}%`
+      query = query.or(`action.ilike.${term},resource_type.ilike.${term}`)
+    }
 
     const { data } = await query
-    const results = (data ?? []) as AuditLog[]
-
-    // Client-side search filter
-    const filtered = filters.search
-      ? results.filter(e =>
-          e.action.includes(filters.search) ||
-          e.resource_type.includes(filters.search) ||
-          e.actor?.full_name?.toLowerCase().includes(filters.search.toLowerCase()) ||
-          e.actor?.email?.toLowerCase().includes(filters.search.toLowerCase()) ||
-          JSON.stringify(e.details).toLowerCase().includes(filters.search.toLowerCase())
-        )
-      : results
+    const filtered = (data ?? []) as AuditLog[]
 
     if (reset) {
       setEntries(filtered)

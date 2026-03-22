@@ -56,19 +56,35 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // If authenticated and on a protected page, check if workspace setup is needed
+  // If authenticated and on a protected page, check if workspace setup is needed.
+  // We cache the result in a cookie to avoid a DB round-trip on every request.
   if (user && isProtected && !isSetupPage) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("workspace_setup_completed")
-      .eq("id", user.id)
-      .maybeSingle();
+    const workspaceReadyCookie = request.cookies.get('workspace_ready')?.value
 
-    // If profile exists and setup NOT completed, redirect to setup
-    if (profile && !profile.workspace_setup_completed) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/setup";
-      return NextResponse.redirect(url);
+    // Only hit the DB when the cookie is absent or belongs to a different user
+    if (workspaceReadyCookie !== user.id) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("workspace_setup_completed")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      // If profile exists and setup NOT completed, redirect to setup
+      if (profile && !profile.workspace_setup_completed) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/setup";
+        return NextResponse.redirect(url);
+      }
+
+      // Cache the "setup done" state so we skip this DB call on future requests
+      if (profile?.workspace_setup_completed) {
+        supabaseResponse.cookies.set('workspace_ready', user.id, {
+          maxAge: 60 * 60 * 24, // 24 hours
+          httpOnly: true,
+          sameSite: 'lax',
+          path: '/',
+        })
+      }
     }
   }
 
