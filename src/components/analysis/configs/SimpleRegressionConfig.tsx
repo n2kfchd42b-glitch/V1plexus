@@ -16,8 +16,8 @@ interface Props {
 export function SimpleRegressionConfig({ config, onChange, onRun, loading, columns }: Props) {
   return (
     <div className="space-y-4">
-      <VariableSelector label="Dependent Variable (Y)" value={(config.dependent as string) ?? ''} onChange={v => onChange({ ...config, dependent: v })} columns={columns} allowedTypes={['numeric']} required />
-      <VariableSelector label="Independent Variable (X)" value={(config.independent as string) ?? ''} onChange={v => onChange({ ...config, independent: v })} columns={columns} allowedTypes={['numeric']} required />
+      <VariableSelector label="Dependent Variable (Y)" value={(config.dependent as string) ?? ''} onChange={v => onChange({ ...config, dependent: v })} columns={columns} required />
+      <VariableSelector label="Independent Variable (X)" value={(config.independent as string) ?? ''} onChange={v => onChange({ ...config, independent: v })} columns={columns} required />
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Confidence Level</label>
         <Select value={String(config.confidenceLevel ?? 0.95)} onValueChange={v => onChange({ ...config, confidenceLevel: parseFloat(v) })}>

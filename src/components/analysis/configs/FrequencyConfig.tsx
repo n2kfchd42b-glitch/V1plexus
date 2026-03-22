@@ -20,7 +20,6 @@ export function FrequencyConfig({ config, onChange, onRun, loading, columns }: P
         value={(config.rowVariable as string) ?? ''}
         onChange={v => onChange({ ...config, rowVariable: v })}
         columns={columns}
-        allowedTypes={['categorical', 'binary']}
         required
       />
       <VariableSelector
@@ -28,7 +27,6 @@ export function FrequencyConfig({ config, onChange, onRun, loading, columns }: P
         value={(config.colVariable as string) ?? ''}
         onChange={v => onChange({ ...config, colVariable: v })}
         columns={columns}
-        allowedTypes={['categorical', 'binary']}
         placeholder="Leave empty for simple frequency"
       />
       <AnalysisRunButton

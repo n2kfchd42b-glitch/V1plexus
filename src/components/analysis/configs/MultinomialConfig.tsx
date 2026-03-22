@@ -17,8 +17,8 @@ export function MultinomialConfig({ config, onChange, onRun, loading, columns }:
   const predictors = (config.predictors as string[]) ?? []
   return (
     <div className="space-y-4">
-      <VariableSelector label="Outcome Variable (3+ categories)" value={(config.outcome as string) ?? ''} onChange={v => onChange({ ...config, outcome: v })} columns={columns} allowedTypes={['categorical']} required />
-      <MultiVariableSelector label="Predictor Variables" value={predictors} onChange={v => onChange({ ...config, predictors: v })} columns={columns} allowedTypes={['numeric', 'categorical', 'binary']} required />
+      <VariableSelector label="Outcome Variable (3+ categories)" value={(config.outcome as string) ?? ''} onChange={v => onChange({ ...config, outcome: v })} columns={columns} required />
+      <MultiVariableSelector label="Predictor Variables" value={predictors} onChange={v => onChange({ ...config, predictors: v })} columns={columns} required />
       <p className="text-xs text-muted-foreground">Multinomial logistic regression models each outcome category relative to the reference category.</p>
       <AnalysisRunButton onClick={onRun} loading={loading} disabled={!config.outcome || predictors.length === 0} />
     </div>

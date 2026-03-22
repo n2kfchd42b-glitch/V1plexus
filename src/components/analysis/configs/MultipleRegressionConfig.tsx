@@ -18,8 +18,8 @@ export function MultipleRegressionConfig({ config, onChange, onRun, loading, col
   const independents = (config.independents as string[]) ?? []
   return (
     <div className="space-y-4">
-      <VariableSelector label="Dependent Variable" value={(config.dependent as string) ?? ''} onChange={v => onChange({ ...config, dependent: v })} columns={columns} allowedTypes={['numeric']} required />
-      <MultiVariableSelector label="Independent Variables (numeric + categorical)" value={independents} onChange={v => onChange({ ...config, independents: v })} columns={columns} allowedTypes={['numeric', 'categorical', 'binary']} required />
+      <VariableSelector label="Dependent Variable" value={(config.dependent as string) ?? ''} onChange={v => onChange({ ...config, dependent: v })} columns={columns} required />
+      <MultiVariableSelector label="Independent Variables" value={independents} onChange={v => onChange({ ...config, independents: v })} columns={columns} required />
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Confidence Level</label>
         <Select value={String(config.confidenceLevel ?? 0.95)} onValueChange={v => onChange({ ...config, confidenceLevel: parseFloat(v) })}>

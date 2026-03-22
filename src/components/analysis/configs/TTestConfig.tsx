@@ -31,12 +31,12 @@ export function TTestConfig({ config, onChange, onRun, loading, columns }: Props
           </SelectContent>
         </Select>
       </div>
-      <VariableSelector label="Numeric Variable (Outcome)" value={(config.variable as string) ?? ''} onChange={v => onChange({ ...config, variable: v })} columns={columns} allowedTypes={['numeric']} required />
+      <VariableSelector label="Numeric Variable (Outcome)" value={(config.variable as string) ?? ''} onChange={v => onChange({ ...config, variable: v })} columns={columns} required />
       {testType === 'independent' && (
-        <VariableSelector label="Grouping Variable (2 levels)" value={(config.groupVariable as string) ?? ''} onChange={v => onChange({ ...config, groupVariable: v })} columns={columns} allowedTypes={['categorical', 'binary']} required />
+        <VariableSelector label="Grouping Variable (2 levels)" value={(config.groupVariable as string) ?? ''} onChange={v => onChange({ ...config, groupVariable: v })} columns={columns} required />
       )}
       {testType === 'paired' && (
-        <VariableSelector label="Paired Variable" value={(config.pairedVariable as string) ?? ''} onChange={v => onChange({ ...config, pairedVariable: v })} columns={columns} allowedTypes={['numeric']} required />
+        <VariableSelector label="Paired Variable" value={(config.pairedVariable as string) ?? ''} onChange={v => onChange({ ...config, pairedVariable: v })} columns={columns} required />
       )}
       {testType === 'one_sample' && (
         <div className="space-y-1.5">

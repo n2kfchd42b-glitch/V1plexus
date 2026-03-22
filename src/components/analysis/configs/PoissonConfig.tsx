@@ -19,9 +19,9 @@ export function PoissonConfig({ config, onChange, onRun, loading, columns, analy
   const isNegBin = analysisType === 'negbinomial_regression'
   return (
     <div className="space-y-4">
-      <VariableSelector label="Count Outcome Variable" value={(config.outcome as string) ?? ''} onChange={v => onChange({ ...config, outcome: v })} columns={columns} allowedTypes={['numeric']} required />
-      <MultiVariableSelector label="Predictor Variables" value={predictors} onChange={v => onChange({ ...config, predictors: v })} columns={columns} allowedTypes={['numeric', 'categorical', 'binary']} required />
-      <VariableSelector label="Offset Variable (optional — for rates)" value={(config.offsetVar as string) ?? ''} onChange={v => onChange({ ...config, offsetVar: v })} columns={columns} allowedTypes={['numeric']} placeholder="Leave empty if not needed" />
+      <VariableSelector label="Count Outcome Variable" value={(config.outcome as string) ?? ''} onChange={v => onChange({ ...config, outcome: v })} columns={columns} required />
+      <MultiVariableSelector label="Predictor Variables" value={predictors} onChange={v => onChange({ ...config, predictors: v })} columns={columns} required />
+      <VariableSelector label="Offset Variable (optional — for rates)" value={(config.offsetVar as string) ?? ''} onChange={v => onChange({ ...config, offsetVar: v })} columns={columns} placeholder="Leave empty if not needed" />
       <p className="text-xs text-muted-foreground">
         {isNegBin ? 'Negative binomial regression for overdispersed count data.' : 'Poisson regression models count or rate outcomes. Results reported as Incidence Rate Ratios (IRR).'}
       </p>

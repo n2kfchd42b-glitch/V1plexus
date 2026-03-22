@@ -18,8 +18,8 @@ export function OutbreakConfig({ config, onChange, onRun, loading, columns }: Pr
   const exposures = (config.exposures as string[]) ?? []
   return (
     <div className="space-y-4">
-      <VariableSelector label="Onset Date Variable" value={(config.dateVariable as string) ?? ''} onChange={v => onChange({ ...config, dateVariable: v })} columns={columns} allowedTypes={['date', 'text']} required />
-      <VariableSelector label="Case Classification Variable (optional)" value={(config.caseClassVariable as string) ?? ''} onChange={v => onChange({ ...config, caseClassVariable: v })} columns={columns} allowedTypes={['categorical']} placeholder="Leave empty if not available" />
+      <VariableSelector label="Onset Date Variable" value={(config.dateVariable as string) ?? ''} onChange={v => onChange({ ...config, dateVariable: v })} columns={columns} required />
+      <VariableSelector label="Case Classification Variable (optional)" value={(config.caseClassVariable as string) ?? ''} onChange={v => onChange({ ...config, caseClassVariable: v })} columns={columns} placeholder="Leave empty if not available" />
       <VariableSelector label="Location Variable (optional)" value={(config.locationVariable as string) ?? ''} onChange={v => onChange({ ...config, locationVariable: v })} columns={columns} placeholder="For spot map" />
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Epidemic Curve Interval</label>
@@ -32,9 +32,9 @@ export function OutbreakConfig({ config, onChange, onRun, loading, columns }: Pr
           </SelectContent>
         </Select>
       </div>
-      <VariableSelector label="Outcome Variable (for attack rates)" value={(config.outcomeVariable as string) ?? ''} onChange={v => onChange({ ...config, outcomeVariable: v })} columns={columns} allowedTypes={['binary']} placeholder="Optional — for 2×2 tables" />
+      <VariableSelector label="Outcome Variable (for attack rates)" value={(config.outcomeVariable as string) ?? ''} onChange={v => onChange({ ...config, outcomeVariable: v })} columns={columns} placeholder="Optional — for 2×2 tables" />
       {!!config.outcomeVariable && (
-        <MultiVariableSelector label="Exposure Variables (for attack rate tables)" value={exposures} onChange={v => onChange({ ...config, exposures: v })} columns={columns} allowedTypes={['binary', 'categorical']} />
+        <MultiVariableSelector label="Exposure Variables (for attack rate tables)" value={exposures} onChange={v => onChange({ ...config, exposures: v })} columns={columns} />
       )}
       <AnalysisRunButton onClick={onRun} loading={loading} disabled={!config.dateVariable} />
     </div>

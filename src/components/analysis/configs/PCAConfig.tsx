@@ -19,7 +19,7 @@ export function PCAConfig({ config, onChange, onRun, loading, columns }: Props) 
   const variables = (config.variables as string[]) ?? []
   return (
     <div className="space-y-4">
-      <MultiVariableSelector label="Numeric Variables" value={variables} onChange={v => onChange({ ...config, variables: v })} columns={columns} allowedTypes={['numeric']} required />
+      <MultiVariableSelector label="Variables" value={variables} onChange={v => onChange({ ...config, variables: v })} columns={columns} required />
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Number of Components</label>
         <Input type="number" className="h-8 text-sm" min={2} max={Math.min(variables.length, 10)} value={String(config.nComponents ?? 2)} onChange={e => onChange({ ...config, nComponents: parseInt(e.target.value) })} />

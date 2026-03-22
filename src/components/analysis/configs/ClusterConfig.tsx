@@ -20,7 +20,7 @@ export function ClusterConfig({ config, onChange, onRun, loading, columns }: Pro
   const variables = (config.variables as string[]) ?? []
   return (
     <div className="space-y-4">
-      <MultiVariableSelector label="Numeric Variables" value={variables} onChange={v => onChange({ ...config, variables: v })} columns={columns} allowedTypes={['numeric']} required />
+      <MultiVariableSelector label="Variables" value={variables} onChange={v => onChange({ ...config, variables: v })} columns={columns} required />
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Method</label>
         <Select value={(config.method as string) ?? 'kmeans'} onValueChange={v => onChange({ ...config, method: v })}>

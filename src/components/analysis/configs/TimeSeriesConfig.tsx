@@ -18,8 +18,8 @@ interface Props {
 export function TimeSeriesConfig({ config, onChange, onRun, loading, columns }: Props) {
   return (
     <div className="space-y-4">
-      <VariableSelector label="Date/Time Variable" value={(config.dateVariable as string) ?? ''} onChange={v => onChange({ ...config, dateVariable: v })} columns={columns} allowedTypes={['date', 'text']} required />
-      <VariableSelector label="Value Variable" value={(config.valueVariable as string) ?? ''} onChange={v => onChange({ ...config, valueVariable: v })} columns={columns} allowedTypes={['numeric']} required />
+      <VariableSelector label="Date/Time Variable" value={(config.dateVariable as string) ?? ''} onChange={v => onChange({ ...config, dateVariable: v })} columns={columns} required />
+      <VariableSelector label="Value Variable" value={(config.valueVariable as string) ?? ''} onChange={v => onChange({ ...config, valueVariable: v })} columns={columns} required />
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Moving Average Window</label>
         <Input type="number" className="h-8 text-sm" min={2} max={52} value={String(config.movingAvgWindow ?? 12)} onChange={e => onChange({ ...config, movingAvgWindow: parseInt(e.target.value) })} />

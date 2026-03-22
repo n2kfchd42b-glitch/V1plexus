@@ -18,8 +18,8 @@ export function LogisticRegressionConfig({ config, onChange, onRun, loading, col
   const predictors = (config.predictors as string[]) ?? []
   return (
     <div className="space-y-4">
-      <VariableSelector label="Outcome Variable (binary: 0/1)" value={(config.outcome as string) ?? ''} onChange={v => onChange({ ...config, outcome: v })} columns={columns} allowedTypes={['binary', 'categorical']} required />
-      <MultiVariableSelector label="Predictor Variables" value={predictors} onChange={v => onChange({ ...config, predictors: v })} columns={columns} allowedTypes={['numeric', 'categorical', 'binary']} required />
+      <VariableSelector label="Outcome Variable (binary: 0/1)" value={(config.outcome as string) ?? ''} onChange={v => onChange({ ...config, outcome: v })} columns={columns} required />
+      <MultiVariableSelector label="Predictor Variables" value={predictors} onChange={v => onChange({ ...config, predictors: v })} columns={columns} required />
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Confidence Level</label>
         <Select value={String(config.confidenceLevel ?? 0.95)} onValueChange={v => onChange({ ...config, confidenceLevel: parseFloat(v) })}>

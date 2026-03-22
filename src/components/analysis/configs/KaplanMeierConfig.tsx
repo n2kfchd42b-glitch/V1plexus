@@ -16,9 +16,9 @@ interface Props {
 export function KaplanMeierConfig({ config, onChange, onRun, loading, columns }: Props) {
   return (
     <div className="space-y-4">
-      <VariableSelector label="Time Variable" value={(config.timeVariable as string) ?? ''} onChange={v => onChange({ ...config, timeVariable: v })} columns={columns} allowedTypes={['numeric']} required />
-      <VariableSelector label="Event Variable (1=event, 0=censored)" value={(config.eventVariable as string) ?? ''} onChange={v => onChange({ ...config, eventVariable: v })} columns={columns} allowedTypes={['binary', 'numeric']} required />
-      <VariableSelector label="Group Variable (optional — for comparison)" value={(config.groupVariable as string) ?? ''} onChange={v => onChange({ ...config, groupVariable: v })} columns={columns} allowedTypes={['categorical', 'binary']} placeholder="Leave empty for single curve" />
+      <VariableSelector label="Time Variable" value={(config.timeVariable as string) ?? ''} onChange={v => onChange({ ...config, timeVariable: v })} columns={columns} required />
+      <VariableSelector label="Event Variable (1=event, 0=censored)" value={(config.eventVariable as string) ?? ''} onChange={v => onChange({ ...config, eventVariable: v })} columns={columns} required />
+      <VariableSelector label="Group Variable (optional — for comparison)" value={(config.groupVariable as string) ?? ''} onChange={v => onChange({ ...config, groupVariable: v })} columns={columns} placeholder="Leave empty for single curve" />
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Confidence Level</label>
         <Select value={String(config.confidenceLevel ?? 0.95)} onValueChange={v => onChange({ ...config, confidenceLevel: parseFloat(v) })}>
