@@ -2,8 +2,12 @@
 
 import { Shield } from 'lucide-react'
 import { AuditLogViewer } from '@/components/audit/AuditLogViewer'
+import { useWorkspaceContext } from '@/components/workspace/WorkspaceProvider'
 
 export default function InstitutionAuditPage() {
+  const { activeWorkspace } = useWorkspaceContext()
+  const institutionId = activeWorkspace?.institution_id ?? undefined
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-6">
@@ -16,7 +20,7 @@ export default function InstitutionAuditPage() {
         </p>
       </div>
 
-      <AuditLogViewer />
+      <AuditLogViewer institutionId={institutionId} />
     </div>
   )
 }

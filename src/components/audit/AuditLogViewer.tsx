@@ -16,10 +16,11 @@ const PAGE_SIZE = 50
 interface AuditLogViewerProps {
   projectId?: string
   institutionId?: string
+  actorId?: string
   compact?: boolean
 }
 
-export function AuditLogViewer({ projectId, institutionId, compact = false }: AuditLogViewerProps) {
+export function AuditLogViewer({ projectId, institutionId, actorId, compact = false }: AuditLogViewerProps) {
   const [entries, setEntries] = useState<AuditLog[]>([])
   const [loading, setLoading] = useState(true)
   const [hasMore, setHasMore] = useState(false)
@@ -41,6 +42,7 @@ export function AuditLogViewer({ projectId, institutionId, compact = false }: Au
 
     if (projectId) query = query.eq('project_id', projectId)
     if (institutionId) query = query.eq('institution_id', institutionId)
+    if (actorId) query = query.eq('actor_id', actorId)
     if (filters.action) query = query.eq('action', filters.action)
     if (filters.resourceType) query = query.eq('resource_type', filters.resourceType)
     if (filters.dateFrom) query = query.gte('timestamp', filters.dateFrom)
@@ -64,12 +66,12 @@ export function AuditLogViewer({ projectId, institutionId, compact = false }: Au
 
     setHasMore(filtered.length === PAGE_SIZE)
     setLoading(false)
-  }, [supabase, projectId, institutionId, filters, offset])
+  }, [supabase, projectId, institutionId, actorId, filters, offset])
 
   useEffect(() => {
     fetchEntries(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, projectId, institutionId])
+  }, [filters, projectId, institutionId, actorId])
 
   if (compact) {
     return (
@@ -93,7 +95,7 @@ export function AuditLogViewer({ projectId, institutionId, compact = false }: Au
         <AuditFilters filters={filters} onChange={f => { setFilters(f); setOffset(0) }} />
         <div className="flex items-center gap-2">
           <HashVerificationBadge projectId={projectId} />
-          <AuditExportButton entries={entries} filename={projectId ? `project-audit-${projectId.slice(0, 8)}` : 'institution-audit'} />
+          <AuditExportButton entries={entries} filename={projectId ? `project-audit-${projectId.slice(0, 8)}` : actorId ? 'personal-audit' : 'institution-audit'} />
         </div>
       </div>
 
