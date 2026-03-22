@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import {
   Plus, Undo2, RotateCcw, Save, ChevronDown, Loader2, GitCommit,
-  Check, X, Trash2, ArrowUpDown
+  Check, X, Trash2, ArrowUpDown, PlusCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -300,6 +300,8 @@ function OperationFormDialog({ type, columns, onAdd, onClose }: OperationFormDia
   const [keep, setKeep] = useState(true)
   const [direction, setDirection] = useState<'asc' | 'desc'>('asc')
   const [selectedCols, setSelectedCols] = useState<string[]>(colNames.slice(0, 1))
+  const [mappingRows, setMappingRows] = useState<{ from: string; to: string }[]>([{ from: '', to: '' }])
+  const [binRows, setBinRows] = useState<{ min: string; max: string; label: string }[]>([{ min: '', max: '', label: '' }])
 
   const handleAdd = () => {
     let op: CleaningOperation | null = null
@@ -348,6 +350,28 @@ function OperationFormDialog({ type, columns, onAdd, onClose }: OperationFormDia
       case 'standardize_text':
         op = { type: 'standardize_text', column: col, operations: ['trim', 'lowercase'] }
         break
+      case 'recode_values': {
+        const mapping: Record<string, string> = {}
+        for (const row of mappingRows) {
+          if (row.from.trim() !== '') mapping[row.from.trim()] = row.to.trim()
+        }
+        if (Object.keys(mapping).length === 0) return
+        op = { type: 'recode_values', column: col, mapping }
+        break
+      }
+      case 'bin_numeric': {
+        if (!value.trim()) return
+        const bins = binRows
+          .filter(b => b.label.trim() !== '')
+          .map(b => ({
+            min: b.min === '' ? null : parseFloat(b.min),
+            max: b.max === '' ? null : parseFloat(b.max),
+            label: b.label.trim(),
+          }))
+        if (bins.length === 0) return
+        op = { type: 'bin_numeric', column: col, new_column: value.trim(), bins }
+        break
+      }
       default:
         return
     }
@@ -365,8 +389,8 @@ function OperationFormDialog({ type, columns, onAdd, onClose }: OperationFormDia
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Column selector (most operations need a column) */}
-          {['rename_column', 'retype_column', 'delete_column', 'fill_missing', 'filter_rows', 'sort_rows', 'computed_column', 'standardize_text'].includes(type) && type !== 'computed_column' && (
+          {/* Column selector — rendered inline for recode_values and bin_numeric, shared here for others */}
+          {['rename_column', 'retype_column', 'delete_column', 'fill_missing', 'filter_rows', 'sort_rows', 'standardize_text'].includes(type) && (
             <div>
               <Label>Column</Label>
               <Select value={col} onValueChange={setCol}>
@@ -533,6 +557,118 @@ function OperationFormDialog({ type, columns, onAdd, onClose }: OperationFormDia
             <p className="text-sm text-gray-600">
               Will trim whitespace and convert to lowercase for column: <strong>{col}</strong>
             </p>
+          )}
+
+          {type === 'recode_values' && (
+            <>
+              <div>
+                <Label>Column</Label>
+                <Select value={col} onValueChange={setCol}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {colNames.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Value Mappings</Label>
+                <p className="text-xs text-gray-500 mb-2">Map each existing value to a new value (e.g. "Yes" → "1", "No" → "0")</p>
+                <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                  {mappingRows.map((row, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <Input
+                        value={row.from}
+                        onChange={e => setMappingRows(prev => prev.map((r, j) => j === i ? { ...r, from: e.target.value } : r))}
+                        placeholder="Old value"
+                        className="h-8 text-sm"
+                      />
+                      <span className="text-gray-400 shrink-0">→</span>
+                      <Input
+                        value={row.to}
+                        onChange={e => setMappingRows(prev => prev.map((r, j) => j === i ? { ...r, to: e.target.value } : r))}
+                        placeholder="New value"
+                        className="h-8 text-sm"
+                      />
+                      <button
+                        onClick={() => setMappingRows(prev => prev.filter((_, j) => j !== i))}
+                        className="text-gray-300 hover:text-red-500 shrink-0"
+                        disabled={mappingRows.length === 1}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setMappingRows(prev => [...prev, { from: '', to: '' }])}
+                  className="mt-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
+                >
+                  <PlusCircle className="h-3.5 w-3.5" /> Add mapping row
+                </button>
+              </div>
+            </>
+          )}
+
+          {type === 'bin_numeric' && (
+            <>
+              <div>
+                <Label>Source Column (numeric)</Label>
+                <Select value={col} onValueChange={setCol}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {colNames.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>New Column Name</Label>
+                <Input value={value} onChange={e => setValue(e.target.value)} placeholder="age_group" className="mt-1" />
+              </div>
+              <div>
+                <Label>Bins</Label>
+                <p className="text-xs text-gray-500 mb-2">Leave Min or Max blank for open-ended ranges (e.g. blank Min = "less than Max")</p>
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {binRows.map((row, i) => (
+                    <div key={i} className="flex items-center gap-1.5">
+                      <Input
+                        value={row.min}
+                        onChange={e => setBinRows(prev => prev.map((r, j) => j === i ? { ...r, min: e.target.value } : r))}
+                        placeholder="Min"
+                        className="h-8 text-sm w-20"
+                        type="number"
+                      />
+                      <span className="text-gray-400 text-xs shrink-0">to</span>
+                      <Input
+                        value={row.max}
+                        onChange={e => setBinRows(prev => prev.map((r, j) => j === i ? { ...r, max: e.target.value } : r))}
+                        placeholder="Max"
+                        className="h-8 text-sm w-20"
+                        type="number"
+                      />
+                      <Input
+                        value={row.label}
+                        onChange={e => setBinRows(prev => prev.map((r, j) => j === i ? { ...r, label: e.target.value } : r))}
+                        placeholder="Label"
+                        className="h-8 text-sm flex-1"
+                      />
+                      <button
+                        onClick={() => setBinRows(prev => prev.filter((_, j) => j !== i))}
+                        className="text-gray-300 hover:text-red-500 shrink-0"
+                        disabled={binRows.length === 1}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setBinRows(prev => [...prev, { min: '', max: '', label: '' }])}
+                  className="mt-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
+                >
+                  <PlusCircle className="h-3.5 w-3.5" /> Add bin
+                </button>
+              </div>
+            </>
           )}
         </div>
 
