@@ -39,6 +39,7 @@ export function DatasetTable({ rows, columns, className = '' }: DatasetTableProp
   const [globalFilter, setGlobalFilter] = useState('')
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [showColumnMenu, setShowColumnMenu] = useState(false)
+  const [columnSearch, setColumnSearch] = useState('')
   const parentRef = useRef<HTMLDivElement>(null)
 
   // Build tanstack column defs from schema
@@ -115,7 +116,7 @@ export function DatasetTable({ rows, columns, className = '' }: DatasetTableProp
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowColumnMenu(v => !v)}
+            onClick={() => { setShowColumnMenu(v => !v); setColumnSearch('') }}
             className="gap-1"
           >
             <Columns className="h-3.5 w-3.5" />
@@ -123,18 +124,51 @@ export function DatasetTable({ rows, columns, className = '' }: DatasetTableProp
             <ChevronDown className="h-3 w-3" />
           </Button>
           {showColumnMenu && (
-            <div className="absolute right-0 top-9 z-50 bg-white border rounded-lg shadow-lg p-2 w-48 max-h-64 overflow-y-auto">
-              {table.getAllLeafColumns().map(col => (
-                <label key={col.id} className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer text-sm">
-                  <input
-                    type="checkbox"
-                    checked={col.getIsVisible()}
-                    onChange={col.getToggleVisibilityHandler()}
-                    className="rounded"
+            <div className="absolute right-0 top-9 z-50 bg-white border rounded-lg shadow-lg w-56" style={{ maxHeight: '320px', display: 'flex', flexDirection: 'column' }}>
+              {/* Search */}
+              <div className="p-2 border-b shrink-0">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                  <Input
+                    value={columnSearch}
+                    onChange={e => setColumnSearch(e.target.value)}
+                    placeholder="Search columns..."
+                    className="pl-7 h-7 text-xs"
+                    autoFocus
                   />
-                  <span className="truncate">{col.id}</span>
-                </label>
-              ))}
+                </div>
+              </div>
+              {/* Select all / Deselect all */}
+              <div className="flex items-center justify-between px-3 py-1.5 border-b shrink-0">
+                <button
+                  className="text-xs text-blue-600 hover:underline"
+                  onClick={() => table.toggleAllColumnsVisible(true)}
+                >
+                  Select all
+                </button>
+                <button
+                  className="text-xs text-blue-600 hover:underline"
+                  onClick={() => table.toggleAllColumnsVisible(false)}
+                >
+                  Deselect all
+                </button>
+              </div>
+              {/* Column list */}
+              <div className="overflow-y-auto flex-1 p-1">
+                {table.getAllLeafColumns()
+                  .filter(col => col.id.toLowerCase().includes(columnSearch.toLowerCase()))
+                  .map(col => (
+                    <label key={col.id} className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer text-sm">
+                      <input
+                        type="checkbox"
+                        checked={col.getIsVisible()}
+                        onChange={col.getToggleVisibilityHandler()}
+                        className="rounded"
+                      />
+                      <span className="truncate">{col.id}</span>
+                    </label>
+                  ))}
+              </div>
             </div>
           )}
         </div>
