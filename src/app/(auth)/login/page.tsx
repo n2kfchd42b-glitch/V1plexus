@@ -54,7 +54,7 @@ function LoginForm() {
     setError('')
 
     if (mode === 'signup') {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -63,7 +63,8 @@ function LoginForm() {
         },
       })
       if (error) setError(error.message)
-      else setEmailSent(true)
+      else if (data.session) router.push('/dashboard')  // confirmation disabled — already signed in
+      else setEmailSent(true)                           // confirmation enabled — show check-email screen
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) setError(error.message)
