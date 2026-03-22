@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useMemo, useCallback } from 'react'
+import { useState, useRef, useMemo, useCallback, useEffect } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -8,7 +8,6 @@ import {
   getFilteredRowModel,
   flexRender,
   type SortingState,
-  type ColumnFiltersState,
   type VisibilityState,
 } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -41,6 +40,25 @@ export function DatasetTable({ rows, columns, className = '' }: DatasetTableProp
   const [showColumnMenu, setShowColumnMenu] = useState(false)
   const [columnSearch, setColumnSearch] = useState('')
   const parentRef = useRef<HTMLDivElement>(null)
+  const columnSearchRef = useRef<HTMLInputElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Focus search input once when the menu opens — not on every re-render
+  useEffect(() => {
+    if (showColumnMenu) columnSearchRef.current?.focus()
+  }, [showColumnMenu])
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    if (!showColumnMenu) return
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowColumnMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showColumnMenu])
 
   // Build tanstack column defs from schema
   const columnDefs = useMemo(() => columns.map(col => ({
@@ -112,7 +130,7 @@ export function DatasetTable({ rows, columns, className = '' }: DatasetTableProp
             className="pl-8 h-8 text-sm"
           />
         </div>
-        <div className="relative">
+        <div className="relative" ref={menuRef}>
           <Button
             variant="outline"
             size="sm"
@@ -129,12 +147,12 @@ export function DatasetTable({ rows, columns, className = '' }: DatasetTableProp
               <div className="p-2 border-b shrink-0">
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-                  <Input
+                  <input
+                    ref={columnSearchRef}
                     value={columnSearch}
                     onChange={e => setColumnSearch(e.target.value)}
                     placeholder="Search columns..."
-                    className="pl-7 h-7 text-xs"
-                    autoFocus
+                    className="pl-7 h-7 text-xs w-full rounded-md border border-input bg-transparent px-3 py-1 shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   />
                 </div>
               </div>
@@ -142,12 +160,14 @@ export function DatasetTable({ rows, columns, className = '' }: DatasetTableProp
               <div className="flex items-center justify-between px-3 py-1.5 border-b shrink-0">
                 <button
                   className="text-xs text-blue-600 hover:underline"
+                  onMouseDown={e => e.preventDefault()}
                   onClick={() => table.toggleAllColumnsVisible(true)}
                 >
                   Select all
                 </button>
                 <button
                   className="text-xs text-blue-600 hover:underline"
+                  onMouseDown={e => e.preventDefault()}
                   onClick={() => table.toggleAllColumnsVisible(false)}
                 >
                   Deselect all
@@ -179,7 +199,7 @@ export function DatasetTable({ rows, columns, className = '' }: DatasetTableProp
 
       {/* Table with virtualized scrolling */}
       <div ref={parentRef} className="flex-1 overflow-auto">
-        <table className="w-full border-collapse" style={{ minWidth: `${visibleCols.length * 150}px` }}>
+        <table className="w-full border-collapse" style={{ minWidth: `${Math.max(visibleCols.length, 1) * 150}px` }}>
           <thead className="sticky top-0 z-10 bg-gray-50">
             {table.getHeaderGroups().map(headerGroup => (
               <tr key={headerGroup.id}>
