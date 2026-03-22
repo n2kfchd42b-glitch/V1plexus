@@ -1,0 +1,273 @@
+"use client"
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { FlaskConical, Plus, X } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
+
+const INSTITUTION_TYPES = [
+  { value: 'university', label: 'University' },
+  { value: 'research_institute', label: 'Research Center' },
+  { value: 'ngo', label: 'NGO' },
+  { value: 'hospital', label: 'Hospital' },
+  { value: 'government', label: 'Government' },
+  { value: 'other', label: 'Other' },
+]
+
+export function InstitutionCreateForm() {
+  const [name, setName] = useState('')
+  const [slug, setSlug] = useState('')
+  const [type, setType] = useState('university')
+  const [country, setCountry] = useState('')
+  const [departments, setDepartments] = useState<string[]>([''])
+  const [loading, setLoading] = useState(false)
+  const router = useRouter()
+  const supabase = createClient()
+
+  const generateSlug = (val: string) => {
+    return val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+  }
+
+  const handleNameChange = (val: string) => {
+    setName(val)
+    if (!slug || slug === generateSlug(name)) {
+      setSlug(generateSlug(val))
+    }
+  }
+
+  const addDepartment = () => setDepartments(d => [...d, ''])
+  const removeDepartment = (i: number) => setDepartments(d => d.filter((_, idx) => idx !== i))
+  const updateDepartment = (i: number, val: string) => {
+    setDepartments(d => d.map((dep, idx) => idx === i ? val : dep))
+  }
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!name.trim()) { toast.error('Institution name is required'); return }
+    setLoading(true)
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setLoading(false); return }
+
+    // Create institution
+    const { data: inst, error: instErr } = await supabase
+      .from('institutions')
+      .insert({ name: name.trim(), type, country: country || null })
+      .select('id')
+      .single()
+
+    if (instErr) {
+      toast.error(instErr.message)
+      setLoading(false)
+      return
+    }
+
+    // Create departments
+    const validDepts = departments.filter(d => d.trim())
+    if (validDepts.length > 0) {
+      await supabase.from('departments').insert(
+        validDepts.map(d => ({ institution_id: inst.id, name: d.trim() }))
+      )
+    }
+
+    // Create institutional workspace
+    const wsSlug = slug || generateSlug(name)
+    const { data: ws, error: wsErr } = await supabase
+      .from('workspaces')
+      .insert({
+        type: 'institutional',
+        name: name.trim(),
+        slug: wsSlug,
+        institution_id: inst.id,
+      })
+      .select('id')
+      .single()
+
+    if (wsErr) {
+      toast.error(wsErr.message)
+      setLoading(false)
+      return
+    }
+
+    // Create admin membership in institutional workspace
+    await supabase.from('workspace_memberships').insert({
+      workspace_id: ws.id,
+      user_id: user.id,
+      role: 'admin',
+      status: 'active',
+    })
+
+    // Ensure personal workspace exists
+    const personalSlug = `personal-${user.id}`
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    const { data: existingPersonal } = await supabase
+      .from('workspaces')
+      .select('id')
+      .eq('owner_id', user.id)
+      .eq('type', 'personal')
+      .maybeSingle()
+
+    if (!existingPersonal) {
+      const workspaceName = (profile?.full_name ?? user.email ?? 'My') + "'s Workspace"
+      const { data: personalWs } = await supabase
+        .from('workspaces')
+        .insert({ type: 'personal', name: workspaceName, slug: personalSlug, owner_id: user.id })
+        .select('id')
+        .single()
+      if (personalWs) {
+        await supabase.from('workspace_memberships').insert({
+          workspace_id: personalWs.id,
+          user_id: user.id,
+          role: 'owner',
+          status: 'active',
+        })
+      }
+    }
+
+    // Mark setup completed + update institution_id on profile
+    await supabase
+      .from('profiles')
+      .update({
+        workspace_setup_completed: true,
+        onboarding_completed: true,
+        institution_id: inst.id,
+      })
+      .eq('id', user.id)
+
+    toast.success('Institution created!')
+    // Store workspace id so switcher auto-selects it
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('plexus_active_workspace_id', ws.id)
+    }
+    router.push('/dashboard')
+    setLoading(false)
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="w-full max-w-lg">
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <FlaskConical className="h-8 w-8 text-blue-600" />
+            <span className="text-2xl font-bold text-gray-900">PLEXUS</span>
+          </div>
+          <h2 className="text-xl font-bold text-gray-900">Create Your Institution on PLEXUS</h2>
+          <p className="text-sm text-gray-600 mt-1">You will become the Institution Admin</p>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <form onSubmit={handleCreate} className="space-y-4">
+            <div>
+              <Label htmlFor="instName">Institution Name</Label>
+              <Input
+                id="instName"
+                placeholder="University of Ghana School of Public Health"
+                value={name}
+                onChange={e => handleNameChange(e.target.value)}
+                required
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="instSlug">Short Name / Slug</Label>
+              <Input
+                id="instSlug"
+                placeholder="ug-sph"
+                value={slug}
+                onChange={e => setSlug(generateSlug(e.target.value))}
+                className="mt-1 font-mono text-sm"
+              />
+              <p className="text-xs text-gray-400 mt-1">Used in URLs. Auto-generated from name.</p>
+            </div>
+
+            <div>
+              <Label>Type</Label>
+              <div className="flex gap-4 mt-2">
+                {INSTITUTION_TYPES.map(t => (
+                  <label key={t.value} className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="instType"
+                      value={t.value}
+                      checked={type === t.value}
+                      onChange={() => setType(t.value)}
+                      className="text-blue-600"
+                    />
+                    <span className="text-sm text-gray-700">{t.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="instCountry">Country</Label>
+              <Input
+                id="instCountry"
+                placeholder="Ghana"
+                value={country}
+                onChange={e => setCountry(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+
+            {/* Departments */}
+            <div>
+              <Label className="block mb-2">
+                Departments <span className="text-gray-400 text-xs">(optional, can add later)</span>
+              </Label>
+              <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50">
+                {departments.map((dept, i) => (
+                  <div key={i} className="flex gap-2">
+                    <Input
+                      placeholder="Department name…"
+                      value={dept}
+                      onChange={e => updateDepartment(i, e.target.value)}
+                      className="flex-1 h-8 text-sm bg-white"
+                    />
+                    {departments.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeDepartment(i)}
+                        className="text-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addDepartment}
+                  className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 mt-1"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add Department
+                </button>
+              </div>
+            </div>
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Creating institution…' : 'Create Institution →'}
+            </Button>
+          </form>
+        </div>
+
+        <button
+          onClick={() => router.back()}
+          className="mt-4 text-sm text-gray-500 hover:text-gray-700 w-full text-center"
+        >
+          ← Back
+        </button>
+      </div>
+    </div>
+  )
+}

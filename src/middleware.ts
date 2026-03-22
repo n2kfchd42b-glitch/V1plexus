@@ -30,20 +30,46 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  const isAuthPage =
-    pathname.startsWith("/login") || pathname.startsWith("/register");
-  const isProtected = !isAuthPage && pathname !== "/";
 
+  const isAuthPage =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register");
+
+  const isSetupPage = pathname.startsWith("/setup");
+
+  const isInvitePage = pathname.startsWith("/invite/");
+
+  const isProtected =
+    !isAuthPage && !isSetupPage && !isInvitePage && pathname !== "/";
+
+  // Redirect unauthenticated users to login
   if (isProtected && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
+  // Redirect authenticated users away from auth pages (except to setup)
   if (isAuthPage && user) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
+  }
+
+  // If authenticated and on a protected page, check if workspace setup is needed
+  if (user && isProtected && !isSetupPage) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("workspace_setup_completed")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    // If profile exists and setup NOT completed, redirect to setup
+    if (profile && !profile.workspace_setup_completed) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/setup";
+      return NextResponse.redirect(url);
+    }
   }
 
   return supabaseResponse;

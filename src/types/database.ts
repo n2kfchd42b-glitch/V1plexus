@@ -1,4 +1,10 @@
 export type UserRole = 'researcher' | 'pi' | 'coordinator' | 'admin'
+export type WorkspaceType = 'personal' | 'institutional'
+export type WorkspaceMemberRole = 'owner' | 'admin' | 'department_head' | 'supervisor' | 'pi' | 'researcher' | 'student' | 'collaborator' | 'viewer'
+export type WorkspaceMemberStatus = 'invited' | 'active' | 'suspended' | 'left'
+export type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'expired'
+export type ProjectInviteRole = 'co_pi' | 'researcher' | 'collaborator' | 'reviewer' | 'viewer'
+export type SupervisorAssignmentStatus = 'active' | 'ended' | 'transferred'
 export type DatasetSource = 'upload' | 'kobo' | 'redcap' | 'csv' | 'excel' | 'spss' | 'merge' | 'append' | 'clean' | 'branch'
 export type AnalysisEngine = 'r' | 'python'
 export type AnalysisStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
@@ -49,9 +55,86 @@ export interface Profile {
   institution_id: string | null
   department_id: string | null
   onboarding_completed: boolean
+  workspace_setup_completed: boolean
   created_at: string
   updated_at: string
   institution?: Institution
+  department?: Department
+}
+
+export interface Workspace {
+  id: string
+  type: WorkspaceType
+  name: string
+  slug: string
+  owner_id: string | null
+  institution_id: string | null
+  avatar_url: string | null
+  settings: Record<string, unknown>
+  created_at: string
+  updated_at: string
+  institution?: Institution
+  owner?: Profile
+}
+
+export interface WorkspaceMembership {
+  id: string
+  workspace_id: string
+  user_id: string
+  role: WorkspaceMemberRole
+  department_id: string | null
+  supervisor_id: string | null
+  joined_at: string
+  invited_by: string | null
+  status: WorkspaceMemberStatus
+  workspace?: Workspace
+  user?: Profile
+  department?: Department
+  supervisor?: Profile
+}
+
+export interface WorkspaceInvitation {
+  id: string
+  workspace_id: string
+  email: string
+  role: WorkspaceMemberRole
+  department_id: string | null
+  supervisor_id: string | null
+  message: string | null
+  token: string
+  invited_by: string
+  status: InvitationStatus
+  expires_at: string
+  created_at: string
+  workspace?: Workspace
+}
+
+export interface ProjectInvitation {
+  id: string
+  project_id: string
+  email: string
+  role: ProjectInviteRole
+  message: string | null
+  token: string
+  invited_by: string
+  status: InvitationStatus
+  expires_at: string
+  created_at: string
+  project?: Project
+}
+
+export interface SupervisorAssignment {
+  id: string
+  workspace_id: string
+  department_id: string
+  supervisor_id: string
+  student_id: string
+  assigned_by: string | null
+  status: SupervisorAssignmentStatus
+  assigned_at: string
+  ended_at: string | null
+  supervisor?: Profile
+  student?: Profile
   department?: Department
 }
 
@@ -62,6 +145,7 @@ export interface Project {
   status: ProjectStatus
   phase: ProjectPhase | null
   owner_id: string
+  workspace_id: string | null
   institution_id: string | null
   department_id: string | null
   start_date: string | null
@@ -70,6 +154,7 @@ export interface Project {
   updated_at: string
   deleted_at: string | null
   owner?: Profile
+  workspace?: Workspace
 }
 
 export interface ProjectMember {
