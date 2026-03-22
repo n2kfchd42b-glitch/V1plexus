@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { EthicsApplication } from "@/lib/types/database";
 
@@ -141,10 +141,11 @@ export function EthicsApplicationForm({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Status
             </label>
+            <div className="relative">
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as EthicsStatus)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-8 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
             >
               {STATUSES.map((s) => (
                 <option key={s.value} value={s.value}>
@@ -152,6 +153,8 @@ export function EthicsApplicationForm({
                 </option>
               ))}
             </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

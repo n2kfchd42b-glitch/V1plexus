@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { FlaskConical, Building2 } from 'lucide-react'
+import { FlaskConical, Building2, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -209,17 +209,20 @@ export function InstitutionJoinForm({ institutionId }: InstitutionJoinFormProps)
             {departments.length > 0 && (
               <div>
                 <Label htmlFor="department">Department</Label>
+                <div className="relative">
                 <select
                   id="department"
                   value={selectedDepartment}
                   onChange={e => setSelectedDepartment(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className="mt-1 w-full rounded-md border border-gray-200 px-3 py-2 pr-8 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 >
                   <option value="">Select department…</option>
                   {departments.map(d => (
                     <option key={d.id} value={d.id}>{d.name}</option>
                   ))}
                 </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                </div>
               </div>
             )}
 
@@ -238,16 +241,19 @@ export function InstitutionJoinForm({ institutionId }: InstitutionJoinFormProps)
                     <span className="text-sm text-gray-700">I know my supervisor — let me select them:</span>
                   </label>
                   {!noSupervisor && supervisors.length > 0 && (
+                    <div className="relative ml-5">
                     <select
                       value={selectedSupervisor}
                       onChange={e => setSelectedSupervisor(e.target.value)}
-                      className="ml-5 w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      className="w-full rounded-md border border-gray-200 px-3 py-2 pr-8 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                     >
                       <option value="">Select supervisor…</option>
                       {supervisors.map(s => (
                         <option key={s.id} value={s.id}>{s.full_name ?? s.email}</option>
                       ))}
                     </select>
+                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                    </div>
                   )}
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input

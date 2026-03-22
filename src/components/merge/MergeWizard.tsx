@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ChevronRight, ChevronLeft, Loader2, Check, AlertCircle } from 'lucide-react'
+import { ChevronRight, ChevronLeft, ChevronDown, Loader2, Check, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { createClient } from '@/lib/supabase/client'
@@ -298,29 +298,35 @@ export function MergeWizard({ projectId, currentDatasetId, onComplete, onCancel 
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Left dataset</label>
+                  <div className="relative">
                   <select
                     value={leftDatasetId}
                     onChange={e => setLeftDatasetId(e.target.value)}
-                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 pr-8 appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Select a dataset</option>
                     {datasets.map(d => (
                       <option key={d.id} value={d.id}>{d.name}</option>
                     ))}
                   </select>
+                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Right dataset</label>
+                  <div className="relative">
                   <select
                     value={rightDatasetId}
                     onChange={e => setRightDatasetId(e.target.value)}
-                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 pr-8 appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Select a dataset</option>
                     {datasets.filter(d => d.id !== leftDatasetId).map(d => (
                       <option key={d.id} value={d.id}>{d.name}</option>
                     ))}
                   </select>
+                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                  </div>
                 </div>
               </div>
             )}
@@ -395,32 +401,38 @@ export function MergeWizard({ projectId, currentDatasetId, onComplete, onCancel 
                   Left key column
                   <span className="ml-1 font-normal text-gray-400">({datasets.find(d => d.id === leftDatasetId)?.name})</span>
                 </label>
+                <div className="relative">
                 <select
                   value={leftKey}
                   onChange={e => setLeftKey(e.target.value)}
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 pr-8 appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select column</option>
                   {leftColumns.map(c => (
                     <option key={c.name} value={c.name}>{c.name} ({c.type})</option>
                   ))}
                 </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Right key column
                   <span className="ml-1 font-normal text-gray-400">({datasets.find(d => d.id === rightDatasetId)?.name})</span>
                 </label>
+                <div className="relative">
                 <select
                   value={rightKey}
                   onChange={e => setRightKey(e.target.value)}
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 pr-8 appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select column</option>
                   {rightColumns.map(c => (
                     <option key={c.name} value={c.name}>{c.name} ({c.type})</option>
                   ))}
                 </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                </div>
               </div>
             </div>
 

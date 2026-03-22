@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { Trash2, Save } from 'lucide-react'
+import { Trash2, Save, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -158,27 +158,33 @@ export default function ProjectSettingsPage() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label htmlFor="proj-status" className="text-xs font-medium text-[var(--text-secondary)]">Status</Label>
-            <select
-              id="proj-status"
-              value={status}
-              onChange={e => setStatus(e.target.value as Project['status'])}
-              className="mt-1.5 w-full h-9 px-3 text-sm bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-md outline-none focus:border-[var(--border-focus)] focus:ring-2 focus:ring-[var(--accent-blue)]/20 text-[var(--text-primary)]"
-            >
-              {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+            <div className="relative">
+              <select
+                id="proj-status"
+                value={status}
+                onChange={e => setStatus(e.target.value as Project['status'])}
+                className="mt-1.5 w-full h-9 px-3 pr-8 text-sm appearance-none bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-md outline-none focus:border-[var(--border-focus)] focus:ring-2 focus:ring-[var(--accent-blue)]/20 text-[var(--text-primary)]"
+              >
+                {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+            </div>
           </div>
 
           <div>
             <Label htmlFor="proj-phase" className="text-xs font-medium text-[var(--text-secondary)]">Phase</Label>
-            <select
-              id="proj-phase"
-              value={phase}
-              onChange={e => setPhase(e.target.value)}
-              className="mt-1.5 w-full h-9 px-3 text-sm bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-md outline-none focus:border-[var(--border-focus)] focus:ring-2 focus:ring-[var(--accent-blue)]/20 text-[var(--text-primary)]"
-            >
-              <option value="">— Select phase —</option>
-              {PHASE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+            <div className="relative">
+              <select
+                id="proj-phase"
+                value={phase}
+                onChange={e => setPhase(e.target.value)}
+                className="mt-1.5 w-full h-9 px-3 pr-8 text-sm appearance-none bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-md outline-none focus:border-[var(--border-focus)] focus:ring-2 focus:ring-[var(--accent-blue)]/20 text-[var(--text-primary)]"
+              >
+                <option value="">— Select phase —</option>
+                {PHASE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+            </div>
           </div>
         </div>
 

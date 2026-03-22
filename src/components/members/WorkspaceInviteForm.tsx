@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -90,31 +91,37 @@ export function WorkspaceInviteForm({ onInvited }: { onInvited?: () => void }) {
         </div>
         <div>
           <Label htmlFor="wsInviteRole" className="text-xs">Role</Label>
-          <select
-            id="wsInviteRole"
-            value={role}
-            onChange={e => setRole(e.target.value as WorkspaceMemberRole)}
-            className="mt-1 w-full rounded-md border border-[var(--border-default)] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[var(--bg-surface)] text-[var(--text-primary)]"
-          >
-            {ROLES.map(r => (
-              <option key={r.value} value={r.value}>{r.label}</option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              id="wsInviteRole"
+              value={role}
+              onChange={e => setRole(e.target.value as WorkspaceMemberRole)}
+              className="mt-1 w-full rounded-md border border-[var(--border-default)] px-3 py-1.5 pr-8 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[var(--bg-surface)] text-[var(--text-primary)]"
+            >
+              {ROLES.map(r => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+          </div>
         </div>
         {departments.length > 0 && (
           <div>
             <Label htmlFor="wsInviteDept" className="text-xs">Department <span className="text-gray-400">(optional)</span></Label>
-            <select
-              id="wsInviteDept"
-              value={departmentId}
-              onChange={e => setDepartmentId(e.target.value)}
-              className="mt-1 w-full rounded-md border border-[var(--border-default)] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[var(--bg-surface)] text-[var(--text-primary)]"
-            >
-              <option value="">No department</option>
-              {departments.map(d => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                id="wsInviteDept"
+                value={departmentId}
+                onChange={e => setDepartmentId(e.target.value)}
+                className="mt-1 w-full rounded-md border border-[var(--border-default)] px-3 py-1.5 pr-8 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[var(--bg-surface)] text-[var(--text-primary)]"
+              >
+                <option value="">No department</option>
+                {departments.map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+            </div>
           </div>
         )}
         <Button type="submit" size="sm" disabled={loading} className="w-full">

@@ -1,6 +1,7 @@
 'use client'
 
 import type { ColumnSchema } from '@/types/database'
+import { ChevronDown } from 'lucide-react'
 
 interface ColumnMappingTableProps {
   leftColumns: ColumnSchema[]
@@ -100,10 +101,11 @@ export function ColumnMappingTable({
             >
               {/* Left side: select which left column to map to */}
               <div className="px-4 py-2">
+                <div className="relative">
                 <select
                   value={mappedLeft ?? ''}
                   onChange={(e) => handleMappingChange(rightCol.name, e.target.value)}
-                  className="w-full text-sm border border-gray-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full text-sm border border-gray-200 rounded px-2 py-1 pr-7 appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">-- none --</option>
                   {leftColNames.map((name) => (
@@ -112,6 +114,8 @@ export function ColumnMappingTable({
                     </option>
                   ))}
                 </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                </div>
               </div>
 
               {/* Status badge */}

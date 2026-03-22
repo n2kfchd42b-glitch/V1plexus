@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { FlaskConical } from 'lucide-react'
+import { FlaskConical, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -115,17 +115,20 @@ export function IndividualSetup() {
           <form onSubmit={handleSetup} className="space-y-4">
             <div>
               <Label htmlFor="researchArea">Research Area <span className="text-gray-400 text-xs">(optional)</span></Label>
-              <select
-                id="researchArea"
-                value={researchArea}
-                onChange={e => setResearchArea(e.target.value)}
-                className="mt-1 w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                <option value="">Select research area…</option>
-                {RESEARCH_AREAS.map(area => (
-                  <option key={area} value={area}>{area}</option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  id="researchArea"
+                  value={researchArea}
+                  onChange={e => setResearchArea(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-gray-200 px-3 py-2 pr-8 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">Select research area…</option>
+                  {RESEARCH_AREAS.map(area => (
+                    <option key={area} value={area}>{area}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+              </div>
             </div>
 
             <div>

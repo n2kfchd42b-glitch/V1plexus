@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Table2, BarChart2, Loader2, Database, ChevronRight } from 'lucide-react'
+import { Table2, BarChart2, Loader2, Database, ChevronRight, ChevronDown } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -256,10 +256,11 @@ export function InsertDataModal({
                   <div className="space-y-3">
                     <div>
                       <label className="block text-sm font-medium mb-1">Version</label>
+                      <div className="relative">
                       <select
                         value={selectedVersionId}
                         onChange={e => setSelectedVersionId(e.target.value)}
-                        className="w-full text-sm border rounded-lg px-3 py-2 bg-white"
+                        className="w-full text-sm border rounded-lg px-3 py-2 pr-8 appearance-none bg-white"
                       >
                         {versions.map(v => (
                           <option key={v.id} value={v.id}>
@@ -267,6 +268,8 @@ export function InsertDataModal({
                           </option>
                         ))}
                       </select>
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                      </div>
                     </div>
 
                     {selectedVersion && (
