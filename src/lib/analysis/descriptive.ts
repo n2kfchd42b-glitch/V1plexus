@@ -55,18 +55,7 @@ export function runDescriptive(data: DataRow[], config: DescriptiveConfig): Anal
     for (const v of numericVars) {
       const vals = getNumericValues(data, v)
       const bins = createHistogramBins(vals, 20)
-      chartData.push({ variable: v, type: 'histogram', bins })
-      // Boxplot data
-      const q1 = percentile(vals, 25)
-      const q3 = percentile(vals, 75)
-      const iqr = q3 - q1
-      chartData.push({
-        variable: v, type: 'boxplot',
-        min: Math.min(...vals), q1, median: median(vals), q3, max: Math.max(...vals),
-        whiskerLow: Math.max(Math.min(...vals), q1 - 1.5 * iqr),
-        whiskerHigh: Math.min(Math.max(...vals), q3 + 1.5 * iqr),
-        outliers: vals.filter(x => x < q1 - 1.5 * iqr || x > q3 + 1.5 * iqr)
-      })
+      chartData.push({ type: 'histogram', title: `Distribution: ${v}`, data: bins, config: {} })
     }
   }
 
@@ -93,7 +82,7 @@ export function runDescriptive(data: DataRow[], config: DescriptiveConfig): Anal
       const barData = [...freq.entries()].map(([value, count]) => ({
         value, count, percent: (count / vals.length * 100).toFixed(1)
       })).sort((a, b) => b.count - a.count)
-      chartData.push({ variable: v, type: 'bar', data: barData })
+      chartData.push({ type: 'bar', title: `Frequency: ${v}`, data: barData, config: {} })
     }
   }
 
