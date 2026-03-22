@@ -62,7 +62,7 @@ export function AuditLogViewer({ projectId, institutionId, compact = false }: Au
       setOffset(prev => prev + PAGE_SIZE)
     }
 
-    setHasMore(results.length === PAGE_SIZE)
+    setHasMore(filtered.length === PAGE_SIZE)
     setLoading(false)
   }, [supabase, projectId, institutionId, filters, offset])
 
