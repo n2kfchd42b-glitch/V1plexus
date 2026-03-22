@@ -281,8 +281,8 @@ export function runLogisticRegression(data: DataRow[], config: LogisticRegressio
   const n = completeCases.length
   const k = allPredictorNames.length
 
-  if (n < k + 10) {
-    return errorResult('logistic_regression', 'Insufficient observations')
+  if (n < k + 2) {
+    return errorResult('logistic_regression', `Insufficient observations: ${n} complete cases for ${k} predictor(s). Need at least ${k + 2} rows with no missing values.`)
   }
 
   // Build X and y
@@ -456,10 +456,16 @@ function generateLogisticInterpretation(beta: number[], ses: number[], names: st
     return null
   }).filter(Boolean)
 
+  const epv = events / names.length
+  const smallSampleWarning = epv < 10
+    ? `\n\n⚠️ Small sample warning: Events Per Variable (EPV) = ${fmt(epv, 1)} (${events} events across ${names.length} predictor(s)). EPV < 10 may produce unstable estimates — interpret with caution.`
+    : ''
+
   return `Logistic regression (n=${n}, events=${events}). Model AUC = ${fmt(auc, 3)}, Nagelkerke R² = ${fmt(r2, 3)}. ` +
     (sigPreds.length > 0
       ? `Significant predictors: ${sigPreds.join(', ')}.`
-      : 'No predictors significant at p<0.05.')
+      : 'No predictors significant at p<0.05.') +
+    smallSampleWarning
 }
 
 function computeAUC(y: number[], scores: number[]): number {
