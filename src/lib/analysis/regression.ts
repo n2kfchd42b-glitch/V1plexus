@@ -272,9 +272,20 @@ export function runLogisticRegression(data: DataRow[], config: LogisticRegressio
     }
   }
 
+  const TRUTHY = new Set(['1', 'true', 'yes', 'TRUE', 'YES', 'True', 'Yes'])
+  const FALSY  = new Set(['0', 'false', 'no', 'FALSE', 'NO', 'False', 'No'])
+
   const completeCases = data.filter(row => {
-    const y = parseFloat(String(row[outcome] ?? ''))
-    if (isNaN(y)) return false
+    const raw = String(row[outcome] ?? '').trim()
+    if (raw === '') return false
+    // Accept numeric outcomes and known categorical binary values
+    const numY = parseFloat(raw)
+    if (!isNaN(numY)) {
+      // numeric: valid only if 0 or 1
+      if (numY !== 0 && numY !== 1) return false
+    } else if (!TRUTHY.has(raw) && !FALSY.has(raw)) {
+      return false
+    }
     return predictors.every(v => row[v] !== null && row[v] !== undefined && row[v] !== '')
   })
 
@@ -282,7 +293,10 @@ export function runLogisticRegression(data: DataRow[], config: LogisticRegressio
   const k = allPredictorNames.length
 
   if (n < k + 2) {
-    return errorResult('logistic_regression', `Insufficient observations: ${n} complete cases for ${k} predictor(s). Need at least ${k + 2} rows with no missing values.`)
+    const hint = n === 0
+      ? `No rows matched — ensure the outcome column contains binary values (0/1, Yes/No, True/False) and all predictor columns are non-empty.`
+      : `Need at least ${k + 2} rows with no missing values across all selected columns.`
+    return errorResult('logistic_regression', `Insufficient observations: ${n} complete case(s) for ${k} predictor(s). ${hint}`)
   }
 
   // Build X and y
@@ -301,8 +315,8 @@ export function runLogisticRegression(data: DataRow[], config: LogisticRegressio
   })
 
   const y: number[] = completeCases.map(row => {
-    const val = row[outcome]
-    if (val === 1 || val === '1' || val === (true as unknown) || val === 'yes' || val === 'Yes' || val === 'TRUE') return 1
+    const raw = String(row[outcome] ?? '').trim()
+    if (TRUTHY.has(raw) || raw === '1' || parseFloat(raw) === 1) return 1
     return 0
   })
 
