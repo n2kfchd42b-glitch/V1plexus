@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderOpen, ClipboardList, Bell, Settings,
-  Command, Building2, Users, GraduationCap, UserCheck, Database, Activity
+  Command, Building2, Users, GraduationCap, UserCheck, Database, Activity, ClipboardCheck, Download
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useWorkspaceContext } from '@/components/workspace/WorkspaceProvider'
@@ -24,10 +24,11 @@ export function InstitutionalSidebar({ collapsed, onCommandPalette }: Institutio
   const dataActive = dataHref ? pathname.startsWith(dataHref) : false
 
   const coreNav = [
-    { href: '/dashboard',     label: 'Dashboard',  icon: LayoutDashboard, shortcut: 'G D' },
-    { href: '/projects',      label: 'Projects',   icon: FolderOpen,      shortcut: 'G P' },
-    { href: '/reviews',       label: 'Reviews',    icon: ClipboardList,   shortcut: 'G R' },
-    { href: '/notifications', label: 'Notifications', icon: Bell,         shortcut: 'G N' },
+    { href: '/dashboard',     label: 'Dashboard',     icon: LayoutDashboard, shortcut: 'G D' },
+    { href: '/projects',      label: 'Projects',      icon: FolderOpen,      shortcut: 'G P' },
+    { href: '/reviews',       label: 'Reviews',       icon: ClipboardList,   shortcut: 'G R' },
+    { href: '/notifications', label: 'Notifications', icon: Bell,            shortcut: 'G N' },
+    { href: '/exports',       label: 'Exports',       icon: Download },
   ]
 
   const institutionNav = [
@@ -43,6 +44,7 @@ export function InstitutionalSidebar({ collapsed, onCommandPalette }: Institutio
     ] : []),
     ...(isAdmin ? [
       { href: '/institution', label: 'Institution Settings', icon: Building2 },
+      { href: '/institution/compliance', label: 'Compliance', icon: ClipboardCheck },
       { href: '/institution/audit', label: 'Audit Trail', icon: Activity },
     ] : []),
   ]
