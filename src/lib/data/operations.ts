@@ -168,15 +168,21 @@ export function applyOperation(rows: DataRow[], columns: ColumnSchema[], op: Cle
 
     case 'recode_values': {
       let affected = 0
+      const targetCol = op.output_column?.trim() || op.column
+      const isNewCol = targetCol !== op.column
       newRows = rows.map(r => {
         const k = String(r[op.column])
         if (k in op.mapping) {
           affected++
-          return { ...r, [op.column]: op.mapping[k] }
+          return { ...r, [targetCol]: op.mapping[k] }
         }
-        return r
+        return isNewCol ? { ...r, [targetCol]: r[op.column] } : r
       })
-      return { rows: newRows, columns, affected_rows: affected }
+      if (isNewCol) {
+        const vals = newRows.map(r => r[targetCol])
+        newColumns = [...columns, computeColumnSchema(targetCol, vals)]
+      }
+      return { rows: newRows, columns: newColumns, affected_rows: affected }
     }
 
     case 'bin_numeric': {
@@ -192,6 +198,37 @@ export function applyOperation(rows: DataRow[], columns: ColumnSchema[], op: Cle
         }
         return { ...r, [op.new_column]: label }
       })
+      return { rows: newRows, columns: newColumns, affected_rows: rows.length }
+    }
+
+    case 'split_column': {
+      const parts_count = op.new_columns.length
+      newRows = rows.map(r => {
+        const val = r[op.column] === null ? '' : String(r[op.column])
+        const parts = val.split(op.delimiter)
+        const newRow = { ...r }
+        op.new_columns.forEach((name, i) => {
+          newRow[name] = parts[i]?.trim() ?? null
+        })
+        if (!op.keep_original) delete newRow[op.column]
+        return newRow
+      })
+      const newColSchemas = op.new_columns.map(name =>
+        computeColumnSchema(name, newRows.map(r => r[name]))
+      )
+      newColumns = op.keep_original
+        ? [...columns, ...newColSchemas]
+        : [...columns.filter(c => c.name !== op.column), ...newColSchemas]
+      return { rows: newRows, columns: newColumns, affected_rows: rows.length }
+    }
+
+    case 'replace_column': {
+      const targetCol = op.new_column?.trim() || op.column
+      const isNewCol = targetCol !== op.column
+      newRows = rows.map(r => ({ ...r, [targetCol]: op.replace_value }))
+      if (isNewCol) {
+        newColumns = [...columns, computeColumnSchema(targetCol, newRows.map(r => r[targetCol]))]
+      }
       return { rows: newRows, columns: newColumns, affected_rows: rows.length }
     }
 

@@ -26,15 +26,18 @@ const OP_LABELS: Record<string, string> = {
   rename_column: 'Rename Column',
   retype_column: 'Change Type',
   delete_column: 'Delete Column',
+  reorder_columns: 'Reorder Columns',
   drop_missing: 'Drop Missing Rows',
-  fill_missing: 'Fill Missing Values',
+  fill_missing: 'Fill / Impute Missing Values',
   filter_rows: 'Filter Rows',
   remove_duplicates: 'Remove Duplicates',
   sort_rows: 'Sort Rows',
-  computed_column: 'Computed Column',
+  computed_column: 'Add Computed Column',
   recode_values: 'Recode Values',
-  bin_numeric: 'Bin Numeric',
+  bin_numeric: 'Bin Numeric Column',
   standardize_text: 'Standardize Text',
+  split_column: 'Split Column',
+  replace_column: 'Replace Column Values',
 }
 
 const COLUMN_TYPES: ColumnType[] = ['text', 'number', 'integer', 'decimal', 'date', 'boolean', 'categorical']
@@ -54,9 +57,12 @@ function opSummary(op: CleaningOperation): string {
     case 'remove_duplicates': return `Remove duplicates by: ${op.columns.join(', ')}`
     case 'sort_rows': return `Sort by "${op.column}" ${op.direction}`
     case 'computed_column': return `New column "${op.name}"`
-    case 'recode_values': return `Recode "${op.column}" values`
+    case 'recode_values': return op.output_column ? `Recode "${op.column}" → new col "${op.output_column}"` : `Recode "${op.column}" in place`
     case 'bin_numeric': return `Bin "${op.column}" → "${op.new_column}"`
     case 'standardize_text': return `Standardize "${op.column}"`
+    case 'reorder_columns': return `Reorder ${op.order.length} columns`
+    case 'split_column': return `Split "${op.column}" on "${op.delimiter}" → ${op.new_columns.join(', ')}`
+    case 'replace_column': return op.new_column ? `Replace "${op.column}" → new col "${op.new_column}"` : `Replace all values in "${op.column}"`
     default: return 'Operation'
   }
 }
@@ -303,7 +309,13 @@ function OperationFormDialog({ type, columns, rows, onAdd, onClose }: OperationF
   const [direction, setDirection] = useState<'asc' | 'desc'>('asc')
   const [selectedCols, setSelectedCols] = useState<string[]>(colNames.slice(0, 1))
   const [mappingRows, setMappingRows] = useState<{ from: string; to: string }[]>([{ from: '', to: '' }])
+  const [outputCol, setOutputCol] = useState('')
   const [binRows, setBinRows] = useState<{ min: string; max: string; label: string }[]>([{ min: '', max: '', label: '' }])
+  const [splitDelimiter, setSplitDelimiter] = useState(',')
+  const [splitNewCols, setSplitNewCols] = useState<string[]>(['', ''])
+  const [keepOriginal, setKeepOriginal] = useState(true)
+  const [replaceValue, setReplaceValue] = useState('')
+  const [reorderList, setReorderList] = useState<string[]>(colNames)
 
   // Unique non-null values for the currently selected column, derived from live data
   const uniqueColValues = useMemo(() => {
@@ -371,7 +383,21 @@ function OperationFormDialog({ type, columns, rows, onAdd, onClose }: OperationF
           if (row.from.trim() !== '') mapping[row.from.trim()] = row.to.trim()
         }
         if (Object.keys(mapping).length === 0) return
-        op = { type: 'recode_values', column: col, mapping }
+        op = { type: 'recode_values', column: col, mapping, ...(outputCol.trim() ? { output_column: outputCol.trim() } : {}) }
+        break
+      }
+      case 'reorder_columns': {
+        if (reorderList.length === 0) return
+        op = { type: 'reorder_columns', order: reorderList }
+        break
+      }
+      case 'split_column': {
+        if (!splitDelimiter || splitNewCols.filter(c => c.trim()).length < 2) return
+        op = { type: 'split_column', column: col, delimiter: splitDelimiter, new_columns: splitNewCols.filter(c => c.trim()), keep_original: keepOriginal }
+        break
+      }
+      case 'replace_column': {
+        op = { type: 'replace_column', column: col, replace_value: replaceValue === '' ? null : replaceValue, ...(outputCol.trim() ? { new_column: outputCol.trim() } : {}) }
         break
       }
       case 'bin_numeric': {
@@ -404,8 +430,8 @@ function OperationFormDialog({ type, columns, rows, onAdd, onClose }: OperationF
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Column selector — rendered inline for recode_values and bin_numeric, shared here for others */}
-          {['rename_column', 'retype_column', 'delete_column', 'fill_missing', 'filter_rows', 'sort_rows', 'standardize_text'].includes(type) && (
+          {/* Column selector — rendered inline for recode_values, bin_numeric, reorder_columns, split_column; shared here for others */}
+          {['rename_column', 'retype_column', 'delete_column', 'fill_missing', 'filter_rows', 'sort_rows', 'standardize_text', 'replace_column'].includes(type) && (
             <div>
               <Label>Column</Label>
               <Select value={col} onValueChange={v => { setCol(v); setValue('') }}>
@@ -656,6 +682,111 @@ function OperationFormDialog({ type, columns, rows, onAdd, onClose }: OperationF
                 >
                   <PlusCircle className="h-3.5 w-3.5" /> Add row
                 </button>
+              </div>
+              <div>
+                <Label>Save result as new column <span className="text-gray-400 font-normal">(optional)</span></Label>
+                <Input
+                  value={outputCol}
+                  onChange={e => setOutputCol(e.target.value)}
+                  placeholder="Leave blank to overwrite original"
+                  className="mt-1"
+                />
+                <p className="text-xs text-gray-500 mt-1">Fill this to keep the original column untouched and write recoded values into a new column</p>
+              </div>
+            </>
+          )}
+
+          {type === 'reorder_columns' && (
+            <div>
+              <Label>Drag to reorder — use arrows to move</Label>
+              <div className="mt-2 border rounded-lg divide-y max-h-64 overflow-y-auto">
+                {reorderList.map((name, i) => (
+                  <div key={name} className="flex items-center gap-2 px-3 py-2 bg-white hover:bg-gray-50">
+                    <span className="flex-1 text-sm truncate">{name}</span>
+                    <button
+                      disabled={i === 0}
+                      onClick={() => setReorderList(prev => { const a = [...prev]; [a[i-1], a[i]] = [a[i], a[i-1]]; return a })}
+                      className="text-gray-400 hover:text-gray-700 disabled:opacity-20"
+                    >▲</button>
+                    <button
+                      disabled={i === reorderList.length - 1}
+                      onClick={() => setReorderList(prev => { const a = [...prev]; [a[i], a[i+1]] = [a[i+1], a[i]]; return a })}
+                      className="text-gray-400 hover:text-gray-700 disabled:opacity-20"
+                    >▼</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {type === 'split_column' && (
+            <>
+              <div>
+                <Label>Column to split</Label>
+                <Select value={col} onValueChange={v => { setCol(v); setValue('') }}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {colNames.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Delimiter</Label>
+                <Input value={splitDelimiter} onChange={e => setSplitDelimiter(e.target.value)} placeholder="e.g.  ,  or  ;  or  -" className="mt-1" />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <Label>New column names (one per part)</Label>
+                  <button className="text-xs text-blue-600 hover:underline" onClick={() => setSplitNewCols(prev => [...prev, ''])}>
+                    + Add column
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {splitNewCols.map((name, i) => (
+                    <div key={i} className="flex gap-2 items-center">
+                      <Input
+                        value={name}
+                        onChange={e => setSplitNewCols(prev => prev.map((v, j) => j === i ? e.target.value : v))}
+                        placeholder={`Part ${i + 1} column name`}
+                        className="h-8 text-sm"
+                      />
+                      {splitNewCols.length > 2 && (
+                        <button onClick={() => setSplitNewCols(prev => prev.filter((_, j) => j !== i))} className="text-gray-300 hover:text-red-500">
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" checked={keepOriginal} onChange={e => setKeepOriginal(e.target.checked)} />
+                  Keep original column after split
+                </label>
+              </div>
+            </>
+          )}
+
+          {type === 'replace_column' && (
+            <>
+              <div>
+                <Label>Replace value</Label>
+                <input
+                  list="replace-values-list"
+                  value={replaceValue}
+                  onChange={e => setReplaceValue(e.target.value)}
+                  placeholder="Value to write into every row (blank = null)"
+                  className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+                <datalist id="replace-values-list">
+                  {uniqueColValues.map(v => <option key={v} value={v} />)}
+                </datalist>
+                <p className="text-xs text-gray-500 mt-1">Every row in the column will be set to this value</p>
+              </div>
+              <div>
+                <Label>Save as new column <span className="text-gray-400 font-normal">(optional)</span></Label>
+                <Input value={outputCol} onChange={e => setOutputCol(e.target.value)} placeholder="Leave blank to overwrite original" className="mt-1" />
               </div>
             </>
           )}

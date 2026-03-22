@@ -429,9 +429,11 @@ export type CleaningOperation =
   | { type: 'remove_duplicates'; columns: string[] }
   | { type: 'sort_rows'; column: string; direction: 'asc' | 'desc' }
   | { type: 'computed_column'; name: string; formula: string; column_type: ColumnType }
-  | { type: 'recode_values'; column: string; mapping: Record<string, string | number | null> }
+  | { type: 'recode_values'; column: string; mapping: Record<string, string | number | null>; output_column?: string }
   | { type: 'bin_numeric'; column: string; new_column: string; bins: Array<{ min: number | null; max: number | null; label: string }> }
   | { type: 'standardize_text'; column: string; operations: Array<'trim' | 'lowercase' | 'uppercase' | 'titlecase' | 'remove_special'> }
+  | { type: 'split_column'; column: string; delimiter: string; new_columns: string[]; keep_original: boolean }
+  | { type: 'replace_column'; column: string; new_column?: string; replace_value: string | number | null }
 
 export type FilterOperator = '=' | '!=' | '>' | '>=' | '<' | '<=' | 'contains' | 'not_contains' | 'starts_with' | 'ends_with' | 'is_null' | 'is_not_null'
 
