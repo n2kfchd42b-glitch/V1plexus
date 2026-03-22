@@ -84,32 +84,35 @@ export default function DashboardPage() {
     if (!profile) { setLoading(false); return }
 
     const fetchData = async () => {
-      const [projectsRes, docsRes, reviewsRes, notifsRes, recentProjectsRes, recentReviewsRes] = await Promise.all([
-        supabase.from('projects').select('id', { count: 'exact', head: true }),
-        supabase.from('documents').select('id', { count: 'exact' }).eq('created_by', profile.id),
-        supabase.from('review_requests').select('id', { count: 'exact' })
-          .or(`requested_by.eq.${profile.id},assigned_to.eq.${profile.id}`)
-          .in('status', ['pending', 'in_review']),
-        supabase.from('notifications').select('id', { count: 'exact' })
-          .eq('user_id', profile.id).eq('is_read', false),
-        supabase.from('projects').select('*')
-          .order('updated_at', { ascending: false }).limit(6),
-        supabase.from('review_requests')
-          .select(`*, document:documents(id, title), requester:profiles!requested_by(id, full_name)`)
-          .or(`requested_by.eq.${profile.id},assigned_to.eq.${profile.id}`)
-          .order('created_at', { ascending: false })
-          .limit(5),
-      ])
+      try {
+        const [projectsRes, docsRes, reviewsRes, notifsRes, recentProjectsRes, recentReviewsRes] = await Promise.all([
+          supabase.from('projects').select('id', { count: 'exact', head: true }),
+          supabase.from('documents').select('id', { count: 'exact' }).eq('created_by', profile.id),
+          supabase.from('review_requests').select('id', { count: 'exact' })
+            .or(`requested_by.eq.${profile.id},assigned_to.eq.${profile.id}`)
+            .in('status', ['pending', 'in_review']),
+          supabase.from('notifications').select('id', { count: 'exact' })
+            .eq('user_id', profile.id).eq('is_read', false),
+          supabase.from('projects').select('*')
+            .order('updated_at', { ascending: false }).limit(6),
+          supabase.from('review_requests')
+            .select(`*, document:documents(id, title), requester:profiles!requested_by(id, full_name)`)
+            .or(`requested_by.eq.${profile.id},assigned_to.eq.${profile.id}`)
+            .order('created_at', { ascending: false })
+            .limit(5),
+        ])
 
-      setStats({
-        projects: projectsRes.count ?? 0,
-        documents: docsRes.count ?? 0,
-        pendingReviews: reviewsRes.count ?? 0,
-        unreadNotifications: notifsRes.count ?? 0,
-      })
-      if (recentProjectsRes.data) setRecentProjects(recentProjectsRes.data)
-      if (recentReviewsRes.data) setRecentReviews(recentReviewsRes.data as ReviewRequest[])
-      setLoading(false)
+        setStats({
+          projects: projectsRes.count ?? 0,
+          documents: docsRes.count ?? 0,
+          pendingReviews: reviewsRes.count ?? 0,
+          unreadNotifications: notifsRes.count ?? 0,
+        })
+        if (recentProjectsRes.data) setRecentProjects(recentProjectsRes.data)
+        if (recentReviewsRes.data) setRecentReviews(recentReviewsRes.data as ReviewRequest[])
+      } finally {
+        setLoading(false)
+      }
     }
 
     fetchData()

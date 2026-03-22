@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -55,17 +55,20 @@ export default function ProjectPage() {
   const [docType, setDocType] = useState('general')
   const [creating, setCreating] = useState(false)
   const [loadingProject, setLoadingProject] = useState(true)
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
     const fetchData = async () => {
-      const [projectRes, docsRes] = await Promise.all([
-        supabase.from('projects').select('*').eq('id', projectId).single(),
-        supabase.from('documents').select('*').eq('project_id', projectId).order('updated_at', { ascending: false }),
-      ])
-      if (projectRes.data) setProject(projectRes.data)
-      if (docsRes.data) setDocuments(docsRes.data)
-      setLoadingProject(false)
+      try {
+        const [projectRes, docsRes] = await Promise.all([
+          supabase.from('projects').select('*').eq('id', projectId).single(),
+          supabase.from('documents').select('*').eq('project_id', projectId).order('updated_at', { ascending: false }),
+        ])
+        if (projectRes.data) setProject(projectRes.data)
+        if (docsRes.data) setDocuments(docsRes.data)
+      } finally {
+        setLoadingProject(false)
+      }
     }
     fetchData()
   }, [projectId]) // eslint-disable-line react-hooks/exhaustive-deps

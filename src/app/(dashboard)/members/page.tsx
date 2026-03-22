@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useWorkspaceContext } from '@/components/workspace/WorkspaceProvider'
 import { WorkspaceInviteForm } from '@/components/members/WorkspaceInviteForm'
@@ -16,7 +16,7 @@ export default function MembersPage() {
   const { activeWorkspace, isAdmin, isDepartmentHead } = useWorkspaceContext()
   const [members, setMembers] = useState<MemberWithProfile[]>([])
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   const load = async () => {
     if (!activeWorkspace) return

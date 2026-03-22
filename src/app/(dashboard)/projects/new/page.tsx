@@ -45,6 +45,7 @@ export default function NewProjectPage() {
       setLoading(false);
     } else {
       router.push(`/projects/${data.id}/overview`);
+      setLoading(false);
     }
   }
 
