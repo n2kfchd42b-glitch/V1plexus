@@ -16,21 +16,28 @@ Rules:
 - Format tables in clean academic style (no unnecessary borders, clear headers)
 - If asked to generate a section, include [PLACEHOLDER] markers where the researcher needs to fill in specific details you don't have`
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+// Restrict CORS to the production domain (set ALLOWED_ORIGIN in Supabase Function secrets).
+// Falls back to localhost for local development.
+const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? 'http://localhost:3000'
+
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('Origin') ?? ''
+  return {
+    'Access-Control-Allow-Origin': origin === ALLOWED_ORIGIN ? origin : ALLOWED_ORIGIN,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  }
 }
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: getCorsHeaders(req) })
   }
 
   try {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        status: 401, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
       })
     }
 
@@ -43,7 +50,7 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        status: 401, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
       })
     }
 
@@ -89,14 +96,14 @@ serve(async (req) => {
 
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
         })
     }
 
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
     if (!apiKey) {
       return new Response(JSON.stringify({ error: 'AI service not configured' }), {
-        status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        status: 503, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
       })
     }
 
@@ -119,7 +126,7 @@ serve(async (req) => {
       const errorBody = await anthropicRes.text()
       console.error('Anthropic API error:', errorBody)
       return new Response(JSON.stringify({ error: 'AI service error' }), {
-        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        status: 502, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
       })
     }
 
@@ -165,13 +172,13 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ result, input_tokens: inputTokens, output_tokens: outputTokens }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
     })
 
   } catch (err) {
     console.error('ai-assist error:', err)
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
     })
   }
 })
