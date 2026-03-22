@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Download, FileText, File, Code, ChevronDown, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -23,9 +23,68 @@ type ExportState = 'idle' | 'loading' | 'success' | 'error'
 
 const formatOptions: { format: ExportFormat; label: string; ext: string; icon: React.ElementType; description: string }[] = [
   { format: 'docx', label: 'Word (.docx)', ext: 'docx', icon: FileText, description: 'For sharing with supervisors' },
-  { format: 'pdf', label: 'PDF', ext: 'pdf', icon: File, description: 'For archival and submission' },
+  { format: 'pdf', label: 'PDF (Print)', ext: 'pdf', icon: File, description: 'Opens print dialog — Save as PDF' },
   { format: 'latex', label: 'LaTeX (.tex)', ext: 'tex', icon: Code, description: 'For journal submission' },
 ]
+
+// ─── Client-side PDF helpers ─────────────────────────────────────────────────
+
+function escHtml(str: string) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+function nodeToHtml(node: Record<string, unknown>): string {
+  if (node.type === 'text') {
+    let text = escHtml((node.text as string) ?? '')
+    const marks = (node.marks as Record<string, unknown>[] | undefined) ?? []
+    for (const mark of marks) {
+      if (mark.type === 'bold') text = `<strong>${text}</strong>`
+      if (mark.type === 'italic') text = `<em>${text}</em>`
+      if (mark.type === 'underline') text = `<u>${text}</u>`
+      if (mark.type === 'code') text = `<code>${text}</code>`
+    }
+    return text
+  }
+  const children = (node.content as Record<string, unknown>[] | undefined) ?? []
+  const inner = children.map(nodeToHtml).join('')
+  switch (node.type) {
+    case 'paragraph': return `<p>${inner || '&nbsp;'}</p>`
+    case 'heading': {
+      const lvl = (node.attrs as Record<string, unknown>)?.level ?? 1
+      return `<h${lvl}>${inner}</h${lvl}>`
+    }
+    case 'bulletList': return `<ul>${inner}</ul>`
+    case 'orderedList': return `<ol>${inner}</ol>`
+    case 'listItem': return `<li>${inner}</li>`
+    case 'blockquote': return `<blockquote>${inner}</blockquote>`
+    case 'codeBlock': return `<pre><code>${inner}</code></pre>`
+    case 'hardBreak': return '<br>'
+    case 'horizontalRule': return '<hr>'
+    default: return inner
+  }
+}
+
+function buildPrintHtml(title: string, content: Record<string, unknown> | null): string {
+  const body = content ? nodeToHtml(content) : ''
+  return `<!DOCTYPE html>
+<html><head>
+  <meta charset="utf-8">
+  <title>${escHtml(title)}</title>
+  <style>
+    body{font-family:Georgia,serif;max-width:800px;margin:40px auto;padding:20px;line-height:1.6;color:#222}
+    h1,h2,h3{margin-top:1.5em}p{margin:.5em 0}
+    pre{background:#f5f5f5;padding:12px;border-radius:4px;overflow-x:auto}
+    blockquote{border-left:3px solid #ccc;margin-left:0;padding-left:16px;color:#555}
+    @media print{body{margin:0}@page{margin:2cm}}
+  </style>
+</head>
+<body>
+  <h1>${escHtml(title)}</h1>
+  ${body}
+</body></html>`
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export function ExportDropdown({ documentId, documentTitle }: ExportDropdownProps) {
   const [states, setStates] = useState<Record<ExportFormat, ExportState>>({
@@ -33,11 +92,34 @@ export function ExportDropdown({ documentId, documentTitle }: ExportDropdownProp
     pdf: 'idle',
     latex: 'idle',
   })
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   const handleExport = async (format: ExportFormat, ext: string) => {
     setStates(prev => ({ ...prev, [format]: 'loading' }))
     try {
+      // PDF — open a styled HTML page and trigger the browser's print/Save as PDF dialog
+      if (format === 'pdf') {
+        const { data: doc, error: docError } = await supabase
+          .from('documents')
+          .select('title, content')
+          .eq('id', documentId)
+          .single()
+        if (docError || !doc) throw new Error('Document not found')
+        const html = buildPrintHtml(
+          doc.title as string,
+          doc.content as Record<string, unknown> | null
+        )
+        const printWindow = window.open('', '_blank')
+        if (!printWindow) throw new Error('Popup blocked — please allow popups for this site')
+        printWindow.document.write(html)
+        printWindow.document.close()
+        printWindow.focus()
+        printWindow.print()
+        setStates(prev => ({ ...prev, [format]: 'success' }))
+        setTimeout(() => setStates(prev => ({ ...prev, [format]: 'idle' })), 3000)
+        return
+      }
+
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) throw new Error('Not authenticated')
 

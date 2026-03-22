@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Collaboration from '@tiptap/extension-collaboration'
@@ -57,10 +57,11 @@ export function CollaborativeEditor({
   const [showComments, setShowComments] = useState(false)
   const [showGrammar, setShowGrammar] = useState(false)
   const [showGenerateModal, setShowGenerateModal] = useState(false)
+  const [aiOpen, setAiOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   // Initialize Supabase provider (ydoc is already set synchronously above)
   useEffect(() => {
@@ -169,10 +170,27 @@ export function CollaborativeEditor({
     }
   }, [documentId, supabase, onSave])
 
-  const handleManualSave = async () => {
+  const handleManualSave = useCallback(async () => {
     if (!editor) return
     await handleAutoSave(editor.getJSON())
-  }
+  }, [editor, handleAutoSave])
+
+  // Keyboard shortcuts: Cmd/Ctrl+S → save, Cmd/Ctrl+J → AI assist
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const cmdOrCtrl = e.metaKey || e.ctrlKey
+      if (cmdOrCtrl && e.key === 's') {
+        e.preventDefault()
+        handleManualSave()
+      }
+      if (cmdOrCtrl && e.key === 'j') {
+        e.preventDefault()
+        setAiOpen(prev => !prev)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleManualSave])
 
   return (
     <div className="flex flex-col h-full">
@@ -183,7 +201,7 @@ export function CollaborativeEditor({
           <div className="flex items-center gap-2 shrink-0">
             <OnlineUsers users={onlineUsers} />
             {editor && (
-              <AIAssistPopover editor={editor} documentId={documentId} />
+              <AIAssistPopover editor={editor} documentId={documentId} open={aiOpen} onOpenChange={setAiOpen} />
             )}
             <Button
               variant="ghost"

@@ -1,42 +1,15 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { Sidebar } from "@/components/layout/Sidebar";
-
-export default async function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
-
-  return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 overflow-auto">{children}</main>
-    </div>
-  );
 "use client"
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search } from 'lucide-react'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Header } from '@/components/layout/Header'
 import { CommandPalette } from '@/components/layout/CommandPalette'
 import { ShortcutOverlay } from '@/components/layout/ShortcutOverlay'
+import { MobileSidebar } from '@/components/layout/MobileSidebar'
 import { useAuth } from '@/hooks/useAuth'
 import { useGlobalShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { Toaster } from 'sonner'
-import { MobileSidebar } from '@/components/layout/MobileSidebar'
-import { CommandPalette } from '@/components/search/CommandPalette'
-import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard'
-import { useAuth } from '@/hooks/useAuth'
-import { createClient } from '@/lib/supabase/client'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, profile, loading, signOut } = useAuth()
@@ -51,46 +24,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     onCommandPalette: openCommandPalette,
     onShortcutOverlay: openShortcuts,
   })
-  const [paletteOpen, setPaletteOpen] = useState(false)
-  const [showOnboarding, setShowOnboarding] = useState(false)
-  const supabase = createClient()
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login')
     }
   }, [user, loading, router])
-
-  // Check if first-time user needs onboarding
-  useEffect(() => {
-    if (!profile) return
-    if ((profile as { onboarding_completed?: boolean }).onboarding_completed === false) {
-      setShowOnboarding(true)
-    }
-  }, [profile])
-
-  // Global Cmd+K shortcut
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-      e.preventDefault()
-      setPaletteOpen(prev => !prev)
-    }
-  }, [])
-
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleKeyDown])
-
-  const handleOnboardingComplete = async () => {
-    if (profile) {
-      await supabase
-        .from('profiles')
-        .update({ onboarding_completed: true } as Record<string, unknown>)
-        .eq('id', profile.id)
-    }
-    setShowOnboarding(false)
-  }
 
   if (loading) {
     return (
@@ -107,11 +46,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen bg-[var(--bg-app)]">
-      <Sidebar
-        profile={profile}
-        onSignOut={signOut}
-        onCommandPalette={openCommandPalette}
-      />
+      {/* Desktop sidebar */}
+      <div className="hidden md:block">
+        <Sidebar
+          profile={profile}
+          onSignOut={signOut}
+          onCommandPalette={openCommandPalette}
+        />
+      </div>
+
+      {/* Mobile sidebar */}
+      <MobileSidebar profile={profile} onSignOut={signOut} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header profile={profile} />
@@ -141,7 +86,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }}
       />
 
-      {/* Shortcut hint button */}
+      {/* Keyboard shortcuts hint */}
       <button
         onClick={() => setShortcutsOpen(true)}
         className="fixed bottom-4 right-4 h-8 w-8 flex items-center justify-center rounded-full bg-[var(--bg-surface)] border border-[var(--border-default)] shadow-sm text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:shadow-md transition-all duration-150 text-sm font-medium z-40"
@@ -149,41 +94,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       >
         ?
       </button>
-    <div className="flex min-h-screen bg-background">
-      {/* Desktop sidebar */}
-      <div className="hidden md:block">
-        <Sidebar profile={profile} onSignOut={signOut} />
-      </div>
-
-      {/* Mobile sidebar drawer */}
-      <MobileSidebar profile={profile} onSignOut={signOut} />
-
-      <main className="flex-1 overflow-hidden min-w-0">
-        {/* Search bar header */}
-        <div className="h-12 border-b bg-card/80 backdrop-blur px-4 md:px-6 flex items-center justify-end gap-2 sticky top-0 z-10">
-          <button
-            onClick={() => setPaletteOpen(true)}
-            className="flex items-center gap-2 text-sm text-muted-foreground border rounded-lg px-3 py-1.5 hover:bg-muted/50 transition-colors w-48 md:w-64"
-          >
-            <Search className="h-3.5 w-3.5 shrink-0" />
-            <span className="flex-1 text-left">Search...</span>
-            <kbd className="hidden sm:flex items-center gap-0.5 text-xs border rounded px-1">
-              <span>⌘</span>K
-            </kbd>
-          </button>
-        </div>
-        <div className="overflow-auto">
-          {children}
-        </div>
-      </main>
-
-      {/* Command Palette */}
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-
-      {/* Onboarding Wizard */}
-      {showOnboarding && profile && (
-        <OnboardingWizard profile={profile} onComplete={handleOnboardingComplete} />
-      )}
     </div>
   )
 }

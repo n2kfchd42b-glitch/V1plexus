@@ -27,7 +27,7 @@ function ethicsStatus(ethics: EthicsApplication | null): {
   }
 
   const now = new Date()
-  const expiry = ethics.expiry_date ? new Date(ethics.expiry_date) : null
+  const expiry = ethics.expires_at ? new Date(ethics.expires_at) : null
   const isExpired = expiry ? expiry < now : false
 
   if (isExpired) return {
@@ -61,7 +61,7 @@ function ethicsStatus(ethics: EthicsApplication | null): {
 
 export function ComplianceCard({ project, ethics }: ComplianceCardProps) {
   const { label, color, icon, expired } = ethicsStatus(ethics)
-  const expiry = ethics?.expiry_date
+  const expiry = ethics?.expires_at
 
   return (
     <Card className="hover:shadow-sm transition-shadow">

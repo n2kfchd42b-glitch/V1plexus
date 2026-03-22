@@ -48,6 +48,7 @@ export interface Profile {
   role: UserRole
   institution_id: string | null
   department_id: string | null
+  onboarding_completed: boolean
   created_at: string
   updated_at: string
   institution?: Institution
@@ -284,7 +285,7 @@ export interface EthicsApplication {
   status: string
   submitted_at: string | null
   approved_at: string | null
-  expiry_date: string | null
+  expires_at: string | null
   protocol_number: string | null
   created_by: string
   created_at: string

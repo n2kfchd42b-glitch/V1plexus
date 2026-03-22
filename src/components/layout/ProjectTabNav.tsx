@@ -1,12 +1,14 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, FileText, ShieldCheck } from "lucide-react";
 
 export function ProjectTabNav({ projectId }: { projectId: string }) {
   const pathname = usePathname();
+  const router = useRouter();
 
   const tabs = [
     {
@@ -25,6 +27,20 @@ export function ProjectTabNav({ projectId }: { projectId: string }) {
       icon: ShieldCheck,
     },
   ];
+
+  // Alt+1/2/3 to switch tabs
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!e.altKey) return;
+      const idx = parseInt(e.key, 10) - 1;
+      if (idx >= 0 && idx < tabs.length) {
+        e.preventDefault();
+        router.push(tabs[idx].href);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [tabs, router]);
 
   return (
     <div className="bg-white border-b border-gray-200 px-8">

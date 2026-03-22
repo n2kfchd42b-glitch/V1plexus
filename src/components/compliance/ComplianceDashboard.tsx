@@ -27,7 +27,7 @@ function computeSummary(projects: Project[], ethicsMap: Record<string, EthicsApp
   for (const p of projects) {
     const e = ethicsMap[p.id] ?? null
     if (!e) { none++; continue }
-    const isExpired = e.expiry_date && new Date(e.expiry_date) < now
+    const isExpired = e.expires_at && new Date(e.expires_at) < now
     if (isExpired) { expired++; continue }
     if (e.status === 'approved') { approved++; continue }
     pending++

@@ -6,7 +6,7 @@ import {
   mean, sd, variance, pearsonR,
   matMul, transpose, matInverse, solveLin,
   sigmoid, normalCDF,
-  tToP, chiSqP,
+  tToP, chiSqP, incompleteBeta,
   fmt, fmtCI, formatPValue, getSig
 } from './utils'
 
@@ -624,12 +624,10 @@ export function runPoissonRegression(data: DataRow[], config: PoissonConfig): An
 
 // ===================== HELPERS =====================
 
-import { incompleteBeta as _incompleteBeta, tToP as _tToP } from './utils'
-
 function fCDF(x: number, df1: number, df2: number): number {
   if (x <= 0) return 0
   const w = df1 * x / (df1 * x + df2)
-  return _incompleteBeta(df1 / 2, df2 / 2, w)
+  return incompleteBeta(df1 / 2, df2 / 2, w)
 }
 
 function getTCrit(alpha: number, df: number): number {
@@ -644,7 +642,7 @@ function getTCrit(alpha: number, df: number): number {
 }
 
 function tToP2(t: number, df: number): number {
-  return _tToP(t, df)
+  return tToP(t, df)
 }
 
 function computeR2(y: number[], X: number[][]): number {

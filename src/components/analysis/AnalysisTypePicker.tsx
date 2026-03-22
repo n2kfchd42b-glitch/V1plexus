@@ -19,6 +19,8 @@ export interface AnalysisTypeInfo {
   /** True-browser engine uses an approximation; real implementation needs MLE/IRLS */
   approximation?: boolean
   approximationNote?: string
+  /** Not yet implemented — disabled in the picker */
+  unavailable?: boolean
 }
 
 export const ANALYSIS_TYPES: AnalysisTypeInfo[] = [
@@ -133,7 +135,8 @@ export const ANALYSIS_TYPES: AnalysisTypeInfo[] = [
   {
     type: 'spatial_analysis', label: 'Spatial Analysis', category: 'Epidemiology',
     description: 'Disease mapping, rates by location, choropleth visualization',
-    icon: <Map className="h-5 w-5" />, chartType: 'Choropleth map'
+    icon: <Map className="h-5 w-5" />, chartType: 'Choropleth map',
+    unavailable: true,
   },
   {
     type: 'outbreak_investigation', label: 'Outbreak Investigation', category: 'Epidemiology',
@@ -184,11 +187,15 @@ export function AnalysisTypePicker({ selected, onSelect }: Props) {
               {types.map(info => (
                 <button
                   key={info.type}
-                  onClick={() => onSelect(info.type)}
+                  onClick={() => !info.unavailable && onSelect(info.type)}
+                  disabled={info.unavailable}
                   className={cn(
-                    'text-left rounded-lg border p-3 transition-all hover:shadow-sm',
+                    'text-left rounded-lg border p-3 transition-all',
+                    info.unavailable
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'hover:shadow-sm hover:border-opacity-80',
                     categoryColors[category],
-                    selected === info.type ? 'ring-2 ring-primary shadow-sm' : 'hover:border-opacity-80'
+                    selected === info.type ? 'ring-2 ring-primary shadow-sm' : ''
                   )}
                 >
                   <div className="flex items-start gap-2">
@@ -199,6 +206,11 @@ export function AnalysisTypePicker({ selected, onSelect }: Props) {
                         {info.approximation && (
                           <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide px-1 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
                             approx
+                          </span>
+                        )}
+                        {info.unavailable && (
+                          <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide px-1 py-0.5 rounded bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+                            coming soon
                           </span>
                         )}
                       </div>

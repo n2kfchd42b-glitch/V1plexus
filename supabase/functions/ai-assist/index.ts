@@ -54,6 +54,23 @@ serve(async (req) => {
       })
     }
 
+    // Per-user rate limit: max 20 AI requests per hour
+    const serviceSupabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    const { count: recentCount } = await serviceSupabase
+      .from('ai_usage_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .gte('created_at', oneHourAgo)
+    if ((recentCount ?? 0) >= 20) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded. Max 20 AI requests per hour.' }), {
+        status: 429, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json', 'Retry-After': '3600' }
+      })
+    }
+
     const { action, context, selection, section_type, analysis_output, document_id } = await req.json()
 
     let userMessage = ''
@@ -136,10 +153,6 @@ serve(async (req) => {
     const outputTokens = anthropicData.usage?.output_tokens ?? 0
 
     // Log AI usage via service role
-    const serviceSupabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
     await serviceSupabase.from('ai_usage_log').insert({
       user_id: user.id,
       action,

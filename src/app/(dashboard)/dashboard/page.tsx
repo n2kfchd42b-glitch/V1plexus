@@ -88,7 +88,7 @@ export default function DashboardPage() {
         supabase.from('projects').select('id', { count: 'exact', head: true }),
         supabase.from('documents').select('id', { count: 'exact' }).eq('created_by', profile.id),
         supabase.from('review_requests').select('id', { count: 'exact' })
-          .eq(profile.role === 'researcher' ? 'requested_by' : 'assigned_to', profile.id)
+          .or(`requested_by.eq.${profile.id},assigned_to.eq.${profile.id}`)
           .in('status', ['pending', 'in_review']),
         supabase.from('notifications').select('id', { count: 'exact' })
           .eq('user_id', profile.id).eq('is_read', false),
@@ -96,7 +96,7 @@ export default function DashboardPage() {
           .order('updated_at', { ascending: false }).limit(6),
         supabase.from('review_requests')
           .select(`*, document:documents(id, title), requester:profiles!requested_by(id, full_name)`)
-          .eq(profile.role === 'researcher' ? 'requested_by' : 'assigned_to', profile.id)
+          .or(`requested_by.eq.${profile.id},assigned_to.eq.${profile.id}`)
           .order('created_at', { ascending: false })
           .limit(5),
       ])

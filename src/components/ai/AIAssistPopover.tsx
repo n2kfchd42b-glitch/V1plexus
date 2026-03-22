@@ -12,6 +12,8 @@ import { createClient } from '@/lib/supabase/client'
 interface AIAssistPopoverProps {
   editor: Editor
   documentId: string
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 const TONE_OPTIONS = [
@@ -21,8 +23,13 @@ const TONE_OPTIONS = [
   { key: 'academic', label: 'Academic tone', icon: BookOpen },
 ] as const
 
-export function AIAssistPopover({ editor, documentId }: AIAssistPopoverProps) {
-  const [open, setOpen] = useState(false)
+export function AIAssistPopover({ editor, documentId, open: externalOpen, onOpenChange }: AIAssistPopoverProps) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const open = externalOpen ?? internalOpen
+  const setOpen = (v: boolean) => {
+    setInternalOpen(v)
+    onOpenChange?.(v)
+  }
   const [loading, setLoading] = useState(false)
   const [suggestion, setSuggestion] = useState<string | null>(null)
   const [pendingTone, setPendingTone] = useState<string | null>(null)

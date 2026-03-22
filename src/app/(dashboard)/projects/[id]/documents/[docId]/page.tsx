@@ -1,46 +1,7 @@
-import { redirect, notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { DocumentEditor } from "@/components/document/DocumentEditor";
-
-export default async function DocumentEditorPage({
-  params,
-}: {
-  params: Promise<{ id: string; docId: string }>;
-}) {
-  const { id, docId } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: document } = await supabase
-    .from("documents")
-    .select("*")
-    .eq("id", docId)
-    .eq("project_id", id)
-    .is("deleted_at", null)
-    .single();
-
-  if (!document) notFound();
-
-  const { data: versions } = await supabase
-    .from("document_versions")
-    .select("*")
-    .eq("document_id", docId)
-    .order("version_number", { ascending: true });
-
-  return (
-    <DocumentEditor
-      document={document}
-      projectId={id}
-      initialVersions={versions ?? []}
-    />
-  );
 "use client"
 
 import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -95,12 +56,10 @@ export default function DocumentPage() {
     )
   }
 
-  const canSubmit = profile?.id === document.created_by &&
-    document.status === 'draft'
+  const canSubmit = profile?.id === document.created_by && document.status === 'draft'
 
   return (
     <div className="flex flex-col h-screen">
-      {/* Document Header */}
       <div className="border-b bg-card px-6 py-3 flex items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <Link href={`/projects/${projectId}`}>
@@ -127,7 +86,6 @@ export default function DocumentPage() {
         </div>
       </div>
 
-      {/* Editor */}
       <div className="flex-1 overflow-hidden">
         <CollaborativeEditor
           documentId={docId}
@@ -140,7 +98,6 @@ export default function DocumentPage() {
         />
       </div>
 
-      {/* Submit Modal */}
       <SubmitForReviewModal
         open={showSubmitModal}
         onClose={() => setShowSubmitModal(false)}

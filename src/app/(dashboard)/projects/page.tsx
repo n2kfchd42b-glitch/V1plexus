@@ -1,118 +1,11 @@
-import { redirect } from "next/navigation";
-import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { formatDate } from "@/lib/utils";
-import { Plus, FolderOpen, Clock } from "lucide-react";
-
-export default async function ProjectsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: owned } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("owner_id", user.id)
-    .is("deleted_at", null)
-    .order("updated_at", { ascending: false });
-
-  const { data: memberRows } = await supabase
-    .from("project_members")
-    .select("project_id")
-    .eq("user_id", user.id);
-
-  const memberProjectIds = memberRows?.map((r) => r.project_id) ?? [];
-  const { data: memberProjects } = memberProjectIds.length
-    ? await supabase
-        .from("projects")
-        .select("*")
-        .in("id", memberProjectIds)
-        .is("deleted_at", null)
-        .order("updated_at", { ascending: false })
-    : { data: [] };
-
-  const allProjects = [
-    ...(owned ?? []),
-    ...(memberProjects ?? []).filter(
-      (p) => !owned?.some((o) => o.id === p.id)
-    ),
-  ];
-
-  return (
-    <div className="p-8 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Projects</h1>
-        <Link
-          href="/projects/new"
-          className="flex items-center gap-1.5 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          New project
-        </Link>
-      </div>
-
-      {allProjects.length === 0 ? (
-        <div className="bg-white border-2 border-dashed border-gray-200 rounded-xl p-12 text-center">
-          <FolderOpen className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-          <h3 className="font-medium text-gray-700">No projects yet</h3>
-          <p className="text-sm text-gray-400 mt-1 mb-4">
-            Create your first research project
-          </p>
-          <Link
-            href="/projects/new"
-            className="inline-flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4" />
-            Create project
-          </Link>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {allProjects.map((project) => (
-            <Link
-              key={project.id}
-              href={`/projects/${project.id}/overview`}
-              className="block bg-white border border-gray-200 rounded-xl p-5 hover:border-blue-300 hover:shadow-sm transition-all"
-            >
-              <div className="flex items-start justify-between mb-2">
-                <h3 className="font-semibold text-gray-900">{project.title}</h3>
-                <span
-                  className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                    project.status === "active"
-                      ? "bg-green-100 text-green-700"
-                      : project.status === "completed"
-                      ? "bg-blue-100 text-blue-700"
-                      : "bg-gray-100 text-gray-600"
-                  }`}
-                >
-                  {project.status.replace("_", " ")}
-                </span>
-              </div>
-              {project.description && (
-                <p className="text-sm text-gray-500 line-clamp-2 mb-3">
-                  {project.description}
-                </p>
-              )}
-              <div className="flex items-center gap-1 text-xs text-gray-400">
-                <Clock className="h-3 w-3" />
-                Updated {formatDate(project.updated_at)}
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 "use client"
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import {
-  Plus, FolderOpen, Search, MoreHorizontal, ArrowUp, ArrowDown,
-  Clock, ChevronRight, Database, FileText, Users
+  Plus, FolderOpen, Search, ArrowUp, ArrowDown,
+  Clock, ChevronRight
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
@@ -146,7 +39,6 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
-// ─── Table View ───────────────────────────────────────────────────
 function TableView({ projects }: { projects: Project[] }) {
   const [sortKey, setSortKey] = useState<'title' | 'status' | 'updated_at'>('updated_at')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
@@ -169,7 +61,6 @@ function TableView({ projects }: { projects: Project[] }) {
 
   return (
     <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg overflow-hidden">
-      {/* Table header */}
       <div className="grid grid-cols-[1fr_120px_140px_36px] gap-4 px-4 py-2.5 bg-[var(--bg-inset)] border-b border-[var(--border-default)]">
         {[
           { key: 'title' as const,      label: 'Title' },
@@ -187,8 +78,6 @@ function TableView({ projects }: { projects: Project[] }) {
         ))}
         <div />
       </div>
-
-      {/* Rows */}
       <div className="divide-y divide-[var(--border-subtle)]">
         {sorted.map(project => (
           <Link key={project.id} href={`/projects/${project.id}`}>
@@ -199,9 +88,7 @@ function TableView({ projects }: { projects: Project[] }) {
                 </div>
                 <span className="text-sm text-[var(--text-primary)] truncate font-medium">{project.title}</span>
               </div>
-              <div>
-                <StatusBadge status={project.status} />
-              </div>
+              <StatusBadge status={project.status} />
               <div className="text-xs text-[var(--text-tertiary)] flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 {formatRelative(project.updated_at)}
@@ -217,7 +104,6 @@ function TableView({ projects }: { projects: Project[] }) {
   )
 }
 
-// ─── Card View ───────────────────────────────────────────────────
 function CardView({ projects }: { projects: Project[] }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -240,9 +126,7 @@ function CardView({ projects }: { projects: Project[] }) {
             )}
             <div className="flex items-center gap-2 mt-auto pt-2 border-t border-[var(--border-subtle)]">
               <Clock className="h-3 w-3 text-[var(--text-tertiary)]" />
-              <span className="text-xs text-[var(--text-tertiary)]">
-                {formatRelative(project.updated_at)}
-              </span>
+              <span className="text-xs text-[var(--text-tertiary)]">{formatRelative(project.updated_at)}</span>
             </div>
           </div>
         </Link>
@@ -251,7 +135,6 @@ function CardView({ projects }: { projects: Project[] }) {
   )
 }
 
-// ─── Kanban View ─────────────────────────────────────────────────
 function KanbanView({ projects, onStatusChange }: {
   projects: Project[]
   onStatusChange: (id: string, status: Project['status']) => void
@@ -262,13 +145,10 @@ function KanbanView({ projects, onStatusChange }: {
         const cols = projects.filter(p => p.status === status)
         return (
           <div key={status} className="flex-shrink-0 w-64">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <StatusBadge status={status} />
-                <span className="text-xs text-[var(--text-tertiary)]">{cols.length}</span>
-              </div>
+            <div className="flex items-center gap-2 mb-2">
+              <StatusBadge status={status} />
+              <span className="text-xs text-[var(--text-tertiary)]">{cols.length}</span>
             </div>
-
             <div className="space-y-2 min-h-[100px]">
               {cols.length === 0 ? (
                 <div className="border-2 border-dashed border-[var(--border-default)] rounded-lg py-8 text-center">
@@ -278,9 +158,7 @@ function KanbanView({ projects, onStatusChange }: {
                 cols.map(project => (
                   <Link key={project.id} href={`/projects/${project.id}`}>
                     <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg p-3 card-hover cursor-pointer">
-                      <p className="text-sm font-medium text-[var(--text-primary)] line-clamp-2 mb-2">
-                        {project.title}
-                      </p>
+                      <p className="text-sm font-medium text-[var(--text-primary)] line-clamp-2 mb-2">{project.title}</p>
                       <p className="text-xs text-[var(--text-tertiary)] flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         {formatRelative(project.updated_at)}
@@ -297,11 +175,8 @@ function KanbanView({ projects, onStatusChange }: {
   )
 }
 
-// ─── Main page ───────────────────────────────────────────────────
-const PAGE_SIZE = 20
-
 export default function ProjectsPage() {
-  const { profile } = useAuth()
+  const { profile, loading: authLoading } = useAuth()
   const searchParams = useSearchParams()
   const [projects, setProjects] = useState<Project[]>([])
   const [search, setSearch] = useState('')
@@ -311,52 +186,29 @@ export default function ProjectsPage() {
   const [description, setDescription] = useState('')
   const [creating, setCreating] = useState(false)
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
-  // Open new project dialog if ?new=1
   useEffect(() => {
     if (searchParams.get('new') === '1') setShowNew(true)
   }, [searchParams])
 
   const fetchProjects = useCallback(async () => {
-  const [loading, setLoading] = useState(false)
-  const [page, setPage] = useState(0)
-  const [hasMore, setHasMore] = useState(false)
-  const [totalCount, setTotalCount] = useState(0)
-  const supabase = createClient()
-
-  const fetchProjects = async (pageNum = 0) => {
-    if (!profile) return
-    const from = pageNum * PAGE_SIZE
-    const to = from + PAGE_SIZE - 1
-    const { data, count } = await supabase
+    if (authLoading) return
+    if (!profile) { setLoading(false); return }
+    const { data } = await supabase
       .from('projects')
-      .select('*', { count: 'exact' })
+      .select('*')
       .order('updated_at', { ascending: false })
     if (data) setProjects(data)
     setLoading(false)
-  }, [profile]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profile, authLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchProjects() }, [fetchProjects])
-      .range(from, to)
-    if (data) {
-      if (pageNum === 0) setProjects(data)
-      else setProjects(prev => [...prev, ...data])
-    }
-    if (count !== null) {
-      setTotalCount(count)
-      setHasMore(from + PAGE_SIZE < count)
-    }
-    setPage(pageNum)
-  }
-
-  useEffect(() => { fetchProjects(0) }, [profile])
 
   const handleCreate = async () => {
     if (!title.trim() || !profile) return
     setCreating(true)
 
-    // Optimistic
     const tempId = `temp-${Date.now()}`
     const optimistic: Project = {
       id: tempId,
@@ -394,12 +246,6 @@ export default function ProjectsPage() {
       if (original) setProjects(prev => prev.map(p => p.id === id ? original : p))
       toast.error('Failed to update status')
     }
-    if (data) {
-      setProjects(prev => [data, ...prev])
-      setTotalCount(prev => prev + 1)
-    }
-    setTitle(''); setDescription(''); setShowNew(false)
-    setLoading(false)
   }
 
   const filtered = projects.filter(p =>
@@ -408,15 +254,12 @@ export default function ProjectsPage() {
 
   return (
     <div className="px-6 py-5 max-w-6xl mx-auto space-y-5">
-      {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-[var(--text-primary)] tracking-tight">Projects</h1>
           <p className="text-sm text-[var(--text-tertiary)] mt-0.5">
             {projects.length} project{projects.length !== 1 ? 's' : ''}
           </p>
-          <h1 className="text-2xl font-bold">Projects</h1>
-          <p className="text-muted-foreground text-sm mt-1">{totalCount} project{totalCount !== 1 ? 's' : ''}</p>
         </div>
         <button
           onClick={() => setShowNew(true)}
@@ -427,7 +270,6 @@ export default function ProjectsPage() {
         </button>
       </div>
 
-      {/* Toolbar */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--text-tertiary)]" />
@@ -444,33 +286,19 @@ export default function ProjectsPage() {
         </div>
       </div>
 
-      {/* Content */}
       {loading ? (
-        viewMode === 'cards' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg p-4 h-36">
-                <div className="flex items-start justify-between gap-2 mb-3">
-                  <div className="skeleton h-8 w-8 rounded-lg" />
-                  <div className="skeleton h-5 w-16 rounded" />
-                </div>
-                <div className="skeleton h-4 w-3/4 mb-2" />
-                <div className="skeleton h-3.5 w-1/2" />
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg p-4 h-36">
+              <div className="flex items-start justify-between gap-2 mb-3">
+                <div className="skeleton h-8 w-8 rounded-lg" />
+                <div className="skeleton h-5 w-16 rounded" />
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg overflow-hidden">
-            <div className="bg-[var(--bg-inset)] h-10 border-b border-[var(--border-default)]" />
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="flex items-center gap-4 px-4 py-2.5 border-b border-[var(--border-subtle)]">
-                <div className="skeleton h-4 w-48" />
-                <div className="skeleton h-4 w-16 ml-auto" />
-                <div className="skeleton h-4 w-24" />
-              </div>
-            ))}
-          </div>
-        )
+              <div className="skeleton h-4 w-3/4 mb-2" />
+              <div className="skeleton h-3.5 w-1/2" />
+            </div>
+          ))}
+        </div>
       ) : filtered.length === 0 ? (
         <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg py-16 text-center">
           <FolderOpen className="h-12 w-12 mx-auto text-[var(--text-tertiary)] mb-3" />
@@ -500,19 +328,6 @@ export default function ProjectsPage() {
         <CardView projects={filtered} />
       )}
 
-      {/* New project dialog */}
-      {/* Load More */}
-      {hasMore && !search && (
-        <div className="mt-6 text-center">
-          <Button
-            variant="outline"
-            onClick={() => fetchProjects(page + 1)}
-          >
-            Load More
-          </Button>
-        </div>
-      )}
-
       <Dialog open={showNew} onOpenChange={setShowNew}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -532,7 +347,9 @@ export default function ProjectsPage() {
               />
             </div>
             <div>
-              <Label className="text-sm font-medium text-[var(--text-primary)]">Description <span className="text-[var(--text-tertiary)] font-normal">(optional)</span></Label>
+              <Label className="text-sm font-medium text-[var(--text-primary)]">
+                Description <span className="text-[var(--text-tertiary)] font-normal">(optional)</span>
+              </Label>
               <Textarea
                 placeholder="Brief description of the research project…"
                 value={description}
