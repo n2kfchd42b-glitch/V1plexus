@@ -2,16 +2,17 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sidebar } from '@/components/layout/Sidebar'
 import { Header } from '@/components/layout/Header'
 import { CommandPalette } from '@/components/layout/CommandPalette'
 import { ShortcutOverlay } from '@/components/layout/ShortcutOverlay'
 import { MobileSidebar } from '@/components/layout/MobileSidebar'
+import { WorkspaceSidebar } from '@/components/layout/WorkspaceSidebar'
+import { WorkspaceProvider } from '@/components/workspace/WorkspaceProvider'
 import { useAuth } from '@/hooks/useAuth'
 import { useGlobalShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { Toaster } from 'sonner'
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+function DashboardContent({ children }: { children: React.ReactNode }) {
   const { user, profile, loading, signOut } = useAuth()
   const router = useRouter()
   const [cmdOpen, setCmdOpen] = useState(false)
@@ -46,9 +47,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen bg-[var(--bg-app)]">
-      {/* Desktop sidebar */}
+      {/* Desktop sidebar — now workspace-aware */}
       <div className="hidden md:block">
-        <Sidebar
+        <WorkspaceSidebar
           profile={profile}
           onSignOut={signOut}
           onCommandPalette={openCommandPalette}
@@ -67,11 +68,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </main>
       </div>
 
-      {/* Global overlays */}
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
       <ShortcutOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
-      {/* Toast system */}
       <Toaster
         position="bottom-right"
         toastOptions={{
@@ -86,7 +85,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }}
       />
 
-      {/* Keyboard shortcuts hint */}
       <button
         onClick={() => setShortcutsOpen(true)}
         className="fixed bottom-4 right-4 h-8 w-8 flex items-center justify-center rounded-full bg-[var(--bg-surface)] border border-[var(--border-default)] shadow-sm text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:shadow-md transition-all duration-150 text-sm font-medium z-40"
@@ -95,5 +93,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         ?
       </button>
     </div>
+  )
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <WorkspaceProvider>
+      <DashboardContent>{children}</DashboardContent>
+    </WorkspaceProvider>
   )
 }
