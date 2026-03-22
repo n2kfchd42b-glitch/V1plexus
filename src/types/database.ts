@@ -568,3 +568,121 @@ export interface GrammarSuggestion {
   type: 'grammar' | 'clarity' | 'style'
   explanation: string
 }
+
+// ─────────────────────────────────────────────
+// Phase 7: Field Operations
+// ─────────────────────────────────────────────
+
+export type IntegrationProvider = 'kobotoolbox' | 'redcap' | 'odk_central' | 'surveycto' | 'commcare' | 'dhis2'
+export type IntegrationStatus = 'active' | 'paused' | 'error' | 'disconnected'
+export type SyncFrequency = 'realtime' | 'hourly' | 'daily' | 'manual'
+export type SyncType = 'full' | 'incremental' | 'manual' | 'webhook'
+export type QualityRuleType = 'range' | 'required' | 'format' | 'unique' | 'logical' | 'cross_field' | 'outlier' | 'completeness' | 'consistency'
+export type QualitySeverity = 'error' | 'warning' | 'info'
+export type QualityResultStatus = 'active' | 'resolved' | 'ignored' | 'expected'
+
+export interface IntegrationConnection {
+  id: string
+  project_id: string
+  provider: IntegrationProvider
+  config: Record<string, unknown>
+  status: IntegrationStatus
+  last_sync_at: string | null
+  last_sync_status: string | null
+  sync_frequency: SyncFrequency
+  total_synced: number
+  error_log: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface SyncLog {
+  id: string
+  connection_id: string
+  sync_type: SyncType
+  records_fetched: number
+  records_new: number
+  records_updated: number
+  records_skipped: number
+  quality_issues: number
+  dataset_version_id: string | null
+  status: string
+  error_message: string | null
+  started_at: string
+  completed_at: string | null
+  duration_ms: number | null
+}
+
+export interface DataQualityRule {
+  id: string
+  dataset_id: string
+  name: string
+  rule_type: QualityRuleType
+  column_name: string | null
+  config: Record<string, unknown>
+  severity: QualitySeverity
+  is_active: boolean
+  auto_generated: boolean
+  created_by: string | null
+  created_at: string
+}
+
+export interface DataQualityResult {
+  id: string
+  dataset_id: string
+  version_id: string
+  rule_id: string
+  violations_count: number
+  total_checked: number
+  sample_violations: Array<Record<string, unknown>>
+  status: QualityResultStatus
+  resolved_by: string | null
+  resolved_at: string | null
+  created_at: string
+  rule?: DataQualityRule
+}
+
+export interface DataQualityScore {
+  id: string
+  dataset_id: string
+  version_id: string
+  overall_score: number
+  completeness: number | null
+  validity: number | null
+  uniqueness: number | null
+  consistency: number | null
+  errors_count: number
+  warnings_count: number
+  created_at: string
+}
+
+export interface ProjectMessage {
+  id: string
+  project_id: string
+  sender_id: string
+  content: string
+  created_at: string
+  sender?: Profile
+}
+
+export interface PushSubscription {
+  id: string
+  user_id: string
+  endpoint: string
+  keys: Record<string, string>
+  created_at: string
+}
+
+// Offline queue for mutations while offline
+export type OfflineMutationStatus = 'pending' | 'synced' | 'failed' | 'conflict'
+
+export interface OfflineMutation {
+  id: string
+  timestamp: number
+  action: 'insert' | 'update' | 'delete'
+  table: string
+  payload: Record<string, unknown>
+  status: OfflineMutationStatus
+  error?: string
+}
