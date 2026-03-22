@@ -1,0 +1,120 @@
+import { NextRequest, NextResponse } from 'next/server'
+import Anthropic from '@anthropic-ai/sdk'
+import type { AnalysisType } from '@/types/database'
+
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+export interface SuggestRequest {
+  projectTitle: string
+  projectDescription?: string | null
+  methodology?: string | null
+  researchObjectives?: string | null
+  columns?: Array<{ name: string; type: string; unique_values?: number; missing?: number }>
+}
+
+export interface AnalysisSuggestion {
+  type: AnalysisType
+  label: string
+  reason: string
+  confidence: 'high' | 'medium' | 'low'
+  priority: number
+}
+
+const ANALYSIS_CATALOGUE = [
+  { type: 'descriptive', label: 'Descriptive Statistics', tags: ['exploratory', 'summary', 'continuous', 'numeric'] },
+  { type: 'frequency', label: 'Frequency Tables', tags: ['categorical', 'count', 'distribution', 'prevalence'] },
+  { type: 'chi_square', label: 'Chi-Square Test', tags: ['categorical', 'association', 'independence', 'proportion'] },
+  { type: 't_test', label: 'T-Test', tags: ['mean comparison', 'two groups', 'continuous', 'intervention'] },
+  { type: 'anova', label: 'ANOVA', tags: ['mean comparison', 'three or more groups', 'factorial'] },
+  { type: 'correlation', label: 'Correlation', tags: ['relationship', 'association', 'continuous', 'scatter'] },
+  { type: 'simple_regression', label: 'Simple Linear Regression', tags: ['prediction', 'one predictor', 'continuous outcome'] },
+  { type: 'multiple_regression', label: 'Multiple Regression', tags: ['prediction', 'confounding', 'multivariate', 'continuous outcome'] },
+  { type: 'logistic_regression', label: 'Logistic Regression', tags: ['binary outcome', 'odds ratio', 'risk', 'prediction'] },
+  { type: 'multinomial_regression', label: 'Multinomial Regression', tags: ['multi-class outcome', 'categorical outcome'] },
+  { type: 'ordinal_regression', label: 'Ordinal Regression', tags: ['ordered outcome', 'Likert', 'severity'] },
+  { type: 'poisson_regression', label: 'Poisson / Neg-Binomial Regression', tags: ['count data', 'rate', 'incidence', 'overdispersion'] },
+  { type: 'kaplan_meier', label: 'Kaplan-Meier Survival', tags: ['survival', 'time-to-event', 'mortality', 'failure'] },
+  { type: 'cox_regression', label: 'Cox Regression', tags: ['hazard ratio', 'survival', 'time-to-event', 'covariates'] },
+  { type: 'time_series', label: 'Time Series', tags: ['longitudinal', 'trend', 'seasonal', 'temporal'] },
+  { type: 'pca', label: 'PCA', tags: ['dimension reduction', 'latent', 'many variables', 'multicollinearity'] },
+  { type: 'factor_analysis', label: 'Factor Analysis', tags: ['scale', 'construct', 'latent', 'psychometric'] },
+  { type: 'cluster_analysis', label: 'Cluster Analysis', tags: ['grouping', 'segmentation', 'unsupervised', 'phenotype'] },
+  { type: 'meta_analysis', label: 'Meta-Analysis', tags: ['systematic review', 'pooled effect', 'forest plot', 'heterogeneity'] },
+  { type: 'spatial_analysis', label: 'Spatial Analysis', tags: ['geographic', 'mapping', 'location', 'cluster'] },
+  { type: 'outbreak_investigation', label: 'Outbreak Investigation', tags: ['epidemic', 'attack rate', 'epi curve', 'public health'] },
+  { type: 'sample_size', label: 'Sample Size Calculator', tags: ['power', 'planning', 'precision'] },
+]
+
+export async function POST(req: NextRequest) {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return NextResponse.json({ error: 'AI suggestions require ANTHROPIC_API_KEY to be configured.' }, { status: 503 })
+  }
+
+  let body: SuggestRequest
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  const { projectTitle, projectDescription, methodology, researchObjectives, columns } = body
+
+  const columnsSummary = columns && columns.length > 0
+    ? columns.slice(0, 40).map(c =>
+        `  - "${c.name}" (${c.type}${c.unique_values !== undefined ? `, ${c.unique_values} unique values` : ''}${c.missing ? `, ${c.missing} missing` : ''})`
+      ).join('\n')
+    : null
+
+  const contextParts: string[] = [`Project: "${projectTitle}"`]
+  if (projectDescription) contextParts.push(`Description: ${projectDescription}`)
+  if (methodology) contextParts.push(`Methodology: ${methodology}`)
+  if (researchObjectives) contextParts.push(`Research objectives: ${researchObjectives}`)
+  if (columnsSummary) contextParts.push(`Dataset columns (${columns!.length} total):\n${columnsSummary}`)
+
+  const prompt = `You are an expert biostatistician and research methodologist advising researchers on their statistical analysis.
+
+Based on the research context below, recommend the most appropriate statistical analyses from the available catalogue.
+
+RESEARCH CONTEXT:
+${contextParts.join('\n')}
+
+AVAILABLE ANALYSES:
+${ANALYSIS_CATALOGUE.map(a => `- ${a.type}: ${a.label} [tags: ${a.tags.join(', ')}]`).join('\n')}
+
+Return a JSON array of recommendations (3–6 items), ordered by priority. Each item must match this exact schema:
+{
+  "type": "<analysis_type exactly as listed>",
+  "label": "<analysis label>",
+  "reason": "<one sentence: why this specific analysis fits this research>",
+  "confidence": "high" | "medium" | "low",
+  "priority": <integer 1=highest>
+}
+
+Rules:
+- Only include analyses that genuinely fit the research context
+- If dataset columns are provided, use column types to justify suggestions (e.g. binary columns → logistic regression, time columns → survival analysis)
+- Confidence is "high" when the research context strongly implies this method, "low" when it is speculative
+- Return ONLY the JSON array, no other text`
+
+  try {
+    const message = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }],
+    })
+
+    const text = message.content[0]?.type === 'text' ? message.content[0].text : ''
+    const jsonMatch = text.match(/\[[\s\S]*\]/)
+    if (!jsonMatch) throw new Error('No JSON array in response')
+
+    const suggestions: AnalysisSuggestion[] = JSON.parse(jsonMatch[0])
+    // Filter to only valid analysis types
+    const validTypes = new Set(ANALYSIS_CATALOGUE.map(a => a.type))
+    const filtered = suggestions.filter(s => validTypes.has(s.type as string))
+
+    return NextResponse.json({ suggestions: filtered })
+  } catch (err) {
+    console.error('[analysis/suggest] Claude error:', err)
+    return NextResponse.json({ error: 'Failed to generate suggestions', suggestions: [] }, { status: 500 })
+  }
+}

@@ -148,6 +148,8 @@ export interface Project {
   id: string
   title: string
   description: string | null
+  methodology: string | null
+  research_objectives: string | null
   status: ProjectStatus
   phase: ProjectPhase | null
   owner_id: string
