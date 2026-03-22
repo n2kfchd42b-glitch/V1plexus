@@ -4,13 +4,35 @@ export const dynamic = 'force-dynamic'
 
 import { Suspense, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { FlaskConical } from 'lucide-react'
+import { FlaskConical, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+
+function CheckEmailScreen({ email }: { email: string }) {
+  return (
+    <Card>
+      <CardHeader className="text-center">
+        <div className="flex justify-center mb-3">
+          <div className="flex items-center justify-center w-14 h-14 rounded-full bg-blue-50">
+            <Mail className="h-7 w-7 text-blue-600" />
+          </div>
+        </div>
+        <CardTitle>Check your email</CardTitle>
+        <CardDescription>
+          We sent a confirmation link to <strong>{email}</strong>
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="text-center text-sm text-gray-600 space-y-3">
+        <p>Click the link in the email to confirm your account, then you&apos;ll be taken to set up your workspace.</p>
+        <p className="text-xs text-gray-400">Didn&apos;t receive it? Check your spam folder.</p>
+      </CardContent>
+    </Card>
+  )
+}
 
 function LoginForm() {
   const [email, setEmail] = useState('')
@@ -22,7 +44,7 @@ function LoginForm() {
   const [fullName, setFullName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
+  const [emailSent, setEmailSent] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -30,16 +52,18 @@ function LoginForm() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    setMessage('')
 
     if (mode === 'signup') {
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: fullName } },
+        options: {
+          data: { full_name: fullName },
+          emailRedirectTo: `${window.location.origin}/dashboard`,
+        },
       })
       if (error) setError(error.message)
-      else setMessage('Check your email to confirm your account.')
+      else setEmailSent(true)
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) setError(error.message)
@@ -47,6 +71,8 @@ function LoginForm() {
     }
     setLoading(false)
   }
+
+  if (emailSent) return <CheckEmailScreen email={email} />
 
   return (
     <Card>
@@ -100,11 +126,6 @@ function LoginForm() {
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
               {error}
-            </div>
-          )}
-          {message && (
-            <div className="p-3 bg-green-50 border border-green-200 rounded-md text-green-700 text-sm">
-              {message}
             </div>
           )}
         </CardContent>
