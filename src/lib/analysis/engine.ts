@@ -38,14 +38,42 @@ export async function runAnalysis(
         return runMultipleRegression(data, config as unknown as Parameters<typeof runMultipleRegression>[1])
       case 'logistic_regression':
         return runLogisticRegression(data, config as unknown as Parameters<typeof runLogisticRegression>[1])
-      case 'multinomial_regression':
-        // Approximate as multiple binary logistic regressions
-        return runLogisticRegression(data, config as unknown as Parameters<typeof runLogisticRegression>[1])
-      case 'ordinal_regression':
-        return runLogisticRegression(data, config as unknown as Parameters<typeof runLogisticRegression>[1])
+      case 'multinomial_regression': {
+        // Approximation: one-vs-rest binary logistic regressions
+        const mnRes = runLogisticRegression(data, config as unknown as Parameters<typeof runLogisticRegression>[1])
+        return {
+          ...mnRes,
+          interpretation: '⚠️ Approximation: results shown are from a binary logistic regression (one-vs-rest). '
+            + 'True multinomial logistic regression requires simultaneous MLE across all outcome categories. '
+            + 'Treat relative risk ratios and confidence intervals as indicative only.\n\n'
+            + (mnRes.interpretation ?? '')
+        }
+      }
+      case 'ordinal_regression': {
+        // Approximation: binary logistic instead of proportional odds
+        const orRes = runLogisticRegression(data, config as unknown as Parameters<typeof runLogisticRegression>[1])
+        return {
+          ...orRes,
+          interpretation: '⚠️ Approximation: results shown are from a binary logistic regression. '
+            + 'True ordinal logistic (proportional odds) regression requires IRLS estimation and produces '
+            + 'separate threshold parameters for each category boundary. '
+            + 'Proportional odds assumption is not tested here.\n\n'
+            + (orRes.interpretation ?? '')
+        }
+      }
       case 'poisson_regression':
-      case 'negbinomial_regression':
         return runPoissonRegression(data, config as unknown as Parameters<typeof runPoissonRegression>[1])
+      case 'negbinomial_regression': {
+        // Approximation: Poisson regression (theta = ∞ = no overdispersion correction)
+        const nbRes = runPoissonRegression(data, config as unknown as Parameters<typeof runPoissonRegression>[1])
+        return {
+          ...nbRes,
+          interpretation: '⚠️ Approximation: results shown use Poisson regression (θ = ∞). '
+            + 'True negative binomial regression estimates a dispersion parameter (θ) via MLE to account for overdispersion. '
+            + 'If your count data is overdispersed (variance > mean), standard errors and p-values shown here will be too narrow.\n\n'
+            + (nbRes.interpretation ?? '')
+        }
+      }
       case 'kaplan_meier':
         return runKaplanMeier(data, config as unknown as Parameters<typeof runKaplanMeier>[1])
       case 'cox_regression':
@@ -54,8 +82,18 @@ export async function runAnalysis(
         return runTimeSeries(data, config as unknown as Parameters<typeof runTimeSeries>[1])
       case 'pca':
         return runPCA(data, config as unknown as Parameters<typeof runPCA>[1])
-      case 'factor_analysis':
-        return runPCA(data, { ...config, nComponents: config.nFactors ?? 3 } as unknown as Parameters<typeof runPCA>[1])
+      case 'factor_analysis': {
+        // Approximation: PCA used as proxy for EFA (no rotation, no communality iteration)
+        const faRes = runPCA(data, { ...config, nComponents: config.nFactors ?? 3 } as unknown as Parameters<typeof runPCA>[1])
+        return {
+          ...faRes,
+          interpretation: '⚠️ Approximation: results shown are from PCA, used as a proxy for factor analysis. '
+            + 'True exploratory factor analysis (EFA) uses iterated principal axis factoring with varimax or promax rotation '
+            + 'and iterates until communalities converge. Loadings, communalities, and factor scores shown here '
+            + 'will differ from those produced by true EFA software (R fa(), SPSS FACTOR).\n\n'
+            + (faRes.interpretation ?? '')
+        }
+      }
       case 'cluster_analysis':
         return runClusterAnalysis(data, config as unknown as Parameters<typeof runClusterAnalysis>[1])
       case 'meta_analysis':

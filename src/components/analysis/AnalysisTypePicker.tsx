@@ -16,6 +16,9 @@ export interface AnalysisTypeInfo {
   icon: React.ReactNode
   category: string
   chartType: string
+  /** True-browser engine uses an approximation; real implementation needs MLE/IRLS */
+  approximation?: boolean
+  approximationNote?: string
 }
 
 export const ANALYSIS_TYPES: AnalysisTypeInfo[] = [
@@ -67,12 +70,16 @@ export const ANALYSIS_TYPES: AnalysisTypeInfo[] = [
   {
     type: 'multinomial_regression', label: 'Multinomial Logistic', category: 'Regression',
     description: 'Categorical outcome with 3+ levels, relative risk ratios',
-    icon: <Layers className="h-5 w-5" />, chartType: 'Coefficient plot per level'
+    icon: <Layers className="h-5 w-5" />, chartType: 'Coefficient plot per level',
+    approximation: true,
+    approximationNote: 'Uses one-vs-rest binary logistic regressions. True MNL requires simultaneous MLE across all categories.'
   },
   {
     type: 'ordinal_regression', label: 'Ordinal Logistic', category: 'Regression',
     description: 'Proportional odds model for ordinal outcomes',
-    icon: <ArrowRight className="h-5 w-5" />, chartType: 'Cumulative probability'
+    icon: <ArrowRight className="h-5 w-5" />, chartType: 'Cumulative probability',
+    approximation: true,
+    approximationNote: 'Approximated with binary logistic regression. True proportional odds model requires IRLS and threshold parameters.'
   },
   {
     type: 'poisson_regression', label: 'Poisson Regression', category: 'Regression',
@@ -82,7 +89,9 @@ export const ANALYSIS_TYPES: AnalysisTypeInfo[] = [
   {
     type: 'negbinomial_regression', label: 'Negative Binomial', category: 'Regression',
     description: 'Overdispersed count data with dispersion parameter',
-    icon: <Activity className="h-5 w-5" />, chartType: 'IRR forest plot'
+    icon: <Activity className="h-5 w-5" />, chartType: 'IRR forest plot',
+    approximation: true,
+    approximationNote: 'Uses Poisson regression (θ=∞). True negative binomial requires dispersion parameter estimation via MLE.'
   },
   {
     type: 'kaplan_meier', label: 'Kaplan-Meier Survival', category: 'Survival',
@@ -107,7 +116,9 @@ export const ANALYSIS_TYPES: AnalysisTypeInfo[] = [
   {
     type: 'factor_analysis', label: 'Factor Analysis', category: 'Advanced',
     description: 'Factor loadings with varimax/promax rotation, communalities',
-    icon: <GitMerge className="h-5 w-5" />, chartType: 'Loading heatmap + Scree'
+    icon: <GitMerge className="h-5 w-5" />, chartType: 'Loading heatmap + Scree',
+    approximation: true,
+    approximationNote: 'Uses PCA as a proxy. True EFA requires iterated principal axis factoring with varimax/promax rotation and communality convergence.'
   },
   {
     type: 'cluster_analysis', label: 'Cluster Analysis', category: 'Advanced',
@@ -183,8 +194,18 @@ export function AnalysisTypePicker({ selected, onSelect }: Props) {
                   <div className="flex items-start gap-2">
                     <span className={cn('mt-0.5', categoryTextColors[category])}>{info.icon}</span>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium leading-tight">{info.label}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-medium leading-tight">{info.label}</p>
+                        {info.approximation && (
+                          <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide px-1 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                            approx
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">{info.description}</p>
+                      {info.approximation && info.approximationNote && (
+                        <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5 leading-tight italic">{info.approximationNote}</p>
+                      )}
                       <p className={cn('text-[10px] mt-1 font-medium', categoryTextColors[category])}>{info.chartType}</p>
                     </div>
                   </div>
