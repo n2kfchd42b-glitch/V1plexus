@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import {
   BarChart2, TrendingUp, Circle, Activity, Box, PieChart as PieIcon,
   Grid3x3, AreaChart as AreaChartIcon, Hash, Tag, Calendar, ToggleLeft, ChevronDown,
-  Save, ArrowLeft, Lightbulb,
+  Save, ArrowLeft, Lightbulb, FileText,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -28,6 +28,7 @@ interface ChartBuilderProps {
   versionId: string
   onBack?: () => void
   onSave?: (chartType: ChartType, config: ChartConfig) => void
+  onInsertIntoDocument?: (chartType: ChartType, config: ChartConfig) => void
 }
 
 // ─── Chart type definitions ───────────────────────────────────────────────────
@@ -191,7 +192,7 @@ function RenderChart({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function ChartBuilder({ rows, columns, datasetId: _datasetId, versionId: _versionId, onBack, onSave }: ChartBuilderProps) {
+export function ChartBuilder({ rows, columns, datasetId: _datasetId, versionId: _versionId, onBack, onSave, onInsertIntoDocument }: ChartBuilderProps) {
   const [chartType, setChartType] = useState<ChartType>('bar')
   const [config, setConfig] = useState<ChartConfig>({})
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
@@ -315,15 +316,28 @@ export function ChartBuilder({ rows, columns, datasetId: _datasetId, versionId: 
           </Button>
         )}
         <span className="font-semibold text-sm">Dataset Explorer</span>
-        <Button
-          size="sm"
-          className="gap-1.5"
-          onClick={() => onSave?.(chartType, config)}
-          disabled={!onSave}
-        >
-          <Save size={14} />
-          Save Chart
-        </Button>
+        <div className="flex items-center gap-2">
+          {onInsertIntoDocument && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => onInsertIntoDocument(chartType, config)}
+            >
+              <FileText size={14} />
+              Insert into Document
+            </Button>
+          )}
+          <Button
+            size="sm"
+            className="gap-1.5"
+            onClick={() => onSave?.(chartType, config)}
+            disabled={!onSave}
+          >
+            <Save size={14} />
+            Save Chart
+          </Button>
+        </div>
       </div>
 
       {/* Body: 3-column layout */}

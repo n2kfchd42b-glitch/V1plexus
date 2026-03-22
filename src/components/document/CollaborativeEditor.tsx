@@ -23,6 +23,9 @@ import type { Profile } from '@/types/database'
 import { AIAssistPopover } from '@/components/ai/AIAssistPopover'
 import { GenerateSectionModal } from '@/components/ai/GenerateSectionModal'
 import { GrammarCheckPanel } from '@/components/ai/GrammarCheckPanel'
+import { InsertDataModal } from './InsertDataModal'
+import { DatasetTableExtension } from './extensions/DatasetTableNode'
+import { ChartNodeExtension } from './extensions/ChartNode'
 
 interface CollaborativeEditorProps {
   documentId: string
@@ -60,6 +63,7 @@ export function CollaborativeEditor({
   const [aiOpen, setAiOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [showInsertData, setShowInsertData] = useState(false)
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
   const supabase = useMemo(() => createClient(), [])
 
@@ -122,6 +126,8 @@ export function CollaborativeEditor({
       Underline,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Link.configure({ openOnClick: false }),
+      DatasetTableExtension,
+      ChartNodeExtension,
     ],
     content: initialContent as Record<string, unknown> | undefined ?? undefined,
     editable: !readOnly,
@@ -197,7 +203,7 @@ export function CollaborativeEditor({
       {/* Toolbar */}
       {!readOnly && (
         <div className="border-b bg-card px-4 py-2 flex items-center justify-between gap-2">
-          <EditorToolbar editor={editor} />
+          <EditorToolbar editor={editor} onInsertData={() => setShowInsertData(true)} />
           <div className="flex items-center gap-2 shrink-0">
             <OnlineUsers users={onlineUsers} />
             {editor && (
@@ -293,6 +299,24 @@ export function CollaborativeEditor({
           documentId={documentId}
         />
       )}
+
+      <InsertDataModal
+        open={showInsertData}
+        onClose={() => setShowInsertData(false)}
+        projectId={projectId}
+        onInsertTable={({ datasetId, versionId, datasetName }) => {
+          editor?.chain().focus().insertContent({
+            type: 'datasetTable',
+            attrs: { datasetId, versionId, datasetName },
+          }).run()
+        }}
+        onInsertChart={({ explorationId, chartTitle, chartType, chartConfig, datasetId, versionId }) => {
+          editor?.chain().focus().insertContent({
+            type: 'chartEmbed',
+            attrs: { explorationId, chartTitle, chartType, chartConfig, datasetId, versionId },
+          }).run()
+        }}
+      />
     </div>
   )
 }
