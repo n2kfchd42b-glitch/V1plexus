@@ -43,8 +43,16 @@ export function CollaborativeEditor({
   onSubmitForReview,
   readOnly = false,
 }: CollaborativeEditorProps) {
+  // H4: Initialize Y.Doc synchronously so it's available before useEditor runs.
+  // Mutating a ref doesn't trigger re-renders, so initializing inside useEffect
+  // causes useEditor to receive a throwaway doc on first render.
   const ydocRef = useRef<Y.Doc | null>(null)
+  if (ydocRef.current === null) {
+    ydocRef.current = new Y.Doc()
+  }
+
   const providerRef = useRef<SupabaseProvider | null>(null)
+  const [providerReady, setProviderReady] = useState(false)
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([])
   const [showComments, setShowComments] = useState(false)
   const [showGrammar, setShowGrammar] = useState(false)
@@ -54,19 +62,11 @@ export function CollaborativeEditor({
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
   const supabase = createClient()
 
-  // Initialize Yjs doc and Supabase provider
+  // Initialize Supabase provider (ydoc is already set synchronously above)
   useEffect(() => {
     if (!currentProfile) return
 
-    const ydoc = new Y.Doc()
-    ydocRef.current = ydoc
-
-    // Load initial content into Yjs doc if no existing state
-    if (initialContent) {
-      // We'll let the editor handle initial content via TipTap's content prop
-      // The Yjs doc will be populated from the editor state
-    }
-
+    const ydoc = ydocRef.current!
     const channel = supabase.channel(`document:${documentId}`)
     const provider = new SupabaseProvider(ydoc, channel, documentId, {
       id: currentProfile.id,
@@ -88,19 +88,26 @@ export function CollaborativeEditor({
     }
 
     provider.awareness.on('change', updateUsers)
+    // Signal that provider is ready so useEditor reinitializes with real awareness
+    setProviderReady(true)
 
     return () => {
       provider.awareness.off('change', updateUsers)
       provider.destroy()
       supabase.removeChannel(channel)
+      providerRef.current = null
+      setProviderReady(false)
     }
   }, [documentId, currentProfile, supabase])
 
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ history: false }),
-      Collaboration.configure({ document: ydocRef.current ?? new Y.Doc() }),
+      // ydocRef.current is guaranteed non-null (initialized synchronously above)
+      Collaboration.configure({ document: ydocRef.current }),
       CollaborationCursor.configure({
+        // providerRef.current is set before providerReady flips to true,
+        // so this will be non-null on the re-render that matters
         provider: providerRef.current?.awareness,
         user: currentProfile
           ? {
@@ -125,16 +132,33 @@ export function CollaborativeEditor({
         handleAutoSave(editor.getJSON())
       }, 3000)
     },
-  }, [ydocRef.current])
+  }, [providerReady])  // reinitialize once the real provider/awareness is available
+
+  // H5: Extract plain text from TipTap JSON for content_text and word_count
+  function extractText(node: Record<string, unknown>): string {
+    let text = ''
+    if (node.type === 'text' && typeof node.text === 'string') {
+      text += node.text + ' '
+    }
+    if (Array.isArray(node.content)) {
+      for (const child of node.content as Record<string, unknown>[]) {
+        text += extractText(child)
+      }
+    }
+    return text
+  }
 
   const handleAutoSave = useCallback(async (content: Record<string, unknown>) => {
     setSaving(true)
     try {
+      const plainText = extractText(content).trim()
+      const wordCount = plainText ? plainText.split(/\s+/).filter(Boolean).length : 0
       await supabase
         .from('documents')
         .update({
           content,
-          content_text: '',
+          content_text: plainText,
+          word_count: wordCount,
           updated_at: new Date().toISOString(),
         })
         .eq('id', documentId)
