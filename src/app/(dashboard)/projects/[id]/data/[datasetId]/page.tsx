@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Wand2, BarChart2, GitMerge, GitCommit, Loader2, RefreshCw, Shield } from 'lucide-react'
+import { ArrowLeft, Wand2, BarChart2, GitMerge, GitCommit, Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DatasetTable } from '@/components/data/DatasetTable'
 import { VersionSelector } from '@/components/data/VersionSelector'
@@ -193,13 +193,7 @@ export default function DatasetViewerPage() {
                 Explore
               </Button>
             </Link>
-            <Link href={`/projects/${projectId}/data/${datasetId}/quality`}>
-              <Button variant="outline" size="sm">
-                <Shield className="h-4 w-4 mr-1.5" />
-                Quality
-              </Button>
-            </Link>
-            <Link href={`/projects/${projectId}/data/${datasetId}/versions`}>
+<Link href={`/projects/${projectId}/data/${datasetId}/versions`}>
               <Button variant="outline" size="sm">
                 <GitCommit className="h-4 w-4 mr-1.5" />
                 Versions

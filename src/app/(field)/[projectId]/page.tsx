@@ -8,7 +8,6 @@ import { createClient } from '@/lib/supabase/client'
 import { FieldBottomNav } from '@/components/field/FieldBottomNav'
 import { SubmissionCounter } from '@/components/field/SubmissionCounter'
 import { EnumeratorList } from '@/components/field/EnumeratorList'
-import { QualityAlertCard } from '@/components/field/QualityAlertCard'
 
 interface ProjectInfo {
   id: string
@@ -61,12 +60,6 @@ export default function FieldDashboardPage() {
         <section>
           <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">By Enumerator</h2>
           <EnumeratorList projectId={projectId} />
-        </section>
-
-        {/* Quality alerts */}
-        <section>
-          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Quality Alerts</h2>
-          <QualityAlertCard projectId={projectId} />
         </section>
 
         {/* Coverage map link */}
