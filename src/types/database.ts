@@ -573,7 +573,8 @@ export interface GrammarSuggestion {
 // Phase 7: Field Operations
 // ─────────────────────────────────────────────
 
-export type IntegrationProvider = 'kobotoolbox' | 'redcap' | 'odk_central' | 'surveycto' | 'commcare' | 'dhis2'
+export type IntegrationProvider = 'kobotoolbox' | 'redcap' | 'odk_central' | 'surveycto' | 'commcare' | 'dhis2' | 'zotero' | 'mendeley'
+export type SyncDirection = 'pull' | 'push' | 'bidirectional'
 export type IntegrationStatus = 'active' | 'paused' | 'error' | 'disconnected'
 export type SyncFrequency = 'realtime' | 'hourly' | 'daily' | 'manual'
 export type SyncType = 'full' | 'incremental' | 'manual' | 'webhook'
@@ -595,6 +596,46 @@ export interface IntegrationConnection {
   created_by: string | null
   created_at: string
   updated_at: string
+  // Phase 10 additions
+  display_name: string | null
+  provider_project_id: string | null
+  provider_project_name: string | null
+  column_mapping: Record<string, string> | null
+  sync_direction: SyncDirection | null
+  webhook_url: string | null
+  webhook_secret: string | null
+}
+
+export interface IntegrationFieldMapping {
+  id: string
+  connection_id: string
+  remote_field: string
+  local_column: string
+  transform: Record<string, unknown> | null
+  created_at: string
+}
+
+export interface DHIS2PushLog {
+  id: string
+  connection_id: string
+  push_type: 'data_values' | 'events' | 'tracked_entities'
+  period: string | null
+  org_unit: string | null
+  data_values_count: number
+  status: 'pending' | 'dry_run' | 'success' | 'failed' | 'partial'
+  import_summary: Record<string, unknown> | null
+  validation_issues: Array<Record<string, unknown>>
+  started_at: string
+  completed_at: string | null
+  created_by: string | null
+}
+
+export interface ZoteroSyncState {
+  id: string
+  connection_id: string
+  library_version: number
+  last_synced_at: string | null
+  item_count: number
 }
 
 export interface SyncLog {
