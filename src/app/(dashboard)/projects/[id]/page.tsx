@@ -211,7 +211,7 @@ export default function ProjectPage() {
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-[var(--text-primary)] truncate">{doc.title}</p>
                         <p className="text-xs text-[var(--text-tertiary)] flex items-center gap-1.5 mt-0.5">
-                          <span className="capitalize">{doc.document_type.replace('_', ' ')}</span>
+                          <span className="capitalize">{doc.document_type?.replace('_', ' ') ?? 'document'}</span>
                           <span>·</span>
                           <Clock className="h-3 w-3" />
                           {formatRelative(doc.updated_at)}
