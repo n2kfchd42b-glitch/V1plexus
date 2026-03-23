@@ -53,7 +53,7 @@ export function GrantDetailPanel({ grantId, defaultTab = 'overview' }: GrantDeta
       .select('budget_allocated, project:projects(id, title, status)')
       .eq('grant_id', grantId)
     if (data) {
-      setLinkedProjects(data.map((row: GrantProject & { project: { id: string; title: string; status: string } }) => ({
+      setLinkedProjects((data as unknown as Array<{ budget_allocated: number | null; project: { id: string; title: string; status: string } }>).map(row => ({
         id: row.project.id,
         title: row.project.title,
         status: row.project.status,

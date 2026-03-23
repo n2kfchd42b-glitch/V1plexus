@@ -10,7 +10,6 @@ import { WorkspaceSidebar } from '@/components/layout/WorkspaceSidebar'
 import { WorkspaceProvider } from '@/components/workspace/WorkspaceProvider'
 import { useAuth } from '@/hooks/useAuth'
 import { useGlobalShortcuts } from '@/hooks/useKeyboardShortcuts'
-import { OfflineBanner } from '@/components/offline/OfflineBanner'
 import { Toaster } from 'sonner'
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
@@ -48,7 +47,6 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-[var(--bg-app)]">
-      <OfflineBanner />
       {/* Desktop sidebar — now workspace-aware */}
       <div className="hidden md:block">
         <WorkspaceSidebar

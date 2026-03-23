@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  LayoutDashboard, FolderOpen, ClipboardList, Bell, Settings, Command, Database, Activity, Download, Smartphone,
+  LayoutDashboard, FolderOpen, ClipboardList, Bell, Settings, Command, Database, Activity, Download,
   Network, ShieldCheck, FileSignature, FileText
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -137,23 +137,6 @@ export function PersonalSidebar({ collapsed, onCommandPalette }: PersonalSidebar
               {!collapsed && (
                 <span className={cn('text-sm font-medium', dataActive ? 'text-white' : 'text-[#A1A1AA]')}>
                   Data
-                </span>
-              )}
-            </div>
-          </Link>
-          <Link href={`/field/${projectId}`}>
-            <div className={cn(
-              'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
-              collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
-              pathname.startsWith(`/field/${projectId}`)
-                ? 'bg-[#3F3F46] text-white'
-                : 'text-[#A1A1AA] hover:bg-[#27272A] hover:text-white/80'
-            )}>
-              {pathname.startsWith(`/field/${projectId}`) && <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[#3B82F6]" />}
-              <Smartphone className={cn('flex-shrink-0 h-4 w-4', pathname.startsWith(`/field/${projectId}`) ? 'text-white' : 'text-[#71717A]')} />
-              {!collapsed && (
-                <span className={cn('text-sm font-medium', pathname.startsWith(`/field/${projectId}`) ? 'text-white' : 'text-[#A1A1AA]')}>
-                  Field
                 </span>
               )}
             </div>
