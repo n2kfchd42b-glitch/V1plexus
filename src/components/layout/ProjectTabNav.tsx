@@ -4,21 +4,22 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, FileText, ShieldCheck, GitMerge, BarChart2, Database, Users, Settings } from "lucide-react";
+import { LayoutDashboard, FileText, ShieldCheck, GitMerge, BarChart2, Database, Users, Settings, Link2 } from "lucide-react";
 
 export function ProjectTabNav({ projectId }: { projectId: string }) {
   const pathname = usePathname();
   const router = useRouter();
 
   const tabs = [
-    { href: `/projects/${projectId}/overview`,  label: "Overview",  icon: LayoutDashboard },
-    { href: `/projects/${projectId}/team`,      label: "Team",      icon: Users },
-    { href: `/projects/${projectId}/documents`, label: "Documents", icon: FileText },
-    { href: `/projects/${projectId}/ethics`,    label: "Ethics",    icon: ShieldCheck },
-    { href: `/projects/${projectId}/approvals`, label: "Approvals", icon: GitMerge },
-    { href: `/projects/${projectId}/data`,      label: "Data",      icon: Database },
-    { href: `/projects/${projectId}/analysis`,  label: "Analysis",  icon: BarChart2 },
-    { href: `/projects/${projectId}/settings`,  label: "Settings",  icon: Settings },
+    { href: `/projects/${projectId}/overview`,      label: "Overview",      icon: LayoutDashboard },
+    { href: `/projects/${projectId}/team`,          label: "Team",          icon: Users },
+    { href: `/projects/${projectId}/documents`,     label: "Documents",     icon: FileText },
+    { href: `/projects/${projectId}/ethics`,        label: "Ethics",        icon: ShieldCheck },
+    { href: `/projects/${projectId}/approvals`,     label: "Approvals",     icon: GitMerge },
+    { href: `/projects/${projectId}/data`,          label: "Data",          icon: Database },
+    { href: `/projects/${projectId}/analysis`,      label: "Analysis",      icon: BarChart2 },
+    { href: `/projects/${projectId}/integrations`,  label: "Integrations",  icon: Link2 },
+    { href: `/projects/${projectId}/settings`,      label: "Settings",      icon: Settings },
   ];
 
   // Alt+1–6 to switch tabs

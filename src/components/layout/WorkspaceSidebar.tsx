@@ -8,6 +8,7 @@ import { WorkspaceSwitcher } from '@/components/workspace/WorkspaceSwitcher'
 import { PersonalSidebar } from '@/components/sidebar/PersonalSidebar'
 import { InstitutionalSidebar } from '@/components/sidebar/InstitutionalSidebar'
 import { useWorkspaceContext } from '@/components/workspace/WorkspaceProvider'
+import { SyncIndicator } from '@/components/offline/SyncIndicator'
 import type { Profile } from '@/types/database'
 
 interface WorkspaceSidebarProps {
@@ -119,6 +120,7 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
           'flex items-center border-t border-white/5 transition-all duration-200',
           collapsed ? 'flex-col px-2 py-2 gap-1' : 'px-2 py-2 gap-1'
         )}>
+          <SyncIndicator collapsed={collapsed} />
           <button
             onClick={onSignOut}
             title="Sign out"

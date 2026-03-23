@@ -231,7 +231,7 @@ export default function DatasetViewerPage() {
           </div>
 
           {/* Navigation actions */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
             <Link href={`/projects/${projectId}/data/${datasetId}/clean`}>
               <Button variant="outline" size="sm">
                 <Wand2 className="h-4 w-4 mr-1.5" />
@@ -244,7 +244,7 @@ export default function DatasetViewerPage() {
                 Explore
               </Button>
             </Link>
-            <Link href={`/projects/${projectId}/data/${datasetId}/versions`}>
+<Link href={`/projects/${projectId}/data/${datasetId}/versions`}>
               <Button variant="outline" size="sm">
                 <GitCommit className="h-4 w-4 mr-1.5" />
                 Versions
