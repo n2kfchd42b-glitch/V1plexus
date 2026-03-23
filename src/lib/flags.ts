@@ -19,3 +19,12 @@ export const PUBLICATION_ENABLED = false;
  *   - While `false`, all Phase 11 routes show "coming soon" and navigation links are hidden.
  */
 export const INSTITUTIONAL_INTELLIGENCE_ENABLED = false;
+
+/**
+ * NETWORK_COMPLIANCE_ENABLED: Phase 12 research network, compliance engine, consent management,
+ *   DMP generator, and multi-language interface.
+ *   - Set to `true` to enable the Research Network, Compliance Engine, Digital Consent,
+ *     Data Management Plans, and Language Selector.
+ *   - While `false`, all Phase 12 routes show "coming soon" preview pages.
+ */
+export const NETWORK_COMPLIANCE_ENABLED = false;

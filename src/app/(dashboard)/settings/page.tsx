@@ -9,8 +9,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import {
   User, Lock, CreditCard, Trash2, Upload, Camera,
-  ExternalLink, AlertTriangle, CheckCircle2, ChevronRight,
+  ExternalLink, AlertTriangle, CheckCircle2, ChevronRight, Globe,
 } from 'lucide-react'
+import { LanguageSelector } from '@/components/i18n/LanguageSelector'
 import { getInitials } from '@/lib/utils'
 import type { Profile } from '@/types/database'
 
@@ -361,6 +362,18 @@ export default function SettingsPage() {
                 {saving ? 'Saving…' : 'Save Profile'}
               </Button>
             </form>
+
+            {/* Language Preference */}
+            <div className="mt-8 bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-5">
+              <div className="flex items-center gap-2 mb-1">
+                <Globe className="h-4 w-4 text-[var(--text-tertiary)]" />
+                <h2 className="text-sm font-semibold text-[var(--text-primary)]">Interface Language</h2>
+              </div>
+              <p className="text-xs text-[var(--text-tertiary)] mb-4">
+                Choose your preferred language for the PLEXUS interface. Applies to navigation, labels, and status messages.
+              </p>
+              <LanguageSelector />
+            </div>
           </section>
         )}
 
