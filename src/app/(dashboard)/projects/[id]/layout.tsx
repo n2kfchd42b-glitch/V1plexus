@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ProjectTabNav } from "@/components/layout/ProjectTabNav";
+import { THESIS_ENABLED } from "@/lib/flags";
 
 export default async function ProjectWorkspaceLayout({
   children,
@@ -26,6 +27,21 @@ export default async function ProjectWorkspaceLayout({
 
   if (!project) notFound();
 
+  // Detect if this is a thesis project — only when the feature is enabled
+  let isThesis = false;
+  if (THESIS_ENABLED) {
+    try {
+      const { data: meta } = await supabase
+        .from("thesis_metadata")
+        .select("id")
+        .eq("project_id", id)
+        .maybeSingle();
+      isThesis = !!meta;
+    } catch {
+      isThesis = false;
+    }
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
       {/* Project header */}
@@ -34,6 +50,14 @@ export default async function ProjectWorkspaceLayout({
           <Link href="/projects" className="hover:text-gray-900">Projects</Link>
           <span>/</span>
           <span className="text-gray-900 font-medium">{project.title}</span>
+          {isThesis && (
+            <>
+              <span>/</span>
+              <span className="text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                Thesis
+              </span>
+            </>
+          )}
         </div>
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900">{project.title}</h1>
@@ -52,7 +76,7 @@ export default async function ProjectWorkspaceLayout({
       </div>
 
       {/* Tabs */}
-      <ProjectTabNav projectId={id} />
+      <ProjectTabNav projectId={id} isThesis={isThesis} />
 
       {/* Content */}
       <div className="flex-1 bg-gray-50">{children}</div>
