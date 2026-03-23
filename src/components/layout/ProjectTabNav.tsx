@@ -7,8 +7,9 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, FileText, ShieldCheck, GitMerge, BarChart2,
   Database, Users, Settings, Link2, BookOpen, UserCheck,
-  TrendingUp, Sword, FileCheck,
+  TrendingUp, Sword, FileCheck, Send,
 } from "lucide-react";
+import { PUBLICATION_ENABLED } from "@/lib/flags";
 
 interface ProjectTabNavProps {
   projectId: string;
@@ -28,6 +29,7 @@ export function ProjectTabNav({ projectId, isThesis }: ProjectTabNavProps) {
     { href: `/projects/${projectId}/data`,         label: "Data",          icon: Database },
     { href: `/projects/${projectId}/analysis`,     label: "Analysis",      icon: BarChart2 },
     { href: `/projects/${projectId}/integrations`, label: "Integrations",  icon: Link2 },
+    ...(PUBLICATION_ENABLED ? [{ href: `/projects/${projectId}/publication`, label: "Publication", icon: Send }] : []),
     { href: `/projects/${projectId}/settings`,     label: "Settings",      icon: Settings },
   ];
 
@@ -40,6 +42,7 @@ export function ProjectTabNav({ projectId, isThesis }: ProjectTabNavProps) {
     { href: `/projects/${projectId}/analysis`,     label: "Analysis",      icon: BarChart2 },
     { href: `/projects/${projectId}/defense`,      label: "Defense",       icon: Sword },
     { href: `/projects/${projectId}/format-check`, label: "Format Check",  icon: FileCheck },
+    ...(PUBLICATION_ENABLED ? [{ href: `/projects/${projectId}/publication`, label: "Publication", icon: Send }] : []),
     { href: `/projects/${projectId}/activity`,     label: "Activity",      icon: GitMerge },
     { href: `/projects/${projectId}/settings`,     label: "Settings",      icon: Settings },
   ];

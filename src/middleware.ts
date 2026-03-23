@@ -39,8 +39,13 @@ export async function middleware(request: NextRequest) {
 
   const isInvitePage = pathname.startsWith("/invite/");
 
+  // Public pages — protocol registry and dataset landing pages (no auth required)
+  const isPublicPage =
+    pathname.startsWith("/registry/") ||
+    pathname.startsWith("/data/");
+
   const isProtected =
-    !isAuthPage && !isSetupPage && !isInvitePage && pathname !== "/";
+    !isAuthPage && !isSetupPage && !isInvitePage && !isPublicPage && pathname !== "/";
 
   // Redirect unauthenticated users to login
   if (isProtected && !user) {
