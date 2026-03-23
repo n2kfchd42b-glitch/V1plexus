@@ -727,3 +727,116 @@ export interface OfflineMutation {
   status: OfflineMutationStatus
   error?: string
 }
+
+// ════════════════════════════════════════
+// PHASE 11: INSTITUTIONAL INTELLIGENCE
+// ════════════════════════════════════════
+
+export type GrantFunderType = 'bilateral' | 'multilateral' | 'foundation' | 'government' | 'private' | 'university' | 'other'
+export type GrantStatus = 'applied' | 'active' | 'completed' | 'closed' | 'rejected'
+export type GrantReportType = 'progress' | 'annual' | 'final' | 'financial' | 'custom'
+export type GrantReportStatus = 'pending' | 'draft' | 'submitted' | 'accepted'
+export type KBResourceType = 'protocol' | 'manuscript' | 'dataset' | 'analysis_config' | 'thesis' | 'template' | 'sop' | 'report'
+
+export interface ReportingScheduleItem {
+  title: string
+  due_date: string
+  status: 'pending' | 'submitted'
+  submitted_at?: string
+}
+
+export interface Grant {
+  id: string
+  institution_id: string
+  title: string
+  funder_name: string
+  funder_type: GrantFunderType | null
+  grant_number: string | null
+  amount: number | null
+  currency: string
+  start_date: string | null
+  end_date: string | null
+  status: GrantStatus
+  reporting_schedule: ReportingScheduleItem[]
+  pi_id: string | null
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  pi?: Profile
+  grant_projects?: GrantProject[]
+  grant_reports?: GrantReport[]
+}
+
+export interface GrantProject {
+  id: string
+  grant_id: string
+  project_id: string
+  budget_allocated: number | null
+}
+
+export interface GrantReport {
+  id: string
+  grant_id: string
+  title: string
+  report_type: GrantReportType
+  due_date: string | null
+  submitted_at: string | null
+  document_id: string | null
+  status: GrantReportStatus
+  created_at: string
+  updated_at: string
+}
+
+export interface KnowledgeBaseEntry {
+  id: string
+  institution_id: string
+  project_id: string | null
+  resource_type: KBResourceType
+  resource_id: string
+  title: string
+  description: string | null
+  keywords: string[]
+  disease_area: string[]
+  methodology: string[]
+  geographic_scope: string[]
+  authors: { name: string; id?: string }[]
+  is_template: boolean
+  archived_at: string
+  created_at: string
+}
+
+export interface ResearchMetricsCounts {
+  total: number
+  active?: number
+  completed?: number
+  archived?: number
+  this_quarter?: number
+  in_review?: number
+  published_with_doi?: number
+  shared_on_network?: number
+}
+
+export interface ResearchMetricsBlob {
+  projects: { total: number; active: number; completed: number; archived: number }
+  publications: { total: number; this_quarter: number; in_review: number }
+  datasets: { total: number; published_with_doi: number; shared_on_network: number }
+  analyses: { total: number; this_quarter: number }
+  researchers: { total: number; active_this_quarter: number }
+  theses: { active: number; completed_this_year: number; on_track: number; behind: number; at_risk: number }
+  grants: { active: number; total_funding: number; reports_due_soon: number }
+  ethics: { approved: number; pending: number; expired: number }
+  collaboration: { cross_dept_projects: number; external_collaborators: number }
+  top_disease_areas: { name: string; count: number }[]
+  top_methodologies: { name: string; count: number }[]
+  geographic_reach: { name: string; count: number }[]
+}
+
+export interface ResearchMetrics {
+  id: string
+  institution_id: string
+  department_id: string | null
+  period: string
+  metrics: ResearchMetricsBlob
+  computed_at: string
+}
