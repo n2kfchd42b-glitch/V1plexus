@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  LayoutDashboard, FolderOpen, ClipboardList, Bell, Settings, Command, Database, Activity, Download, Smartphone
+  LayoutDashboard, FolderOpen, ClipboardList, Bell, Settings, Command, Database, Activity, Download, Smartphone,
+  Network, ShieldCheck, FileSignature, FileText
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -15,6 +16,13 @@ const personalNav = [
   { href: '/exports',       label: 'Exports',       icon: Download },
   { href: '/audit',         label: 'Audit Trail',   icon: Activity },
   { href: '/settings',      label: 'Settings',      icon: Settings },
+]
+
+const networkNav = [
+  { href: '/network',    label: 'Research Network', icon: Network },
+  { href: '/compliance', label: 'Compliance',       icon: ShieldCheck },
+  { href: '/consent',    label: 'Consent',          icon: FileSignature },
+  { href: '/dmp',        label: 'Data Plans',       icon: FileText },
 ]
 
 interface PersonalSidebarProps {
@@ -47,6 +55,35 @@ export function PersonalSidebar({ collapsed, onCommandPalette }: PersonalSidebar
               {active && (
                 <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[#3B82F6]" />
               )}
+              <Icon className={cn('flex-shrink-0 h-4 w-4', active ? 'text-white' : 'text-[#71717A]')} />
+              {!collapsed && (
+                <span className={cn('text-sm font-medium', active ? 'text-white' : 'text-[#A1A1AA]')}>
+                  {item.label}
+                </span>
+              )}
+            </div>
+          </Link>
+        )
+      })}
+
+      {/* Phase 12: Research Network */}
+      <div className="my-2 h-px bg-white/10" />
+      {!collapsed && (
+        <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider px-2.5 mb-1 pt-1">
+          Network
+        </p>
+      )}
+      {networkNav.map(item => {
+        const Icon = item.icon
+        const active = pathname === item.href || pathname.startsWith(item.href + '/')
+        return (
+          <Link key={item.href} href={item.href} title={collapsed ? item.label : undefined}>
+            <div className={cn(
+              'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
+              collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
+              active ? 'bg-[#3F3F46] text-white' : 'text-[#A1A1AA] hover:bg-[#27272A] hover:text-white/80'
+            )}>
+              {active && <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[#3B82F6]" />}
               <Icon className={cn('flex-shrink-0 h-4 w-4', active ? 'text-white' : 'text-[#71717A]')} />
               {!collapsed && (
                 <span className={cn('text-sm font-medium', active ? 'text-white' : 'text-[#A1A1AA]')}>

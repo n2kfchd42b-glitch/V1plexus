@@ -4,10 +4,12 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderOpen, ClipboardList, Bell, Settings,
-  Command, Building2, Users, GraduationCap, UserCheck, Database, Activity, ClipboardCheck, Download, Smartphone
+  Command, Building2, Users, GraduationCap, UserCheck, Database, Activity, ClipboardCheck, Download, Smartphone,
+  Network, ShieldCheck, FileSignature, FileText
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useWorkspaceContext } from '@/components/workspace/WorkspaceProvider'
+import { NETWORK_COMPLIANCE_ENABLED } from '@/lib/flags'
 
 interface InstitutionalSidebarProps {
   collapsed: boolean
@@ -29,6 +31,13 @@ export function InstitutionalSidebar({ collapsed, onCommandPalette }: Institutio
     { href: '/reviews',       label: 'Reviews',       icon: ClipboardList,   shortcut: 'G R' },
     { href: '/notifications', label: 'Notifications', icon: Bell,            shortcut: 'G N' },
     { href: '/exports',       label: 'Exports',       icon: Download },
+  ]
+
+  const networkNav = [
+    { href: '/network',    label: 'Research Network', icon: Network },
+    { href: '/compliance', label: 'Compliance',       icon: ShieldCheck },
+    { href: '/consent',    label: 'Consent',          icon: FileSignature },
+    { href: '/dmp',        label: 'Data Plans',       icon: FileText },
   ]
 
   const institutionNav = [
@@ -91,6 +100,17 @@ export function InstitutionalSidebar({ collapsed, onCommandPalette }: Institutio
           ))}
         </>
       )}
+
+      {/* Phase 12: Research Network */}
+      <div className="my-2 h-px bg-white/10" />
+      {!collapsed && (
+        <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider px-2.5 mb-1 pt-1">
+          Network
+        </p>
+      )}
+      {networkNav.map(item => (
+        <NavItem key={item.href} {...item} />
+      ))}
 
       {/* Settings */}
       <div className="my-2 h-px bg-white/10" />
