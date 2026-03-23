@@ -7,6 +7,7 @@ import {
   Network, ShieldCheck, FileSignature, FileText
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { NETWORK_COMPLIANCE_ENABLED } from '@/lib/flags'
 
 const personalNav = [
   { href: '/dashboard',     label: 'Dashboard',     icon: LayoutDashboard, shortcut: 'G D' },
@@ -86,9 +87,16 @@ export function PersonalSidebar({ collapsed, onCommandPalette }: PersonalSidebar
               {active && <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[#3B82F6]" />}
               <Icon className={cn('flex-shrink-0 h-4 w-4', active ? 'text-white' : 'text-[#71717A]')} />
               {!collapsed && (
-                <span className={cn('text-sm font-medium', active ? 'text-white' : 'text-[#A1A1AA]')}>
-                  {item.label}
-                </span>
+                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                  <span className={cn('text-sm font-medium', active ? 'text-white' : 'text-[#A1A1AA]')}>
+                    {item.label}
+                  </span>
+                  {!NETWORK_COMPLIANCE_ENABLED && (
+                    <span className="text-[9px] font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded px-1 leading-4">
+                      Soon
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           </Link>

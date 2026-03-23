@@ -1,6 +1,13 @@
 /**
  * Feature flags — flip to `true` when ready to deploy each feature.
  *
+ * FIELD_OPERATIONS_ENABLED: Phase 7 field operations layer (Offline PWA, mobile data
+ *   collection, coverage maps, enumerator management, field quality monitoring).
+ *   - While `false`, Field Operations tab shows "coming soon" and routes are hidden.
+ */
+export const FIELD_OPERATIONS_ENABLED = false;
+
+/**
  * THESIS_ENABLED: Phase 8 thesis & student management workspace.
  *   - Set to `true` to show thesis tabs, graduate dashboard, and new-thesis wizard.
  *   - While `false`, all thesis routes redirect and navigation links are hidden.

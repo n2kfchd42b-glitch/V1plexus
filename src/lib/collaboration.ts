@@ -127,6 +127,7 @@ export class SupabaseProvider {
   }
 
   private _broadcast(data: Uint8Array) {
+    if (!this.connected) return
     this.channel.send({
       type: 'broadcast',
       event: 'yjs-sync',

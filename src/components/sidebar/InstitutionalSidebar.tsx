@@ -5,11 +5,11 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderOpen, ClipboardList, Bell, Settings,
   Command, Building2, Users, GraduationCap, UserCheck, Database, Activity, ClipboardCheck, Download,
-  Network, ShieldCheck, FileSignature, FileText
+  Network, ShieldCheck, FileSignature, FileText, BarChart3, BookOpen, Landmark
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useWorkspaceContext } from '@/components/workspace/WorkspaceProvider'
-import { NETWORK_COMPLIANCE_ENABLED } from '@/lib/flags'
+import { NETWORK_COMPLIANCE_ENABLED, INSTITUTIONAL_INTELLIGENCE_ENABLED } from '@/lib/flags'
 
 interface InstitutionalSidebarProps {
   collapsed: boolean
@@ -58,7 +58,7 @@ export function InstitutionalSidebar({ collapsed, onCommandPalette }: Institutio
     ] : []),
   ]
 
-  const NavItem = ({ href, label, icon: Icon }: { href: string; label: string; icon: React.ElementType }) => {
+  const NavItem = ({ href, label, icon: Icon, soon }: { href: string; label: string; icon: React.ElementType; soon?: boolean }) => {
     const active = pathname === href || pathname.startsWith(href + '/')
     return (
       <Link href={href} title={collapsed ? label : undefined}>
@@ -72,9 +72,16 @@ export function InstitutionalSidebar({ collapsed, onCommandPalette }: Institutio
           {active && <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[#3B82F6]" />}
           <Icon className={cn('flex-shrink-0 h-4 w-4', active ? 'text-white' : 'text-[#71717A]')} />
           {!collapsed && (
-            <span className={cn('text-sm font-medium', active ? 'text-white' : 'text-[#A1A1AA]')}>
-              {label}
-            </span>
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              <span className={cn('text-sm font-medium', active ? 'text-white' : 'text-[#A1A1AA]')}>
+                {label}
+              </span>
+              {soon && (
+                <span className="text-[9px] font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded px-1 leading-4">
+                  Soon
+                </span>
+              )}
+            </div>
           )}
         </div>
       </Link>
@@ -101,6 +108,21 @@ export function InstitutionalSidebar({ collapsed, onCommandPalette }: Institutio
         </>
       )}
 
+      {/* Phase 11: Institutional Intelligence */}
+      {(isAdmin || isDepartmentHead) && (
+        <>
+          <div className="my-2 h-px bg-white/10" />
+          {!collapsed && (
+            <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider px-2.5 mb-1 pt-1">
+              Intelligence
+            </p>
+          )}
+          <NavItem href="/institution/impact"    label="Research Impact" icon={BarChart3}  soon={!INSTITUTIONAL_INTELLIGENCE_ENABLED} />
+          <NavItem href="/institution/grants"    label="Grants"          icon={Landmark}   soon={!INSTITUTIONAL_INTELLIGENCE_ENABLED} />
+          <NavItem href="/institution/knowledge" label="Knowledge Base"  icon={BookOpen}   soon={!INSTITUTIONAL_INTELLIGENCE_ENABLED} />
+        </>
+      )}
+
       {/* Phase 12: Research Network */}
       <div className="my-2 h-px bg-white/10" />
       {!collapsed && (
@@ -109,7 +131,7 @@ export function InstitutionalSidebar({ collapsed, onCommandPalette }: Institutio
         </p>
       )}
       {networkNav.map(item => (
-        <NavItem key={item.href} {...item} />
+        <NavItem key={item.href} {...item} soon={!NETWORK_COMPLIANCE_ENABLED} />
       ))}
 
       {/* Settings */}
