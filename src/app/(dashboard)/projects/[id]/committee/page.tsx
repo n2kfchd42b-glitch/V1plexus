@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { CommitteePanel } from "@/components/thesis/CommitteePanel";
 import { ThesisCommittee } from "@/lib/types/thesis";
+import { THESIS_ENABLED } from "@/lib/flags";
 
 export default async function CommitteePage({
   params,
@@ -9,6 +10,7 @@ export default async function CommitteePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  if (!THESIS_ENABLED) redirect(`/projects/${id}/overview`);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");

@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ChapterList } from "@/components/thesis/ChapterList";
 import { ThesisChapter } from "@/lib/types/thesis";
+import { THESIS_ENABLED } from "@/lib/flags";
 
 export default async function ChaptersPage({
   params,
@@ -9,6 +10,7 @@ export default async function ChaptersPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  if (!THESIS_ENABLED) redirect(`/projects/${id}/overview`);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");

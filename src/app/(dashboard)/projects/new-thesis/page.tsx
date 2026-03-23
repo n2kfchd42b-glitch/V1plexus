@@ -3,8 +3,10 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ThesisCreationWizard } from "@/components/thesis/ThesisCreationWizard";
 import { ArrowLeft } from "lucide-react";
+import { THESIS_ENABLED } from "@/lib/flags";
 
 export default async function NewThesisPage() {
+  if (!THESIS_ENABLED) redirect("/projects");
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");

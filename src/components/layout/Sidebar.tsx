@@ -11,6 +11,7 @@ import {
 import { cn, getInitials } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import type { Profile } from '@/types/database'
+import { THESIS_ENABLED } from '@/lib/flags'
 
 const navItems = [
   { href: '/dashboard',     label: 'Dashboard', icon: LayoutDashboard, shortcut: 'G D' },
@@ -24,7 +25,7 @@ const institutionItems = [
   { href: '/institution/members',    label: 'Members',        icon: Users },
   { href: '/institution/compliance', label: 'Compliance',     icon: ClipboardCheck },
   { href: '/institution/audit',      label: 'Audit Log',      icon: Shield },
-  { href: '/graduate',               label: 'Graduate Theses', icon: GraduationCap },
+  ...(THESIS_ENABLED ? [{ href: '/graduate', label: 'Graduate Theses', icon: GraduationCap }] : []),
 ]
 
 interface SidebarProps {

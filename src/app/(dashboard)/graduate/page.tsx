@@ -2,8 +2,10 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { GraduateCoordinatorDash } from "@/components/thesis/GraduateCoordinatorDash";
 import { CoordinatorThesisRow, DegreeType } from "@/lib/types/thesis";
+import { THESIS_ENABLED } from "@/lib/flags";
 
 export default async function GraduateDashboardPage() {
+  if (!THESIS_ENABLED) redirect("/dashboard");
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");

@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ProjectTabNav } from "@/components/layout/ProjectTabNav";
+import { THESIS_ENABLED } from "@/lib/flags";
 
 export default async function ProjectWorkspaceLayout({
   children,
@@ -26,18 +27,19 @@ export default async function ProjectWorkspaceLayout({
 
   if (!project) notFound();
 
-  // Detect if this is a thesis project by checking for thesis_metadata
+  // Detect if this is a thesis project — only when the feature is enabled
   let isThesis = false;
-  try {
-    const { data: meta } = await supabase
-      .from("thesis_metadata")
-      .select("id")
-      .eq("project_id", id)
-      .maybeSingle();
-    isThesis = !!meta;
-  } catch {
-    // Table doesn't exist yet (migration pending) — treat as research project
-    isThesis = false;
+  if (THESIS_ENABLED) {
+    try {
+      const { data: meta } = await supabase
+        .from("thesis_metadata")
+        .select("id")
+        .eq("project_id", id)
+        .maybeSingle();
+      isThesis = !!meta;
+    } catch {
+      isThesis = false;
+    }
   }
 
   return (

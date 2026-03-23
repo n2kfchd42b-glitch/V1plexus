@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ProgressDashboard } from "@/components/thesis/ProgressDashboard";
 import { ThesisChapter, ThesisMetadata, ThesisDefense } from "@/lib/types/thesis";
+import { THESIS_ENABLED } from "@/lib/flags";
 
 export default async function ProgressPage({
   params,
@@ -9,6 +10,7 @@ export default async function ProgressPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  if (!THESIS_ENABLED) redirect(`/projects/${id}/overview`);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
