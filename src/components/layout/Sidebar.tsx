@@ -6,12 +6,13 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderOpen, ClipboardList, Bell,
   FlaskConical, LogOut, ChevronLeft, ChevronRight, Command,
-  Database, Settings, Shield, ClipboardCheck, Users, GraduationCap
+  Database, Settings, Shield, ClipboardCheck, Users, GraduationCap,
+  BarChart3, DollarSign, BookOpen
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import type { Profile } from '@/types/database'
-import { THESIS_ENABLED } from '@/lib/flags'
+import { THESIS_ENABLED, INSTITUTIONAL_INTELLIGENCE_ENABLED } from '@/lib/flags'
 
 const navItems = [
   { href: '/dashboard',     label: 'Dashboard', icon: LayoutDashboard, shortcut: 'G D' },
@@ -26,6 +27,11 @@ const institutionItems = [
   { href: '/institution/compliance', label: 'Compliance',     icon: ClipboardCheck },
   { href: '/institution/audit',      label: 'Audit Log',      icon: Shield },
   ...(THESIS_ENABLED ? [{ href: '/graduate', label: 'Graduate Theses', icon: GraduationCap }] : []),
+  ...(INSTITUTIONAL_INTELLIGENCE_ENABLED ? [
+    { href: '/institution/impact',    label: 'Research Impact', icon: BarChart3 },
+    { href: '/institution/grants',    label: 'Grants',          icon: DollarSign },
+    { href: '/institution/knowledge', label: 'Knowledge Base',  icon: BookOpen },
+  ] : []),
 ]
 
 interface SidebarProps {

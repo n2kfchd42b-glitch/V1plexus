@@ -12,3 +12,10 @@
  */
 export const THESIS_ENABLED = false;
 export const PUBLICATION_ENABLED = false;
+
+/**
+ * INSTITUTIONAL_INTELLIGENCE_ENABLED: Phase 11 research impact, grants, and knowledge base.
+ *   - Set to `true` to show impact dashboard, grant management, and knowledge base pages.
+ *   - While `false`, all Phase 11 routes show "coming soon" and navigation links are hidden.
+ */
+export const INSTITUTIONAL_INTELLIGENCE_ENABLED = false;
