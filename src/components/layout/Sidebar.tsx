@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderOpen, ClipboardList, Bell,
   FlaskConical, LogOut, ChevronLeft, ChevronRight, Command,
-  Database, Settings, Shield, ClipboardCheck, Users
+  Database, Settings, Shield, ClipboardCheck, Users, GraduationCap
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -21,9 +21,10 @@ const navItems = [
 ]
 
 const institutionItems = [
-  { href: '/institution/members',    label: 'Members',    icon: Users },
-  { href: '/institution/compliance', label: 'Compliance', icon: ClipboardCheck },
-  { href: '/institution/audit',      label: 'Audit Log',  icon: Shield },
+  { href: '/institution/members',    label: 'Members',        icon: Users },
+  { href: '/institution/compliance', label: 'Compliance',     icon: ClipboardCheck },
+  { href: '/institution/audit',      label: 'Audit Log',      icon: Shield },
+  { href: '/graduate',               label: 'Graduate Theses', icon: GraduationCap },
 ]
 
 interface SidebarProps {
