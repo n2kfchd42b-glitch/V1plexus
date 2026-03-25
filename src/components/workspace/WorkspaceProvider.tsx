@@ -63,11 +63,12 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       if (!user) return
 
       // Fetch all workspaces + memberships
-      const { data: wsMemberships } = await supabase
+      const { data: wsMemberships, error: wsMembershipError } = await supabase
         .from('workspace_memberships')
         .select('*, workspace:workspaces(*, institution:institutions(*))')
         .eq('user_id', user.id)
         .eq('status', 'active')
+      if (wsMembershipError) console.error('[WorkspaceProvider] workspace_memberships error:', wsMembershipError)
 
       if (wsMemberships) {
         const workspaces = wsMemberships
