@@ -156,20 +156,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Social Proof Logos */}
-        <section className="py-12 bg-[#f3f4f6] border-y border-[#c4c5d5]/10">
-          <div className="max-w-7xl mx-auto px-6">
-            <p className="text-center text-[10px] font-bold uppercase tracking-widest text-[#444653] mb-10">Supporting World-Class Institutions</p>
-            <div className="flex flex-wrap justify-center items-center gap-12 md:gap-24 opacity-40 grayscale hover:grayscale-0 transition-all duration-500">
-              <span className="font-serif text-2xl font-bold tracking-tighter">WHO</span>
-              <span className="font-headline text-xl font-extrabold">MinHealth</span>
-              <span className="font-serif text-2xl italic">Oxford Research</span>
-              <span className="font-headline text-xl font-black">UNICEF</span>
-              <span className="font-serif text-2xl font-bold">CDC</span>
-            </div>
-          </div>
-        </section>
-
         {/* Built for Every Role */}
         <section className="py-24 bg-white">
           <div className="max-w-7xl mx-auto px-6">
@@ -209,7 +195,7 @@ export default function LandingPage() {
           <div className="max-w-7xl mx-auto px-6 relative z-10">
             <div className="text-center mb-16">
               <span className="inline-block px-4 py-1.5 rounded-full bg-white/10 border border-white/20 text-blue-100 text-xs font-bold uppercase tracking-[0.2em] mb-6 font-geist">
-                Clinical Operating System
+                Global Health Operating System
               </span>
               <h2 className="text-4xl md:text-6xl font-bold tracking-tighter mb-4 font-geist text-white">The Global Research Plexus</h2>
               <p className="text-blue-100 text-lg max-w-2xl mx-auto opacity-80">A unified orchestration layer connecting every stage of the institutional research lifecycle.</p>
@@ -261,7 +247,7 @@ export default function LandingPage() {
                 href="/login?mode=signup"
                 className="inline-flex items-center gap-3 px-8 py-4 bg-white text-[#1E40AF] font-bold rounded-xl hover:bg-blue-50 transition-all group shadow-xl shadow-blue-900/20"
               >
-                Explore the Clinical OS
+                Explore More
                 <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
               </Link>
             </div>
