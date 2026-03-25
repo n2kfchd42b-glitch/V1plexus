@@ -110,9 +110,9 @@ export function CollaborativeEditor({
       StarterKit.configure({ history: false }),
       // ydocRef.current is guaranteed non-null (initialized synchronously above)
       Collaboration.configure({ document: ydocRef.current }),
-      CollaborationCursor.configure({
-        // providerRef.current is set before providerReady flips to true,
-        // so this will be non-null on the re-render that matters
+      // Only mount CollaborationCursor once the provider exists; on the initial
+      // render providerRef.current is null and accessing .awareness would crash.
+      ...(providerRef.current ? [CollaborationCursor.configure({
         provider: providerRef.current,
         user: currentProfile
           ? {
@@ -120,7 +120,7 @@ export function CollaborativeEditor({
               color: getUserColor(currentProfile.id),
             }
           : undefined,
-      }),
+      })] : []),
       Placeholder.configure({ placeholder: 'Start writing your document...' }),
       Highlight,
       Underline,
