@@ -179,15 +179,32 @@ export function runMultipleRegression(data: DataRow[], config: MultipleRegressio
   const ses = XtXInv.map((row, i) => Math.sqrt(row[i] * mse))
   const tCrit = getTCrit(alpha / 2, n - k - 1)
 
-  const predNames = ['(Intercept)', ...allPredictorNames]
-  const coefRows: (string | number | null)[][] = beta.map((b, i) => {
-    const se = ses[i]
+  // ── Publication-format coefficient table ──────────────────────────────────
+  const pubCoefRows: (string | number | null)[][] = beta.slice(1).map((b, i) => {
+    const se = ses[i + 1]
     const t = b / se
     const p = tToP2(t, n - k - 1)
-    return [predNames[i], fmt(b), fmt(se), fmt(t), formatPValue(p), fmtCI(b - tCrit * se, b + tCrit * se), getSig(p)]
+    return [
+      allPredictorNames[i],
+      fmt(b, 3),
+      fmtCI(b - tCrit * se, b + tCrit * se, 3),
+      formatPValue(p),
+      getSig(p)
+    ]
   })
 
-  // VIF (simple approximation)
+  // Intercept row for advanced table
+  const intB = beta[0], intSE = ses[0], intT = intB / intSE
+  const intP = tToP2(intT, n - k - 1)
+
+  // Advanced table with SE, t, intercept
+  const advCoefRows: (string | number | null)[][] = beta.map((b, i) => {
+    const se = ses[i]; const t = b / se; const p = tToP2(t, n - k - 1)
+    const name = i === 0 ? '(Intercept)' : allPredictorNames[i - 1]
+    return [name, fmt(b, 4), fmt(se, 4), fmt(t, 3), formatPValue(p), fmtCI(b - tCrit * se, b + tCrit * se, 4)]
+  })
+
+  // VIF
   const vifRows: (string | number | null)[][] = []
   if (allPredictorNames.length > 1) {
     for (let i = 0; i < allPredictorNames.length; i++) {
@@ -195,38 +212,75 @@ export function runMultipleRegression(data: DataRow[], config: MultipleRegressio
       const otherX = X.map(row => row.filter((_, j) => j !== i + 1))
       try {
         const vif = 1 / (1 - computeR2(colX, otherX))
-        vifRows.push([allPredictorNames[i], fmt(vif, 2), vif > 10 ? 'High' : vif > 5 ? 'Moderate' : 'OK'])
+        vifRows.push([allPredictorNames[i], fmt(vif, 2), vif > 10 ? '⚠️ High' : vif > 5 ? 'Moderate' : 'OK'])
       } catch {
-        vifRows.push([allPredictorNames[i], 'NA', ''])
+        vifRows.push([allPredictorNames[i], 'NA', '—'])
       }
     }
   }
 
+  const sigPredNames = beta.slice(1).map((b, i) => {
+    const t = b / ses[i + 1]; const p = tToP2(t, n - k - 1)
+    return p < 0.05 ? allPredictorNames[i] : null
+  }).filter(Boolean) as string[]
+
   const tables: ResultTable[] = [
     {
-      id: 'model', title: 'Model Summary', headers: ['R', 'R²', 'Adj. R²', 'RSE', 'F', 'df1', 'df2', 'p (F)'],
-      rows: [[fmt(Math.sqrt(r2)), fmt(r2), fmt(adjR2), fmt(rse), fmt(fStat), k, n - k - 1, formatPValue(fP)]]
+      id: 'model',
+      title: 'Model Summary',
+      headers: ['Statistic', 'Value'],
+      rows: [
+        ['Participants (N)', n],
+        ['Predictors (k)', k],
+        ['R²', fmt(r2, 3)],
+        ['Adjusted R²', fmt(adjR2, 3)],
+        ['Residual SE', fmt(rse, 3)],
+        ['F-statistic', `F(${k}, ${n - k - 1}) = ${fmt(fStat, 2)}, p ${formatPValue(fP)}`],
+      ],
+      footnotes: ['R² = proportion of variance in the outcome explained by the model.']
     },
     {
-      id: 'coefs', title: 'Coefficients',
-      headers: ['Variable', 'B', 'SE', 't', 'p-value', `${Math.round(confidenceLevel * 100)}% CI`, 'Sig'],
-      rows: coefRows
+      id: 'coefs',
+      title: 'Regression Coefficients',
+      headers: ['Variable', 'B', `${Math.round(confidenceLevel * 100)}% CI`, 'p-value', 'Sig'],
+      rows: pubCoefRows,
+      footnotes: [
+        'B = unstandardized regression coefficient (change in outcome per unit increase in predictor).',
+        '*** p<0.001  ** p<0.01  * p<0.05  † p<0.10'
+      ]
+    },
+    {
+      id: 'coefs_detail',
+      title: 'Detailed Coefficients (Advanced)',
+      headers: ['Variable', 'B', 'SE', 't', 'p-value', `${Math.round(confidenceLevel * 100)}% CI`],
+      rows: advCoefRows,
+      advanced: true
     }
   ]
 
   if (vifRows.length > 0) {
-    tables.push({ id: 'vif', title: 'Variance Inflation Factors (VIF)', headers: ['Variable', 'VIF', 'Status'], rows: vifRows })
+    tables.push({
+      id: 'vif',
+      title: 'Multicollinearity Check (VIF)',
+      headers: ['Variable', 'VIF', 'Status'],
+      rows: vifRows,
+      footnotes: ['VIF > 10 indicates problematic multicollinearity. VIF > 5 warrants attention.'],
+      advanced: true
+    })
   }
 
-  // Coefficient plot data (excluding intercept)
   const coefPlotData = beta.slice(1).map((b, i) => {
-    const se = ses[i + 1]
-    const t = b / se
-    const p = tToP2(t, n - k - 1)
+    const se = ses[i + 1]; const t = b / se; const p = tToP2(t, n - k - 1)
     return { name: allPredictorNames[i], estimate: b, ciLow: b - tCrit * se, ciHigh: b + tCrit * se, p }
   })
 
   const residData = residuals.map((r, i) => ({ fitted: yHat[i], residual: r, standardized: r / rse }))
+
+  const interpretation = `Multiple regression with ${k} predictors (n=${n}): R² = ${fmt(r2, 3)}, Adj. R² = ${fmt(adjR2, 3)}. ` +
+    `F(${k}, ${n - k - 1}) = ${fmt(fStat, 2)}, p ${formatPValue(fP)}. ` +
+    `Significant predictors: ${sigPredNames.join(', ') || 'none at p<0.05'}.`
+
+  const plainLanguage = buildMultipleRegressionPlainLanguage(beta, ses, allPredictorNames, dependent, r2, adjR2, fP, n, k)
 
   return {
     type: 'multiple_regression',
@@ -236,13 +290,39 @@ export function runMultipleRegression(data: DataRow[], config: MultipleRegressio
       { type: 'coefficient_plot', title: 'Coefficient Plot', data: coefPlotData, config: {} },
       { type: 'residual_plot', title: 'Residuals vs Fitted', data: residData, config: {} }
     ],
-    interpretation: `Multiple regression with ${k} predictors (n=${n}): R² = ${fmt(r2, 3)}, Adj. R² = ${fmt(adjR2, 3)}. ` +
-      `F(${k}, ${n - k - 1}) = ${fmt(fStat, 2)}, p ${formatPValue(fP)}. ` +
-      `Significant predictors: ${beta.slice(1).map((b, i) => {
-        const t = b / ses[i + 1]; const p = tToP2(t, n - k - 1)
-        return p < 0.05 ? allPredictorNames[i] : null
-      }).filter(Boolean).join(', ') || 'none at p<0.05'}.`
+    interpretation,
+    plainLanguage
   }
+}
+
+/** Plain language summary for multiple regression */
+function buildMultipleRegressionPlainLanguage(
+  beta: number[], ses: number[], names: string[],
+  outcome: string, r2: number, adjR2: number, fP: number, n: number, k: number
+): string {
+  let text = `This multiple regression model examined the association between ${k} predictor variable${k > 1 ? 's' : ''} and ${outcome} among ${n} participants. `
+  text += `The model explained ${fmt(r2 * 100, 1)}% of the variation in ${outcome} (adjusted R² = ${fmt(adjR2 * 100, 1)}%). `
+
+  if (fP < 0.05) {
+    text += `Overall, the model was statistically significant (p ${formatPValue(fP)}). `
+  } else {
+    text += `However, the overall model did not reach statistical significance (p ${formatPValue(fP)}). `
+  }
+
+  const sigPreds = beta.slice(1).map((b, i) => {
+    const se = ses[i + 1]; const t = b / se; const p = tToP2(t, n - k - 1)
+    if (p >= 0.05) return null
+    const direction = b > 0 ? 'increase' : 'decrease'
+    return `each unit increase in ${names[i]} was associated with a ${fmt(Math.abs(b), 3)} unit ${direction} in ${outcome} (p ${formatPValue(p)})`
+  }).filter(Boolean) as string[]
+
+  if (sigPreds.length > 0) {
+    text += `Significant associations: ${sigPreds.join('; ')}.`
+  } else {
+    text += `No individual predictor reached statistical significance at p < 0.05.`
+  }
+
+  return text
 }
 
 // ===================== BINARY LOGISTIC REGRESSION =====================
@@ -377,30 +457,9 @@ export function runLogisticRegression(data: DataRow[], config: LogisticRegressio
   const modelP = chiSqP(modelChiSq, k)
   const nagelkerkeR2 = (1 - Math.exp((2 * (nullLogLik - logLik)) / n)) / (1 - Math.exp(2 * nullLogLik / n))
 
-  const zCrit = 1.96
-  const tCrit = zCrit // Use z for logistic
-
-  const predNames = ['(Intercept)', ...allPredictorNames]
-  const coefRows: (string | number | null)[][] = beta.map((b, i) => {
-    const se = ses[i]
-    const z = b / se
-    const p = 2 * (1 - normalCDF(Math.abs(z)))
-    const or = i === 0 ? null : Math.exp(b)
-    const orLow = i === 0 ? null : Math.exp(b - tCrit * se)
-    const orHigh = i === 0 ? null : Math.exp(b + tCrit * se)
-    return [
-      predNames[i], fmt(b), fmt(se), fmt(z), formatPValue(p),
-      or !== null ? fmt(or, 2) : '-',
-      or !== null ? fmtCI(orLow!, orHigh!, 2) : '-',
-      getSig(p)
-    ]
-  })
-
-  // AUC
+  // AUC + classification
   const scores = X.map((xi) => sigmoid(xi.reduce((sum, xij, j) => sum + xij * beta[j], 0)))
   const auc = computeAUC(y, scores)
-
-  // Classification at 0.5 threshold
   const predicted = scores.map(s => s >= 0.5 ? 1 : 0)
   const tp = predicted.filter((p, i) => p === 1 && y[i] === 1).length
   const tn = predicted.filter((p, i) => p === 0 && y[i] === 0).length
@@ -410,33 +469,113 @@ export function runLogisticRegression(data: DataRow[], config: LogisticRegressio
   const specificity = tn / (tn + fp) || 0
   const accuracy = (tp + tn) / n
 
-  const tables: ResultTable[] = [
-    {
-      id: 'model_fit', title: 'Model Fit', headers: ['Statistic', 'Value'],
-      rows: [
-        ['N', n], ['Events', n1], ['Model χ²', `${fmt(modelChiSq)} (df=${k}, p${formatPValue(modelP)})`],
-        ['Nagelkerke R²', fmt(nagelkerkeR2, 3)], ['AUC', fmt(auc, 3)],
-        ['Sensitivity', fmt(sensitivity, 3)], ['Specificity', fmt(specificity, 3)], ['Accuracy', fmt(accuracy, 3)]
-      ]
-    },
-    {
-      id: 'coefs', title: 'Coefficients',
-      headers: ['Variable', 'β', 'SE', 'z', 'p-value', 'OR', '95% CI (OR)', 'Sig'],
-      rows: coefRows
-    },
-    {
-      id: 'classification', title: 'Classification Table', headers: ['', 'Predicted 0', 'Predicted 1'],
-      rows: [['Actual 0', tn, fp], ['Actual 1', fn, tp]]
+  // ── Build human-readable variable labels ──────────────────────────────────
+  const displayLabels = new Map<string, string>()
+  const refNotes: string[] = []
+  for (const v of predictors) {
+    const isNum = getNumericValues(data, v).length > data.length * 0.5
+    if (isNum) {
+      displayLabels.set(v, v)
+    } else {
+      const { names, ref } = encodeCategories(data, v)
+      for (const name of names) {
+        const category = name.slice(v.length + 1)
+        displayLabels.set(name, `${v}: ${category}`)
+      }
+      refNotes.push(`${v}: reference = "${ref}"`)
     }
-  ]
+  }
 
-  // Forest plot data (ORs for predictors)
-  const forestData = beta.slice(1).map((b, i) => {
+  // ── Compute crude (univariable) OR for each predictor column ──────────────
+  const crudeOR: (string | number | null)[] = []
+  const crudePVal: string[] = []
+  for (let i = 0; i < k; i++) {
+    try {
+      const x1 = X.map(row => row[i + 1])  // column i+1 (skip intercept)
+      const { beta: cb, se: cse } = univariableLogistic1(x1, y)
+      const cz = cb / cse
+      const cp = 2 * (1 - normalCDF(Math.abs(cz)))
+      crudeOR.push(`${fmt(Math.exp(cb), 2)} (${fmtCI(Math.exp(cb - 1.96 * cse), Math.exp(cb + 1.96 * cse), 2)})`)
+      crudePVal.push(formatPValue(cp))
+    } catch {
+      crudeOR.push('—'); crudePVal.push('—')
+    }
+  }
+
+  // ── Publication-format results table (primary) ─────────────────────────────
+  const pubRows: (string | number | null)[][] = beta.slice(1).map((b, i) => {
     const se = ses[i + 1]
     const z = b / se
     const p = 2 * (1 - normalCDF(Math.abs(z)))
+    const adjStr = `${fmt(Math.exp(b), 2)} (${fmtCI(Math.exp(b - 1.96 * se), Math.exp(b + 1.96 * se), 2)})`
+    const label = displayLabels.get(allPredictorNames[i]) ?? allPredictorNames[i]
+    return [label, crudeOR[i], crudePVal[i], adjStr, formatPValue(p), getSig(p)]
+  })
+
+  // ── Advanced coefficient detail table (hidden by default) ─────────────────
+  const detailRows: (string | number | null)[][] = beta.map((b, i) => {
+    const name = i === 0 ? '(Intercept)' : (displayLabels.get(allPredictorNames[i - 1]) ?? allPredictorNames[i - 1])
+    const se = ses[i]; const z = b / se
+    const p = 2 * (1 - normalCDF(Math.abs(z)))
+    const orStr = i === 0 ? '—' : fmt(Math.exp(b), 3)
+    const ciStr = i === 0 ? '—' : fmtCI(Math.exp(b - 1.96 * se), Math.exp(b + 1.96 * se), 3)
+    return [name, fmt(b, 4), fmt(se, 4), fmt(z, 3), formatPValue(p), orStr, ciStr]
+  })
+
+  const epv = n1 / k
+  const footnotes = [
+    'OR = Odds Ratio. Values >1 indicate higher odds of the outcome; values <1 indicate lower odds.',
+    'Crude OR: unadjusted (univariable). Adjusted OR: controlling for all other variables in the model.',
+    ...(refNotes.length > 0 ? [`Reference categories: ${refNotes.join('; ')}.`] : []),
+    '*** p<0.001  ** p<0.01  * p<0.05  † p<0.10',
+    ...(epv < 10 ? [`⚠️ Events Per Variable (EPV) = ${fmt(epv, 1)} — estimates may be unstable with EPV < 10.`] : [])
+  ]
+
+  const tables: ResultTable[] = [
+    {
+      id: 'model_fit',
+      title: 'Model Fit',
+      headers: ['Statistic', 'Value'],
+      rows: [
+        ['Participants (N)', n],
+        ['Outcome events', `${n1} (${fmt(n1 / n * 100, 1)}%)`],
+        ['AUC (discrimination)', fmt(auc, 3)],
+        ['Nagelkerke R²', fmt(nagelkerkeR2, 3)],
+        ['Sensitivity', `${fmt(sensitivity * 100, 1)}%`],
+        ['Specificity', `${fmt(specificity * 100, 1)}%`],
+        ['Overall accuracy', `${fmt(accuracy * 100, 1)}%`],
+        ['Model χ²', `χ²(${k}) = ${fmt(modelChiSq, 2)}, p ${formatPValue(modelP)}`],
+      ],
+      footnotes: ['AUC: 0.50 = no discrimination; ≥0.70 = acceptable; ≥0.80 = excellent.']
+    },
+    {
+      id: 'results',
+      title: 'Logistic Regression Results',
+      headers: ['Variable', 'Crude OR (95% CI)', 'p', 'Adjusted OR (95% CI)', 'p', 'Sig'],
+      rows: pubRows,
+      footnotes
+    },
+    {
+      id: 'classification',
+      title: 'Classification Table',
+      headers: ['', 'Predicted: No', 'Predicted: Yes'],
+      rows: [['Actual: No', tn, fp], ['Actual: Yes', fn, tp]],
+      footnotes: ['Threshold = 0.5.']
+    },
+    {
+      id: 'coefs_detail',
+      title: 'Detailed Coefficients (Advanced)',
+      headers: ['Variable', 'β (log-odds)', 'SE', 'z', 'p-value', 'OR', '95% CI'],
+      rows: detailRows,
+      advanced: true
+    }
+  ]
+
+  const forestData = beta.slice(1).map((b, i) => {
+    const se = ses[i + 1]; const z = b / se
+    const p = 2 * (1 - normalCDF(Math.abs(z)))
     return {
-      name: allPredictorNames[i],
+      name: displayLabels.get(allPredictorNames[i]) ?? allPredictorNames[i],
       or: Math.exp(b),
       ciLow: Math.exp(b - 1.96 * se),
       ciHigh: Math.exp(b + 1.96 * se),
@@ -445,18 +584,19 @@ export function runLogisticRegression(data: DataRow[], config: LogisticRegressio
     }
   })
 
-  // ROC curve data
   const rocData = computeROCCurve(y, scores)
+  const plainLanguage = buildLogisticPlainLanguage(beta, ses, allPredictorNames, displayLabels, auc, nagelkerkeR2, n, n1, accuracy)
 
   return {
     type: 'logistic_regression',
-    summary: { n, events: n1, chiSq: fmt(modelChiSq), nagelkerkeR2: fmt(nagelkerkeR2), auc: fmt(auc, 3) },
+    summary: { n, events: n1, auc: fmt(auc, 3), nagelkerkeR2: fmt(nagelkerkeR2, 3) },
     tables,
     charts: [
-      { type: 'forest_or', title: 'Odds Ratios', data: forestData, config: {} },
-      { type: 'roc_curve', title: `ROC Curve (AUC=${fmt(auc, 3)})`, data: rocData, config: { auc } }
+      { type: 'forest_or', title: 'Adjusted Odds Ratios', data: forestData, config: {} },
+      { type: 'roc_curve', title: `ROC Curve (AUC = ${fmt(auc, 3)})`, data: rocData, config: { auc } }
     ],
-    interpretation: generateLogisticInterpretation(beta, ses, allPredictorNames, auc, nagelkerkeR2, n, n1)
+    interpretation: generateLogisticInterpretation(beta, ses, allPredictorNames, auc, nagelkerkeR2, n, n1),
+    plainLanguage
   }
 }
 
@@ -480,6 +620,72 @@ function generateLogisticInterpretation(beta: number[], ses: number[], names: st
       ? `Significant predictors: ${sigPreds.join(', ')}.`
       : 'No predictors significant at p<0.05.') +
     smallSampleWarning
+}
+
+// ── Logistic helpers ─────────────────────────────────────────────────────────
+
+/** Univariable logistic regression with a single predictor; returns β and SE */
+function univariableLogistic1(x1: number[], y: number[]): { beta: number; se: number } {
+  const n = y.length
+  let b0 = 0, b1 = 0
+  for (let iter = 0; iter < 100; iter++) {
+    let s0 = 0, s1 = 0, h00 = 0, h01 = 0, h11 = 0
+    for (let i = 0; i < n; i++) {
+      const pi = sigmoid(b0 + b1 * x1[i])
+      const w = Math.max(pi * (1 - pi), 1e-10)
+      const r = y[i] - pi
+      s0 += r; s1 += x1[i] * r
+      h00 += w; h01 += x1[i] * w; h11 += x1[i] * x1[i] * w
+    }
+    const det = h00 * h11 - h01 * h01
+    if (Math.abs(det) < 1e-10) break
+    const d0 = (h11 * s0 - h01 * s1) / det
+    const d1 = (-h01 * s0 + h00 * s1) / det
+    b0 += d0; b1 += d1
+    if (Math.max(Math.abs(d0), Math.abs(d1)) < 1e-6) break
+  }
+  let h00 = 0, h01 = 0, h11 = 0
+  for (let i = 0; i < n; i++) {
+    const pi = sigmoid(b0 + b1 * x1[i])
+    const w = Math.max(pi * (1 - pi), 1e-10)
+    h00 += w; h01 += x1[i] * w; h11 += x1[i] * x1[i] * w
+  }
+  const det = h00 * h11 - h01 * h01
+  return { beta: b1, se: det > 0 ? Math.sqrt(h00 / det) : NaN }
+}
+
+/** Plain language summary for logistic regression */
+function buildLogisticPlainLanguage(
+  beta: number[], ses: number[], names: string[],
+  labels: Map<string, string>,
+  auc: number, r2: number, n: number, events: number, accuracy: number
+): string {
+  const eventPct = fmt(events / n * 100, 1)
+  let text = `Of the ${n} participants, ${events} (${eventPct}%) experienced the outcome. `
+
+  const sigPreds = beta.slice(1).map((b, i) => {
+    const se = ses[i + 1]; const z = b / se
+    const p = 2 * (1 - normalCDF(Math.abs(z)))
+    if (p >= 0.05) return null
+    const or = Math.exp(b)
+    const label = labels.get(names[i]) ?? names[i]
+    const direction = or > 1 ? `${fmt(or, 2)} times higher odds` : `${fmt(1 / or, 2)} times lower odds`
+    return { label, or, p, direction, ci: fmtCI(Math.exp(b - 1.96 * se), Math.exp(b + 1.96 * se), 2) }
+  }).filter(Boolean) as { label: string; or: number; p: number; direction: string; ci: string }[]
+
+  if (sigPreds.length === 0) {
+    text += `After adjusting for all variables in the model, no predictor was significantly associated with the outcome. `
+  } else {
+    text += `After adjusting for all variables in the model: `
+    text += sigPreds.map(s =>
+      `${s.label} was significantly associated with the outcome — participants had ${s.direction} (adjusted OR = ${fmt(s.or, 2)}, 95% CI: ${s.ci}, p ${formatPValue(s.p)})`
+    ).join('; ') + '. '
+  }
+
+  const aucLevel = auc >= 0.9 ? 'excellent' : auc >= 0.8 ? 'good' : auc >= 0.7 ? 'acceptable' : 'limited'
+  text += `The model showed ${aucLevel} ability to distinguish participants who experienced the outcome from those who did not (AUC = ${fmt(auc, 3)}). `
+  text += `Overall, the model correctly classified ${fmt(accuracy * 100, 1)}% of participants.`
+  return text
 }
 
 function computeAUC(y: number[], scores: number[]): number {

@@ -14,6 +14,7 @@ export interface AnalysisResult {
   tables: ResultTable[]
   charts: ChartSpec[]
   interpretation: string
+  plainLanguage?: string   // Lay-friendly summary for clinicians / non-statisticians
   diagnostics?: Record<string, unknown>
 }
 
@@ -23,6 +24,7 @@ export interface ResultTable {
   headers: string[]
   rows: (string | number | null)[][]
   footnotes?: string[]
+  advanced?: boolean  // Hidden by default; shown when user expands "Advanced Statistics"
 }
 
 export interface ChartSpec {
