@@ -74,13 +74,93 @@ export default function LandingPage() {
                 <h3 className="text-2xl font-bold tracking-tight mb-2">Real-time Orchestration</h3>
                 <p className="text-[#444653] text-sm max-w-md">Monitor every study, data point, and ethical review across your entire institution in a single command center.</p>
               </div>
-              <div className="mt-8 flex-grow bg-[#f3f4f6] relative overflow-hidden mx-8 rounded-t-xl border-x border-t border-[#c4c5d5]/20">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  alt="Dashboard Preview"
-                  className="w-full h-full object-cover object-top opacity-90 group-hover:scale-105 transition-transform duration-700"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuCg6YiJKa6pgHJreS9p1iDedEgQow_kzKAc1yDFgoDV9Vyj5AjI6LNIYwJWN2YADdIbQFbE2moBuDa2--Jzp-1Zu_yduxG00Np1S9i2UphzrowCYMm1GEkS2nPpTN9z8TUkKDrIzI0QkGRK4qd0KPmqhiAo87IQl4GFViJQqSN-Sv00UqS6xSualy8ogKRxuUn7x0f1-URIeeBom_Y758rCLOyas0O_acFuYU7Wj86mEabeIaOAvorbmfMDN_7NC5KuWIbK9br-CA"
-                />
+              <div className="mt-8 flex-grow relative overflow-hidden mx-8 rounded-t-xl border-x border-t border-[#c4c5d5]/20 bg-white">
+                {/* Kaplan-Meier Survival Chart */}
+                <svg viewBox="0 0 600 300" xmlns="http://www.w3.org/2000/svg" className="w-full h-full" aria-label="Kaplan-Meier survival curve">
+                  <rect width="600" height="300" fill="#fafafa" />
+                  {/* Window chrome */}
+                  <rect width="600" height="28" fill="#f1f3f6" />
+                  <rect x="0" y="27" width="600" height="1" fill="#e5e7eb" />
+                  <circle cx="12" cy="14" r="4" fill="#ff5f57" />
+                  <circle cx="24" cy="14" r="4" fill="#febc2e" />
+                  <circle cx="36" cy="14" r="4" fill="#28c840" />
+                  <text x="52" y="19" fontSize="8.5" fill="#6b7280" fontFamily="Inter,-apple-system,sans-serif">survival_analysis.R — Study KM-2024-017 · Overall Survival</text>
+                  {/* Legend strip */}
+                  <rect x="0" y="28" width="600" height="26" fill="white" />
+                  <rect x="0" y="53" width="600" height="1" fill="#f3f4f6" />
+                  <line x1="58" y1="41" x2="78" y2="41" stroke="#00288e" strokeWidth="2.5" />
+                  <circle cx="68" cy="41" r="2.5" fill="#00288e" />
+                  <text x="82" y="45" fontSize="8.5" fill="#191c1e" fontFamily="Inter,sans-serif">Treatment group (n=148)</text>
+                  <line x1="225" y1="41" x2="245" y2="41" stroke="#9ca3af" strokeWidth="2" strokeDasharray="4,2" />
+                  <text x="249" y="45" fontSize="8.5" fill="#444653" fontFamily="Inter,sans-serif">Control group (n=152)</text>
+                  <rect x="432" y="31" width="154" height="22" rx="11" fill="#eff6ff" />
+                  <text x="451" y="46" fontSize="8.5" fill="#1e40af" fontFamily="Inter,sans-serif" fontWeight="700">p &lt; 0.001 · HR = 0.52</text>
+                  {/* Y-axis label */}
+                  <text x="10" y="160" fontSize="8.5" fill="#6b7280" fontFamily="Inter,sans-serif" textAnchor="middle" transform="rotate(-90,10,160)">Survival Probability</text>
+                  {/* Horizontal grid */}
+                  <line x1="55" y1="58"  x2="560" y2="58"  stroke="#f0f0f0" strokeWidth="1" />
+                  <line x1="55" y1="106" x2="560" y2="106" stroke="#f0f0f0" strokeWidth="1" />
+                  <line x1="55" y1="154" x2="560" y2="154" stroke="#f0f0f0" strokeWidth="1" />
+                  <line x1="55" y1="202" x2="560" y2="202" stroke="#f0f0f0" strokeWidth="1" />
+                  <line x1="55" y1="250" x2="560" y2="250" stroke="#f0f0f0" strokeWidth="1" />
+                  {/* Vertical grid */}
+                  <line x1="156" y1="58" x2="156" y2="250" stroke="#f0f0f0" strokeWidth="1" />
+                  <line x1="257" y1="58" x2="257" y2="250" stroke="#f0f0f0" strokeWidth="1" />
+                  <line x1="358" y1="58" x2="358" y2="250" stroke="#f0f0f0" strokeWidth="1" />
+                  <line x1="459" y1="58" x2="459" y2="250" stroke="#f0f0f0" strokeWidth="1" />
+                  {/* Axes */}
+                  <line x1="55" y1="58" x2="55"  y2="252" stroke="#d1d5db" strokeWidth="1.5" />
+                  <line x1="53" y1="250" x2="562" y2="250" stroke="#d1d5db" strokeWidth="1.5" />
+                  {/* Y ticks + labels */}
+                  {([1.0, 0.75, 0.5, 0.25, 0.0] as number[]).map((p) => {
+                    const y = 250 - p * 192
+                    return (
+                      <g key={p}>
+                        <line x1="50" y1={y} x2="55" y2={y} stroke="#9ca3af" strokeWidth="1" />
+                        <text x="46" y={y + 3.5} fontSize="7.5" fill="#9ca3af" fontFamily="Inter,sans-serif" textAnchor="end">{p.toFixed(2)}</text>
+                      </g>
+                    )
+                  })}
+                  {/* X ticks + labels */}
+                  {([0, 12, 24, 36, 48, 60] as number[]).map((t) => {
+                    const x = 55 + (t / 60) * 505
+                    return (
+                      <g key={t}>
+                        <line x1={x} y1="250" x2={x} y2="255" stroke="#9ca3af" strokeWidth="1" />
+                        <text x={x} y="264" fontSize="7.5" fill="#9ca3af" fontFamily="Inter,sans-serif" textAnchor="middle">{t}</text>
+                      </g>
+                    )
+                  })}
+                  <text x="307" y="281" fontSize="8.5" fill="#6b7280" fontFamily="Inter,sans-serif" textAnchor="middle">Time (months)</text>
+                  {/* CI band — treatment ±0.08 */}
+                  <path
+                    d="M55,58 H106 V58 H156 V66 H207 V81 H257 V96 H308 V110 H358 V123 H409 V137 H459 V148 H510 V160 H560 V169 V200 H510 V191 H459 V179 H409 V167 H358 V154 H308 V141 H257 V127 H207 V112 H156 V83 H106 V73 H55 Z"
+                    fill="#00288e"
+                    fillOpacity="0.07"
+                  />
+                  {/* Control curve (dashed gray) */}
+                  <path
+                    d="M55,58 H106 V87 H156 V116 H207 V139 H257 V158 H308 V173 H358 V189 H409 V200 H459 V212 H510 V219 H560 V227"
+                    fill="none" stroke="#9ca3af" strokeWidth="1.5" strokeDasharray="5,3" strokeLinejoin="miter"
+                  />
+                  {/* Treatment curve (solid blue) */}
+                  <path
+                    d="M55,58 H106 V68 H156 V81 H207 V96 H257 V112 H308 V125 H358 V139 H409 V152 H459 V164 H510 V175 H560 V185"
+                    fill="none" stroke="#00288e" strokeWidth="2.5" strokeLinejoin="miter" strokeLinecap="round"
+                  />
+                  {/* Censoring marks — treatment */}
+                  <line x1="178" y1="84" x2="178" y2="92" stroke="#00288e" strokeWidth="1.5" />
+                  <line x1="290" y1="117" x2="290" y2="125" stroke="#00288e" strokeWidth="1.5" />
+                  <line x1="435" y1="154" x2="435" y2="162" stroke="#00288e" strokeWidth="1.5" />
+                  {/* Censoring marks — control */}
+                  <line x1="145" y1="106" x2="145" y2="114" stroke="#9ca3af" strokeWidth="1.5" />
+                  <line x1="275" y1="159" x2="275" y2="167" stroke="#9ca3af" strokeWidth="1.5" />
+                  <line x1="440" y1="203" x2="440" y2="211" stroke="#9ca3af" strokeWidth="1.5" />
+                  {/* Median survival annotation — treatment */}
+                  <line x1="55" y1="154" x2="350" y2="154" stroke="#00288e" strokeWidth="0.75" strokeDasharray="3,2" opacity="0.4" />
+                  <line x1="350" y1="154" x2="350" y2="250" stroke="#00288e" strokeWidth="0.75" strokeDasharray="3,2" opacity="0.4" />
+                  <text x="354" y="247" fontSize="7" fill="#00288e" fontFamily="Inter,sans-serif">m=35mo</text>
+                </svg>
               </div>
             </div>
 
@@ -130,22 +210,7 @@ export default function LandingPage() {
             <div className="md:col-span-8 bg-[#00288e] rounded-2xl overflow-hidden shadow-xl flex flex-col md:flex-row">
               <div className="p-8 md:w-1/2 flex flex-col justify-center">
                 <h3 className="text-3xl font-bold tracking-tight text-white mb-4">The New Standard for Collaboration.</h3>
-                <p className="text-[#a8b8ff] text-sm leading-relaxed mb-6">Built for teams of any size, from local field offices to intercontinental research consortiums. PLEXUS synchronizes your work instantly.</p>
-                <div className="flex -space-x-3">
-                  {[
-                    'https://lh3.googleusercontent.com/aida-public/AB6AXuAGT6l0PuXZ0sjN6dGdXCHaPmUWNbo2NbE3jPS12ZOsWR5s23cnA-qDs9bZMrFfzxtOBxEDBWWnonobL16cbgEGrTy_omZOABOuMDZ8OgAtwdwzdsnOUkbrMfut1BzloG3h8mMe8jg3qchJ5qUm-BZXu1c9Z81R-v0zA0hvHqrtb7j8N72KlwWGvjmrxs3A8qNa8cbaWWPNoUIz2vtA2QMXOjBoqslnwb3IiN9nkoUxNwF5dEEr1l_j1P8Rn9V2xD6PYWY-tMZUEQ',
-                    'https://lh3.googleusercontent.com/aida-public/AB6AXuAKfA2x1i5MewmYOo3a8ExVlymCH9a9dJsKM5DKwqNI81moNpZjSkONTwRhYdM1i5SSiyh37g1uZwx1-Lcvsu7SSwXdJMFeYBs9qIOLLd2sK4HftP2NuQzq0A9vkR5sYX0scxhKBUPCua2mL5PpbzU7tpamC7CqDS1--spFTlWPafk0IGx1eP02HNNxXR29_QgMS7aNY1hSPg9Ta9QoL4mwWCBG2aUabTkPyLjbmQsW6-3YERKClDeLVXZSZRfDGNhxuKayNCU41w',
-                    'https://lh3.googleusercontent.com/aida-public/AB6AXuABoc_GnyBhKOG9bIelA_FWjCApR0KvTs7tR0Nk9QSGm5UjEUvAutPdAfXSiLqGP-oDTtiqyHSNCZvlTxuMWy7Mw8rNsfFwjWcCxfn6_GTVqSU7vI76rfQR9QWjdozXN8GCvMlVNLa7LCLqRXO5S9_npGHg-UFn5Qt7W5mvw5vjLxp2y_LBT9MjoOOrOmdwtlTUevM3_kmKMceAQ2JPSoORRz0vh_tPa4xQoAWJys86ez7t-EPoXt3-LYlv6s1Jlew3mARDViZRJQ',
-                  ].map((src, i) => (
-                    <div key={i} className="w-10 h-10 rounded-full border-2 border-[#00288e] bg-slate-200 overflow-hidden">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img alt="Team member" src={src} />
-                    </div>
-                  ))}
-                  <div className="w-10 h-10 rounded-full border-2 border-[#00288e] bg-[#e7e8ea] flex items-center justify-center text-[10px] font-bold text-[#00288e]">
-                    +12
-                  </div>
-                </div>
+                <p className="text-[#a8b8ff] text-sm leading-relaxed">Built for teams of any size, from local field offices to intercontinental research consortiums. PLEXUS synchronizes your work instantly.</p>
               </div>
               <div className="md:w-1/2 relative bg-[#1e40af]/30 min-h-[200px]">
                 <div className="absolute inset-0 flex items-center justify-center">
