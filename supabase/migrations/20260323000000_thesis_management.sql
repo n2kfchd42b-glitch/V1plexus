@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS format_rules (
 CREATE TABLE IF NOT EXISTS guest_access_tokens (
   id           UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   committee_id UUID NOT NULL REFERENCES thesis_committees(id) ON DELETE CASCADE,
-  token        TEXT UNIQUE NOT NULL DEFAULT encode(gen_random_bytes(32), 'hex'),
+  token        TEXT UNIQUE NOT NULL DEFAULT replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', ''),
   email        TEXT NOT NULL,
   permissions  JSONB DEFAULT '["document.read", "document.comment"]',
   expires_at   TIMESTAMPTZ NOT NULL,

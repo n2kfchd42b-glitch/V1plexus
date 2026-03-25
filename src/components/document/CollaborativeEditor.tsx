@@ -113,7 +113,7 @@ export function CollaborativeEditor({
       CollaborationCursor.configure({
         // providerRef.current is set before providerReady flips to true,
         // so this will be non-null on the re-render that matters
-        provider: providerRef.current?.awareness,
+        provider: providerRef.current,
         user: currentProfile
           ? {
               name: currentProfile.full_name ?? currentProfile.email,
