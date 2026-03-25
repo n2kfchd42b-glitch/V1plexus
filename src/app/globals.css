@@ -140,6 +140,13 @@
     /* Sidebar width */
     --sidebar-width: 240px;
     --sidebar-collapsed-width: 48px;
+
+    /* Clinical Design System — "Empirical Canvas" */
+    --color-clinical-blue:    #0052CC;
+    --color-clinical-deep:    #003D9B;
+    --color-clinical-bg:      #FFFFFF;
+    --color-clinical-surface: #F8FAFC;
+    --radius-clinical: 0.5rem;
   }
 
   .dark {
@@ -176,16 +183,23 @@
   }
 
   body {
-    @apply bg-background text-foreground;
-    font-family: var(--font-geist-sans, var(--font-sans, system-ui, -apple-system, sans-serif));
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-inter, var(--font-geist-sans, system-ui, -apple-system, sans-serif));
     font-size: var(--text-base);
     line-height: var(--leading-normal);
     color: var(--text-primary);
-    background-color: var(--bg-app);
+    background-color: var(--color-clinical-bg, var(--bg-app));
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1, h2, h3, h4 {
+    font-family: var(--font-manrope, var(--font-sans));
+    font-weight: 700;
+    letter-spacing: var(--tracking-tight);
+    color: var(--color-clinical-deep, var(--text-primary));
+  }
+
+  h5, h6 {
     letter-spacing: var(--tracking-tight);
     color: var(--text-primary);
   }
@@ -362,4 +376,54 @@
 .btn-press:active {
   transform: scale(0.98);
   transition: transform var(--duration-instant) var(--ease-out);
+}
+
+/* ─── Clinical Design System — Component Classes ─────────────────────────── */
+
+@keyframes snappy-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.8; transform: scale(1.02); }
+}
+
+/* Lancet-standard Card */
+.clinical-card {
+  background-color: #fff;
+  border: 1px solid #f1f5f9;
+  border-radius: var(--radius-clinical, 0.5rem);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.02);
+  transition: box-shadow 200ms ease, transform 200ms ease;
+}
+.clinical-card:hover {
+  box-shadow: 0 20px 60px rgba(0, 82, 204, 0.05);
+}
+
+/* High-fidelity 3D glass effect */
+.glass-3d {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Clinical Primary Button */
+.btn-clinical {
+  background-color: #0052CC;
+  color: #fff;
+  padding: 0.625rem 1.5rem;
+  border-radius: var(--radius-clinical, 0.5rem);
+  font-family: var(--font-manrope, var(--font-sans));
+  font-weight: 600;
+  transition: background-color 150ms ease, transform 75ms ease;
+}
+.btn-clinical:hover {
+  background-color: #003D9B;
+}
+.btn-clinical:active {
+  transform: scale(0.95);
 }

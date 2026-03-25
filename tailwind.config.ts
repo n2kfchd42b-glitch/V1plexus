@@ -13,6 +13,8 @@ const config: Config = {
         sans: ['var(--font-geist-sans)', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
         mono: ['var(--font-geist-mono)', 'JetBrains Mono', 'monospace'],
         display: ['var(--font-instrument-serif)', 'Georgia', 'serif'],
+        manrope: ['var(--font-manrope)', 'sans-serif'],
+        inter: ['var(--font-inter)', 'sans-serif'],
       },
       fontSize: {
         xs:   ['0.6875rem', { lineHeight: '1rem' }],
@@ -24,6 +26,11 @@ const config: Config = {
         '3xl':['2rem',      { lineHeight: '2.5rem' }],
       },
       colors: {
+        // Clinical Design System (PLEXUS "Empirical Canvas")
+        'clinical-blue':    '#0052CC',
+        'clinical-deep':    '#003D9B',
+        'clinical-bg':      '#FFFFFF',
+        'clinical-surface': '#F8FAFC',
         brand: {
           50: "#eff6ff",
           100: "#dbeafe",
@@ -127,12 +134,13 @@ const config: Config = {
         '16': '4rem',
       },
       borderRadius: {
-        sm:   '4px',
-        md:   '6px',
-        DEFAULT: '6px',
-        lg:   '8px',
-        xl:   '12px',
-        full: '9999px',
+        sm:       '4px',
+        md:       '6px',
+        DEFAULT:  '6px',
+        lg:       '8px',
+        xl:       '12px',
+        full:     '9999px',
+        clinical: '0.5rem',
       },
       boxShadow: {
         xs:    '0 1px 2px 0 rgb(0 0 0 / 0.03)',
@@ -155,6 +163,14 @@ const config: Config = {
         spring:  'cubic-bezier(0.34, 1.56, 0.64, 1)',
       },
       keyframes: {
+        'snappy-in': {
+          from: { opacity: '0', transform: 'translateY(10px) scale(0.98)' },
+          to:   { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+        'pulse-subtle': {
+          '0%, 100%': { opacity: '1', transform: 'scale(1)' },
+          '50%':      { opacity: '0.8', transform: 'scale(1.02)' },
+        },
         'accordion-down': {
           from: { height: '0' },
           to:   { height: 'var(--radix-accordion-content-height)' },
@@ -189,6 +205,8 @@ const config: Config = {
         },
       },
       animation: {
+        'snappy-in':    'snappy-in 0.25s ease-out forwards',
+        'pulse-subtle': 'pulse-subtle 3s infinite ease-in-out',
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up':   'accordion-up 0.2s ease-out',
         shimmer:          'shimmer 1.5s infinite',
