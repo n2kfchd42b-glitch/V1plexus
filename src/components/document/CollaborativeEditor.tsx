@@ -3,17 +3,12 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import Collaboration from '@tiptap/extension-collaboration'
-import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
 import Placeholder from '@tiptap/extension-placeholder'
 import Highlight from '@tiptap/extension-highlight'
 import Underline from '@tiptap/extension-underline'
 import TextAlign from '@tiptap/extension-text-align'
 import Link from '@tiptap/extension-link'
-import * as Y from 'yjs'
 import { createClient } from '@/lib/supabase/client'
-import { SupabaseProvider, getUserColor } from '@/lib/collaboration'
-import { OnlineUsers, type OnlineUser } from './OnlineUsers'
 import { EditorToolbar } from './EditorToolbar'
 import { CommentsSidebar } from './CommentsSidebar'
 import { Button } from '@/components/ui/button'
@@ -50,17 +45,6 @@ export function CollaborativeEditor({
   triggerSaveRef,
   readOnly = false,
 }: CollaborativeEditorProps) {
-  // H4: Initialize Y.Doc synchronously so it's available before useEditor runs.
-  // Mutating a ref doesn't trigger re-renders, so initializing inside useEffect
-  // causes useEditor to receive a throwaway doc on first render.
-  const ydocRef = useRef<Y.Doc | null>(null)
-  if (ydocRef.current === null) {
-    ydocRef.current = new Y.Doc()
-  }
-
-  const providerRef = useRef<SupabaseProvider | null>(null)
-  const [providerReady, setProviderReady] = useState(false)
-  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([])
   const [showComments, setShowComments] = useState(false)
   const [showGrammar, setShowGrammar] = useState(false)
   const [showGenerateModal, setShowGenerateModal] = useState(false)
@@ -71,81 +55,7 @@ export function CollaborativeEditor({
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
   const supabase = useMemo(() => createClient(), [])
 
-  // Initialize Supabase provider (ydoc is already set synchronously above)
-  useEffect(() => {
-    if (!currentProfile) return
-
-    const ydoc = ydocRef.current!
-    const channel = supabase.channel(`document:${documentId}`)
-    const provider = new SupabaseProvider(ydoc, channel, documentId, {
-      id: currentProfile.id,
-      name: currentProfile.full_name ?? currentProfile.email,
-      color: getUserColor(currentProfile.id),
-    })
-    providerRef.current = provider
-
-    // Track awareness / online users
-    const updateUsers = () => {
-      const states = provider.awareness.getStates()
-      const users: OnlineUser[] = []
-      states.forEach((state, clientId) => {
-        if (state.user && clientId !== ydoc.clientID) {
-          users.push(state.user as OnlineUser)
-        }
-      })
-      setOnlineUsers(users)
-    }
-
-    provider.awareness.on('change', updateUsers)
-    // Signal that provider is ready so useEditor reinitializes with real awareness
-    setProviderReady(true)
-
-    return () => {
-      provider.awareness.off('change', updateUsers)
-      provider.destroy()
-      supabase.removeChannel(channel)
-      providerRef.current = null
-      setProviderReady(false)
-    }
-  }, [documentId, currentProfile, supabase])
-
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({ history: false }),
-      // ydocRef.current is guaranteed non-null (initialized synchronously above)
-      Collaboration.configure({ document: ydocRef.current }),
-      // Only mount CollaborationCursor once the provider exists; on the initial
-      // render providerRef.current is null and accessing .awareness would crash.
-      ...(providerRef.current ? [CollaborationCursor.configure({
-        provider: providerRef.current,
-        user: currentProfile
-          ? {
-              name: currentProfile.full_name ?? currentProfile.email,
-              color: getUserColor(currentProfile.id),
-            }
-          : undefined,
-      })] : []),
-      Placeholder.configure({ placeholder: 'Start writing your document...' }),
-      Highlight,
-      Underline,
-      TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Link.configure({ openOnClick: false }),
-      DatasetTableExtension,
-      ChartNodeExtension,
-    ],
-    content: initialContent as Record<string, unknown> | undefined ?? undefined,
-    editable: !readOnly,
-    onUpdate: ({ editor }) => {
-      if (readOnly) return
-      // Debounced auto-save
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-      saveTimerRef.current = setTimeout(() => {
-        handleAutoSave(editor.getJSON())
-      }, 3000)
-    },
-  }, [providerReady])  // reinitialize once the real provider/awareness is available
-
-  // H5: Extract plain text from TipTap JSON for content_text and word_count
+  // Extract plain text from TipTap JSON for content_text and word_count
   function extractText(node: Record<string, unknown>): string {
     let text = ''
     if (node.type === 'text' && typeof node.text === 'string') {
@@ -161,7 +71,7 @@ export function CollaborativeEditor({
 
   const handleAutoSave = useCallback(async (content: Record<string, unknown>) => {
     setSaving(true)
-    onSaveStatusChange?.({ saving: true, lastSaved })
+    onSaveStatusChange?.({ saving: true, lastSaved: null })
     try {
       const plainText = extractText(content).trim()
       const wordCount = plainText ? plainText.split(/\s+/).filter(Boolean).length : 0
@@ -181,10 +91,37 @@ export function CollaborativeEditor({
     } finally {
       setSaving(false)
     }
-  }, [documentId, supabase, onSave, onSaveStatusChange, lastSaved])
+  }, [documentId, supabase, onSave, onSaveStatusChange]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Placeholder.configure({ placeholder: 'Start writing your document…' }),
+      Highlight,
+      Underline,
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      Link.configure({ openOnClick: false }),
+      DatasetTableExtension,
+      ChartNodeExtension,
+    ],
+    // Standard TipTap content prop works correctly without Collaboration/Yjs
+    content: (initialContent ?? undefined) as Record<string, unknown> | undefined,
+    editable: !readOnly,
+    onUpdate: ({ editor }) => {
+      if (readOnly) return
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = setTimeout(() => {
+        handleAutoSave(editor.getJSON())
+      }, 3000)
+    },
+  })
 
   const handleManualSave = useCallback(async () => {
     if (!editor) return
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
+    }
     await handleAutoSave(editor.getJSON())
   }, [editor, handleAutoSave])
 
@@ -194,7 +131,7 @@ export function CollaborativeEditor({
     return () => { if (triggerSaveRef) triggerSaveRef.current = null }
   }, [triggerSaveRef, handleManualSave])
 
-  // Keyboard shortcuts: Cmd/Ctrl+S → save, Cmd/Ctrl+J → AI assist
+  // Keyboard shortcuts: ⌘S → save, ⌘J → AI assist
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const cmdOrCtrl = e.metaKey || e.ctrlKey
@@ -211,6 +148,13 @@ export function CollaborativeEditor({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleManualSave])
 
+  // Cleanup pending auto-save on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
+  }, [])
+
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
@@ -218,7 +162,6 @@ export function CollaborativeEditor({
         <div className="border-b bg-card px-4 py-2 flex items-center justify-between gap-2">
           <EditorToolbar editor={editor} onInsertData={() => setShowInsertData(true)} />
           <div className="flex items-center gap-2 shrink-0">
-            <OnlineUsers users={onlineUsers} />
             {editor && (
               <AIAssistPopover editor={editor} documentId={documentId} open={aiOpen} onOpenChange={setAiOpen} />
             )}
@@ -258,7 +201,7 @@ export function CollaborativeEditor({
               disabled={saving}
             >
               <Save className="h-3.5 w-3.5 mr-1" />
-              {saving ? 'Saving...' : lastSaved ? 'Saved' : 'Save'}
+              {saving ? 'Saving…' : lastSaved ? 'Saved' : 'Save'}
             </Button>
             {onSubmitForReview && (
               <Button size="sm" className="h-7 text-xs" onClick={onSubmitForReview}>
@@ -270,7 +213,7 @@ export function CollaborativeEditor({
         </div>
       )}
 
-      {/* Editor + Comments */}
+      {/* Editor + sidebars */}
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 overflow-y-auto">
           <EditorContent
