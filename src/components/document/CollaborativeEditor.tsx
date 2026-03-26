@@ -14,6 +14,7 @@ import { CommentsSidebar } from './CommentsSidebar'
 import { Button } from '@/components/ui/button'
 import { MessageSquare, Save, Send, Sparkles, SpellCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 import type { Profile } from '@/types/database'
 import { AIAssistPopover } from '@/components/ai/AIAssistPopover'
 import { GenerateSectionModal } from '@/components/ai/GenerateSectionModal'
@@ -53,6 +54,7 @@ export function CollaborativeEditor({
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [showInsertData, setShowInsertData] = useState(false)
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const handleAutoSaveRef = useRef<((content: Record<string, unknown>) => Promise<void>) | null>(null)
   const supabase = useMemo(() => createClient(), [])
 
   // Extract plain text from TipTap JSON for content_text and word_count
@@ -75,23 +77,32 @@ export function CollaborativeEditor({
     try {
       const plainText = extractText(content).trim()
       const wordCount = plainText ? plainText.split(/\s+/).filter(Boolean).length : 0
-      await supabase
+      const { error } = await supabase
         .from('documents')
         .update({
           content,
-          content_text: plainText,
           word_count: wordCount,
           updated_at: new Date().toISOString(),
         })
         .eq('id', documentId)
+      if (error) throw error
       const saved = new Date()
       setLastSaved(saved)
       onSave?.(content)
       onSaveStatusChange?.({ saving: false, lastSaved: saved })
+    } catch (err) {
+      console.error('Document save error:', err)
+      toast.error('Failed to save document')
+      onSaveStatusChange?.({ saving: false, lastSaved: null })
     } finally {
       setSaving(false)
     }
   }, [documentId, supabase, onSave, onSaveStatusChange]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep ref in sync so onUpdate never holds a stale closure
+  useEffect(() => {
+    handleAutoSaveRef.current = handleAutoSave
+  }, [handleAutoSave])
 
   const editor = useEditor({
     extensions: [
@@ -104,14 +115,13 @@ export function CollaborativeEditor({
       DatasetTableExtension,
       ChartNodeExtension,
     ],
-    // Standard TipTap content prop works correctly without Collaboration/Yjs
     content: (initialContent ?? undefined) as Record<string, unknown> | undefined,
     editable: !readOnly,
     onUpdate: ({ editor }) => {
       if (readOnly) return
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
       saveTimerRef.current = setTimeout(() => {
-        handleAutoSave(editor.getJSON())
+        handleAutoSaveRef.current?.(editor.getJSON())
       }, 3000)
     },
   })
