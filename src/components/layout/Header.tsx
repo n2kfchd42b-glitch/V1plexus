@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Search } from 'lucide-react'
 import { NotificationBell } from '@/components/notification/NotificationBell'
-import { cn } from '@/lib/utils'
+import { cn, getInitials } from '@/lib/utils'
 import type { Profile } from '@/types/database'
 
 interface HeaderProps {
@@ -56,39 +56,75 @@ export function Header({ profile, title }: HeaderProps) {
   return (
     <header
       className={cn(
-        'h-12 px-5 flex items-center justify-between sticky top-0 z-20 transition-all duration-150',
-        'bg-[var(--bg-app)]',
+        'h-16 px-8 flex items-center justify-between sticky top-0 z-20 transition-all duration-150',
+        'bg-white/90 backdrop-blur-md',
         scrolled
-          ? 'border-b border-[var(--border-default)] backdrop-blur-sm bg-[var(--bg-app)]/90'
-          : 'border-b border-transparent'
+          ? 'border-b border-slate-200'
+          : 'border-b border-slate-100'
       )}
     >
       {/* Breadcrumbs */}
-      <nav className="flex items-center gap-1 min-w-0">
-        {breadcrumbs.map((crumb, i) => (
-          <div key={crumb.href} className="flex items-center gap-1 min-w-0">
-            {i > 0 && (
-              <ChevronRight className="h-3.5 w-3.5 text-[var(--text-tertiary)] flex-shrink-0" />
-            )}
-            {i === breadcrumbs.length - 1 ? (
-              <span className="text-sm font-medium text-[var(--text-primary)] truncate">
-                {title ?? crumb.label}
-              </span>
-            ) : (
-              <Link
-                href={crumb.href}
-                className="text-sm text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors duration-100 truncate"
-              >
-                {crumb.label}
-              </Link>
-            )}
-          </div>
-        ))}
-      </nav>
+      <div className="flex items-center gap-4">
+        <nav className="flex items-center gap-1 min-w-0">
+          {breadcrumbs.map((crumb, i) => (
+            <div key={crumb.href} className="flex items-center gap-1 min-w-0">
+              {i > 0 && (
+                <ChevronRight className="h-3.5 w-3.5 text-slate-300 flex-shrink-0" />
+              )}
+              {i === breadcrumbs.length - 1 ? (
+                <span className="text-sm font-bold text-slate-800 font-manrope truncate">
+                  {title ?? crumb.label}
+                </span>
+              ) : (
+                <Link
+                  href={crumb.href}
+                  className="text-sm text-slate-400 hover:text-slate-600 transition-colors duration-100 truncate"
+                >
+                  {crumb.label}
+                </Link>
+              )}
+            </div>
+          ))}
+        </nav>
+        {profile?.role && (
+          <>
+            <span className="text-slate-200">|</span>
+            <span className="text-[11px] font-bold text-slate-400 capitalize">{profile.role}</span>
+          </>
+        )}
+      </div>
 
       {/* Right actions */}
-      <div className="flex items-center gap-1 flex-shrink-0">
-        {profile && <NotificationBell userId={profile.id} />}
+      <div className="flex items-center gap-6">
+        {/* Search */}
+        <div className="relative hidden md:block">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
+          <input
+            className="bg-slate-50 border border-slate-200 rounded-lg py-1.5 pl-9 pr-4 text-xs w-64 focus:ring-1 focus:ring-[#0052CC] focus:border-[#0052CC] transition-all outline-none placeholder:text-slate-400"
+            placeholder="Search projects, documents..."
+            type="text"
+            readOnly
+          />
+        </div>
+
+        <div className="flex items-center gap-3">
+          {profile && <NotificationBell userId={profile.id} />}
+          {profile && (
+            <Link href="/settings" className="flex items-center gap-3">
+              <div className="text-right hidden sm:block">
+                <p className="text-xs font-bold text-slate-900 leading-none">{profile.full_name ?? 'User'}</p>
+                <p className="text-[10px] text-slate-500 font-medium capitalize">{profile.role}</p>
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-[#0052CC] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                {profile.avatar_url ? (
+                  <img src={profile.avatar_url} alt="" className="w-8 h-8 rounded-lg object-cover" />
+                ) : (
+                  getInitials(profile.full_name)
+                )}
+              </div>
+            </Link>
+          )}
+        </div>
       </div>
     </header>
   )

@@ -91,7 +91,7 @@ const config: Config = {
           900: "#1e3a8a",
         },
         // Surfaces
-        'bg-app':            '#FAFAFA',
+        'bg-app':            '#f7f9fb',
         'bg-surface':        '#FFFFFF',
         'bg-surface-hover':  '#F5F5F5',
         'bg-surface-active': '#EFEFEF',

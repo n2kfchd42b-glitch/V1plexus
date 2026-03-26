@@ -20,19 +20,19 @@ import type { Project } from '@/types/database'
 
 const STATUS_OPTIONS: Project['status'][] = ['draft', 'active', 'completed', 'archived']
 
-const statusStyles: Record<string, { bg: string; text: string; dot: string }> = {
-  draft:     { bg: 'bg-[#F4F4F5]', text: 'text-[#71717A]', dot: 'bg-[#A1A1AA]' },
-  active:    { bg: 'bg-[#EFF6FF]', text: 'text-[#2563EB]', dot: 'bg-[#3B82F6]' },
-  completed: { bg: 'bg-[#F0FDF4]', text: 'text-[#16A34A]', dot: 'bg-[#22C55E]' },
-  archived:  { bg: 'bg-[#FAFAFA]', text: 'text-[#A1A1AA]', dot: 'bg-[#D4D4D8]' },
+const statusStyles: Record<string, { bg: string; text: string; dot: string; border: string }> = {
+  draft:     { bg: 'bg-slate-50',    text: 'text-slate-500',   dot: 'bg-slate-400',   border: 'border-slate-200' },
+  active:    { bg: 'bg-blue-50',     text: 'text-blue-600',    dot: 'bg-blue-500',    border: 'border-blue-100' },
+  completed: { bg: 'bg-green-50',    text: 'text-green-600',   dot: 'bg-green-500',   border: 'border-green-100' },
+  archived:  { bg: 'bg-slate-50',    text: 'text-slate-400',   dot: 'bg-slate-300',   border: 'border-slate-200' },
 }
 
 function StatusBadge({ status }: { status: string }) {
   const s = statusStyles[status] ?? statusStyles.draft
   return (
     <span className={cn(
-      'inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium',
-      s.bg, s.text
+      'inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase border',
+      s.bg, s.text, s.border
     )}>
       <span className={cn('h-1.5 w-1.5 rounded-full flex-shrink-0', s.dot)} />
       {statusLabel(status)}
@@ -61,8 +61,8 @@ function TableView({ projects }: { projects: Project[] }) {
       : null
 
   return (
-    <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg overflow-hidden">
-      <div className="grid grid-cols-[1fr_120px_140px_36px] gap-4 px-4 py-2.5 bg-[var(--bg-inset)] border-b border-[var(--border-default)]">
+    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+      <div className="grid grid-cols-[1fr_120px_140px_36px] gap-4 px-6 py-3 bg-slate-50/50 border-b border-slate-200">
         {[
           { key: 'title' as const,      label: 'Title' },
           { key: 'status' as const,     label: 'Status' },
@@ -71,7 +71,7 @@ function TableView({ projects }: { projects: Project[] }) {
           <button
             key={col.key}
             onClick={() => toggleSort(col.key)}
-            className="flex items-center gap-1 text-left text-[11px] font-medium uppercase tracking-wide text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors"
+            className="flex items-center gap-1 text-left text-[10px] font-extrabold uppercase tracking-wider text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
           >
             {col.label}
             <SortIcon k={col.key} />
@@ -79,23 +79,26 @@ function TableView({ projects }: { projects: Project[] }) {
         ))}
         <div />
       </div>
-      <div className="divide-y divide-[var(--border-subtle)]">
-        {sorted.map(project => (
+      <div className="divide-y divide-slate-100">
+        {sorted.map((project, i) => (
           <Link key={project.id} href={`/projects/${project.id}`}>
-            <div className="grid grid-cols-[1fr_120px_140px_36px] gap-4 px-4 py-2.5 items-center hover:bg-[var(--bg-surface-hover)] transition-colors duration-100 group">
+            <div className={cn(
+              "grid grid-cols-[1fr_120px_140px_36px] gap-4 px-6 py-3 items-center hover:bg-blue-50/30 transition-colors duration-100 group",
+              i % 2 === 1 && "bg-slate-50/50"
+            )}>
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="h-6 w-6 rounded bg-[var(--accent-blue-subtle)] flex items-center justify-center flex-shrink-0">
-                  <FolderOpen className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
+                <div className="h-6 w-6 rounded-md bg-blue-50 flex items-center justify-center flex-shrink-0">
+                  <FolderOpen className="h-3.5 w-3.5 text-[#0052CC]" />
                 </div>
-                <span className="text-sm text-[var(--text-primary)] truncate font-medium">{project.title}</span>
+                <span className="text-sm text-slate-900 truncate font-medium">{project.title}</span>
               </div>
               <StatusBadge status={project.status} />
-              <div className="text-xs text-[var(--text-tertiary)] flex items-center gap-1">
+              <div className="text-xs text-slate-400 flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 {formatRelative(project.updated_at)}
               </div>
               <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                <ChevronRight className="h-4 w-4 text-[var(--text-tertiary)]" />
+                <ChevronRight className="h-4 w-4 text-slate-400" />
               </div>
             </div>
           </Link>
@@ -107,27 +110,27 @@ function TableView({ projects }: { projects: Project[] }) {
 
 function CardView({ projects }: { projects: Project[] }) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       {projects.map(project => (
         <Link key={project.id} href={`/projects/${project.id}`}>
-          <div className="group bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg p-4 card-hover cursor-pointer h-full">
+          <div className="group bg-white border border-slate-200 rounded-xl p-5 shadow-sm cursor-pointer h-full transition-all duration-150 hover:shadow-md hover:-translate-y-px">
             <div className="flex items-start justify-between gap-2 mb-3">
-              <div className="h-8 w-8 rounded-lg bg-[var(--accent-blue-subtle)] flex items-center justify-center flex-shrink-0">
-                <FolderOpen className="h-4 w-4 text-[var(--accent-blue)]" />
+              <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                <FolderOpen className="h-4 w-4 text-[#0052CC]" />
               </div>
               <StatusBadge status={project.status} />
             </div>
-            <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-1 line-clamp-2 leading-tight">
+            <h3 className="text-sm font-bold text-slate-900 mb-1 line-clamp-2 leading-tight">
               {project.title}
             </h3>
             {project.description && (
-              <p className="text-xs text-[var(--text-secondary)] line-clamp-2 mb-3">
+              <p className="text-xs text-slate-500 line-clamp-2 mb-3">
                 {project.description}
               </p>
             )}
-            <div className="flex items-center gap-2 mt-auto pt-2 border-t border-[var(--border-subtle)]">
-              <Clock className="h-3 w-3 text-[var(--text-tertiary)]" />
-              <span className="text-xs text-[var(--text-tertiary)]">{formatRelative(project.updated_at)}</span>
+            <div className="flex items-center gap-2 mt-auto pt-2 border-t border-slate-100">
+              <Clock className="h-3 w-3 text-slate-400" />
+              <span className="text-xs text-slate-400">{formatRelative(project.updated_at)}</span>
             </div>
           </div>
         </Link>
@@ -152,15 +155,15 @@ function KanbanView({ projects, onStatusChange }: {
             </div>
             <div className="space-y-2 min-h-[100px]">
               {cols.length === 0 ? (
-                <div className="border-2 border-dashed border-[var(--border-default)] rounded-lg py-8 text-center">
-                  <p className="text-xs text-[var(--text-tertiary)]">No projects</p>
+                <div className="border-2 border-dashed border-slate-200 rounded-xl py-8 text-center">
+                  <p className="text-xs text-slate-400">No projects</p>
                 </div>
               ) : (
                 cols.map(project => (
                   <Link key={project.id} href={`/projects/${project.id}`}>
-                    <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg p-3 card-hover cursor-pointer">
-                      <p className="text-sm font-medium text-[var(--text-primary)] line-clamp-2 mb-2">{project.title}</p>
-                      <p className="text-xs text-[var(--text-tertiary)] flex items-center gap-1">
+                    <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm cursor-pointer transition-all duration-150 hover:shadow-md hover:-translate-y-px">
+                      <p className="text-sm font-medium text-slate-900 line-clamp-2 mb-2">{project.title}</p>
+                      <p className="text-xs text-slate-400 flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         {formatRelative(project.updated_at)}
                       </p>
@@ -259,32 +262,32 @@ export default function ProjectsPage() {
   )
 
   return (
-    <div className="px-6 py-5 max-w-6xl mx-auto space-y-5">
+    <div className="px-8 py-6 max-w-[1600px] mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)] tracking-tight">Projects</h1>
-          <p className="text-sm text-[var(--text-tertiary)] mt-0.5">
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 font-headline">Projects</h1>
+          <p className="text-slate-500 mt-1 font-medium text-sm">
             {projects.length} project{projects.length !== 1 ? 's' : ''}
           </p>
         </div>
         <button
           onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-[var(--accent-blue)] text-white text-sm font-medium hover:bg-blue-600 transition-colors duration-150 btn-press"
+          className="inline-flex items-center gap-2 py-2.5 px-5 rounded-lg bg-[#0052CC] text-white text-sm font-headline font-bold hover:bg-[#0040a2] transition-all btn-press"
         >
-          <Plus className="h-3.5 w-3.5" />
+          <Plus className="h-4 w-4" />
           New Project
         </button>
       </div>
 
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--text-tertiary)]" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
             type="text"
             placeholder="Search projects…"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full h-8 pl-8 pr-3 text-sm bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-md outline-none focus:border-[var(--border-focus)] focus:ring-2 focus:ring-[var(--accent-blue)]/20 placeholder:text-[var(--text-tertiary)] text-[var(--text-primary)] transition-all duration-100"
+            className="w-full bg-slate-50 border border-slate-200 rounded-lg py-1.5 pl-9 pr-4 text-xs focus:ring-1 focus:ring-[#0052CC] focus:border-[#0052CC] transition-all outline-none placeholder:text-slate-400"
           />
         </div>
         <div className="ml-auto">
@@ -293,9 +296,9 @@ export default function ProjectsPage() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg p-4 h-36">
+            <div key={i} className="bg-white border border-slate-200 rounded-xl p-5 h-36 shadow-sm">
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div className="skeleton h-8 w-8 rounded-lg" />
                 <div className="skeleton h-5 w-16 rounded" />
@@ -306,12 +309,12 @@ export default function ProjectsPage() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg py-16 text-center">
-          <FolderOpen className="h-12 w-12 mx-auto text-[var(--text-tertiary)] mb-3" />
-          <p className="text-base font-semibold text-[var(--text-primary)] mb-1">
+        <div className="bg-white border border-slate-200 rounded-xl py-16 text-center shadow-sm">
+          <FolderOpen className="h-12 w-12 mx-auto text-slate-300 mb-3" />
+          <p className="text-base font-bold text-slate-900 mb-1">
             {search ? 'No projects match your search' : 'Create your first project'}
           </p>
-          <p className="text-sm text-[var(--text-secondary)] max-w-sm mx-auto mb-5">
+          <p className="text-sm text-slate-500 max-w-sm mx-auto mb-5">
             {search
               ? 'Try a different search term or clear the filter.'
               : 'Start a research project to organize your data, documents, and analysis.'}
@@ -319,7 +322,7 @@ export default function ProjectsPage() {
           {!search && (
             <button
               onClick={() => setShowNew(true)}
-              className="inline-flex items-center gap-1.5 h-8 px-4 rounded-md bg-[var(--accent-blue)] text-white text-sm font-medium hover:bg-blue-600 transition-colors"
+              className="inline-flex items-center gap-2 py-2.5 px-5 rounded-lg bg-[#0052CC] text-white text-sm font-bold hover:bg-[#0040a2] transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
               New Project

@@ -69,36 +69,36 @@ export default function InstitutionMembersPage() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="px-8 py-6 max-w-[1600px] mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)] tracking-tight">Members</h1>
-          <p className="text-sm text-[var(--text-tertiary)] mt-0.5">
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 font-headline">Members</h1>
+          <p className="text-slate-500 mt-1 font-medium text-sm">
             {members.length} member{members.length !== 1 ? 's' : ''} in your institution
           </p>
         </div>
       </div>
 
       {/* Role summary */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-4 gap-4 mb-8">
         {(Object.keys(roleConfig) as UserRole[]).map(role => {
-          const { label, icon: Icon, badge } = roleConfig[role]
+          const { label, icon: Icon } = roleConfig[role]
           return (
             <button
               key={role}
               onClick={() => setRoleFilter(prev => prev === role ? 'all' : role)}
               className={cn(
-                'flex items-center gap-3 p-3 rounded-xl border transition-all duration-150 text-left',
+                'bg-white p-5 rounded-xl border shadow-sm transition-all duration-150 text-left',
                 roleFilter === role
-                  ? 'border-[var(--accent-blue)] bg-[var(--bg-surface)]'
-                  : 'border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-[var(--border-strong)]'
+                  ? 'border-[#0052CC] ring-1 ring-[#0052CC]/20'
+                  : 'border-slate-200 hover:border-slate-300'
               )}
             >
-              <Icon className="h-4 w-4 text-[var(--text-tertiary)]" />
-              <div>
-                <p className="text-xl font-bold text-[var(--text-primary)]">{counts[role]}</p>
-                <p className="text-xs text-[var(--text-tertiary)]">{label}</p>
+              <p className="text-slate-400 text-[11px] font-bold uppercase tracking-wider mb-2">{label}</p>
+              <div className="flex items-end justify-between">
+                <h3 className="text-2xl font-extrabold font-headline">{counts[role]}</h3>
+                <Icon className="h-5 w-5 text-slate-400" />
               </div>
             </button>
           )
@@ -134,44 +134,47 @@ export default function InstitutionMembersPage() {
       {loading ? (
         <div className="space-y-2">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-16 bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl" />
+            <div key={i} className="h-16 bg-white border border-slate-200 rounded-xl shadow-sm" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="py-16 text-center bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl">
-          <Users className="h-8 w-8 mx-auto text-[var(--text-tertiary)] mb-2" />
-          <p className="text-sm font-medium text-[var(--text-primary)]">No members found</p>
+        <div className="py-16 text-center bg-white border border-slate-200 rounded-xl shadow-sm">
+          <Users className="h-8 w-8 mx-auto text-slate-300 mb-2" />
+          <p className="text-sm font-bold text-slate-900">No members found</p>
         </div>
       ) : (
-        <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl overflow-hidden">
-          <div className="divide-y divide-[var(--border-subtle)]">
-            {filtered.map(member => {
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+          <div className="divide-y divide-slate-100">
+            {filtered.map((member, i) => {
               const config = roleConfig[member.role] ?? roleConfig.researcher
               const Icon = config.icon
               const isMe = member.id === profile?.id
               return (
-                <div key={member.id} className="flex items-center gap-4 px-4 py-3 hover:bg-[var(--bg-surface-hover)] transition-colors">
+                <div key={member.id} className={cn(
+                  "flex items-center gap-4 px-6 py-3 hover:bg-blue-50/30 transition-colors",
+                  i % 2 === 1 && "bg-slate-50/50"
+                )}>
                   {/* Avatar */}
-                  <div className="h-9 w-9 rounded-full bg-[var(--bg-inset)] flex items-center justify-center text-sm font-semibold text-[var(--text-secondary)] flex-shrink-0">
+                  <div className="h-9 w-9 rounded-lg bg-blue-100 flex items-center justify-center text-sm font-bold text-blue-600 flex-shrink-0">
                     {getInitials(member.full_name)}
                   </div>
 
                   {/* Name + email */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+                    <p className="text-sm font-medium text-slate-900 truncate">
                       {member.full_name ?? '—'}
-                      {isMe && <span className="text-xs text-[var(--text-tertiary)] ml-1.5">(you)</span>}
+                      {isMe && <span className="text-xs text-slate-400 ml-1.5">(you)</span>}
                     </p>
-                    <p className="text-xs text-[var(--text-tertiary)] truncate">{member.email}</p>
+                    <p className="text-xs text-slate-400 truncate">{member.email}</p>
                   </div>
 
                   {/* Department */}
                   {member.department_id && (
-                    <p className="text-xs text-[var(--text-tertiary)] hidden sm:block">Dept.</p>
+                    <p className="text-xs text-slate-400 hidden sm:block">Dept.</p>
                   )}
 
                   {/* Joined */}
-                  <p className="text-xs text-[var(--text-tertiary)] hidden md:block flex-shrink-0">
+                  <p className="text-xs text-slate-400 hidden md:block flex-shrink-0">
                     Since {formatDate(member.created_at)}
                   </p>
 
@@ -182,7 +185,7 @@ export default function InstitutionMembersPage() {
                       onValueChange={v => handleRoleChange(member.id, v as UserRole)}
                       disabled={savingId === member.id}
                     >
-                      <SelectTrigger className="h-7 text-xs w-44 border-[var(--border-default)]">
+                      <SelectTrigger className="h-7 text-xs w-44 border-slate-200">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -193,7 +196,7 @@ export default function InstitutionMembersPage() {
                       </SelectContent>
                     </Select>
                   ) : (
-                    <span className={cn('inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0', config.badge)}>
+                    <span className={cn('inline-flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-0.5 rounded border flex-shrink-0', config.badge)}>
                       <Icon className="h-3 w-3" />
                       {config.label}
                     </span>
@@ -206,7 +209,7 @@ export default function InstitutionMembersPage() {
       )}
 
       {!isAdmin && (
-        <p className="mt-4 text-xs text-[var(--text-tertiary)]">
+        <p className="mt-4 text-xs text-slate-400">
           Only admins can change member roles. Contact your institution admin.
         </p>
       )}

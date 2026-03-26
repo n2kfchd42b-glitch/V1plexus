@@ -31,23 +31,22 @@ function StatCard({
 }) {
   return (
     <Link href={href} className="group">
-      <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg p-4 transition-all duration-150 hover:shadow-md hover:-translate-y-px card-hover">
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm transition-all duration-150 hover:shadow-md hover:-translate-y-px">
         {loading ? (
           <div className="space-y-2">
-            <div className="skeleton h-4 w-8" />
-            <div className="skeleton h-7 w-12" />
-            <div className="skeleton h-3.5 w-20" />
+            <div className="skeleton h-4 w-20" />
+            <div className="skeleton h-8 w-12" />
+            <div className="skeleton h-3.5 w-24" />
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between mb-3">
+            <p className="text-slate-400 text-[11px] font-bold uppercase tracking-wider mb-2">{label}</p>
+            <div className="flex items-end justify-between">
+              <h3 className="text-2xl font-extrabold font-headline tracking-tight">{value}</h3>
               <div className={cn('h-8 w-8 rounded-lg flex items-center justify-center', color.replace('text-', 'bg-').replace('600', '50').replace('red', 'red').replace('100', '50'))}>
                 <Icon className={cn('h-4 w-4', color)} />
               </div>
-              <ArrowRight className="h-3.5 w-3.5 text-[var(--text-tertiary)] opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
-            <p className="text-2xl font-bold text-[var(--text-primary)] tracking-tight">{value}</p>
-            <p className="text-xs text-[var(--text-tertiary)] mt-0.5 font-medium">{label}</p>
           </>
         )}
       </div>
@@ -137,20 +136,20 @@ export default function DashboardPage() {
   ]
 
   return (
-    <div className="px-6 py-5 max-w-6xl mx-auto space-y-6">
+    <div className="px-8 py-6 max-w-[1600px] mx-auto space-y-8">
       {/* Welcome header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)] tracking-tight">
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 font-headline">
             {greeting}, {firstName}
           </h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-0.5 capitalize">
+          <p className="text-slate-500 mt-1 font-medium text-sm capitalize">
             {profile?.role} · PLEXUS Research Lab
           </p>
         </div>
         <Link href="/projects?new=1">
-          <button className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-[var(--accent-blue)] text-white text-sm font-medium hover:bg-blue-600 transition-colors duration-150 btn-press">
-            <Plus className="h-3.5 w-3.5" />
+          <button className="inline-flex items-center gap-2 py-2.5 px-5 rounded-lg bg-[#0052CC] text-white text-sm font-headline font-bold hover:bg-[#0040a2] transition-all btn-press">
+            <Plus className="h-4 w-4" />
             New Project
           </button>
         </Link>
@@ -158,7 +157,7 @@ export default function DashboardPage() {
 
       {/* Action items bar */}
       {(stats.pendingReviews > 0 || stats.unreadNotifications > 0) && (
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--status-warning-bg)] border border-amber-200 rounded-lg">
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl">
           <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0" />
           <div className="flex items-center gap-2 flex-wrap">
             {stats.pendingReviews > 0 && (
@@ -180,7 +179,7 @@ export default function DashboardPage() {
       )}
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {statCards.map(stat => (
           <StatCard key={stat.label} {...stat} loading={loading} />
         ))}
@@ -191,8 +190,8 @@ export default function DashboardPage() {
         {/* Recent Projects */}
         <div className="lg:col-span-3 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Recent Projects</h2>
-            <Link href="/projects" className="text-xs text-[var(--accent-blue)] hover:underline flex items-center gap-1">
+            <h2 className="text-sm font-bold font-headline text-slate-900">Recent Projects</h2>
+            <Link href="/projects" className="text-xs text-[#0052CC] hover:underline flex items-center gap-1 font-medium">
               View all <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
@@ -200,7 +199,7 @@ export default function DashboardPage() {
           {loading ? (
             <div className="space-y-2">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg p-3">
+                <div key={i} className="bg-white border border-slate-200 rounded-xl p-3">
                   <div className="flex items-center justify-between">
                     <div className="space-y-1.5 flex-1">
                       <div className="skeleton h-4 w-48" />
@@ -212,12 +211,12 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : recentProjects.length === 0 ? (
-            <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg py-12 text-center">
-              <FolderOpen className="h-10 w-10 mx-auto text-[var(--text-tertiary)] mb-3" />
-              <p className="text-sm font-medium text-[var(--text-primary)] mb-1">No projects yet</p>
-              <p className="text-xs text-[var(--text-tertiary)] mb-4">Create a research project to get started</p>
+            <div className="bg-white border border-slate-200 rounded-xl py-12 text-center shadow-sm">
+              <FolderOpen className="h-10 w-10 mx-auto text-slate-300 mb-3" />
+              <p className="text-sm font-bold text-slate-900 mb-1">No projects yet</p>
+              <p className="text-xs text-slate-400 mb-4">Create a research project to get started</p>
               <Link href="/projects?new=1">
-                <button className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-[var(--accent-blue)] text-white text-sm font-medium hover:bg-blue-600 transition-colors">
+                <button className="inline-flex items-center gap-2 py-2.5 px-4 rounded-lg bg-[#0052CC] text-white text-sm font-bold hover:bg-[#0040a2] transition-colors">
                   <Plus className="h-3.5 w-3.5" />
                   Create Project
                 </button>
@@ -227,14 +226,14 @@ export default function DashboardPage() {
             <div className="space-y-1.5">
               {recentProjects.map(project => (
                 <Link key={project.id} href={`/projects/${project.id}`}>
-                  <div className="group bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg px-4 py-3 flex items-center justify-between gap-3 hover:border-[var(--border-strong)] hover:shadow-sm transition-all duration-150">
+                  <div className="group bg-white border border-slate-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3 hover:border-slate-300 hover:shadow-sm transition-all duration-150">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-8 w-8 rounded-md bg-[var(--accent-blue-subtle)] flex items-center justify-center flex-shrink-0">
-                        <FolderOpen className="h-4 w-4 text-[var(--accent-blue)]" />
+                      <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                        <FolderOpen className="h-4 w-4 text-[#0052CC]" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-[var(--text-primary)] truncate">{project.title}</p>
-                        <p className="text-xs text-[var(--text-tertiary)] flex items-center gap-1 mt-0.5">
+                        <p className="text-sm font-medium text-slate-900 truncate">{project.title}</p>
+                        <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
                           <Clock className="h-3 w-3" />
                           {formatRelative(project.updated_at)}
                         </p>
@@ -242,7 +241,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <PhaseBadge status={project.status} />
-                      <ArrowRight className="h-3.5 w-3.5 text-[var(--text-tertiary)] opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <ArrowRight className="h-3.5 w-3.5 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                   </div>
                 </Link>
@@ -254,8 +253,8 @@ export default function DashboardPage() {
         {/* Review Queue */}
         <div className="lg:col-span-2 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Review Queue</h2>
-            <Link href="/reviews" className="text-xs text-[var(--accent-blue)] hover:underline flex items-center gap-1">
+            <h2 className="text-sm font-bold font-headline text-slate-900">Review Queue</h2>
+            <Link href="/reviews" className="text-xs text-[#0052CC] hover:underline flex items-center gap-1 font-medium">
               View all <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
@@ -263,30 +262,30 @@ export default function DashboardPage() {
           {loading ? (
             <div className="space-y-2">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg p-3">
+                <div key={i} className="bg-white border border-slate-200 rounded-xl p-3">
                   <div className="skeleton h-4 w-36 mb-1.5" />
                   <div className="skeleton h-3 w-20" />
                 </div>
               ))}
             </div>
           ) : recentReviews.length === 0 ? (
-            <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg py-10 text-center">
-              <div className="h-8 w-8 mx-auto mb-2 rounded-full bg-[var(--status-success-bg)] flex items-center justify-center">
-                <Activity className="h-4 w-4 text-[var(--status-success-text)]" />
+            <div className="bg-white border border-slate-200 rounded-xl py-10 text-center shadow-sm">
+              <div className="h-8 w-8 mx-auto mb-2 rounded-full bg-emerald-50 flex items-center justify-center">
+                <Activity className="h-4 w-4 text-emerald-600" />
               </div>
-              <p className="text-sm font-medium text-[var(--text-primary)] mb-1">All caught up</p>
-              <p className="text-xs text-[var(--text-tertiary)]">No pending reviews</p>
+              <p className="text-sm font-bold text-slate-900 mb-1">All caught up</p>
+              <p className="text-xs text-slate-400">No pending reviews</p>
             </div>
           ) : (
             <div className="space-y-1.5">
               {recentReviews.map(review => (
                 <Link key={review.id} href={`/reviews?id=${review.id}`}>
-                  <div className="group bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg px-3 py-2.5 hover:border-[var(--border-strong)] hover:shadow-sm transition-all duration-150">
-                    <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+                  <div className="group bg-white border border-slate-200 rounded-xl px-3 py-2.5 hover:border-slate-300 hover:shadow-sm transition-all duration-150">
+                    <p className="text-sm font-medium text-slate-900 truncate">
                       {review.document?.title ?? 'Untitled'}
                     </p>
                     <div className="flex items-center justify-between mt-1">
-                      <p className="text-xs text-[var(--text-tertiary)]">
+                      <p className="text-xs text-slate-400">
                         {formatRelative(review.created_at)}
                       </p>
                       <PhaseBadge status={review.status} />

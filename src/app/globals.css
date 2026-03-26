@@ -49,7 +49,7 @@
     --tracking-wide:   0.04em;
 
     /* Surfaces */
-    --bg-app:            #FAFAFA;
+    --bg-app:            #f7f9fb;
     --bg-surface:        #FFFFFF;
     --bg-surface-hover:  #F5F5F5;
     --bg-surface-active: #EFEFEF;
@@ -194,7 +194,7 @@
 
   h1, h2, h3, h4 {
     font-family: var(--font-manrope, var(--font-sans));
-    font-weight: 700;
+    font-weight: 800;
     letter-spacing: var(--tracking-tight);
     color: var(--color-clinical-deep, var(--text-primary));
   }

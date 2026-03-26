@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-import { Activity } from 'lucide-react'
 import { AuditLogViewer } from '@/components/audit/AuditLogViewer'
 import { createClient } from '@/lib/supabase/client'
 
@@ -16,13 +15,10 @@ export default function PersonalAuditPage() {
   }, [supabase])
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="mb-6">
-        <div className="flex items-center gap-2">
-          <Activity className="h-5 w-5 text-primary" />
-          <h1 className="text-xl font-bold">Audit Trail</h1>
-        </div>
-        <p className="text-sm text-muted-foreground mt-1">
+    <div className="px-8 py-6 max-w-[1600px] mx-auto">
+      <div className="mb-8">
+        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 font-headline">Audit Trail</h1>
+        <p className="text-slate-500 mt-1 font-medium text-sm">
           A complete log of all actions performed in your personal workspace.
         </p>
       </div>
