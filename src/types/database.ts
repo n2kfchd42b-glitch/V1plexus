@@ -367,6 +367,7 @@ export interface AnalysisRun {
   created_by: string
   created_at: string
   updated_at: string
+  deleted_at: string | null
   dataset?: Dataset
 }
 
@@ -454,6 +455,7 @@ export interface Dataset {
   created_at: string
   updated_at: string
   deleted_at: string | null
+  archived_at: string | null
   uploader?: Profile
   latest_version?: DatasetVersion
 }

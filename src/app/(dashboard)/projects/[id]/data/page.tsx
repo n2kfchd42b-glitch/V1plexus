@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Plus, Database, Upload, Loader2 } from 'lucide-react'
+import { Plus, Database, Upload, Loader2, Archive } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DatasetCard } from '@/components/data/DatasetCard'
 import { DatasetUpload } from '@/components/data/DatasetUpload'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
 import type { Dataset, DatasetVersion } from '@/types/database'
 
 export default function ProjectDataPage() {
@@ -20,6 +21,7 @@ export default function ProjectDataPage() {
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [loading, setLoading] = useState(true)
   const [showUpload, setShowUpload] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
 
   const supabase = createClient()
 
@@ -32,12 +34,32 @@ export default function ProjectDataPage() {
   const fetchDatasets = async () => {
     setLoading(true)
     try {
-      const datasetsRes = await supabase
+      let query = supabase
         .from('datasets')
         .select('*')
         .eq('project_id', projectId)
         .is('deleted_at', null)
         .order('updated_at', { ascending: false })
+
+      if (showArchived) {
+        query = supabase
+          .from('datasets')
+          .select('*')
+          .eq('project_id', projectId)
+          .is('deleted_at', null)
+          .not('archived_at', 'is', null)
+          .order('updated_at', { ascending: false })
+      } else {
+        query = supabase
+          .from('datasets')
+          .select('*')
+          .eq('project_id', projectId)
+          .is('deleted_at', null)
+          .is('archived_at', null)
+          .order('updated_at', { ascending: false })
+      }
+
+      const datasetsRes = await query
 
       if (!datasetsRes.data?.length) {
         setDatasets([])
@@ -45,8 +67,6 @@ export default function ProjectDataPage() {
       }
 
       const datasetList: Dataset[] = datasetsRes.data
-
-      // Fetch only versions for this project's datasets (not the entire table)
       const datasetIds = datasetList.map(d => d.id)
       const versionsRes = await supabase
         .from('dataset_versions')
@@ -54,7 +74,6 @@ export default function ProjectDataPage() {
         .in('dataset_id', datasetIds)
         .order('version_number', { ascending: false })
 
-      // Build a map of dataset_id -> latest version
       const latestVersionMap = new Map<string, DatasetVersion>()
       if (versionsRes.data) {
         for (const version of versionsRes.data as DatasetVersion[]) {
@@ -64,7 +83,6 @@ export default function ProjectDataPage() {
         }
       }
 
-      // Attach latest_version to each dataset
       const datasetsWithVersions: Dataset[] = datasetList.map(ds => ({
         ...ds,
         latest_version: latestVersionMap.get(ds.id) ?? undefined,
@@ -81,11 +99,39 @@ export default function ProjectDataPage() {
       fetchDatasets()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, user])
+  }, [projectId, user, showArchived])
 
   const handleUploadSuccess = (datasetId: string) => {
     setShowUpload(false)
     router.push(`/projects/${projectId}/data/${datasetId}`)
+  }
+
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase
+      .from('datasets')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id)
+
+    if (error) {
+      toast.error('Failed to delete dataset')
+      return
+    }
+    setDatasets(prev => prev.filter(d => d.id !== id))
+    toast.success('Dataset deleted')
+  }
+
+  const handleArchive = async (id: string, archive: boolean) => {
+    const { error } = await supabase
+      .from('datasets')
+      .update({ archived_at: archive ? new Date().toISOString() : null })
+      .eq('id', id)
+
+    if (error) {
+      toast.error(archive ? 'Failed to archive dataset' : 'Failed to unarchive dataset')
+      return
+    }
+    setDatasets(prev => prev.filter(d => d.id !== id))
+    toast.success(archive ? 'Dataset archived' : 'Dataset unarchived')
   }
 
   if (authLoading) {
@@ -113,10 +159,21 @@ export default function ProjectDataPage() {
             Manage and explore datasets for this project
           </p>
         </div>
-        <Button onClick={() => setShowUpload(true)}>
-          <Upload className="h-4 w-4 mr-2" />
-          Upload Dataset
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowArchived(v => !v)}
+            className={showArchived ? 'border-amber-300 text-amber-700 bg-amber-50' : ''}
+          >
+            <Archive className="h-4 w-4 mr-2" />
+            {showArchived ? 'View Active' : 'View Archived'}
+          </Button>
+          <Button onClick={() => setShowUpload(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Dataset
+          </Button>
+        </div>
       </div>
 
       {/* Content */}
@@ -127,14 +184,25 @@ export default function ProjectDataPage() {
       ) : datasets.length === 0 ? (
         <div className="text-center py-20 border rounded-lg bg-muted/20">
           <Database className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
-          <p className="text-lg font-medium text-muted-foreground">No datasets yet</p>
-          <p className="text-sm text-muted-foreground mt-1 mb-4">
-            Upload your first dataset to get started
-          </p>
-          <Button onClick={() => setShowUpload(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Upload Dataset
-          </Button>
+          {showArchived ? (
+            <>
+              <p className="text-lg font-medium text-muted-foreground">No archived datasets</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Archived datasets will appear here
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-lg font-medium text-muted-foreground">No datasets yet</p>
+              <p className="text-sm text-muted-foreground mt-1 mb-4">
+                Upload your first dataset to get started
+              </p>
+              <Button onClick={() => setShowUpload(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Upload Dataset
+              </Button>
+            </>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3">
@@ -143,6 +211,8 @@ export default function ProjectDataPage() {
               key={dataset.id}
               dataset={dataset}
               projectId={projectId}
+              onDelete={handleDelete}
+              onArchive={handleArchive}
             />
           ))}
         </div>

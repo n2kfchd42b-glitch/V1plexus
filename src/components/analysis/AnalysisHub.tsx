@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Plus, BarChart2 } from 'lucide-react'
 import { AnalysisRunCard } from './AnalysisRunCard'
 import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
 import type { AnalysisRun } from '@/types/database'
 
 interface Props {
@@ -23,6 +24,7 @@ export function AnalysisHub({ projectId }: Props) {
         .from('analysis_runs')
         .select('*, dataset:datasets(id, name)')
         .eq('project_id', projectId)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(50)
       if (data) setRuns(data as AnalysisRun[])
@@ -30,6 +32,20 @@ export function AnalysisHub({ projectId }: Props) {
     }
     fetchRuns()
   }, [projectId, supabase])
+
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase
+      .from('analysis_runs')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id)
+
+    if (error) {
+      toast.error('Failed to delete analysis')
+      return
+    }
+    setRuns(prev => prev.filter(r => r.id !== id))
+    toast.success('Analysis deleted')
+  }
 
   if (loading) {
     return <div className="text-sm text-muted-foreground py-6 text-center">Loading analyses…</div>
@@ -62,7 +78,12 @@ export function AnalysisHub({ projectId }: Props) {
       ) : (
         <div className="space-y-2">
           {runs.map(run => (
-            <AnalysisRunCard key={run.id} run={run} projectId={projectId} />
+            <AnalysisRunCard
+              key={run.id}
+              run={run}
+              projectId={projectId}
+              onDelete={handleDelete}
+            />
           ))}
         </div>
       )}
