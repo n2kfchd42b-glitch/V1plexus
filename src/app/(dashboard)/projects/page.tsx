@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import {
   Plus, FolderOpen, Search, ArrowUp, ArrowDown,
-  Clock, ChevronRight
+  Clock, ChevronRight, Archive, ArchiveRestore
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
@@ -40,7 +40,42 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
-function TableView({ projects }: { projects: Project[] }) {
+function ArchiveButton({
+  project,
+  onArchive,
+}: {
+  project: Project
+  onArchive: (id: string, status: Project['status']) => void
+}) {
+  const isArchived = project.status === 'archived'
+  return (
+    <button
+      onClick={e => {
+        e.preventDefault()
+        e.stopPropagation()
+        onArchive(project.id, isArchived ? 'active' : 'archived')
+      }}
+      title={isArchived ? 'Unarchive project' : 'Archive project'}
+      className={cn(
+        'flex items-center justify-center h-6 w-6 rounded-md transition-all duration-150',
+        'opacity-0 group-hover:opacity-100',
+        isArchived
+          ? 'text-blue-500 hover:bg-blue-50'
+          : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
+      )}
+    >
+      {isArchived
+        ? <ArchiveRestore className="h-3.5 w-3.5" />
+        : <Archive className="h-3.5 w-3.5" />
+      }
+    </button>
+  )
+}
+
+function TableView({ projects, onArchive }: {
+  projects: Project[]
+  onArchive: (id: string, status: Project['status']) => void
+}) {
   const [sortKey, setSortKey] = useState<'title' | 'status' | 'updated_at'>('updated_at')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
@@ -62,7 +97,7 @@ function TableView({ projects }: { projects: Project[] }) {
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-      <div className="grid grid-cols-[1fr_120px_140px_36px] gap-4 px-6 py-3 bg-slate-50/50 border-b border-slate-200">
+      <div className="grid grid-cols-[1fr_120px_140px_56px] gap-4 px-6 py-3 bg-slate-50/50 border-b border-slate-200">
         {[
           { key: 'title' as const,      label: 'Title' },
           { key: 'status' as const,     label: 'Status' },
@@ -83,8 +118,9 @@ function TableView({ projects }: { projects: Project[] }) {
         {sorted.map((project, i) => (
           <Link key={project.id} href={`/projects/${project.id}`}>
             <div className={cn(
-              "grid grid-cols-[1fr_120px_140px_36px] gap-4 px-6 py-3 items-center hover:bg-blue-50/30 transition-colors duration-100 group",
-              i % 2 === 1 && "bg-slate-50/50"
+              "grid grid-cols-[1fr_120px_140px_56px] gap-4 px-6 py-3 items-center hover:bg-blue-50/30 transition-colors duration-100 group",
+              i % 2 === 1 && "bg-slate-50/50",
+              project.status === 'archived' && "opacity-60"
             )}>
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="h-6 w-6 rounded-md bg-blue-50 flex items-center justify-center flex-shrink-0">
@@ -97,8 +133,11 @@ function TableView({ projects }: { projects: Project[] }) {
                 <Clock className="h-3 w-3" />
                 {formatRelative(project.updated_at)}
               </div>
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                <ChevronRight className="h-4 w-4 text-slate-400" />
+              <div className="flex items-center gap-1">
+                <ArchiveButton project={project} onArchive={onArchive} />
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                  <ChevronRight className="h-4 w-4 text-slate-400" />
+                </div>
               </div>
             </div>
           </Link>
@@ -108,17 +147,26 @@ function TableView({ projects }: { projects: Project[] }) {
   )
 }
 
-function CardView({ projects }: { projects: Project[] }) {
+function CardView({ projects, onArchive }: {
+  projects: Project[]
+  onArchive: (id: string, status: Project['status']) => void
+}) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       {projects.map(project => (
         <Link key={project.id} href={`/projects/${project.id}`}>
-          <div className="group bg-white border border-slate-200 rounded-xl p-5 shadow-sm cursor-pointer h-full transition-all duration-150 hover:shadow-md hover:-translate-y-px">
+          <div className={cn(
+            "group bg-white border border-slate-200 rounded-xl p-5 shadow-sm cursor-pointer h-full transition-all duration-150 hover:shadow-md hover:-translate-y-px",
+            project.status === 'archived' && "opacity-60"
+          )}>
             <div className="flex items-start justify-between gap-2 mb-3">
               <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
                 <FolderOpen className="h-4 w-4 text-[#0052CC]" />
               </div>
-              <StatusBadge status={project.status} />
+              <div className="flex items-center gap-1.5">
+                <ArchiveButton project={project} onArchive={onArchive} />
+                <StatusBadge status={project.status} />
+              </div>
             </div>
             <h3 className="text-sm font-bold text-slate-900 mb-1 line-clamp-2 leading-tight">
               {project.title}
@@ -187,6 +235,7 @@ export default function ProjectsPage() {
   const [search, setSearch] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('cards')
   const [showNew, setShowNew] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [creating, setCreating] = useState(false)
@@ -200,7 +249,7 @@ export default function ProjectsPage() {
   const fetchProjects = useCallback(async () => {
     if (authLoading) return
     if (!profile) { setLoading(false); return }
-    let query = supabase.from('projects').select('*')
+    let query = supabase.from('projects').select('*').is('deleted_at', null)
     if (activeWorkspace) query = query.eq('workspace_id', activeWorkspace.id)
     const { data } = await query.order('updated_at', { ascending: false })
     if (data) setProjects(data)
@@ -254,12 +303,20 @@ export default function ProjectsPage() {
     if (error) {
       if (original) setProjects(prev => prev.map(p => p.id === id ? original : p))
       toast.error('Failed to update status')
+    } else {
+      if (status === 'archived') toast.success('Project archived')
+      else if (original?.status === 'archived') toast.success('Project unarchived')
     }
   }
 
-  const filtered = projects.filter(p =>
-    p.title.toLowerCase().includes(search.toLowerCase())
-  )
+  const archivedCount = projects.filter(p => p.status === 'archived').length
+
+  const filtered = projects.filter(p => {
+    if (!showArchived && p.status === 'archived') return false
+    return p.title.toLowerCase().includes(search.toLowerCase())
+  })
+
+  const activeCount = projects.filter(p => p.status !== 'archived').length
 
   return (
     <div className="px-8 py-6 max-w-[1600px] mx-auto space-y-6">
@@ -267,7 +324,8 @@ export default function ProjectsPage() {
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 font-headline">Projects</h1>
           <p className="text-slate-500 mt-1 font-medium text-sm">
-            {projects.length} project{projects.length !== 1 ? 's' : ''}
+            {activeCount} active project{activeCount !== 1 ? 's' : ''}
+            {archivedCount > 0 && ` · ${archivedCount} archived`}
           </p>
         </div>
         <button
@@ -290,6 +348,26 @@ export default function ProjectsPage() {
             className="w-full bg-slate-50 border border-slate-200 rounded-lg py-1.5 pl-9 pr-4 text-xs focus:ring-1 focus:ring-[#0052CC] focus:border-[#0052CC] transition-all outline-none placeholder:text-slate-400"
           />
         </div>
+        {archivedCount > 0 && (
+          <button
+            onClick={() => setShowArchived(v => !v)}
+            className={cn(
+              'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all',
+              showArchived
+                ? 'bg-slate-100 border-slate-300 text-slate-700'
+                : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700'
+            )}
+          >
+            <Archive className="h-3.5 w-3.5" />
+            {showArchived ? 'Hide archived' : `Show archived`}
+            <span className={cn(
+              'inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full text-[10px] font-bold',
+              showArchived ? 'bg-slate-300 text-slate-700' : 'bg-slate-100 text-slate-500'
+            )}>
+              {archivedCount}
+            </span>
+          </button>
+        )}
         <div className="ml-auto">
           <ViewToggle value={viewMode} onChange={setViewMode} />
         </div>
@@ -330,11 +408,11 @@ export default function ProjectsPage() {
           )}
         </div>
       ) : viewMode === 'table' ? (
-        <TableView projects={filtered} />
+        <TableView projects={filtered} onArchive={handleStatusChange} />
       ) : viewMode === 'kanban' ? (
         <KanbanView projects={filtered} onStatusChange={handleStatusChange} />
       ) : (
-        <CardView projects={filtered} />
+        <CardView projects={filtered} onArchive={handleStatusChange} />
       )}
 
       <Dialog open={showNew} onOpenChange={setShowNew}>
