@@ -34,6 +34,8 @@ interface CollaborativeEditorProps {
   initialContent?: Record<string, unknown> | null
   onSave?: (content: Record<string, unknown>) => void
   onSubmitForReview?: () => void
+  onSaveStatusChange?: (status: { saving: boolean; lastSaved: Date | null }) => void
+  triggerSaveRef?: { current: (() => Promise<void>) | null }
   readOnly?: boolean
 }
 
@@ -44,6 +46,8 @@ export function CollaborativeEditor({
   initialContent,
   onSave,
   onSubmitForReview,
+  onSaveStatusChange,
+  triggerSaveRef,
   readOnly = false,
 }: CollaborativeEditorProps) {
   // H4: Initialize Y.Doc synchronously so it's available before useEditor runs.
@@ -157,6 +161,7 @@ export function CollaborativeEditor({
 
   const handleAutoSave = useCallback(async (content: Record<string, unknown>) => {
     setSaving(true)
+    onSaveStatusChange?.({ saving: true, lastSaved })
     try {
       const plainText = extractText(content).trim()
       const wordCount = plainText ? plainText.split(/\s+/).filter(Boolean).length : 0
@@ -169,17 +174,25 @@ export function CollaborativeEditor({
           updated_at: new Date().toISOString(),
         })
         .eq('id', documentId)
-      setLastSaved(new Date())
+      const saved = new Date()
+      setLastSaved(saved)
       onSave?.(content)
+      onSaveStatusChange?.({ saving: false, lastSaved: saved })
     } finally {
       setSaving(false)
     }
-  }, [documentId, supabase, onSave])
+  }, [documentId, supabase, onSave, onSaveStatusChange, lastSaved])
 
   const handleManualSave = useCallback(async () => {
     if (!editor) return
     await handleAutoSave(editor.getJSON())
   }, [editor, handleAutoSave])
+
+  // Expose save function to parent via ref
+  useEffect(() => {
+    if (triggerSaveRef) triggerSaveRef.current = handleManualSave
+    return () => { if (triggerSaveRef) triggerSaveRef.current = null }
+  }, [triggerSaveRef, handleManualSave])
 
   // Keyboard shortcuts: Cmd/Ctrl+S → save, Cmd/Ctrl+J → AI assist
   useEffect(() => {
