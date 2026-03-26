@@ -55,11 +55,14 @@ export function useAuth() {
     return () => subscription.unsubscribe()
   }, [supabase])
 
-  const signOut = async () => {
-    // Clear local session immediately (no network call) so the middleware
-    // sees no session when the browser lands on /login — prevents the
-    // dashboard bounce + blank screen caused by navigating before sign-out.
-    await supabase.auth.signOut({ scope: 'local' })
+  const signOut = () => {
+    // Clear the middleware cache cookie so a different user won't inherit
+    // the previous user's workspace-ready state.
+    document.cookie = 'workspace_ready=; path=/; max-age=0'
+    // signOut({ scope: 'local' }) clears cookies/storage synchronously —
+    // no need to await.  Awaiting would block navigation while
+    // onAuthStateChange cascades re-renders through useAuth + WorkspaceProvider.
+    supabase.auth.signOut({ scope: 'local' })
     window.location.href = '/login'
   }
 

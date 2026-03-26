@@ -723,7 +723,11 @@ export default function ProfilePage() {
                 <p className="text-sm text-[#52525B]">Signed in as <span className="font-medium text-[#191c1e]">{profile.email ?? authUser?.email}</span></p>
                 <p className="text-sm text-[#A1A1AA]">Last sign-in: {lastSignIn}</p>
               </div>
-              <Button variant="outline" className="text-sm" onClick={() => { window.location.href = '/login'; supabase.auth.signOut() }}>
+              <Button variant="outline" className="text-sm" onClick={() => {
+                document.cookie = 'workspace_ready=; path=/; max-age=0'
+                supabase.auth.signOut()   // global scope — revokes all sessions
+                window.location.href = '/login'
+              }}>
                 Sign out of all devices
               </Button>
             </div>
