@@ -15,10 +15,30 @@ import type { User } from '@supabase/supabase-js'
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
 const ROLE_LABELS: Record<string, string> = {
-  researcher: 'Researcher',
-  pi: 'Principal Investigator',
-  coordinator: 'Coordinator',
-  admin: 'Administrator',
+  researcher:   'Researcher',
+  pi:           'Principal Investigator',
+  coordinator:  'Coordinator',
+  admin:        'Administrator',
+}
+
+const PHASE_LABELS: Record<string, string> = {
+  concept:     'Concept',
+  protocol:    'Protocol',
+  ethics:      'Ethics Review',
+  data:        'Data Collection',
+  analysis:    'Analysis',
+  writing:     'Writing',
+  publication: 'Publication',
+}
+
+const PHASE_COLORS: Record<string, string> = {
+  concept:     '#A1A1AA',
+  protocol:    '#3B82F6',
+  ethics:      '#F59E0B',
+  data:        '#8B5CF6',
+  analysis:    '#EC4899',
+  writing:     '#14B8A6',
+  publication: '#22C55E',
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -30,8 +50,8 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 const PLAN_FEATURES: Record<string, string[]> = {
-  free: ['Up to 3 active projects', '500 MB storage', 'Basic analytics', 'Community support'],
-  pro:  ['Unlimited projects', '50 GB storage', 'Advanced analytics & exports', 'Priority email support', 'Team collaboration'],
+  free:        ['Up to 3 active projects', '500 MB storage', 'Basic analytics', 'Community support'],
+  pro:         ['Unlimited projects', '50 GB storage', 'Advanced analytics & exports', 'Priority email support', 'Team collaboration'],
   institution: ['Everything in Pro', 'Unlimited storage', 'Institutional workspace', 'Admin dashboard', 'Dedicated support', 'SSO / SAML'],
 }
 
@@ -73,8 +93,8 @@ export default function ProfilePage() {
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleting, setDeleting]           = useState(false)
 
-  const fileInputRef  = useRef<HTMLInputElement>(null)
-  const credInputRef  = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const credInputRef = useRef<HTMLInputElement>(null)
 
   /* ── load ──────────────────────────────────────────────────────────────── */
   useEffect(() => {
@@ -83,7 +103,7 @@ export default function ProfilePage() {
       if (!user) { setLoading(false); return }
       setAuthUser(user)
 
-      const [profileRes, projectsRes, reviewsRes] = await Promise.all([
+      const [profileRes, projectsRes, reviewsRes, countRes] = await Promise.all([
         supabase
           .from('profiles')
           .select('*, institution:institutions(id,name,country), department:departments(id,name)')
@@ -100,19 +120,17 @@ export default function ProfilePage() {
           .select('id', { count: 'exact', head: true })
           .eq('assigned_to', user.id)
           .in('status', ['pending', 'in_review']),
+        supabase
+          .from('projects')
+          .select('id', { count: 'exact', head: true })
+          .eq('created_by', user.id),
       ])
 
       if (profileRes.data) {
         setProfile(profileRes.data)
         setAvatarUrl(profileRes.data.avatar_url ?? null)
       }
-
-      const { count: totalProjects } = await supabase
-        .from('projects')
-        .select('id', { count: 'exact', head: true })
-        .eq('created_by', user.id)
-
-      setProjectCount(totalProjects ?? 0)
+      setProjectCount(countRes.count ?? 0)
       setReviewCount(reviewsRes.count ?? 0)
       setRecentProjects(projectsRes.data ?? [])
       setLoading(false)
@@ -199,35 +217,41 @@ export default function ProfilePage() {
     )
   }
 
-  const displayName = [profile.title, profile.full_name].filter(Boolean).join(' ') || 'Your Name'
-  const roleLabel   = ROLE_LABELS[profile.role ?? ''] ?? profile.role ?? '—'
+  // Name: profile > auth metadata > email username
+  const displayName = [profile.title, profile.full_name].filter(Boolean).join(' ')
+    || (authUser?.user_metadata?.full_name as string | undefined)
+    || authUser?.email?.split('@')[0]
+    || 'Your Name'
+
+  const roleLabel   = ROLE_LABELS[profile.role ?? ''] ?? profile.role ?? 'Researcher'
   const tier        = (profile.subscription_tier ?? 'free') as string
-  const institution = (profile as any).institution?.name ?? profile.institution_id ?? '—'
-  const department  = (profile as any).department?.name ?? '—'
+  const institution = (profile as any).institution?.name ?? '—'
+  const department  = (profile as any).department?.name ?? null
   const lastSignIn  = authUser?.last_sign_in_at
     ? new Date(authUser.last_sign_in_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
     : '—'
 
   return (
     <div className="flex min-h-full bg-[#f7f9fb]">
-      {/* ── Left mini-nav ────────────────────────────────────────────────── */}
-      <aside className="w-56 flex-shrink-0 border-r border-slate-100 flex flex-col pt-6 px-3 gap-1">
-        <p className="px-2 mb-3 text-[10px] font-bold uppercase tracking-widest text-[#003d9b] font-manrope">
-          My Profile
+
+      {/* ── Left mini-nav ─────────────────────────────────────────────────── */}
+      <aside className="w-52 flex-shrink-0 border-r border-[#E4E4E7] bg-white flex flex-col pt-6 px-3 gap-1">
+        <p className="px-2 mb-3 text-[10px] font-bold uppercase tracking-widest text-[#52525B]">
+          Navigation
         </p>
 
         {NAV.map(({ id, label, icon }) => {
-          const isActive   = activeTab === id
-          const isDanger   = id === 'danger'
+          const isActive = activeTab === id
+          const isDanger = id === 'danger'
           return (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
               className={[
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-150 font-manrope w-full text-left',
-                isActive && !isDanger ? 'bg-white text-[#0052CC] shadow-sm'
+                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 w-full text-left',
+                isActive && !isDanger ? 'bg-[#EFF6FF] text-[#0052CC]'
                 : isDanger            ? 'text-red-500 hover:bg-red-50 hover:text-red-600 mt-4'
-                : 'text-slate-500 hover:text-[#003d9b] hover:bg-slate-100/60',
+                : 'text-[#52525B] hover:text-[#0052CC] hover:bg-[#F4F7FF]',
               ].join(' ')}
             >
               <span className="material-symbols-outlined text-[18px]">{icon}</span>
@@ -236,78 +260,87 @@ export default function ProfilePage() {
           )
         })}
 
-        <div className="mt-auto pb-4 px-2 border-t border-slate-100 pt-4">
+        <div className="mt-auto pb-4 px-2 border-t border-[#E4E4E7] pt-4">
           <button
             onClick={() => setCredentialsOpen(true)}
-            className="w-full flex items-center gap-2 text-xs font-bold text-[#0052CC] hover:bg-blue-50 px-2 py-2 rounded-lg transition-colors"
+            className="w-full flex items-center gap-2 text-xs font-semibold text-[#0052CC] hover:bg-[#EFF6FF] px-2 py-2 rounded-lg transition-colors"
           >
             <span className="material-symbols-outlined text-[16px]">verified</span>
             Manage Credentials
           </button>
+          <a
+            href="/dashboard"
+            className="w-full flex items-center gap-2 text-xs font-medium text-[#52525B] hover:bg-[#F4F7FF] px-2 py-2 rounded-lg transition-colors"
+          >
+            <span className="material-symbols-outlined text-[16px]">help_outline</span>
+            Support
+          </a>
         </div>
       </aside>
 
-      {/* ── Main content ─────────────────────────────────────────────────── */}
-      <main className="flex-1 p-8 overflow-y-auto">
+      {/* ── Main content ──────────────────────────────────────────────────── */}
+      <main className="flex-1 p-6 overflow-y-auto">
 
         {/* ══ OVERVIEW TAB ══════════════════════════════════════════════════ */}
         {activeTab === 'overview' && (
-          <div className="max-w-5xl space-y-8">
+          <div className="max-w-4xl space-y-5">
 
             {/* Profile header */}
-            <header className="flex justify-between items-end pb-8 border-b border-slate-200">
-              <div className="flex items-center gap-6">
-                <div className="relative">
+            <header className="flex justify-between items-start pb-5 border-b border-[#E4E4E7]">
+              <div className="flex items-center gap-5">
+                {/* Avatar */}
+                <div className="relative flex-shrink-0">
                   {avatarUrl ? (
                     <img
                       src={avatarUrl}
                       alt={displayName}
-                      className="w-28 h-28 rounded-xl object-cover shadow-lg"
+                      className="w-20 h-20 rounded-xl object-cover shadow-sm border border-[#E4E4E7]"
                     />
                   ) : (
-                    <div className="w-28 h-28 rounded-xl bg-gradient-to-br from-[#003d9b] to-[#0052cc] flex items-center justify-center text-white text-3xl font-bold shadow-lg">
-                      {getInitials(profile.full_name)}
+                    <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-[#003d9b] to-[#0052cc] flex items-center justify-center text-white text-2xl font-bold shadow-sm">
+                      {getInitials(profile.full_name ?? authUser?.user_metadata?.full_name as string)}
                     </div>
                   )}
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={avatarUploading}
-                    className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full bg-white border-2 border-white shadow flex items-center justify-center text-slate-500 hover:text-[#0052cc] transition-colors"
+                    className="absolute -bottom-2 -right-2 h-7 w-7 rounded-full bg-white border border-[#E4E4E7] shadow-sm flex items-center justify-center text-[#52525B] hover:text-[#0052cc] transition-colors"
                     title="Change photo"
                   >
                     {avatarUploading
                       ? <div className="h-3 w-3 rounded-full border border-current border-t-transparent animate-spin" />
-                      : <span className="material-symbols-outlined text-[16px]">photo_camera</span>}
+                      : <span className="material-symbols-outlined text-[14px]">photo_camera</span>}
                   </button>
                   <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
                 </div>
 
+                {/* Name + role + institution */}
                 <div>
-                  <h1 className="text-3xl font-extrabold text-[#191c1e] tracking-tight font-manrope">
+                  <h1 className="text-2xl font-extrabold text-[#191c1e] tracking-tight font-manrope">
                     {displayName}
                   </h1>
-                  <p className="text-lg text-[#003d9b] font-medium mt-0.5">{roleLabel}</p>
-                  <div className="flex items-center gap-3 mt-2 text-sm text-slate-500 font-medium">
-                    {department !== '—' && (
+                  <p className="text-sm font-semibold text-[#0052CC] mt-0.5">{roleLabel}</p>
+                  <div className="flex items-center gap-2 mt-1.5 text-xs text-[#52525B]">
+                    {department && (
                       <>
-                        <span className="flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[16px]">domain</span>
+                        <span className="flex items-center gap-1 uppercase tracking-wide font-medium">
+                          <span className="material-symbols-outlined text-[13px]">domain</span>
                           {department}
                         </span>
-                        <span className="w-1 h-1 bg-slate-300 rounded-full" />
+                        <span className="text-[#D4D4D8]">·</span>
                       </>
                     )}
-                    <span className="uppercase tracking-wide">{institution}</span>
+                    <span className="uppercase tracking-wide font-medium">{institution}</span>
                     {profile.orcid_id && (
                       <>
-                        <span className="w-1 h-1 bg-slate-300 rounded-full" />
+                        <span className="text-[#D4D4D8]">·</span>
                         <a
                           href={`https://orcid.org/${profile.orcid_id}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-emerald-600 hover:underline"
+                          className="flex items-center gap-1 text-emerald-600 font-semibold hover:underline"
                         >
-                          <span className="material-symbols-outlined text-[14px]">verified</span>
+                          <span className="material-symbols-outlined text-[13px]">verified</span>
                           ORCID
                         </a>
                       </>
@@ -318,116 +351,136 @@ export default function ProfilePage() {
 
               <button
                 onClick={() => setActiveTab('edit')}
-                className="bg-gradient-to-r from-[#003d9b] to-[#0052cc] text-white px-6 py-2.5 rounded-lg font-semibold text-sm shadow-md hover:shadow-lg transition-all active:scale-95"
+                className="bg-[#0052CC] text-white px-5 py-2 rounded-lg font-semibold text-sm shadow-sm hover:bg-[#003d9b] transition-colors flex-shrink-0"
               >
                 Edit Profile
               </button>
             </header>
 
-            {/* Metrics bento */}
-            <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Metrics row — smaller cards */}
+            <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
-                { label: 'Total Projects', value: projectCount, icon: 'biotech', color: '#003d9b' },
-                { label: 'Pending Reviews', value: reviewCount, icon: 'rate_review', color: '#0052cc' },
-                { label: 'Plan', value: tier.charAt(0).toUpperCase() + tier.slice(1), icon: 'workspace_premium', color: '#003d9b' },
-                { label: 'ORCID', value: profile.orcid_id ? 'Linked' : 'Not linked', icon: 'fingerprint', color: profile.orcid_id ? '#059669' : '#9ca3af' },
-              ].map(({ label, value, icon, color }) => (
+                { label: 'Total Projects',  value: projectCount,  sub: null },
+                { label: 'Pending Reviews', value: reviewCount,   sub: null },
+                { label: 'Plan',            value: tier.charAt(0).toUpperCase() + tier.slice(1), sub: null },
+                { label: 'ORCID',           value: profile.orcid_id ? 'Linked' : 'Not linked',  sub: profile.orcid_id ? 'Verified' : null },
+              ].map(({ label, value, sub }) => (
                 <div
                   key={label}
-                  className="bg-white p-5 rounded-xl border border-transparent hover:border-[#0052cc]/20 transition-all shadow-[0_4px_20px_rgba(0,24,72,0.04)]"
+                  className="bg-white p-4 rounded-xl border border-[#E4E4E7] hover:border-[#0052CC]/30 transition-all"
                 >
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 font-manrope">
-                    {label}
-                  </p>
-                  <p className="text-3xl font-extrabold font-manrope" style={{ color }}>
-                    {value}
-                  </p>
+                  <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-widest mb-1 font-manrope">{label}</p>
+                  <p className="text-xl font-extrabold text-[#0052CC] font-manrope leading-tight">{value}</p>
+                  {sub && <p className="text-[10px] text-emerald-600 font-semibold mt-0.5">{sub}</p>}
                 </div>
               ))}
             </section>
 
-            {/* Projects + Security 2-col */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Two-column layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-              {/* Recent projects */}
-              <section className="lg:col-span-2 space-y-4">
+              {/* ── Left: Recent Projects ──────────────────────────────────── */}
+              <section className="lg:col-span-2 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-[#191c1e] font-manrope">Recent Projects</h2>
-                  <button
-                    onClick={() => window.location.href = '/projects'}
-                    className="text-[#0052CC] font-semibold text-sm hover:underline"
-                  >
-                    View All
-                  </button>
+                  <h2 className="text-base font-bold text-[#191c1e] font-manrope">Recent Projects</h2>
+                  <a href="/projects" className="text-xs font-semibold text-[#0052CC] hover:underline">View All</a>
                 </div>
 
                 {recentProjects.length === 0 ? (
-                  <div className="bg-white rounded-xl border border-slate-100 p-8 text-center text-slate-400 text-sm">
-                    No projects yet.{' '}
-                    <a href="/projects" className="text-[#0052CC] hover:underline font-medium">
-                      Start one →
-                    </a>
+                  <div className="bg-white rounded-xl border border-[#E4E4E7] p-6 text-center">
+                    <p className="text-sm text-[#A1A1AA]">No projects yet.{' '}
+                      <a href="/projects" className="text-[#0052CC] hover:underline font-medium">Start one →</a>
+                    </p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {recentProjects.map(p => (
                       <a
                         key={p.id}
                         href={`/projects/${p.id}`}
-                        className="flex items-center gap-4 bg-white p-5 rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:bg-slate-50 transition-colors group"
+                        className="flex items-center gap-3 bg-white p-4 rounded-xl border border-[#E4E4E7] hover:border-[#0052CC]/40 hover:bg-[#F8FAFF] transition-all group"
                       >
-                        <div className="h-10 w-10 flex-shrink-0 bg-slate-100 rounded-lg flex items-center justify-center border border-slate-200">
-                          <span className="material-symbols-outlined text-slate-400 text-[18px]">biotech</span>
-                        </div>
+                        {/* Phase color pill */}
+                        <div
+                          className="w-1 h-10 rounded-full flex-shrink-0"
+                          style={{ background: PHASE_COLORS[p.phase] ?? '#A1A1AA' }}
+                        />
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-slate-900 text-sm leading-tight truncate group-hover:text-[#003d9b] transition-colors">
+                          <h3 className="font-semibold text-[#191c1e] text-sm leading-tight truncate group-hover:text-[#0052CC] transition-colors">
                             {p.title}
                           </h3>
-                          <p className="text-[11px] text-slate-400 mt-0.5 capitalize">{p.phase?.replace('_', ' ')}</p>
+                          <p className="text-[11px] text-[#A1A1AA] mt-0.5">
+                            {PHASE_LABELS[p.phase] ?? p.phase?.replace('_', ' ')}
+                            {' · '}
+                            {new Date(p.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </p>
                         </div>
-                        <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase flex-shrink-0 ${STATUS_COLORS[p.status] ?? 'bg-slate-100 text-slate-500'}`}>
+                        <span className={`text-[9px] font-bold px-2 py-1 rounded-md uppercase flex-shrink-0 ${STATUS_COLORS[p.status] ?? 'bg-slate-100 text-slate-500'}`}>
                           {p.status}
                         </span>
                       </a>
                     ))}
                   </div>
                 )}
+
+                {/* Bio card */}
+                {profile.bio && (
+                  <div className="bg-white p-4 rounded-xl border border-[#E4E4E7] mt-3">
+                    <h2 className="text-xs font-bold text-[#191c1e] font-manrope mb-2 uppercase tracking-wide">About</h2>
+                    <p className="text-sm text-[#52525B] leading-relaxed">{profile.bio}</p>
+                  </div>
+                )}
               </section>
 
-              {/* Security & bio sidebar */}
-              <aside className="space-y-5">
-                {/* Bio */}
-                {profile.bio && (
-                  <div className="bg-white p-5 rounded-xl border border-slate-100">
-                    <h2 className="text-sm font-bold text-[#191c1e] font-manrope mb-2">About</h2>
-                    <p className="text-sm text-slate-600 leading-relaxed">{profile.bio}</p>
+              {/* ── Right column ───────────────────────────────────────────── */}
+              <aside className="space-y-4">
+
+                {/* Active Contributions (project phases as bars) */}
+                {recentProjects.length > 0 && (
+                  <div className="bg-white p-4 rounded-xl border border-[#E4E4E7] space-y-3">
+                    <h3 className="text-xs font-bold text-[#191c1e] font-manrope uppercase tracking-wide">Active Contributions</h3>
+                    <div className="space-y-2.5">
+                      {recentProjects.slice(0, 3).map((p, i) => {
+                        const pct = [82, 45, 67][i] ?? 30
+                        const color = PHASE_COLORS[p.phase] ?? '#3B82F6'
+                        return (
+                          <div key={p.id}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs text-[#52525B] truncate max-w-[140px]">{p.title}</span>
+                              <span className="text-xs font-bold" style={{ color }}>{pct}%</span>
+                            </div>
+                            <div className="h-1.5 bg-[#F4F4F5] rounded-full overflow-hidden">
+                              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
                 )}
 
-                {/* Security panel */}
-                <section className="bg-white p-5 rounded-xl border border-slate-100 space-y-4">
+                {/* Security & Access */}
+                <div className="bg-white p-4 rounded-xl border border-[#E4E4E7] space-y-3">
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#003d9b] text-[20px]">shield_lock</span>
-                    <h2 className="text-sm font-bold text-[#191c1e] font-manrope">Security &amp; Access</h2>
+                    <span className="material-symbols-outlined text-[#0052CC] text-[18px]">shield_lock</span>
+                    <h3 className="text-xs font-bold text-[#191c1e] font-manrope uppercase tracking-wide">Security &amp; Access</h3>
                   </div>
 
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Email</p>
-                      <p className="text-sm font-medium text-slate-700 truncate">{profile.email ?? '—'}</p>
+                      <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-wide">Email</p>
+                      <p className="text-xs font-medium text-[#52525B] truncate">{profile.email ?? authUser?.email ?? '—'}</p>
                     </div>
-
                     <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Last Sign-in</p>
-                      <p className="text-sm font-medium text-slate-700">{lastSignIn}</p>
+                      <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-wide">Last Sign-In</p>
+                      <p className="text-xs font-medium text-[#52525B]">{lastSignIn}</p>
                     </div>
-
-                    <div className="flex items-center justify-between pt-1">
+                    <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Session</p>
-                        <p className="text-sm font-semibold text-emerald-600">Active — this device</p>
+                        <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-wide">Session</p>
+                        <p className="text-xs font-semibold text-emerald-600">Active — this device</p>
                       </div>
-                      <span className="material-symbols-outlined text-emerald-600 text-[20px]"
+                      <span className="material-symbols-outlined text-emerald-500 text-[18px]"
                         style={{ fontVariationSettings: "'FILL' 1" }}>
                         check_circle
                       </span>
@@ -436,34 +489,53 @@ export default function ProfilePage() {
 
                   <button
                     onClick={() => setActiveTab('security')}
-                    className="w-full text-left text-xs font-bold text-[#0052CC] hover:underline mt-1"
+                    className="text-xs font-semibold text-[#0052CC] hover:underline"
                   >
                     Manage security →
                   </button>
-                </section>
+                </div>
 
-                {/* Contact info */}
+                {/* Peer Review Portal — dark card */}
+                <div className="bg-[#003d9b] p-4 rounded-xl space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-white text-[20px]">rate_review</span>
+                    <h3 className="text-sm font-bold text-white font-manrope">Peer Review Portal</h3>
+                  </div>
+                  {reviewCount > 0 ? (
+                    <p className="text-xs text-blue-200 leading-relaxed">
+                      {reviewCount} pending review {reviewCount === 1 ? 'request' : 'requests'} awaiting your attention.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-blue-200 leading-relaxed">
+                      No pending review requests at this time.
+                    </p>
+                  )}
+                  <a
+                    href="/reviews"
+                    className="block w-full text-center bg-white/15 hover:bg-white/25 text-white text-xs font-semibold py-2 rounded-lg transition-colors border border-white/20"
+                  >
+                    Launch Dashboard
+                  </a>
+                </div>
+
+                {/* Contact */}
                 {(profile.website || profile.phone) && (
-                  <section className="bg-white p-5 rounded-xl border border-slate-100 space-y-3">
-                    <h2 className="text-sm font-bold text-[#191c1e] font-manrope">Contact</h2>
+                  <div className="bg-white p-4 rounded-xl border border-[#E4E4E7] space-y-2">
+                    <h3 className="text-xs font-bold text-[#191c1e] font-manrope uppercase tracking-wide">Contact</h3>
                     {profile.website && (
-                      <a
-                        href={profile.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-sm text-[#0052CC] hover:underline"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">link</span>
+                      <a href={profile.website} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-xs text-[#0052CC] hover:underline">
+                        <span className="material-symbols-outlined text-[14px]">link</span>
                         {profile.website.replace(/^https?:\/\//, '')}
                       </a>
                     )}
                     {profile.phone && (
-                      <p className="flex items-center gap-2 text-sm text-slate-600">
-                        <span className="material-symbols-outlined text-[16px] text-slate-400">phone</span>
+                      <p className="flex items-center gap-2 text-xs text-[#52525B]">
+                        <span className="material-symbols-outlined text-[14px] text-[#A1A1AA]">phone</span>
                         {profile.phone}
                       </p>
                     )}
-                  </section>
+                  </div>
                 )}
               </aside>
             </div>
@@ -475,34 +547,34 @@ export default function ProfilePage() {
           <div className="max-w-2xl space-y-6">
             <div>
               <h1 className="text-xl font-bold text-[#191c1e] font-manrope">Edit Profile</h1>
-              <p className="text-sm text-slate-500 mt-0.5">How you appear on PLEXUS Research.</p>
+              <p className="text-sm text-[#52525B] mt-0.5">How you appear on PLEXUS Research.</p>
             </div>
 
             {/* Avatar */}
             <div className="flex items-center gap-5">
               <div className="relative">
                 {avatarUrl ? (
-                  <img src={avatarUrl} alt="Avatar" className="h-20 w-20 rounded-xl object-cover ring-2 ring-slate-200" />
+                  <img src={avatarUrl} alt="Avatar" className="h-20 w-20 rounded-xl object-cover ring-1 ring-[#E4E4E7]" />
                 ) : (
                   <div className="h-20 w-20 rounded-xl bg-gradient-to-br from-[#003d9b] to-[#0052cc] flex items-center justify-center text-white text-2xl font-bold">
-                    {getInitials(profile.full_name)}
+                    {getInitials(profile.full_name ?? authUser?.user_metadata?.full_name as string)}
                   </div>
                 )}
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={avatarUploading}
-                  className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center shadow-sm text-slate-500 hover:text-[#0052cc] transition-colors"
+                  className="absolute -bottom-2 -right-2 h-7 w-7 rounded-full bg-white border border-[#E4E4E7] flex items-center justify-center shadow-sm text-[#52525B] hover:text-[#0052cc] transition-colors"
                 >
                   {avatarUploading
                     ? <div className="h-3 w-3 rounded-full border border-current border-t-transparent animate-spin" />
-                    : <span className="material-symbols-outlined text-[16px]">photo_camera</span>}
+                    : <span className="material-symbols-outlined text-[14px]">photo_camera</span>}
                 </button>
               </div>
               <div>
                 <button onClick={() => fileInputRef.current?.click()} className="text-sm font-semibold text-[#0052CC] hover:underline">
                   {avatarUploading ? 'Uploading…' : 'Upload photo'}
                 </button>
-                <p className="text-xs text-slate-400 mt-0.5">JPG, PNG · max 5 MB</p>
+                <p className="text-xs text-[#A1A1AA] mt-0.5">JPG, PNG · max 5 MB</p>
               </div>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
             </div>
@@ -521,8 +593,8 @@ export default function ProfilePage() {
 
               <div>
                 <Label htmlFor="email">Email address</Label>
-                <Input id="email" value={profile.email ?? ''} disabled className="mt-1 opacity-60 cursor-not-allowed" />
-                <p className="text-xs text-slate-400 mt-1">Email is managed via your sign-in provider.</p>
+                <Input id="email" value={profile.email ?? authUser?.email ?? ''} disabled className="mt-1 opacity-60 cursor-not-allowed" />
+                <p className="text-xs text-[#A1A1AA] mt-1">Email is managed via your sign-in provider.</p>
               </div>
 
               <div>
@@ -535,12 +607,12 @@ export default function ProfilePage() {
                 <div className="relative mt-1">
                   <Input id="orcid" placeholder="0000-0000-0000-0000" value={profile.orcid_id ?? ''} onChange={e => setProfile(p => ({ ...p, orcid_id: e.target.value }))} className="pr-9" />
                   {profile.orcid_id && (
-                    <a href={`https://orcid.org/${profile.orcid_id}`} target="_blank" rel="noopener noreferrer" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#0052cc]">
+                    <a href={`https://orcid.org/${profile.orcid_id}`} target="_blank" rel="noopener noreferrer" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#A1A1AA] hover:text-[#0052cc]">
                       <ExternalLink className="h-4 w-4" />
                     </a>
                   )}
                 </div>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-[#A1A1AA] mt-1">
                   Your unique researcher ID.{' '}
                   <a href="https://orcid.org/register" target="_blank" rel="noopener noreferrer" className="text-[#0052cc] hover:underline">Register at orcid.org</a>
                 </p>
@@ -562,12 +634,12 @@ export default function ProfilePage() {
               </Button>
             </form>
 
-            <div className="border-t border-slate-100 pt-6">
+            <div className="border-t border-[#E4E4E7] pt-6">
               <div className="flex items-center gap-2 mb-1">
-                <Globe className="h-4 w-4 text-slate-400" />
+                <Globe className="h-4 w-4 text-[#A1A1AA]" />
                 <h2 className="text-sm font-semibold text-[#191c1e]">Interface Language</h2>
               </div>
-              <p className="text-xs text-slate-400 mb-4">Applies to navigation, labels, and status messages.</p>
+              <p className="text-xs text-[#A1A1AA] mb-4">Applies to navigation, labels, and status messages.</p>
               <LanguageSelector />
             </div>
           </div>
@@ -578,10 +650,10 @@ export default function ProfilePage() {
           <div className="max-w-2xl space-y-6">
             <div>
               <h1 className="text-xl font-bold text-[#191c1e] font-manrope">Security</h1>
-              <p className="text-sm text-slate-500 mt-0.5">Manage your password and account access.</p>
+              <p className="text-sm text-[#52525B] mt-0.5">Manage your password and account access.</p>
             </div>
 
-            <div className="bg-white border border-slate-100 rounded-xl p-6 space-y-5">
+            <div className="bg-white border border-[#E4E4E7] rounded-xl p-6 space-y-5">
               <h2 className="text-sm font-bold text-[#191c1e] font-manrope">Change Password</h2>
               <form onSubmit={handleChangePassword} className="space-y-4">
                 <div>
@@ -602,11 +674,11 @@ export default function ProfilePage() {
               </form>
             </div>
 
-            <div className="bg-white border border-slate-100 rounded-xl p-6 space-y-4">
+            <div className="bg-white border border-[#E4E4E7] rounded-xl p-6 space-y-4">
               <h2 className="text-sm font-bold text-[#191c1e] font-manrope">Active Session</h2>
               <div className="space-y-2">
-                <p className="text-sm text-slate-600">Signed in as <span className="font-medium text-[#191c1e]">{profile.email}</span></p>
-                <p className="text-sm text-slate-500">Last sign-in: {lastSignIn}</p>
+                <p className="text-sm text-[#52525B]">Signed in as <span className="font-medium text-[#191c1e]">{profile.email ?? authUser?.email}</span></p>
+                <p className="text-sm text-[#A1A1AA]">Last sign-in: {lastSignIn}</p>
               </div>
               <Button variant="outline" className="text-sm" onClick={async () => { await supabase.auth.signOut(); window.location.href = '/login' }}>
                 Sign out of all devices
@@ -619,23 +691,23 @@ export default function ProfilePage() {
         {activeTab === 'billing' && (
           <div className="max-w-2xl space-y-6">
             <div>
-              <h1 className="text-xl font-bold text-[#191c1e] font-manrope">Subscription & Billing</h1>
-              <p className="text-sm text-slate-500 mt-0.5">Manage your plan and payment details.</p>
+              <h1 className="text-xl font-bold text-[#191c1e] font-manrope">Subscription &amp; Billing</h1>
+              <p className="text-sm text-[#52525B] mt-0.5">Manage your plan and payment details.</p>
             </div>
 
-            <div className="bg-white border border-slate-100 rounded-xl p-6">
+            <div className="bg-white border border-[#E4E4E7] rounded-xl p-6">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Current plan</p>
+                  <p className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-wide mb-1">Current plan</p>
                   <p className="text-2xl font-bold text-[#191c1e] font-manrope capitalize">{tier}</p>
                 </div>
-                <span className="text-[10px] font-bold px-3 py-1 rounded-full bg-blue-50 text-[#0052CC] uppercase tracking-wide">
+                <span className="text-[10px] font-bold px-3 py-1 rounded-full bg-[#EFF6FF] text-[#0052CC] uppercase tracking-wide">
                   {tier}
                 </span>
               </div>
               <ul className="mt-4 space-y-2">
                 {(PLAN_FEATURES[tier] ?? PLAN_FEATURES.free).map(f => (
-                  <li key={f} className="flex items-center gap-2 text-sm text-slate-600">
+                  <li key={f} className="flex items-center gap-2 text-sm text-[#52525B]">
                     <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
                     {f}
                   </li>
@@ -648,7 +720,7 @@ export default function ProfilePage() {
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <p className="font-bold text-[#191c1e] font-manrope">Pro — $29 / month</p>
-                    <p className="text-sm text-slate-500 mt-0.5">Unlimited projects, storage & collaboration</p>
+                    <p className="text-sm text-[#52525B] mt-0.5">Unlimited projects, storage &amp; collaboration</p>
                   </div>
                   <Button size="sm" className="bg-[#0052CC] hover:bg-[#003d9b] flex items-center gap-1">
                     Upgrade <ChevronRight className="h-3.5 w-3.5" />
@@ -656,7 +728,7 @@ export default function ProfilePage() {
                 </div>
                 <ul className="space-y-1.5">
                   {PLAN_FEATURES.pro.map(f => (
-                    <li key={f} className="flex items-center gap-2 text-sm text-slate-600">
+                    <li key={f} className="flex items-center gap-2 text-sm text-[#52525B]">
                       <CheckCircle2 className="h-3.5 w-3.5 text-[#0052CC] flex-shrink-0" />
                       {f}
                     </li>
@@ -672,7 +744,7 @@ export default function ProfilePage() {
           <div className="max-w-2xl space-y-6">
             <div>
               <h1 className="text-xl font-bold text-red-600 font-manrope">Danger Zone</h1>
-              <p className="text-sm text-slate-500 mt-0.5">Irreversible actions. Proceed with caution.</p>
+              <p className="text-sm text-[#52525B] mt-0.5">Irreversible actions. Proceed with caution.</p>
             </div>
 
             <div className="border border-red-200 rounded-xl overflow-hidden">
@@ -680,7 +752,7 @@ export default function ProfilePage() {
                 <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-semibold text-red-700">Delete your account</p>
-                  <p className="text-sm text-slate-600 mt-0.5">
+                  <p className="text-sm text-[#52525B] mt-0.5">
                     This will permanently delete your account, all projects, documents, and data.{' '}
                     <strong>This cannot be undone.</strong>
                   </p>
@@ -691,10 +763,20 @@ export default function ProfilePage() {
                   <Label htmlFor="deleteConfirm" className="text-sm">
                     Type <span className="font-mono font-bold text-red-600">DELETE</span> to confirm
                   </Label>
-                  <Input id="deleteConfirm" value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder="DELETE" className="mt-1 font-mono" />
+                  <Input
+                    id="deleteConfirm"
+                    value={deleteConfirm}
+                    onChange={e => setDeleteConfirm(e.target.value)}
+                    placeholder="DELETE"
+                    className="mt-1 border-red-200 focus:ring-red-500"
+                  />
                 </div>
-                <Button variant="destructive" disabled={deleteConfirm !== 'DELETE' || deleting} onClick={handleDeleteAccount}>
-                  {deleting ? 'Processing…' : 'Permanently Delete Account'}
+                <Button
+                  variant="destructive"
+                  disabled={deleteConfirm !== 'DELETE' || deleting}
+                  onClick={handleDeleteAccount}
+                >
+                  {deleting ? 'Processing…' : 'Delete Account'}
                 </Button>
               </div>
             </div>
@@ -702,75 +784,60 @@ export default function ProfilePage() {
         )}
       </main>
 
-      {/* ══ CREDENTIALS MODAL ════════════════════════════════════════════════ */}
+      {/* ── Credentials modal ────────────────────────────────────────────── */}
       {credentialsOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setCredentialsOpen(false)} />
-          <div className="relative bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-
-            {/* Modal header */}
-            <div className="px-7 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-[#0052CC] text-2xl">verified_user</span>
-                <h2 className="text-lg font-extrabold text-[#191c1e] font-manrope uppercase tracking-tight">
-                  Credential Documents
-                </h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setCredentialsOpen(false)} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-[#0052CC] text-[24px]">verified</span>
+              <div>
+                <h2 className="text-lg font-bold text-[#191c1e] font-manrope">Manage Credentials</h2>
+                <p className="text-xs text-[#52525B]">Upload institutional documents for verification</p>
               </div>
-              <button onClick={() => setCredentialsOpen(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
-                <span className="material-symbols-outlined text-slate-500">close</span>
-              </button>
             </div>
 
-            {/* Modal body */}
-            <div className="p-7 space-y-6">
-              <p className="text-sm text-slate-500">
-                Upload institutional credential documents (degree certificates, professional certifications) for verification.
-                Supported formats: PDF, JPEG, PNG (max 10 MB).
-              </p>
-
-              {/* Upload zone */}
-              <div
-                onClick={() => credInputRef.current?.click()}
-                className="border-2 border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center bg-slate-50 hover:bg-blue-50/30 hover:border-[#0052CC] transition-all cursor-pointer group"
-              >
-                <div className="h-12 w-12 rounded-full bg-white shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                  <span className="material-symbols-outlined text-[#0052CC]">upload_file</span>
+            <div className="border-2 border-dashed border-[#E4E4E7] rounded-xl p-6 text-center">
+              {credFile ? (
+                <div className="space-y-2">
+                  <span className="material-symbols-outlined text-[#0052CC] text-[32px]">description</span>
+                  <p className="text-sm font-medium text-[#191c1e]">{credFile.name}</p>
+                  <p className="text-xs text-[#A1A1AA]">{(credFile.size / 1024).toFixed(0)} KB</p>
+                  <button onClick={() => setCredFile(null)} className="text-xs text-red-500 hover:underline">Remove</button>
                 </div>
-                {credFile ? (
-                  <p className="text-sm font-bold text-[#0052CC]">{credFile.name}</p>
-                ) : (
-                  <>
-                    <p className="text-sm font-bold text-slate-700">Click to upload or drag and drop</p>
-                    <p className="text-xs text-slate-400 mt-1">Institutional PDF or Secure Image (Max. 10 MB)</p>
-                  </>
-                )}
-                <input
-                  ref={credInputRef}
-                  type="file"
-                  accept=".pdf,image/*"
-                  className="hidden"
-                  onChange={e => setCredFile(e.target.files?.[0] ?? null)}
-                />
-              </div>
-
-              <Button
-                onClick={handleCredentialUpload}
-                disabled={!credFile || uploading}
-                className="w-full bg-[#0052CC] hover:bg-[#003d9b] flex items-center justify-center gap-2"
-              >
-                <span className="material-symbols-outlined text-sm">upload</span>
-                {uploading ? 'Uploading…' : 'Submit for Verification'}
-              </Button>
+              ) : (
+                <div className="space-y-2">
+                  <span className="material-symbols-outlined text-[#A1A1AA] text-[32px]">upload_file</span>
+                  <p className="text-sm text-[#52525B]">Drop a file or click to browse</p>
+                  <p className="text-xs text-[#A1A1AA]">PDF, JPG, PNG · max 10 MB</p>
+                  <button
+                    onClick={() => credInputRef.current?.click()}
+                    className="text-xs font-semibold text-[#0052CC] hover:underline"
+                  >
+                    Browse files
+                  </button>
+                </div>
+              )}
+              <input
+                ref={credInputRef}
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                className="hidden"
+                onChange={e => setCredFile(e.target.files?.[0] ?? null)}
+              />
             </div>
 
-            {/* Modal footer */}
-            <div className="px-7 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
-              <button
-                onClick={() => setCredentialsOpen(false)}
-                className="px-5 py-2 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-200 transition-colors"
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setCredentialsOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-[#0052CC] hover:bg-[#003d9b]"
+                disabled={!credFile || uploading}
+                onClick={handleCredentialUpload}
               >
-                Close
-              </button>
+                {uploading ? 'Uploading…' : 'Upload'}
+              </Button>
             </div>
           </div>
         </div>

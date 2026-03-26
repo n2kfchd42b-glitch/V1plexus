@@ -50,15 +50,15 @@ export function PersonalSidebar({ collapsed, onCommandPalette }: PersonalSidebar
               'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
               collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
               active
-                ? 'bg-[#3F3F46] text-white'
-                : 'text-[#A1A1AA] hover:bg-[#27272A] hover:text-white/80'
+                ? 'bg-[#EFF6FF] text-[#0052CC]'
+                : 'text-[#52525B] hover:bg-[#F4F7FF] hover:text-[#18181B]'
             )}>
               {active && (
-                <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[#3B82F6]" />
+                <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[#0052CC]" />
               )}
-              <Icon className={cn('flex-shrink-0 h-4 w-4', active ? 'text-white' : 'text-[#71717A]')} />
+              <Icon className={cn('flex-shrink-0 h-4 w-4', active ? 'text-[#0052CC]' : 'text-[#71717A]')} />
               {!collapsed && (
-                <span className={cn('text-sm font-medium', active ? 'text-white' : 'text-[#A1A1AA]')}>
+                <span className={cn('text-sm font-medium', active ? 'text-[#0052CC]' : 'text-[#52525B]')}>
                   {item.label}
                 </span>
               )}
@@ -67,10 +67,10 @@ export function PersonalSidebar({ collapsed, onCommandPalette }: PersonalSidebar
         )
       })}
 
-      {/* Phase 12: Research Network */}
-      <div className="my-2 h-px bg-white/10" />
+      {/* Research Network section */}
+      <div className="my-2 h-px bg-[#E4E4E7]" />
       {!collapsed && (
-        <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider px-2.5 mb-1 pt-1">
+        <p className="text-[10px] font-semibold text-[#52525B] uppercase tracking-wider px-2.5 mb-1 pt-1">
           Network
         </p>
       )}
@@ -82,17 +82,17 @@ export function PersonalSidebar({ collapsed, onCommandPalette }: PersonalSidebar
             <div className={cn(
               'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
               collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
-              active ? 'bg-[#3F3F46] text-white' : 'text-[#A1A1AA] hover:bg-[#27272A] hover:text-white/80'
+              active ? 'bg-[#EFF6FF] text-[#0052CC]' : 'text-[#52525B] hover:bg-[#F4F7FF] hover:text-[#18181B]'
             )}>
-              {active && <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[#3B82F6]" />}
-              <Icon className={cn('flex-shrink-0 h-4 w-4', active ? 'text-white' : 'text-[#71717A]')} />
+              {active && <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[#0052CC]" />}
+              <Icon className={cn('flex-shrink-0 h-4 w-4', active ? 'text-[#0052CC]' : 'text-[#71717A]')} />
               {!collapsed && (
                 <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                  <span className={cn('text-sm font-medium', active ? 'text-white' : 'text-[#A1A1AA]')}>
+                  <span className={cn('text-sm font-medium', active ? 'text-[#0052CC]' : 'text-[#52525B]')}>
                     {item.label}
                   </span>
                   {!NETWORK_COMPLIANCE_ENABLED && (
-                    <span className="text-[9px] font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded px-1 leading-4">
+                    <span className="text-[9px] font-semibold bg-amber-50 text-amber-600 border border-amber-200 rounded px-1 leading-4">
                       Soon
                     </span>
                   )}
@@ -103,7 +103,7 @@ export function PersonalSidebar({ collapsed, onCommandPalette }: PersonalSidebar
         )
       })}
 
-      <div className="my-2 h-px bg-white/10" />
+      <div className="my-2 h-px bg-[#E4E4E7]" />
 
       <button
         onClick={onCommandPalette}
@@ -111,14 +111,14 @@ export function PersonalSidebar({ collapsed, onCommandPalette }: PersonalSidebar
         className={cn(
           'w-full flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none text-left',
           collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
-          'text-[#A1A1AA] hover:bg-[#27272A] hover:text-white/80'
+          'text-[#52525B] hover:bg-[#F4F7FF] hover:text-[#18181B]'
         )}
       >
         <Command className="h-4 w-4 text-[#71717A] flex-shrink-0" />
         {!collapsed && (
           <div className="flex items-center justify-between flex-1 min-w-0">
-            <span className="text-sm font-medium text-[#A1A1AA]">Command</span>
-            <kbd className="text-[10px] text-[#71717A] bg-white/5 border border-white/10 rounded px-1 py-0.5 font-mono">⌘K</kbd>
+            <span className="text-sm font-medium text-[#52525B]">Command</span>
+            <kbd className="text-[10px] text-[#52525B] bg-[#F4F4F5] border border-[#E4E4E7] rounded px-1 py-0.5 font-mono">⌘K</kbd>
           </div>
         )}
       </button>
@@ -127,7 +127,7 @@ export function PersonalSidebar({ collapsed, onCommandPalette }: PersonalSidebar
         <>
           <div className="pt-3 pb-1">
             {!collapsed && (
-              <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider px-2.5 mb-1">
+              <p className="text-[10px] font-semibold text-[#52525B] uppercase tracking-wider px-2.5 mb-1">
                 Current Project
               </p>
             )}
@@ -137,13 +137,13 @@ export function PersonalSidebar({ collapsed, onCommandPalette }: PersonalSidebar
               'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
               collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
               dataActive
-                ? 'bg-[#3F3F46] text-white'
-                : 'text-[#A1A1AA] hover:bg-[#27272A] hover:text-white/80'
+                ? 'bg-[#EFF6FF] text-[#0052CC]'
+                : 'text-[#52525B] hover:bg-[#F4F7FF] hover:text-[#18181B]'
             )}>
-              {dataActive && <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[#3B82F6]" />}
-              <Database className={cn('flex-shrink-0 h-4 w-4', dataActive ? 'text-white' : 'text-[#71717A]')} />
+              {dataActive && <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[#0052CC]" />}
+              <Database className={cn('flex-shrink-0 h-4 w-4', dataActive ? 'text-[#0052CC]' : 'text-[#71717A]')} />
               {!collapsed && (
-                <span className={cn('text-sm font-medium', dataActive ? 'text-white' : 'text-[#A1A1AA]')}>
+                <span className={cn('text-sm font-medium', dataActive ? 'text-[#0052CC]' : 'text-[#52525B]')}>
                   Data
                 </span>
               )}
