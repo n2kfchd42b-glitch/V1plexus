@@ -22,7 +22,7 @@ export default function LandingPage() {
               Login
             </Link>
             <Link
-              href="/login?mode=signup"
+              href="/register"
               className="bg-[#00288e] hover:bg-[#1e40af] text-white px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 active:scale-90"
             >
               Sign Up
@@ -48,7 +48,7 @@ export default function LandingPage() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
-                href="/login?mode=signup"
+                href="/register"
                 className="w-full sm:w-auto px-8 py-4 bg-[#00288e] text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
               >
                 Get Started Free
@@ -309,7 +309,7 @@ export default function LandingPage() {
             </div>
             <div className="mt-16 text-center">
               <Link
-                href="/login?mode=signup"
+                href="/register"
                 className="inline-flex items-center gap-3 px-8 py-4 bg-white text-[#1E40AF] font-bold rounded-xl hover:bg-blue-50 transition-all group shadow-xl shadow-blue-900/20"
               >
                 Explore More
@@ -326,7 +326,7 @@ export default function LandingPage() {
             <p className="text-xl text-[#444653] mb-12">Join over 150+ global institutions already using PLEXUS to accelerate health outcomes.</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
               <Link
-                href="/login?mode=signup"
+                href="/register"
                 className="px-10 py-5 bg-[#00288e] text-white font-bold rounded-xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all font-geist"
               >
                 Get Started for Free

@@ -2,9 +2,9 @@
 
 export const dynamic = 'force-dynamic'
 
-import { Suspense, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { FlaskConical, Mail } from 'lucide-react'
+import { useState } from 'react'
+import { FlaskConical } from 'lucide-react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,39 +12,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
-function CheckEmailScreen({ email }: { email: string }) {
-  return (
-    <Card>
-      <CardHeader className="text-center">
-        <div className="flex justify-center mb-3">
-          <div className="flex items-center justify-center w-14 h-14 rounded-full bg-blue-50">
-            <Mail className="h-7 w-7 text-blue-600" />
-          </div>
-        </div>
-        <CardTitle>Check your email</CardTitle>
-        <CardDescription>
-          We sent a confirmation link to <strong>{email}</strong>
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="text-center text-sm text-gray-600 space-y-3">
-        <p>Click the link in the email to confirm your account, then you&apos;ll be taken to set up your workspace.</p>
-        <p className="text-xs text-gray-400">Didn&apos;t receive it? Check your spam folder.</p>
-      </CardContent>
-    </Card>
-  )
-}
-
 function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const searchParams = useSearchParams()
-  const [mode, setMode] = useState<'signin' | 'signup'>(
-    searchParams.get('mode') === 'signup' ? 'signup' : 'signin'
-  )
-  const [fullName, setFullName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [emailSent, setEmailSent] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -52,54 +24,22 @@ function LoginForm() {
     e.preventDefault()
     setLoading(true)
     setError('')
-
-    if (mode === 'signup') {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { full_name: fullName },
-          emailRedirectTo: `${window.location.origin}/dashboard`,
-        },
-      })
-      if (error) setError(error.message)
-      else if (data.session) router.push('/dashboard')  // confirmation disabled — already signed in
-      else setEmailSent(true)                           // confirmation enabled — show check-email screen
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) setError(error.message)
-      else router.push('/dashboard')
-    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) setError(error.message)
+    else router.push('/dashboard')
     setLoading(false)
   }
-
-  if (emailSent) return <CheckEmailScreen email={email} />
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{mode === 'signin' ? 'Sign In' : 'Create Account'}</CardTitle>
+        <CardTitle>Sign In</CardTitle>
         <CardDescription>
-          {mode === 'signin'
-            ? 'Enter your credentials to access your research workspace'
-            : 'Join PLEXUS to manage your research projects'}
+          Enter your credentials to access your research workspace
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
-          {mode === 'signup' && (
-            <div>
-              <Label htmlFor="fullName">Full Name</Label>
-              <Input
-                id="fullName"
-                placeholder="Dr. Jane Smith"
-                value={fullName}
-                onChange={e => setFullName(e.target.value)}
-                required
-                className="mt-1"
-              />
-            </div>
-          )}
           <div>
             <Label htmlFor="email">Email</Label>
             <Input
@@ -132,16 +72,14 @@ function LoginForm() {
         </CardContent>
         <CardFooter className="flex-col gap-3">
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? 'Please wait...' : mode === 'signin' ? 'Sign In' : 'Create Account'}
+            {loading ? 'Please wait...' : 'Sign In'}
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            className="w-full text-sm"
-            onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError('') }}
-          >
-            {mode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
-          </Button>
+          <p className="text-sm text-gray-500">
+            Don&apos;t have an account?{' '}
+            <Link href="/register" className="text-blue-600 hover:underline font-medium">
+              Sign up
+            </Link>
+          </p>
         </CardFooter>
       </form>
     </Card>
@@ -159,9 +97,7 @@ export default function LoginPage() {
           </div>
           <p className="text-gray-600">Institution-grade Research Lab Platform</p>
         </div>
-        <Suspense fallback={<div className="text-center text-sm text-muted-foreground">Loading...</div>}>
-          <LoginForm />
-        </Suspense>
+        <LoginForm />
       </div>
     </div>
   )
