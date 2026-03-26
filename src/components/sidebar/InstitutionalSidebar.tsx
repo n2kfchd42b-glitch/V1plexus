@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  LayoutDashboard, FolderOpen, ClipboardList, Bell, Settings,
+  LayoutDashboard, FolderOpen, ClipboardList, Bell,
   Command, Building2, Users, GraduationCap, UserCheck, Database, Activity, ClipboardCheck, Download,
   Network, ShieldCheck, FileSignature, FileText, BarChart3, BookOpen, Landmark
 } from 'lucide-react'
@@ -133,10 +133,6 @@ export function InstitutionalSidebar({ collapsed, onCommandPalette }: Institutio
       {networkNav.map(item => (
         <NavItem key={item.href} {...item} soon={!NETWORK_COMPLIANCE_ENABLED} />
       ))}
-
-      {/* Settings */}
-      <div className="my-2 h-px bg-[#E4E4E7]" />
-      <NavItem href="/settings" label="My Settings" icon={Settings} />
 
       {/* Command palette */}
       <button

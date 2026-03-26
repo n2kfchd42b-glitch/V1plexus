@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  LayoutDashboard, FolderOpen, ClipboardList, Bell, Settings, Command, Database, Activity, Download,
+  LayoutDashboard, FolderOpen, ClipboardList, Bell, Command, Database, Activity, Download,
   Network, ShieldCheck, FileSignature, FileText
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -16,7 +16,6 @@ const personalNav = [
   { href: '/notifications', label: 'Notifications', icon: Bell,            shortcut: 'G N' },
   { href: '/exports',       label: 'Exports',       icon: Download },
   { href: '/audit',         label: 'Audit Trail',   icon: Activity },
-  { href: '/settings',      label: 'Settings',      icon: Settings },
 ]
 
 const networkNav = [
