@@ -61,11 +61,13 @@ export function InstitutionCreateForm() {
     ])
 
     // ── Stage 2: create institution ───────────────────────────────────
-    const { data: inst, error: instErr } = await supabase
+    // Generate IDs client-side so we never need .select() after INSERT.
+    // PostgREST's RETURNING clause triggers a SELECT that fails for
+    // institutional workspaces (owner_id is NULL, no membership yet).
+    const instId = crypto.randomUUID()
+    const { error: instErr } = await supabase
       .from('institutions')
-      .insert({ name: name.trim(), type, country: country || null, logo_url: logoUrl || null })
-      .select('id')
-      .single()
+      .insert({ id: instId, name: name.trim(), type, country: country || null, logo_url: logoUrl || null })
 
     if (instErr) {
       toast.error('Failed to create institution: ' + instErr.message)
@@ -75,21 +77,19 @@ export function InstitutionCreateForm() {
 
     // ── Stage 3: departments + workspace in parallel ──────────────────
     const validDepts = departments.filter(d => d.trim())
-    // Make slug unique to avoid collisions on retry
     const baseSlug  = slug || generateSlug(name)
     const wsSlug    = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`
+    const wsId      = crypto.randomUUID()
 
     const [, wsRes] = await Promise.all([
       validDepts.length > 0
         ? supabase.from('departments').insert(
-            validDepts.map(d => ({ institution_id: inst.id, name: d.trim() }))
+            validDepts.map(d => ({ institution_id: instId, name: d.trim() }))
           )
         : Promise.resolve(null),
       supabase
         .from('workspaces')
-        .insert({ type: 'institutional', name: name.trim(), slug: wsSlug, institution_id: inst.id })
-        .select('id')
-        .single(),
+        .insert({ id: wsId, type: 'institutional', name: name.trim(), slug: wsSlug, institution_id: instId }),
     ])
 
     if (wsRes.error) {
@@ -97,28 +97,26 @@ export function InstitutionCreateForm() {
       setLoading(false)
       return
     }
-    const ws = wsRes.data
 
     // ── Stage 4: memberships + personal workspace + profile in parallel ─
     const personalSlug   = `personal-${user.id}`
     const workspaceName  = (profileRes.data?.full_name ?? user.email ?? 'My') + "'s Workspace"
+    const personalWsId   = crypto.randomUUID()
 
     await Promise.all([
       // Admin membership in institutional workspace
       supabase.from('workspace_memberships').insert({
-        workspace_id: ws.id, user_id: user.id, role: 'admin', status: 'active',
+        workspace_id: wsId, user_id: user.id, role: 'admin', status: 'active',
       }),
       // Personal workspace (create only if missing)
       existingPersonalRes.data
         ? Promise.resolve(null)
         : supabase.from('workspaces')
-            .insert({ type: 'personal', name: workspaceName, slug: personalSlug, owner_id: user.id })
-            .select('id')
-            .single()
-            .then(({ data: pw }) =>
-              pw
+            .insert({ id: personalWsId, type: 'personal', name: workspaceName, slug: personalSlug, owner_id: user.id })
+            .then(({ error }) =>
+              !error
                 ? supabase.from('workspace_memberships').insert({
-                    workspace_id: pw.id, user_id: user.id, role: 'owner', status: 'active',
+                    workspace_id: personalWsId, user_id: user.id, role: 'owner', status: 'active',
                   })
                 : null
             ),
@@ -126,12 +124,12 @@ export function InstitutionCreateForm() {
       supabase.from('profiles').update({
         workspace_setup_completed: true,
         onboarding_completed: true,
-        institution_id: inst.id,
+        institution_id: instId,
       }).eq('id', user.id),
     ])
 
     if (typeof window !== 'undefined') {
-      localStorage.setItem('plexus_active_workspace_id', ws.id)
+      localStorage.setItem('plexus_active_workspace_id', wsId)
     }
     toast.success('Institution created!')
     router.push('/dashboard')
