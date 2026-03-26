@@ -56,78 +56,92 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const supabase = useMemo(() => createClient(), [])
 
-  const fetchWorkspaces = useCallback(async () => {
+  const fetchWorkspaces = useCallback(async (userId: string) => {
     setLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      // Fetch all workspaces + memberships
+      // Fetch workspaces + memberships
       const { data: wsMemberships, error: wsMembershipError } = await supabase
         .from('workspace_memberships')
         .select('*, workspace:workspaces(*, institution:institutions(*))')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('status', 'active')
       if (wsMembershipError) console.error('[WorkspaceProvider] workspace_memberships error:', wsMembershipError)
 
-      if (wsMemberships) {
-        const workspaces = wsMemberships
-          .map(m => m.workspace as Workspace)
-          .filter(Boolean)
-        setAllWorkspaces(workspaces)
-        setMemberships(wsMemberships as WorkspaceMembership[])
+      if (!wsMemberships) return
 
-        // Set active workspace from localStorage or default to personal
-        const saved = typeof window !== 'undefined'
-          ? localStorage.getItem(ACTIVE_WORKSPACE_KEY)
-          : null
-        const savedExists = saved && workspaces.find(w => w.id === saved)
-        if (savedExists) {
-          setActiveWorkspaceId(saved)
-        } else {
-          // Default to personal workspace
-          const personal = workspaces.find(w => w.type === 'personal')
-          if (personal) {
-            setActiveWorkspaceId(personal.id)
-            if (typeof window !== 'undefined') {
-              localStorage.setItem(ACTIVE_WORKSPACE_KEY, personal.id)
-            }
-          } else if (workspaces[0]) {
-            setActiveWorkspaceId(workspaces[0].id)
+      const workspaces = wsMemberships
+        .map(m => m.workspace as Workspace)
+        .filter(Boolean)
+      setAllWorkspaces(workspaces)
+      setMemberships(wsMemberships as WorkspaceMembership[])
+
+      // Set active workspace from localStorage or default to personal
+      const saved = typeof window !== 'undefined'
+        ? localStorage.getItem(ACTIVE_WORKSPACE_KEY)
+        : null
+      const savedExists = saved && workspaces.find(w => w.id === saved)
+      if (savedExists) {
+        setActiveWorkspaceId(saved)
+      } else {
+        const personal = workspaces.find(w => w.type === 'personal')
+        if (personal) {
+          setActiveWorkspaceId(personal.id)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(ACTIVE_WORKSPACE_KEY, personal.id)
           }
-        }
-
-        // Fetch supervisor assignments
-        const currentMembership = wsMemberships.find(
-          m => m.workspace_id === (savedExists ? saved : workspaces.find(w => w.type === 'personal')?.id)
-        )
-        if (currentMembership?.role === 'student') {
-          const { data: sa } = await supabase
-            .from('supervisor_assignments')
-            .select('*, supervisor:profiles!supervisor_id(*), department:departments(*)')
-            .eq('student_id', user.id)
-            .eq('status', 'active')
-            .maybeSingle()
-          setSupervisorAssignment(sa as SupervisorAssignment | null)
-        }
-
-        if (currentMembership?.role === 'supervisor' || currentMembership?.role === 'department_head') {
-          const { data: students } = await supabase
-            .from('supervisor_assignments')
-            .select('*, student:profiles!student_id(*), department:departments(*)')
-            .eq('supervisor_id', user.id)
-            .eq('status', 'active')
-          setAssignedStudents((students ?? []) as SupervisorAssignment[])
+        } else if (workspaces[0]) {
+          setActiveWorkspaceId(workspaces[0].id)
         }
       }
+
+      // Fetch supervisor/student assignments in parallel if applicable
+      const activeId = savedExists ? saved : workspaces.find(w => w.type === 'personal')?.id
+      const currentMembership = wsMemberships.find(m => m.workspace_id === activeId)
+      const role = currentMembership?.role
+
+      const [saResult, studentsResult] = await Promise.all([
+        role === 'student'
+          ? supabase
+              .from('supervisor_assignments')
+              .select('*, supervisor:profiles!supervisor_id(*), department:departments(*)')
+              .eq('student_id', userId)
+              .eq('status', 'active')
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+        role === 'supervisor' || role === 'department_head'
+          ? supabase
+              .from('supervisor_assignments')
+              .select('*, student:profiles!student_id(*), department:departments(*)')
+              .eq('supervisor_id', userId)
+              .eq('status', 'active')
+          : Promise.resolve({ data: [] }),
+      ])
+
+      setSupervisorAssignment((saResult.data as SupervisorAssignment | null) ?? null)
+      setAssignedStudents(((studentsResult.data ?? []) as SupervisorAssignment[]))
     } finally {
       setLoading(false)
     }
   }, [supabase])
 
   useEffect(() => {
-    fetchWorkspaces()
-  }, [fetchWorkspaces])
+    // Use onAuthStateChange so we don't make a separate getUser() network call.
+    // It fires immediately with the current session on mount.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      if (session?.user) {
+        fetchWorkspaces(session.user.id)
+      } else {
+        // Signed out — clear state immediately, no spinner
+        setAllWorkspaces([])
+        setMemberships([])
+        setActiveWorkspaceId(null)
+        setSupervisorAssignment(null)
+        setAssignedStudents([])
+        setLoading(false)
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [supabase, fetchWorkspaces])
 
   const switchWorkspace = useCallback((id: string) => {
     setActiveWorkspaceId(id)
@@ -135,6 +149,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem(ACTIVE_WORKSPACE_KEY, id)
     }
   }, [])
+
+  const refetch = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) fetchWorkspaces(user.id)
+  }, [supabase, fetchWorkspaces])
 
   const activeWorkspace = allWorkspaces.find(w => w.id === activeWorkspaceId) ?? null
   const membership = memberships.find(m => m.workspace_id === activeWorkspaceId) ?? null
@@ -157,7 +176,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       supervisorAssignment,
       assignedStudents,
       loading,
-      refetch: fetchWorkspaces,
+      refetch,
     }}>
       {children}
     </WorkspaceContext.Provider>

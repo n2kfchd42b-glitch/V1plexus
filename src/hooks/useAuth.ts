@@ -55,11 +55,12 @@ export function useAuth() {
     return () => subscription.unsubscribe()
   }, [supabase])
 
-  const signOut = () => {
-    // Navigate immediately — don't wait for the network call.
-    // signOut still fires in the background to invalidate the server session.
+  const signOut = async () => {
+    // Clear local session immediately (no network call) so the middleware
+    // sees no session when the browser lands on /login — prevents the
+    // dashboard bounce + blank screen caused by navigating before sign-out.
+    await supabase.auth.signOut({ scope: 'local' })
     window.location.href = '/login'
-    supabase.auth.signOut()
   }
 
   return { user, profile, loading, signOut }
