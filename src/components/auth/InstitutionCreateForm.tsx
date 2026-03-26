@@ -54,7 +54,13 @@ export function InstitutionCreateForm() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setLoading(false); return }
 
-    // Create institution
+    // ── Stage 1: fetch profile + check personal workspace in parallel ──
+    const [profileRes, existingPersonalRes] = await Promise.all([
+      supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
+      supabase.from('workspaces').select('id').eq('owner_id', user.id).eq('type', 'personal').maybeSingle(),
+    ])
+
+    // ── Stage 2: create institution ───────────────────────────────────
     const { data: inst, error: instErr } = await supabase
       .from('institutions')
       .insert({ name: name.trim(), type, country: country || null, logo_url: logoUrl || null })
@@ -62,93 +68,72 @@ export function InstitutionCreateForm() {
       .single()
 
     if (instErr) {
-      toast.error(instErr.message)
+      toast.error('Failed to create institution: ' + instErr.message)
       setLoading(false)
       return
     }
 
-    // Create departments
+    // ── Stage 3: departments + workspace in parallel ──────────────────
     const validDepts = departments.filter(d => d.trim())
-    if (validDepts.length > 0) {
-      await supabase.from('departments').insert(
-        validDepts.map(d => ({ institution_id: inst.id, name: d.trim() }))
-      )
-    }
+    // Make slug unique to avoid collisions on retry
+    const baseSlug  = slug || generateSlug(name)
+    const wsSlug    = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`
 
-    // Create institutional workspace
-    const wsSlug = slug || generateSlug(name)
-    const { data: ws, error: wsErr } = await supabase
-      .from('workspaces')
-      .insert({
-        type: 'institutional',
-        name: name.trim(),
-        slug: wsSlug,
-        institution_id: inst.id,
-      })
-      .select('id')
-      .single()
+    const [, wsRes] = await Promise.all([
+      validDepts.length > 0
+        ? supabase.from('departments').insert(
+            validDepts.map(d => ({ institution_id: inst.id, name: d.trim() }))
+          )
+        : Promise.resolve(null),
+      supabase
+        .from('workspaces')
+        .insert({ type: 'institutional', name: name.trim(), slug: wsSlug, institution_id: inst.id })
+        .select('id')
+        .single(),
+    ])
 
-    if (wsErr) {
-      toast.error(wsErr.message)
+    if (wsRes.error) {
+      toast.error('Failed to create workspace: ' + wsRes.error.message)
       setLoading(false)
       return
     }
+    const ws = wsRes.data
 
-    // Create admin membership in institutional workspace
-    await supabase.from('workspace_memberships').insert({
-      workspace_id: ws.id,
-      user_id: user.id,
-      role: 'admin',
-      status: 'active',
-    })
+    // ── Stage 4: memberships + personal workspace + profile in parallel ─
+    const personalSlug   = `personal-${user.id}`
+    const workspaceName  = (profileRes.data?.full_name ?? user.email ?? 'My') + "'s Workspace"
 
-    // Ensure personal workspace exists
-    const personalSlug = `personal-${user.id}`
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', user.id)
-      .maybeSingle()
-
-    const { data: existingPersonal } = await supabase
-      .from('workspaces')
-      .select('id')
-      .eq('owner_id', user.id)
-      .eq('type', 'personal')
-      .maybeSingle()
-
-    if (!existingPersonal) {
-      const workspaceName = (profile?.full_name ?? user.email ?? 'My') + "'s Workspace"
-      const { data: personalWs } = await supabase
-        .from('workspaces')
-        .insert({ type: 'personal', name: workspaceName, slug: personalSlug, owner_id: user.id })
-        .select('id')
-        .single()
-      if (personalWs) {
-        await supabase.from('workspace_memberships').insert({
-          workspace_id: personalWs.id,
-          user_id: user.id,
-          role: 'owner',
-          status: 'active',
-        })
-      }
-    }
-
-    // Mark setup completed + update institution_id on profile
-    await supabase
-      .from('profiles')
-      .update({
+    await Promise.all([
+      // Admin membership in institutional workspace
+      supabase.from('workspace_memberships').insert({
+        workspace_id: ws.id, user_id: user.id, role: 'admin', status: 'active',
+      }),
+      // Personal workspace (create only if missing)
+      existingPersonalRes.data
+        ? Promise.resolve(null)
+        : supabase.from('workspaces')
+            .insert({ type: 'personal', name: workspaceName, slug: personalSlug, owner_id: user.id })
+            .select('id')
+            .single()
+            .then(({ data: pw }) =>
+              pw
+                ? supabase.from('workspace_memberships').insert({
+                    workspace_id: pw.id, user_id: user.id, role: 'owner', status: 'active',
+                  })
+                : null
+            ),
+      // Mark profile as set up
+      supabase.from('profiles').update({
         workspace_setup_completed: true,
         onboarding_completed: true,
         institution_id: inst.id,
-      })
-      .eq('id', user.id)
+      }).eq('id', user.id),
+    ])
 
-    toast.success('Institution created!')
-    // Store workspace id so switcher auto-selects it
     if (typeof window !== 'undefined') {
       localStorage.setItem('plexus_active_workspace_id', ws.id)
     }
+    toast.success('Institution created!')
     router.push('/dashboard')
     setLoading(false)
   }
