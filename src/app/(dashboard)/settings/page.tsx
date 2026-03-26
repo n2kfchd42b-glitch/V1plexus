@@ -82,6 +82,7 @@ export default function ProfilePage() {
   const [credentialsOpen, setCredentialsOpen] = useState(false)
   const [credFile, setCredFile]             = useState<File | null>(null)
   const [uploading, setUploading]           = useState(false)
+  const [credUploads, setCredUploads]       = useState<{ id: string; file_name: string; status: string; uploaded_at: string }[]>([])
 
   // Security
   const [currentPw, setCurrentPw] = useState('')
@@ -103,7 +104,7 @@ export default function ProfilePage() {
       if (!user) { setLoading(false); return }
       setAuthUser(user)
 
-      const [profileRes, projectsRes, reviewsRes, countRes] = await Promise.all([
+      const [profileRes, projectsRes, reviewsRes, countRes, credRes] = await Promise.all([
         supabase
           .from('profiles')
           .select('*, institution:institutions(id,name,country), department:departments(id,name)')
@@ -112,7 +113,7 @@ export default function ProfilePage() {
         supabase
           .from('projects')
           .select('id, title, status, phase, updated_at')
-          .eq('created_by', user.id)
+          .eq('owner_id', user.id)
           .order('updated_at', { ascending: false })
           .limit(5),
         supabase
@@ -123,7 +124,12 @@ export default function ProfilePage() {
         supabase
           .from('projects')
           .select('id', { count: 'exact', head: true })
-          .eq('created_by', user.id),
+          .eq('owner_id', user.id),
+        supabase
+          .from('credential_uploads')
+          .select('id, file_name, status, uploaded_at')
+          .eq('user_id', user.id)
+          .order('uploaded_at', { ascending: false }),
       ])
 
       if (profileRes.data) {
@@ -133,6 +139,7 @@ export default function ProfilePage() {
       setProjectCount(countRes.count ?? 0)
       setReviewCount(reviewsRes.count ?? 0)
       setRecentProjects(projectsRes.data ?? [])
+      setCredUploads(credRes.data ?? [])
       setLoading(false)
     }
     load()
@@ -190,10 +197,36 @@ export default function ProfilePage() {
   const handleCredentialUpload = async () => {
     if (!credFile || !authUser) return
     setUploading(true)
-    const path = `${authUser.id}/credentials/${Date.now()}_${credFile.name}`
-    const { error } = await supabase.storage.from('avatars').upload(path, credFile)
-    if (error) toast.error(error.message)
-    else toast.success('Credential document uploaded — pending verification')
+    const storagePath = `${authUser.id}/${Date.now()}_${credFile.name}`
+    const { error: storageErr } = await supabase.storage
+      .from('credentials')
+      .upload(storagePath, credFile)
+    if (storageErr) {
+      toast.error(storageErr.message)
+      setUploading(false)
+      return
+    }
+    // Record the upload in credential_uploads for verification tracking
+    const { error: dbErr } = await supabase.from('credential_uploads').insert({
+      user_id:        authUser.id,
+      file_name:      credFile.name,
+      storage_path:   storagePath,
+      file_size_bytes: credFile.size,
+      mime_type:      credFile.type,
+      status:         'pending',
+    })
+    if (dbErr) {
+      toast.error('Uploaded but failed to record: ' + dbErr.message)
+    } else {
+      toast.success('Credential uploaded — pending verification')
+      // Refresh the uploads list immediately
+      const { data: fresh } = await supabase
+        .from('credential_uploads')
+        .select('id, file_name, status, uploaded_at')
+        .eq('user_id', authUser.id)
+        .order('uploaded_at', { ascending: false })
+      setCredUploads(fresh ?? [])
+    }
     setCredFile(null)
     setUploading(false)
     setCredentialsOpen(false)
@@ -435,13 +468,23 @@ export default function ProfilePage() {
               {/* ── Right column ───────────────────────────────────────────── */}
               <aside className="space-y-4">
 
-                {/* Active Contributions (project phases as bars) */}
+                {/* Active Contributions — real phase-based progress */}
                 {recentProjects.length > 0 && (
                   <div className="bg-white p-4 rounded-xl border border-[#E4E4E7] space-y-3">
                     <h3 className="text-xs font-bold text-[#191c1e] font-manrope uppercase tracking-wide">Active Contributions</h3>
                     <div className="space-y-2.5">
-                      {recentProjects.slice(0, 3).map((p, i) => {
-                        const pct = [82, 45, 67][i] ?? 30
+                      {recentProjects.slice(0, 3).map(p => {
+                        // Phase order index → real progress percentage
+                        const PHASE_ORDER = ['concept','protocol','ethics','data','analysis','writing','publication']
+                        const phaseIdx   = PHASE_ORDER.indexOf(p.phase ?? '')
+                        const totalPhases = PHASE_ORDER.length
+                        // completed phases + partial credit for current phase based on status
+                        const statusBonus = p.status === 'completed' ? 1 : p.status === 'active' ? 0.5 : 0.1
+                        const pct = Math.round(
+                          phaseIdx < 0
+                            ? 5
+                            : Math.min(((phaseIdx + statusBonus) / totalPhases) * 100, 99)
+                        )
                         const color = PHASE_COLORS[p.phase] ?? '#3B82F6'
                         return (
                           <div key={p.id}>
@@ -839,6 +882,33 @@ export default function ProfilePage() {
                 {uploading ? 'Uploading…' : 'Upload'}
               </Button>
             </div>
+
+            {/* Past uploads with real verification status */}
+            {credUploads.length > 0 && (
+              <div className="border-t border-[#E4E4E7] pt-4 space-y-2">
+                <p className="text-xs font-bold text-[#52525B] uppercase tracking-wide">Previous Uploads</p>
+                {credUploads.map(u => {
+                  const statusConfig: Record<string, { label: string; cls: string }> = {
+                    pending:      { label: 'Pending',      cls: 'bg-amber-50 text-amber-700' },
+                    under_review: { label: 'Under Review', cls: 'bg-blue-50 text-blue-700' },
+                    approved:     { label: 'Approved',     cls: 'bg-emerald-50 text-emerald-700' },
+                    rejected:     { label: 'Rejected',     cls: 'bg-red-50 text-red-600' },
+                  }
+                  const sc = statusConfig[u.status] ?? statusConfig.pending
+                  return (
+                    <div key={u.id} className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="material-symbols-outlined text-[#A1A1AA] text-[16px]">description</span>
+                        <span className="text-xs text-[#52525B] truncate">{u.file_name}</span>
+                      </div>
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md flex-shrink-0 ${sc.cls}`}>
+                        {sc.label}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
