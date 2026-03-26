@@ -60,7 +60,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       <MobileSidebar profile={profile} onSignOut={signOut} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Header profile={profile} />
+        <Header profile={profile} onSearchClick={openCommandPalette} />
         <main className="flex-1 overflow-hidden">
           <div className="page-content">
             {children}

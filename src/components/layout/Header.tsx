@@ -11,6 +11,7 @@ import type { Profile } from '@/types/database'
 interface HeaderProps {
   profile: Profile | null
   title?: string
+  onSearchClick?: () => void
 }
 
 // Build breadcrumbs from pathname
@@ -40,7 +41,7 @@ function useBreadcrumbs(pathname: string) {
   return crumbs
 }
 
-export function Header({ profile, title }: HeaderProps) {
+export function Header({ profile, title, onSearchClick }: HeaderProps) {
   const pathname = usePathname()
   const breadcrumbs = useBreadcrumbs(pathname)
   const [scrolled, setScrolled] = useState(false)
@@ -96,16 +97,15 @@ export function Header({ profile, title }: HeaderProps) {
 
       {/* Right actions */}
       <div className="flex items-center gap-6">
-        {/* Search */}
-        <div className="relative hidden md:block">
+        {/* Search — opens command palette */}
+        <button
+          onClick={onSearchClick}
+          className="relative hidden md:flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg py-1.5 pl-9 pr-4 text-xs w-64 text-slate-400 hover:border-slate-300 hover:bg-slate-100 transition-all cursor-text"
+        >
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
-          <input
-            className="bg-slate-50 border border-slate-200 rounded-lg py-1.5 pl-9 pr-4 text-xs w-64 focus:ring-1 focus:ring-[#0052CC] focus:border-[#0052CC] transition-all outline-none placeholder:text-slate-400"
-            placeholder="Search projects, documents..."
-            type="text"
-            readOnly
-          />
-        </div>
+          <span>Search projects, documents…</span>
+          <kbd className="ml-auto text-[10px] font-mono bg-white border border-slate-200 rounded px-1.5 py-0.5 text-slate-400">⌘K</kbd>
+        </button>
 
         <div className="flex items-center gap-3">
           {profile && <NotificationBell userId={profile.id} />}
