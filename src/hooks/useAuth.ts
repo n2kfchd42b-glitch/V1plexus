@@ -55,9 +55,11 @@ export function useAuth() {
     return () => subscription.unsubscribe()
   }, [supabase])
 
-  const signOut = async () => {
-    await supabase.auth.signOut()
+  const signOut = () => {
+    // Navigate immediately — don't wait for the network call.
+    // signOut still fires in the background to invalidate the server session.
     window.location.href = '/login'
+    supabase.auth.signOut()
   }
 
   return { user, profile, loading, signOut }
