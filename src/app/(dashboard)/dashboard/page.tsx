@@ -4,13 +4,15 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   FolderOpen, FileText, ClipboardList, Bell,
-  AlertCircle, Clock, ArrowRight, Plus, Activity
+  AlertCircle, Clock, ArrowRight, Plus, Activity,
+  CheckCircle2, Microscope, FlaskConical, Brain,
+  BarChart2, Dna, BookOpen, Users, Beaker,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWorkspace } from '@/hooks/useWorkspace'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatRelative, statusLabel } from '@/lib/utils'
-import type { Project, ReviewRequest } from '@/types/database'
+import type { Project, ReviewRequest, ProjectPhase } from '@/types/database'
 
 interface DashboardStats {
   projects: number
@@ -19,56 +21,58 @@ interface DashboardStats {
   unreadNotifications: number
 }
 
-function StatCard({
-  label, value, icon: Icon, href, color, loading
-}: {
-  label: string
-  value: number
-  icon: React.ComponentType<{ className?: string }>
-  href: string
-  color: string
-  loading?: boolean
-}) {
-  return (
-    <Link href={href} className="group">
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm transition-all duration-150 hover:shadow-md hover:-translate-y-px">
-        {loading ? (
-          <div className="space-y-2">
-            <div className="skeleton h-4 w-20" />
-            <div className="skeleton h-8 w-12" />
-            <div className="skeleton h-3.5 w-24" />
-          </div>
-        ) : (
-          <>
-            <p className="text-slate-400 text-[11px] font-bold uppercase tracking-wider mb-2">{label}</p>
-            <div className="flex items-end justify-between">
-              <h3 className="text-2xl font-extrabold font-headline tracking-tight">{value}</h3>
-              <div className={cn('h-8 w-8 rounded-lg flex items-center justify-center', color.replace('text-', 'bg-').replace('600', '50').replace('red', 'red').replace('100', '50'))}>
-                <Icon className={cn('h-4 w-4', color)} />
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-    </Link>
-  )
+// Visual palettes for project cards — full Tailwind class strings (no dynamic concat)
+const PALETTES = [
+  { iconBg: 'bg-blue-50',   iconColor: 'text-blue-600',   bar: 'bg-blue-600',   tag: 'bg-blue-50 text-blue-700'   },
+  { iconBg: 'bg-orange-50', iconColor: 'text-orange-600', bar: 'bg-orange-500', tag: 'bg-orange-50 text-orange-700' },
+  { iconBg: 'bg-violet-50', iconColor: 'text-violet-600', bar: 'bg-violet-600', tag: 'bg-violet-50 text-violet-700' },
+  { iconBg: 'bg-teal-50',   iconColor: 'text-teal-600',   bar: 'bg-teal-500',   tag: 'bg-teal-50 text-teal-700'   },
+  { iconBg: 'bg-rose-50',   iconColor: 'text-rose-600',   bar: 'bg-rose-500',   tag: 'bg-rose-50 text-rose-700'   },
+  { iconBg: 'bg-amber-50',  iconColor: 'text-amber-600',  bar: 'bg-amber-500',  tag: 'bg-amber-50 text-amber-700'  },
+]
+
+const PROJECT_ICONS = [Microscope, Brain, FlaskConical, BarChart2, Dna, BookOpen, Beaker, Activity]
+
+const PHASE_PROGRESS: Record<ProjectPhase, number> = {
+  design:          15,
+  data_collection: 40,
+  analysis:        65,
+  writing:         80,
+  submitted:       92,
+  published:       100,
 }
 
-function PhaseBadge({ status }: { status: string }) {
-  const colorMap: Record<string, string> = {
-    draft:    'bg-[#F4F4F5] text-[#71717A]',
-    active:   'bg-[#EFF6FF] text-[#2563EB]',
-    completed:'bg-[#F0FDF4] text-[#16A34A]',
-    archived: 'bg-[#FAFAFA] text-[#A1A1AA]',
-  }
-  return (
-    <span className={cn(
-      'inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium',
-      colorMap[status] ?? 'bg-[#F4F4F5] text-[#71717A]'
-    )}>
-      {statusLabel(status)}
-    </span>
-  )
+const PHASE_LABEL: Record<ProjectPhase, string> = {
+  design:          'Design',
+  data_collection: 'Data Collection',
+  analysis:        'Analysis',
+  writing:         'Writing',
+  submitted:       'Submitted',
+  published:       'Published',
+}
+
+const STATUS_TAG: Record<string, string> = {
+  draft:     'bg-slate-100 text-slate-500',
+  active:    'bg-blue-50 text-blue-700',
+  on_hold:   'bg-amber-50 text-amber-700',
+  completed: 'bg-emerald-50 text-emerald-700',
+  archived:  'bg-slate-100 text-slate-400',
+}
+
+const REVIEW_STATUS_COLOR: Record<string, string> = {
+  pending:            'bg-amber-50 text-amber-700',
+  in_review:          'bg-blue-50 text-blue-700',
+  feedback_given:     'bg-violet-50 text-violet-700',
+  revision_submitted: 'bg-teal-50 text-teal-700',
+  approved:           'bg-emerald-50 text-emerald-700',
+  rejected:           'bg-red-50 text-red-700',
+}
+
+function phaseProgress(project: Project): number {
+  if (project.phase) return PHASE_PROGRESS[project.phase]
+  if (project.status === 'completed') return 100
+  if (project.status === 'draft')     return 8
+  return 45
 }
 
 export default function DashboardPage() {
@@ -109,10 +113,10 @@ export default function DashboardPage() {
         ])
 
         setStats({
-          projects: projectsRes.count ?? 0,
-          documents: docsRes.count ?? 0,
-          pendingReviews: reviewsRes.count ?? 0,
-          unreadNotifications: notifsRes.count ?? 0,
+          projects:             projectsRes.count ?? 0,
+          documents:            docsRes.count ?? 0,
+          pendingReviews:       reviewsRes.count ?? 0,
+          unreadNotifications:  notifsRes.count ?? 0,
         })
         if (recentProjectsRes.data) setRecentProjects(recentProjectsRes.data)
         if (recentReviewsRes.data) setRecentReviews(recentReviewsRes.data as ReviewRequest[])
@@ -125,177 +129,361 @@ export default function DashboardPage() {
   }, [profile, authLoading, activeWorkspace]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const firstName = profile?.full_name?.split(' ')[0] ?? 'Researcher'
-  const hour = new Date().getHours()
+  const hour     = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
-  const statCards = [
-    { label: 'Projects',        value: stats.projects,             icon: FolderOpen,    href: '/projects',      color: 'text-blue-600' },
-    { label: 'Documents',       value: stats.documents,            icon: FileText,      href: '/projects',      color: 'text-purple-600' },
-    { label: 'Pending Reviews', value: stats.pendingReviews,       icon: ClipboardList, href: '/reviews',       color: 'text-amber-600' },
-    { label: 'Notifications',   value: stats.unreadNotifications,  icon: Bell,          href: '/notifications', color: 'text-red-500' },
-  ]
-
   return (
-    <div className="px-8 py-6 max-w-[1600px] mx-auto space-y-8">
-      {/* Welcome header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 font-headline">
-            {greeting}, {firstName}
-          </h1>
-          <p className="text-slate-500 mt-1 font-medium text-sm capitalize">
-            {profile?.role} · PLEXUS Research Lab
-          </p>
+    <div className="min-h-screen bg-[#f7f9fb]">
+
+      {/* ── Hero Banner ─────────────────────────────────────── */}
+      <div className="relative bg-slate-900 overflow-hidden">
+        {/* Decorative rings */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/2 right-[20%] -translate-y-1/2 w-[700px] h-[700px] border border-blue-400/10 rounded-full" />
+          <div className="absolute top-1/2 right-[20%] -translate-y-1/2 w-[480px] h-[480px] border border-blue-400/15 rounded-full" />
+          <div className="absolute top-1/2 right-[20%] -translate-y-1/2 w-[260px] h-[260px] bg-blue-600/10 blur-3xl rounded-full" />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-slate-900/50" />
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-900/90 via-slate-900/40 to-transparent" />
         </div>
-        <Link href="/projects?new=1">
-          <button className="inline-flex items-center gap-2 py-2.5 px-5 rounded-lg bg-[#0052CC] text-white text-sm font-headline font-bold hover:bg-[#0040a2] transition-all btn-press">
-            <Plus className="h-4 w-4" />
-            New Project
-          </button>
-        </Link>
-      </div>
 
-      {/* Action items bar */}
-      {(stats.pendingReviews > 0 || stats.unreadNotifications > 0) && (
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl">
-          <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0" />
-          <div className="flex items-center gap-2 flex-wrap">
-            {stats.pendingReviews > 0 && (
-              <Link href="/reviews">
-                <span className="text-xs font-medium text-amber-700 hover:text-amber-900 transition-colors cursor-pointer bg-amber-100 px-2 py-0.5 rounded">
-                  {stats.pendingReviews} pending review{stats.pendingReviews !== 1 ? 's' : ''}
-                </span>
-              </Link>
-            )}
-            {stats.unreadNotifications > 0 && (
-              <Link href="/notifications">
-                <span className="text-xs font-medium text-blue-700 hover:text-blue-900 transition-colors cursor-pointer bg-blue-100 px-2 py-0.5 rounded">
-                  {stats.unreadNotifications} unread notification{stats.unreadNotifications !== 1 ? 's' : ''}
-                </span>
-              </Link>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Stats grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {statCards.map(stat => (
-          <StatCard key={stat.label} {...stat} loading={loading} />
-        ))}
-      </div>
-
-      {/* Main content: projects + reviews */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Recent Projects */}
-        <div className="lg:col-span-3 space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold font-headline text-slate-900">Recent Projects</h2>
-            <Link href="/projects" className="text-xs text-[#0052CC] hover:underline flex items-center gap-1 font-medium">
-              View all <ArrowRight className="h-3 w-3" />
-            </Link>
+        <div className="relative z-10 px-8 pt-10 pb-12 max-w-[1600px] mx-auto">
+          {/* Live indicator + greeting */}
+          <div className="mb-8">
+            <div className="flex items-center gap-2 text-blue-400 font-mono text-xs tracking-widest uppercase mb-3">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-500" />
+              </span>
+              Live Observatory Active
+            </div>
+            <h1 className="text-white font-headline text-5xl font-extrabold tracking-tighter mb-2">
+              {greeting}, {firstName}
+            </h1>
+            <p className="text-blue-200/60 text-sm capitalize font-medium">
+              {profile?.role?.replace(/_/g, ' ')} · {activeWorkspace?.name ?? 'PLEXUS Research Lab'}
+            </p>
           </div>
 
-          {loading ? (
-            <div className="space-y-2">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="bg-white border border-slate-200 rounded-xl p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1.5 flex-1">
-                      <div className="skeleton h-4 w-48" />
-                      <div className="skeleton h-3 w-24" />
-                    </div>
-                    <div className="skeleton h-5 w-16 rounded" />
+          {/* Glass stat cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label: 'Projects',         value: stats.projects,            icon: FolderOpen,    href: '/projects',      sub: activeWorkspace?.name ?? 'All workspaces',  alert: false },
+              { label: 'Documents',        value: stats.documents,           icon: FileText,      href: '/projects',      sub: 'Authored by you',                           alert: false },
+              { label: 'Pending Reviews',  value: stats.pendingReviews,      icon: ClipboardList, href: '/reviews',       sub: 'Awaiting your attention',                   alert: stats.pendingReviews > 0 },
+              { label: 'Notifications',    value: stats.unreadNotifications, icon: Bell,          href: '/notifications', sub: 'Unread messages',                           alert: stats.unreadNotifications > 0 },
+            ].map(({ label, value, icon: Icon, href, sub, alert }) => (
+              <Link key={label} href={href}>
+                <div className={cn(
+                  'bg-white/10 backdrop-blur-xl border border-white/15 rounded-xl p-5 hover:bg-white/15 transition-all cursor-pointer',
+                  alert && !loading && 'border-amber-400/30 bg-amber-500/10 hover:bg-amber-500/15'
+                )}>
+                  <p className="text-blue-200/60 text-[10px] font-bold uppercase tracking-widest mb-1">{label}</p>
+                  {loading ? (
+                    <div className="h-10 w-14 bg-white/10 rounded animate-pulse mb-3" />
+                  ) : (
+                    <p className="text-white font-headline text-4xl font-extrabold leading-none mb-3">{value}</p>
+                  )}
+                  <div className="flex items-center gap-1.5 text-blue-300/70 text-xs font-semibold truncate">
+                    <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="truncate">{sub}</span>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : recentProjects.length === 0 ? (
-            <div className="bg-white border border-slate-200 rounded-xl py-12 text-center shadow-sm">
-              <FolderOpen className="h-10 w-10 mx-auto text-slate-300 mb-3" />
-              <p className="text-sm font-bold text-slate-900 mb-1">No projects yet</p>
-              <p className="text-xs text-slate-400 mb-4">Create a research project to get started</p>
-              <Link href="/projects?new=1">
-                <button className="inline-flex items-center gap-2 py-2.5 px-4 rounded-lg bg-[#0052CC] text-white text-sm font-bold hover:bg-[#0040a2] transition-colors">
-                  <Plus className="h-3.5 w-3.5" />
-                  Create Project
-                </button>
               </Link>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              {recentProjects.map(project => (
-                <Link key={project.id} href={`/projects/${project.id}`}>
-                  <div className="group bg-white border border-slate-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3 hover:border-slate-300 hover:shadow-sm transition-all duration-150">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-                        <FolderOpen className="h-4 w-4 text-[#0052CC]" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-900 truncate">{project.title}</p>
-                        <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                          <Clock className="h-3 w-3" />
-                          {formatRelative(project.updated_at)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <PhaseBadge status={project.status} />
-                      <ArrowRight className="h-3.5 w-3.5 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                  </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Main Content ─────────────────────────────────────── */}
+      <div className="px-8 pb-12 max-w-[1600px] mx-auto mt-8 space-y-8">
+
+        {/* Action items alert */}
+        {!loading && (stats.pendingReviews > 0 || stats.unreadNotifications > 0) && (
+          <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 rounded-xl shadow-[0_4px_20px_rgba(245,158,11,0.08)]">
+            <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+            <div className="flex items-center gap-2 flex-wrap flex-1">
+              {stats.pendingReviews > 0 && (
+                <Link href="/reviews">
+                  <span className="text-xs font-semibold text-amber-800 hover:text-amber-900 bg-amber-100 px-2.5 py-1 rounded-full transition-colors cursor-pointer">
+                    {stats.pendingReviews} pending review{stats.pendingReviews !== 1 ? 's' : ''}
+                  </span>
                 </Link>
-              ))}
+              )}
+              {stats.unreadNotifications > 0 && (
+                <Link href="/notifications">
+                  <span className="text-xs font-semibold text-blue-800 hover:text-blue-900 bg-blue-100 px-2.5 py-1 rounded-full transition-colors cursor-pointer">
+                    {stats.unreadNotifications} unread notification{stats.unreadNotifications !== 1 ? 's' : ''}
+                  </span>
+                </Link>
+              )}
             </div>
-          )}
-        </div>
-
-        {/* Review Queue */}
-        <div className="lg:col-span-2 space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold font-headline text-slate-900">Review Queue</h2>
-            <Link href="/reviews" className="text-xs text-[#0052CC] hover:underline flex items-center gap-1 font-medium">
-              View all <ArrowRight className="h-3 w-3" />
-            </Link>
           </div>
+        )}
 
-          {loading ? (
-            <div className="space-y-2">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="bg-white border border-slate-200 rounded-xl p-3">
-                  <div className="skeleton h-4 w-36 mb-1.5" />
-                  <div className="skeleton h-3 w-20" />
-                </div>
-              ))}
-            </div>
-          ) : recentReviews.length === 0 ? (
-            <div className="bg-white border border-slate-200 rounded-xl py-10 text-center shadow-sm">
-              <div className="h-8 w-8 mx-auto mb-2 rounded-full bg-emerald-50 flex items-center justify-center">
-                <Activity className="h-4 w-4 text-emerald-600" />
+        <div className="grid grid-cols-12 gap-8">
+
+          {/* ── Current Research Projects ─────────────────── */}
+          <section className="col-span-12 lg:col-span-8">
+            <div className="flex justify-between items-end mb-6">
+              <div>
+                <h3 className="font-headline text-2xl font-extrabold text-slate-900">Current Research Projects</h3>
+                <p className="text-slate-400 text-sm mt-1">Active protocols and recent activity</p>
               </div>
-              <p className="text-sm font-bold text-slate-900 mb-1">All caught up</p>
-              <p className="text-xs text-slate-400">No pending reviews</p>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              {recentReviews.map(review => (
-                <Link key={review.id} href={`/reviews?id=${review.id}`}>
-                  <div className="group bg-white border border-slate-200 rounded-xl px-3 py-2.5 hover:border-slate-300 hover:shadow-sm transition-all duration-150">
-                    <p className="text-sm font-medium text-slate-900 truncate">
-                      {review.document?.title ?? 'Untitled'}
-                    </p>
-                    <div className="flex items-center justify-between mt-1">
-                      <p className="text-xs text-slate-400">
-                        {formatRelative(review.created_at)}
-                      </p>
-                      <PhaseBadge status={review.status} />
-                    </div>
-                  </div>
+              <div className="flex items-center gap-3">
+                <Link href="/projects?new=1">
+                  <button className="inline-flex items-center gap-2 py-2 px-4 rounded-lg bg-gradient-to-r from-[#003d9b] to-[#0052cc] text-white text-sm font-headline font-bold hover:opacity-90 transition-all shadow-[0_4px_20px_rgba(0,82,204,0.22)] active:scale-95">
+                    <Plus className="h-3.5 w-3.5" />
+                    New Project
+                  </button>
                 </Link>
-              ))}
+                <Link href="/projects" className="text-[#0052CC] font-bold text-sm flex items-center gap-1 hover:underline">
+                  View All <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
             </div>
-          )}
+
+            {/* Loading skeletons */}
+            {loading && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="bg-white rounded-2xl p-6 shadow-[0_4px_30px_rgba(0,24,72,0.04)]">
+                    <div className="flex justify-between mb-5">
+                      <div className="w-12 h-12 bg-slate-100 rounded-xl animate-pulse" />
+                      <div className="w-20 h-5 bg-slate-100 rounded-full animate-pulse" />
+                    </div>
+                    <div className="space-y-2 mb-5">
+                      <div className="h-5 w-3/4 bg-slate-100 rounded animate-pulse" />
+                      <div className="h-3.5 w-full bg-slate-50 rounded animate-pulse" />
+                      <div className="h-3.5 w-2/3 bg-slate-50 rounded animate-pulse" />
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-100 rounded-full animate-pulse mb-2" />
+                    <div className="h-3 w-24 bg-slate-50 rounded animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!loading && recentProjects.length === 0 && (
+              <div className="bg-white rounded-2xl py-16 text-center shadow-[0_4px_30px_rgba(0,24,72,0.04)]">
+                <div className="w-14 h-14 mx-auto mb-4 bg-blue-50 rounded-2xl flex items-center justify-center">
+                  <FolderOpen className="h-7 w-7 text-[#0052CC]" />
+                </div>
+                <p className="text-base font-bold text-slate-900 mb-1">No projects yet</p>
+                <p className="text-sm text-slate-400 mb-6">Create your first research project to get started</p>
+                <Link href="/projects?new=1">
+                  <button className="inline-flex items-center gap-2 py-2.5 px-5 rounded-lg bg-gradient-to-r from-[#003d9b] to-[#0052cc] text-white text-sm font-headline font-bold hover:opacity-90 transition-all shadow-[0_4px_20px_rgba(0,82,204,0.22)]">
+                    <Plus className="h-4 w-4" />
+                    Create Project
+                  </button>
+                </Link>
+              </div>
+            )}
+
+            {/* Project cards grid */}
+            {!loading && recentProjects.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {recentProjects.map((project, i) => {
+                  const palette   = PALETTES[i % PALETTES.length]
+                  const Icon      = PROJECT_ICONS[i % PROJECT_ICONS.length]
+                  const progress  = phaseProgress(project)
+                  const phaseLabel = project.phase ? PHASE_LABEL[project.phase] : null
+
+                  return (
+                    <Link key={project.id} href={`/projects/${project.id}`}>
+                      <div className="group bg-white rounded-2xl p-6 shadow-[0_4px_30px_rgba(0,24,72,0.04)] hover:shadow-[0_16px_50px_rgba(0,24,72,0.10)] transition-all duration-300 hover:-translate-y-0.5 cursor-pointer border border-transparent hover:border-blue-100">
+
+                        {/* Card header */}
+                        <div className="flex justify-between items-start mb-5">
+                          <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0', palette.iconBg)}>
+                            <Icon className={cn('h-5 w-5', palette.iconColor)} />
+                          </div>
+                          <span className={cn('text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider flex-shrink-0', STATUS_TAG[project.status] ?? 'bg-slate-100 text-slate-500')}>
+                            {statusLabel(project.status)}
+                          </span>
+                        </div>
+
+                        {/* Title + description */}
+                        <h4 className="font-headline font-bold text-base text-slate-900 mb-1.5 truncate">{project.title}</h4>
+                        {project.description ? (
+                          <p className="text-slate-400 text-xs leading-relaxed mb-5 line-clamp-2">{project.description}</p>
+                        ) : (
+                          <p className="text-slate-300 text-xs italic mb-5">No description added</p>
+                        )}
+
+                        {/* Phase progress bar */}
+                        <div className="space-y-1.5">
+                          {phaseLabel && (
+                            <div className="flex justify-between text-[10px] font-bold uppercase text-slate-400">
+                              <span>Phase: {phaseLabel}</span>
+                              <span>{progress}%</span>
+                            </div>
+                          )}
+                          <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className={cn('h-full rounded-full', palette.bar)}
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between pt-1">
+                            <p className="text-xs text-slate-400 flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {formatRelative(project.updated_at)}
+                            </p>
+                            <ArrowRight className="h-3.5 w-3.5 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+
+          {/* ── Right Panel ───────────────────────────────── */}
+          <section className="col-span-12 lg:col-span-4">
+            <div className="bg-white rounded-2xl p-7 shadow-[0_4px_30px_rgba(0,24,72,0.04)] h-full">
+
+              {/* Review Queue */}
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-headline text-xl font-extrabold text-slate-900">Review Queue</h3>
+                <Link href="/reviews" className="text-[#0052CC] font-bold text-xs flex items-center gap-1 hover:underline">
+                  View All <ArrowRight className="h-3 w-3" />
+                </Link>
+              </div>
+
+              {loading && (
+                <div className="space-y-2.5">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="p-3.5 rounded-xl bg-slate-50">
+                      <div className="h-4 w-36 bg-slate-200 rounded animate-pulse mb-1.5" />
+                      <div className="h-3 w-20 bg-slate-100 rounded animate-pulse" />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {!loading && recentReviews.length === 0 && (
+                <div className="py-10 text-center">
+                  <div className="w-10 h-10 mx-auto mb-3 rounded-full bg-emerald-50 flex items-center justify-center">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                  </div>
+                  <p className="text-sm font-bold text-slate-900 mb-1">All caught up</p>
+                  <p className="text-xs text-slate-400">No pending reviews</p>
+                </div>
+              )}
+
+              {!loading && recentReviews.length > 0 && (
+                <div className="space-y-2">
+                  {recentReviews.map(review => (
+                    <Link key={review.id} href={`/reviews?id=${review.id}`}>
+                      <div className="group flex items-start justify-between p-3.5 rounded-xl bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-slate-900 truncate mb-0.5">
+                            {review.document?.title ?? 'Untitled Document'}
+                          </p>
+                          <p className="text-xs text-slate-400">{formatRelative(review.created_at)}</p>
+                        </div>
+                        <span className={cn('ml-2 flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full', REVIEW_STATUS_COLOR[review.status] ?? 'bg-slate-100 text-slate-500')}>
+                          {statusLabel(review.status)}
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              {/* Quick Access */}
+              <div className="mt-8 pt-6 border-t border-slate-100">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Quick Access</p>
+                <div className="space-y-1.5">
+                  {[
+                    { href: '/projects?new=1', icon: Plus,      iconBg: 'bg-blue-50',   iconColor: 'text-[#0052CC]', label: 'New Project',   sub: 'Start a research protocol'   },
+                    { href: '/projects',       icon: BarChart2,  iconBg: 'bg-violet-50', iconColor: 'text-violet-600', label: 'Run Analysis',  sub: 'Statistical & AI insights'   },
+                    { href: '/reviews',        icon: Users,      iconBg: 'bg-amber-50',  iconColor: 'text-amber-600',  label: 'Peer Reviews',  sub: 'Collaborate with your team'  },
+                  ].map(({ href, icon: Icon, iconBg, iconColor, label, sub }) => (
+                    <Link key={href} href={href}>
+                      <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-all group cursor-pointer">
+                        <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0', iconBg)}>
+                          <Icon className={cn('h-4 w-4', iconColor)} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-700 group-hover:text-[#0052CC] transition-colors leading-none mb-0.5">{label}</p>
+                          <p className="text-[10px] text-slate-400">{sub}</p>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          </section>
         </div>
+
+        {/* ── Bottom Banner ───────────────────────────────── */}
+        <section>
+          <div className="bg-gradient-to-br from-[#001848] to-slate-900 rounded-2xl p-10 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
+
+            {/* Decorative rings */}
+            <div className="absolute right-0 top-0 w-1/2 h-full pointer-events-none overflow-hidden">
+              <div className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/4 w-80 h-80 border border-blue-400/15 rounded-full" />
+              <div className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/4 w-52 h-52 border border-blue-400/20 rounded-full" />
+              <div className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/4 w-28 h-28 bg-blue-600/20 blur-2xl rounded-full" />
+            </div>
+
+            <div className="max-w-lg z-10">
+              <h2 className="text-white font-headline text-3xl font-extrabold mb-3">Empirical Precision Engine</h2>
+              <p className="text-blue-200/60 text-sm leading-relaxed mb-7">
+                PLEXUS runs multi-layer validation across your workspace, ensuring data integrity and research reproducibility at every step of the pipeline.
+              </p>
+              <div className="flex gap-8 items-start">
+                <div>
+                  <p className="text-white font-bold text-2xl leading-none">{loading ? '—' : stats.projects}</p>
+                  <p className="text-blue-400 text-[10px] uppercase font-bold tracking-widest mt-1">Projects</p>
+                </div>
+                <div className="w-px h-8 bg-white/10 self-center" />
+                <div>
+                  <p className="text-white font-bold text-2xl leading-none">{loading ? '—' : stats.documents}</p>
+                  <p className="text-blue-400 text-[10px] uppercase font-bold tracking-widest mt-1">Documents</p>
+                </div>
+                <div className="w-px h-8 bg-white/10 self-center" />
+                <div>
+                  <p className="text-white font-bold text-2xl leading-none">{loading ? '—' : stats.pendingReviews}</p>
+                  <p className="text-blue-400 text-[10px] uppercase font-bold tracking-widest mt-1">In Review</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Decorative mini chart card */}
+            <div className="relative z-10 hidden md:block flex-shrink-0">
+              <div className="bg-white rounded-xl p-4 shadow-2xl rotate-3 hover:rotate-0 transition-transform duration-500">
+                <div className="flex gap-1 mb-2.5">
+                  <div className="w-2 h-2 rounded-full bg-red-400" />
+                  <div className="w-2 h-2 rounded-full bg-amber-400" />
+                  <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                </div>
+                <div className="w-44 h-28 bg-slate-50 rounded border border-slate-100 p-2.5">
+                  <div className="space-y-1.5 mb-3">
+                    <div className="h-1 w-full bg-blue-100 rounded-full" />
+                    <div className="h-1 w-2/3 bg-blue-100 rounded-full" />
+                    <div className="h-1 w-1/2 bg-blue-100 rounded-full" />
+                  </div>
+                  <div className="flex items-end gap-1.5 justify-end">
+                    <div className="w-3 h-5  bg-[#003d9b] rounded-t-sm opacity-40" />
+                    <div className="w-3 h-8  bg-[#003d9b] rounded-t-sm opacity-60" />
+                    <div className="w-3 h-6  bg-[#003d9b] rounded-t-sm opacity-70" />
+                    <div className="w-3 h-10 bg-[#003d9b] rounded-t-sm opacity-90" />
+                    <div className="w-3 h-7  bg-[#0052cc] rounded-t-sm" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
       </div>
     </div>
   )
