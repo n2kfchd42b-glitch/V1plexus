@@ -73,11 +73,14 @@ export function AnalysisRunCard({ run, projectId, onDelete, viewMode = 'grid' }:
   return (
     <div className="group relative">
       <Link href={`/projects/${projectId}/analysis/${run.id}`}>
-        <div className="bg-white border border-[#E4E4E7] rounded-lg transition-all duration-150 hover:shadow-[0_4px_16px_rgba(0,82,204,0.07)] cursor-pointer h-full">
-          <div className="p-4">
+        <div
+          className="bg-white rounded-2xl transition-all duration-200 hover:-translate-y-0.5 cursor-pointer h-full"
+          style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}
+        >
+          <div className="p-5">
             {/* Header */}
             <div className="flex items-start justify-between mb-3">
-              <div className={`rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-widest ${status.badgeClass}`}>
+              <div className={`rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] ${status.badgeClass}`}>
                 {status.label}
               </div>
               <StatusIcon className={`h-4 w-4 shrink-0 ${status.iconClass} ${run.status === 'running' ? 'animate-spin' : ''}`} />
@@ -95,18 +98,18 @@ export function AnalysisRunCard({ run, projectId, onDelete, viewMode = 'grid' }:
             {keyPairs.length > 0 && run.status === 'completed' && (
               <div className="mt-3 grid grid-cols-2 gap-1.5">
                 {keyPairs.map(([key, val]) => (
-                  <div key={key} className="bg-[#F0F0F0] rounded-md px-2 py-1.5">
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-[#A1A1AA] truncate">
+                  <div key={key} className="bg-[#f2f4f6] rounded-xl px-3 py-2">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-[#A1A1AA] truncate font-manrope">
                       {formatKey(key)}
                     </p>
-                    <p className="text-xs font-manrope font-bold text-[#18181B] truncate">{String(val)}</p>
+                    <p className="text-xs font-manrope font-bold text-[#18181B] truncate mt-0.5">{String(val)}</p>
                   </div>
                 ))}
               </div>
             )}
 
             {/* Footer */}
-            <div className="flex items-center justify-between mt-4 pt-3 border-t border-[#F0F0F0]">
+            <div className="flex items-center justify-between mt-4 pt-3 border-t border-[#f2f4f6]">
               <div className="flex items-center gap-3 min-w-0">
                 {run.dataset && (
                   <span className="flex items-center gap-1 text-xs text-[#A1A1AA] truncate">
@@ -147,7 +150,7 @@ function ListCard({ run, projectId, info, status, StatusIcon, keyPairs, onDelete
   return (
     <div className="group relative">
       <Link href={`/projects/${projectId}/analysis/${run.id}`}>
-        <div className="bg-white border border-[#E4E4E7] rounded-lg transition-all duration-150 hover:shadow-[0_4px_12px_rgba(0,82,204,0.06)] cursor-pointer">
+        <div className="bg-white rounded-2xl transition-all duration-200 hover:-translate-y-0.5 cursor-pointer" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}>
           <div className="flex items-center gap-4 p-4">
             <StatusIcon className={`h-4 w-4 shrink-0 ${status.iconClass} ${run.status === 'running' ? 'animate-spin' : ''}`} />
 
