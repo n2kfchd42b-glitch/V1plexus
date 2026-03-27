@@ -93,12 +93,12 @@ export function AnalysisHub({ projectId }: Props) {
       <div className="space-y-6">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-24 rounded-lg bg-white border border-[#E4E4E7] animate-pulse" />
+            <div key={i} className="h-28 rounded-2xl bg-white animate-pulse" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }} />
           ))}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-44 rounded-lg bg-white border border-[#E4E4E7] animate-pulse" />
+            <div key={i} className="h-44 rounded-2xl bg-white animate-pulse" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }} />
           ))}
         </div>
       </div>
@@ -124,9 +124,9 @@ export function AnalysisHub({ projectId }: Props) {
       {/* Recent Completed */}
       {recentCompleted.length > 0 && (
         <div>
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="h-4 w-4 text-[#0052CC]" />
-            <h3 className="font-manrope font-bold text-sm text-[#18181B]">Recent Results</h3>
+          <div className="flex items-center gap-2.5 mb-4">
+            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope">Recent Results</span>
+            <span className="w-1 h-1 bg-[#c3c6d6] rounded-full inline-block" />
             <span className="text-xs text-[#A1A1AA]">Latest completed analyses</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -139,7 +139,7 @@ export function AnalysisHub({ projectId }: Props) {
 
       {/* Filter Bar */}
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2 flex-1">
+        <div className="flex items-center gap-3 flex-1">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#A1A1AA]" />
             <input
@@ -147,18 +147,18 @@ export function AnalysisHub({ projectId }: Props) {
               placeholder="Search analyses..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-4 py-2 text-sm rounded-lg border border-[#E4E4E7] bg-white text-[#18181B] placeholder:text-[#A1A1AA] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/20 focus:border-[#3B82F6] transition-all duration-150"
+              className="w-full pl-9 pr-4 py-2 text-sm rounded-lg bg-[#f2f4f6] border border-[rgba(195,198,214,0.3)] text-[#18181B] placeholder:text-[#A1A1AA] outline-none focus:border-[rgba(0,82,204,0.4)] focus:shadow-[0_0_0_3px_rgba(0,82,204,0.08)] transition-all"
             />
           </div>
-          <div className="flex items-center gap-0.5 bg-white border border-[#E4E4E7] rounded-lg p-1">
+          <div className="flex items-center gap-1 bg-[#f2f4f6] rounded-[10px] p-1">
             {(['all', 'completed', 'running', 'failed'] as FilterStatus[]).map(status => (
               <button
                 key={status}
                 onClick={() => setFilterStatus(status)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-150 ${
+                className={`px-3 py-1.5 text-[11px] font-bold rounded-lg uppercase tracking-[0.06em] transition-all ${
                   filterStatus === status
-                    ? 'bg-[#0052CC] text-white'
-                    : 'text-[#52525B] hover:text-[#18181B] hover:bg-[#F5F5F5]'
+                    ? 'bg-white text-[#003d9b] shadow-[0_2px_8px_rgba(0,24,72,0.08)]'
+                    : 'text-[#52525B] hover:text-[#003d9b]'
                 }`}
               >
                 {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
@@ -166,16 +166,16 @@ export function AnalysisHub({ projectId }: Props) {
             ))}
           </div>
         </div>
-        <div className="flex items-center bg-white border border-[#E4E4E7] rounded-lg p-0.5">
+        <div className="flex items-center gap-1 bg-[#f2f4f6] rounded-[10px] p-1">
           <button
             onClick={() => setViewMode('grid')}
-            className={`p-1.5 rounded transition-colors duration-150 ${viewMode === 'grid' ? 'bg-[#F0F0F0] text-[#18181B]' : 'text-[#A1A1AA] hover:text-[#18181B]'}`}
+            className={`p-1.5 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-white text-[#003d9b] shadow-[0_2px_8px_rgba(0,24,72,0.08)]' : 'text-[#A1A1AA] hover:text-[#18181B]'}`}
           >
             <LayoutGrid className="h-4 w-4" />
           </button>
           <button
             onClick={() => setViewMode('list')}
-            className={`p-1.5 rounded transition-colors duration-150 ${viewMode === 'list' ? 'bg-[#F0F0F0] text-[#18181B]' : 'text-[#A1A1AA] hover:text-[#18181B]'}`}
+            className={`p-1.5 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-white text-[#003d9b] shadow-[0_2px_8px_rgba(0,24,72,0.08)]' : 'text-[#A1A1AA] hover:text-[#18181B]'}`}
           >
             <List className="h-4 w-4" />
           </button>
@@ -242,14 +242,17 @@ function StatCard({ icon, label, value, accent, subtitle }: {
   const iconBg = accent ? (iconBgMap[accent] ?? 'bg-[#EFF6FF] text-[#3B82F6]') : 'bg-[#EFF6FF] text-[#3B82F6]'
 
   return (
-    <div className="bg-white border border-[#E4E4E7] rounded-lg p-4 transition-all duration-150 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] cursor-default">
+    <div
+      className="bg-white rounded-2xl px-6 py-5 transition-all duration-200 hover:-translate-y-0.5 cursor-default"
+      style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}
+    >
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#A1A1AA] mb-1">{label}</p>
-          <p className={`text-2xl font-manrope font-extrabold tracking-tight ${accentColor}`}>{value}</p>
-          {subtitle && <p className="text-xs text-[#A1A1AA] mt-0.5">{subtitle}</p>}
+          <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#A1A1AA] mb-2 font-manrope">{label}</p>
+          <p className={`text-[1.75rem] font-manrope font-extrabold leading-none tracking-tight ${accentColor}`}>{value}</p>
+          {subtitle && <p className="text-[10px] text-[#A1A1AA] mt-1.5 font-medium">{subtitle}</p>}
         </div>
-        <div className={`rounded-lg p-2 ${iconBg}`}>
+        <div className={`rounded-xl p-2.5 ${iconBg}`}>
           {icon}
         </div>
       </div>
@@ -266,10 +269,13 @@ function RecentHighlightCard({ run, projectId }: { run: AnalysisRun; projectId: 
 
   return (
     <Link href={`/projects/${projectId}/analysis/${run.id}`}>
-      <div className="group bg-white border border-[#E4E4E7] rounded-lg p-4 transition-all duration-150 hover:shadow-[0_4px_16px_rgba(0,82,204,0.07)] cursor-pointer">
-        <div className="flex items-center gap-2 mb-2">
+      <div
+        className="group bg-white rounded-2xl p-5 transition-all duration-200 hover:-translate-y-0.5 cursor-pointer"
+        style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}
+      >
+        <div className="flex items-center gap-2 mb-2.5">
           <CheckCircle2 className="h-3.5 w-3.5 text-[#22C55E]" />
-          <span className="text-[10px] font-bold uppercase tracking-widest text-[#166534]">Completed</span>
+          <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#166534] font-manrope">Completed</span>
         </div>
         <h4 className="font-manrope font-bold text-sm text-[#18181B] truncate group-hover:text-[#0052CC] transition-colors duration-150">
           {run.title ?? run.analysis_type}
@@ -282,9 +288,9 @@ function RecentHighlightCard({ run, projectId }: { run: AnalysisRun; projectId: 
         {keyPairs.length > 0 && (
           <div className="mt-3 grid grid-cols-2 gap-2">
             {keyPairs.map(([key, val]) => (
-              <div key={key} className="bg-[#F0F0F0] rounded-md px-2.5 py-1.5">
-                <p className="text-[9px] font-bold uppercase tracking-wider text-[#A1A1AA] truncate">{formatKey(key)}</p>
-                <p className="text-sm font-manrope font-bold text-[#18181B] truncate">{String(val)}</p>
+              <div key={key} className="bg-[#f2f4f6] rounded-xl px-3 py-2">
+                <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-[#A1A1AA] truncate font-manrope">{formatKey(key)}</p>
+                <p className="text-sm font-manrope font-bold text-[#18181B] truncate mt-0.5">{String(val)}</p>
               </div>
             ))}
           </div>
@@ -297,8 +303,8 @@ function RecentHighlightCard({ run, projectId }: { run: AnalysisRun; projectId: 
 // ── Empty State ────────────────────────────────────────────
 function EmptyState({ projectId }: { projectId: string }) {
   return (
-    <div className="text-center py-16 bg-white border border-[#E4E4E7] rounded-lg">
-      <div className="mx-auto w-12 h-12 rounded-lg bg-[#EFF6FF] flex items-center justify-center mb-4">
+    <div className="text-center py-16 bg-white rounded-2xl" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}>
+      <div className="mx-auto w-12 h-12 rounded-xl bg-[#EFF6FF] flex items-center justify-center mb-4">
         <BarChart2 className="h-6 w-6 text-[#3B82F6]" />
       </div>
       <h3 className="font-manrope font-bold text-base text-[#18181B]">No analyses yet</h3>

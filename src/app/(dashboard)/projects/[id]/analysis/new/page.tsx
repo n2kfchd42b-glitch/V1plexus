@@ -213,49 +213,60 @@ export default function NewAnalysisPage() {
   const stepIndex = STEPS.findIndex(s => s.id === step)
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Back link */}
-      <Link href={`/projects/${projectId}/analysis`}>
-        <Button variant="ghost" size="sm" className="mb-4 h-7 text-xs -ml-2">
-          <ArrowLeft className="h-3.5 w-3.5 mr-1" />
-          Analysis Hub
-        </Button>
-      </Link>
-
-      <h1 className="text-xl font-bold mb-5">New Analysis</h1>
-
-      {/* Stepper */}
-      <div className="flex items-center gap-2 mb-7 text-sm">
-        {STEPS.map((s, i) => (
-          <div key={s.id} className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                if (i < stepIndex) setStep(s.id)
-              }}
-              disabled={i > stepIndex}
-              className={`flex items-center gap-1.5 font-medium transition-colors ${
-                step === s.id
-                  ? 'text-[var(--text-primary)]'
-                  : i < stepIndex
-                  ? 'text-blue-600 hover:underline cursor-pointer'
-                  : 'text-[var(--text-tertiary)] cursor-default'
-              }`}
-            >
-              <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs ${
-                step === s.id
-                  ? 'bg-blue-600 text-white'
-                  : i < stepIndex
-                  ? 'bg-green-500 text-white'
-                  : 'bg-[var(--bg-inset)] text-[var(--text-tertiary)]'
-              }`}>
-                {i < stepIndex ? '✓' : i + 1}
-              </span>
-              {s.label}
+    <div className="min-h-screen bg-[#f7f9fb]">
+      {/* Page header */}
+      <div className="bg-[#f7f9fb] px-8 pt-7 pb-6">
+        <div className="max-w-7xl mx-auto">
+          <Link href={`/projects/${projectId}/analysis`}>
+            <button className="flex items-center gap-1.5 text-[#A1A1AA] hover:text-[#18181B] transition-colors mb-5 text-xs font-medium">
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Analysis Hub
             </button>
-            {i < STEPS.length - 1 && <ChevronRight className="h-4 w-4 text-[var(--text-tertiary)]" />}
+          </Link>
+
+          <div className="flex items-end justify-between gap-6 flex-wrap mb-6">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope block mb-2">
+                Analysis Engine
+              </span>
+              <h1 className="font-manrope font-extrabold text-[2rem] leading-tight tracking-tight text-[#18181B]">
+                New <span className="text-[#0052cc]">Analysis</span>
+              </h1>
+            </div>
           </div>
-        ))}
+
+          {/* Stepper */}
+          <div className="flex items-center gap-1 bg-[#f2f4f6] rounded-[10px] p-1 w-fit">
+            {STEPS.map((s, i) => (
+              <button
+                key={s.id}
+                onClick={() => { if (i < stepIndex) setStep(s.id) }}
+                disabled={i > stepIndex}
+                className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.06em] transition-all ${
+                  step === s.id
+                    ? 'bg-white text-[#003d9b] shadow-[0_2px_8px_rgba(0,24,72,0.08)]'
+                    : i < stepIndex
+                    ? 'text-[#166534] hover:text-[#003d9b] cursor-pointer'
+                    : 'text-[#A1A1AA] cursor-default'
+                }`}
+              >
+                <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold flex-shrink-0 ${
+                  step === s.id
+                    ? 'bg-[#003d9b] text-white'
+                    : i < stepIndex
+                    ? 'bg-[#22C55E] text-white'
+                    : 'bg-[#e0e3e5] text-[#A1A1AA]'
+                }`}>
+                  {i < stepIndex ? '✓' : i + 1}
+                </span>
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
+
+      <div className="max-w-7xl mx-auto px-8 pb-10">
 
       {/* ── Step 1: Dataset selection ─────────────────────────── */}
       {step === 'dataset' && (
@@ -343,23 +354,26 @@ export default function NewAnalysisPage() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Left panel */}
           <div className="lg:col-span-2">
-            <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 sticky top-6">
+            <div
+              className="bg-white rounded-2xl p-6 sticky top-6"
+              style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}
+            >
               {/* Header */}
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center gap-2 mb-5">
                 <button
                   onClick={() => setStep('type')}
-                  className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                  className="text-xs text-[#A1A1AA] hover:text-[#0052cc] transition-colors font-medium"
                 >
                   ← Change analysis
                 </button>
-                <span className="text-[var(--text-tertiary)]">|</span>
-                <span className="text-sm font-semibold text-[var(--text-primary)]">{typeInfo?.label}</span>
+                <span className="text-[#e0e3e5]">|</span>
+                <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope">{typeInfo?.label}</span>
               </div>
 
-              {/* Dataset — shown as read-only info, with option to change */}
+              {/* Dataset */}
               {needsData && (
-                <div className="mb-4">
-                  <p className="text-xs font-medium text-[var(--text-tertiary)] uppercase tracking-wide mb-2">Dataset</p>
+                <div className="mb-5">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#A1A1AA] font-manrope mb-2">Dataset</p>
                   <ProjectDatasetSelector
                     projectId={projectId}
                     onData={handleData}
@@ -369,14 +383,14 @@ export default function NewAnalysisPage() {
                     fileName={fileName}
                   />
                   {data.length > 0 && (
-                    <p className="text-xs text-[var(--text-tertiary)] mt-1">{columns.length} columns available</p>
+                    <p className="text-xs text-[#A1A1AA] mt-1.5">{columns.length} columns available</p>
                   )}
                 </div>
               )}
 
               {/* Config */}
-              <div className="border-t border-[var(--border-default)] pt-4">
-                <p className="text-xs font-medium text-[var(--text-tertiary)] uppercase tracking-wide mb-3">Configuration</p>
+              <div className="border-t border-[#f2f4f6] pt-5">
+                <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#A1A1AA] font-manrope mb-3">Configuration</p>
                 <ConfigComponent
                   type={selectedType}
                   config={config}
@@ -401,11 +415,14 @@ export default function NewAnalysisPage() {
                 isSaved={!!savedRunId}
               />
             ) : (
-              <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-inset)]/40 h-full min-h-[300px] flex items-center justify-center">
+              <div
+                className="bg-white rounded-2xl h-full min-h-[300px] flex items-center justify-center"
+                style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}
+              >
                 <div className="text-center px-6">
                   <div className="text-5xl mb-3">📊</div>
-                  <p className="text-sm font-medium text-[var(--text-primary)]">Results will appear here</p>
-                  <p className="text-xs text-[var(--text-tertiary)] mt-1">
+                  <p className="text-sm font-manrope font-bold text-[#18181B]">Results will appear here</p>
+                  <p className="text-xs text-[#A1A1AA] mt-1.5">
                     {needsData && data.length === 0
                       ? 'Load a dataset and configure the analysis, then click Run'
                       : 'Configure the analysis above and click Run'}
@@ -416,6 +433,7 @@ export default function NewAnalysisPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

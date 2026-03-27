@@ -158,18 +158,6 @@ export function ResultsPanel({ result, analysisType, title, datasetName, onSave,
             )}
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-3 mt-5">
-            <ResultsActions onSave={onSave} saved={isSaved} />
-            <button
-              onClick={() => exportToWord(result, exportTitle)}
-              className="inline-flex items-center gap-2 text-xs font-medium text-[#52525B] hover:text-[#18181B] border border-[rgba(195,198,214,0.4)] rounded-lg px-4 py-2 hover:bg-[#f2f4f6] transition-all bg-white"
-              style={{ boxShadow: '0 8px 24px rgba(0,24,72,0.05)' }}
-            >
-              <FileText className="h-3.5 w-3.5" />
-              Export to Word
-            </button>
-          </div>
         </div>
       )}
 
@@ -223,6 +211,19 @@ export function ResultsPanel({ result, analysisType, title, datasetName, onSave,
           )}
         </div>
       )}
+
+      {/* ── Persistent action footer (always visible) ────────────────── */}
+      <div className="flex items-center gap-3 mt-5 pt-5 border-t border-[#f2f4f6]">
+        <ResultsActions onSave={onSave} saved={isSaved} />
+        <button
+          onClick={() => exportToWord(result, exportTitle)}
+          className="inline-flex items-center gap-2 text-xs font-medium text-[#52525B] hover:text-[#18181B] border border-[rgba(195,198,214,0.4)] rounded-lg px-4 py-2 hover:bg-[#f2f4f6] transition-all bg-white"
+          style={{ boxShadow: '0 8px 24px rgba(0,24,72,0.05)' }}
+        >
+          <FileText className="h-3.5 w-3.5" />
+          Export to Word
+        </button>
+      </div>
     </div>
   )
 }
