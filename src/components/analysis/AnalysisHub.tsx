@@ -404,30 +404,17 @@ export function AnalysisHub({ projectId }: Props) {
                     )}
 
                     {/* Key Findings */}
-                    {latestResult?.summary && (() => {
-                      const summary = latestResult.summary as Record<string, unknown>
-                      // Priority keys to display — covers most analysis types
-                      const PRIORITY = ['n','sampleSize','mean','median','sd','standardDeviation','r2','rSquared','pValue','p','auc','f','chiSquare','correlation','hr','or','irr','beta','incidenceRate']
-                      const picked: [string, unknown][] = []
-                      // First pass: priority keys
-                      for (const k of PRIORITY) {
-                        const found = Object.entries(summary).find(([key]) => key.toLowerCase() === k.toLowerCase() && key !== 'error')
-                        if (found && picked.length < 4) picked.push(found)
-                      }
-                      // Fill remaining slots with any other non-error keys
-                      for (const [k, v] of Object.entries(summary)) {
-                        if (k === 'error') continue
-                        if (!picked.find(([pk]) => pk === k) && picked.length < 4) picked.push([k, v])
-                      }
-                      if (picked.length === 0) return null
+                    {latestResult && latestCompleted && (() => {
+                      const findings = getKeyFindings(latestResult, latestCompleted.analysis_type)
+                      if (findings.length === 0) return null
                       return (
                         <div className="mt-4 bg-white rounded-2xl p-5" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}>
                           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#0040a2] font-manrope mb-4">Key Findings</p>
                           <div className="grid grid-cols-4 gap-3">
-                            {picked.map(([key, val]) => (
-                              <div key={key} className="bg-[#f7f9fb] rounded-xl px-4 py-3">
-                                <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-[#A1A1AA] truncate font-manrope mb-1">{formatKey(key)}</p>
-                                <p className="font-manrope font-extrabold text-lg text-[#18181B] leading-none truncate">{String(val)}</p>
+                            {findings.map(({ label, value }) => (
+                              <div key={label} className="bg-[#f7f9fb] rounded-xl px-4 py-3">
+                                <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-[#A1A1AA] truncate font-manrope mb-1">{label}</p>
+                                <p className="font-manrope font-extrabold text-lg text-[#18181B] leading-none truncate">{value}</p>
                               </div>
                             ))}
                           </div>
@@ -463,51 +450,63 @@ export function AnalysisHub({ projectId }: Props) {
               </div>
 
               {/* ── Right: Stat cards ────────────────── */}
-              <div className="flex flex-col gap-4">
-                {/* Total */}
+              <div className="flex flex-col gap-3">
+                {/* Total — gradient hero */}
                 <div
-                  className="rounded-2xl p-6 flex flex-col justify-between flex-1"
+                  className="rounded-2xl p-6 relative overflow-hidden"
                   style={{
                     background: 'linear-gradient(135deg, #001a5c 0%, #003d9b 60%, #0052cc 100%)',
                     boxShadow: '0 20px 50px rgba(0,24,72,0.12)',
                   }}
                 >
+                  <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full opacity-[0.07]"
+                    style={{ background: 'radial-gradient(circle, #fff, transparent)' }} />
                   <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/40 font-manrope">Total Analyses</p>
-                  <p className="font-manrope font-extrabold text-[2.5rem] leading-none tracking-tight text-white mt-2">
+                  <p className="font-manrope font-extrabold text-[2.25rem] leading-none tracking-tight text-white mt-2">
                     {stats.total}
                   </p>
-                  <p className="text-white/40 text-[10px] font-medium mt-1">{stats.total === 1 ? 'run recorded' : 'runs recorded'}</p>
+                  <div className="mt-3 pt-3 border-t border-white/10">
+                    <p className="text-[10px] text-white/40 font-medium">
+                      {stats.completed} completed · {stats.failed} failed
+                    </p>
+                  </div>
                 </div>
 
                 {/* Completed */}
                 <div
-                  className="rounded-2xl px-5 py-4 flex items-center justify-between bg-white flex-1"
+                  className="rounded-2xl px-5 py-4 bg-white"
                   style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}
                 >
-                  <div>
+                  <div className="flex items-center justify-between">
                     <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#A1A1AA] font-manrope">Completed</p>
-                    <p className="font-manrope font-extrabold text-[1.75rem] leading-none tracking-tight text-[#166534] mt-1">{stats.completed}</p>
-                    {stats.total > 0 && (
-                      <p className="text-[10px] text-[#A1A1AA] mt-1">{Math.round((stats.completed / stats.total) * 100)}% success</p>
-                    )}
+                    <div className="w-7 h-7 rounded-xl bg-[#F0FDF4] flex items-center justify-center">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-[#22C55E]" />
+                    </div>
                   </div>
-                  <div className="w-8 h-8 rounded-xl bg-[#F0FDF4] flex items-center justify-center">
-                    <CheckCircle2 className="h-4 w-4 text-[#22C55E]" />
-                  </div>
+                  <p className="font-manrope font-extrabold text-[1.5rem] leading-none tracking-tight text-[#166534] mt-2">{stats.completed}</p>
+                  <p className="text-[10px] text-[#A1A1AA] mt-1.5">
+                    {stats.total > 0
+                      ? `${Math.round((stats.completed / stats.total) * 100)}% success rate`
+                      : 'No runs yet'}
+                    {latestCompleted && ` · last ${formatRelative(latestCompleted.created_at)}`}
+                  </p>
                 </div>
 
                 {/* Failed */}
                 <div
-                  className="rounded-2xl px-5 py-4 flex items-center justify-between bg-white flex-1"
+                  className="rounded-2xl px-5 py-4 bg-white"
                   style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}
                 >
-                  <div>
+                  <div className="flex items-center justify-between">
                     <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#A1A1AA] font-manrope">Failed</p>
-                    <p className="font-manrope font-extrabold text-[1.75rem] leading-none tracking-tight text-[#991B1B] mt-1">{stats.failed}</p>
+                    <div className="w-7 h-7 rounded-xl bg-[#FEF2F2] flex items-center justify-center">
+                      <AlertCircle className="h-3.5 w-3.5 text-[#EF4444]" />
+                    </div>
                   </div>
-                  <div className="w-8 h-8 rounded-xl bg-[#FEF2F2] flex items-center justify-center">
-                    <AlertCircle className="h-4 w-4 text-[#EF4444]" />
-                  </div>
+                  <p className="font-manrope font-extrabold text-[1.5rem] leading-none tracking-tight text-[#991B1B] mt-2">{stats.failed}</p>
+                  <p className="text-[10px] text-[#A1A1AA] mt-1.5">
+                    {stats.failed === 0 ? 'All analyses passed' : `${stats.failed} run${stats.failed > 1 ? 's' : ''} need review`}
+                  </p>
                 </div>
               </div>
             </div>
@@ -801,6 +800,203 @@ function EmptyState({ onNew }: { onNew: () => void }) {
       </button>
     </div>
   )
+}
+
+// ── Per-analysis-type key findings ─────────────────────
+type Finding = { label: string; value: string }
+
+function getKeyFindings(result: AnalysisResult, analysisType: string): Finding[] {
+  const s = result.summary as Record<string, unknown>
+  const tables = result.tables ?? []
+
+  const get = (key: string): string | null =>
+    s[key] !== undefined && s[key] !== null && s[key] !== '' ? String(s[key]) : null
+
+  // Look up a value in a table row by header keyword
+  const fromTable = (tableId: string, headerKw: string, rowIdx = 0): string | null => {
+    const t = tables.find(t => t.id === tableId || t.title?.toLowerCase().includes(tableId))
+    if (!t || !t.rows[rowIdx]) return null
+    const colIdx = t.headers.findIndex(h => h.toLowerCase().includes(headerKw.toLowerCase()))
+    if (colIdx < 0) return null
+    const v = t.rows[rowIdx][colIdx]
+    return v !== null && v !== undefined ? String(v) : null
+  }
+
+  const findings: Finding[] = []
+  const add = (label: string, value: string | null) => {
+    if (value !== null && findings.length < 4) findings.push({ label, value })
+  }
+
+  switch (analysisType) {
+    case 'descriptive': {
+      // Pull directly from numeric_summary table: [Variable, N, Missing, Mean, SD, Median, ...]
+      const t = tables.find(t => t.id === 'numeric_summary')
+      if (t && t.rows.length > 0) {
+        const r = t.rows[0]
+        add('Variable', r[0] !== null ? String(r[0]) : null)
+        add('N',        r[1] !== null ? String(r[1]) : null)
+        add('Mean',     r[3] !== null ? String(r[3]) : null)
+        add('Std Dev',  r[4] !== null ? String(r[4]) : null)
+      } else {
+        // Categorical only — pull from categorical_summary: [Variable, N, Missing, Unique, Mode, Mode%]
+        const ct = tables.find(t => t.id === 'categorical_summary')
+        if (ct && ct.rows.length > 0) {
+          const r = ct.rows[0]
+          add('Variable', r[0] !== null ? String(r[0]) : null)
+          add('N',        r[1] !== null ? String(r[1]) : null)
+          add('Unique',   r[3] !== null ? String(r[3]) : null)
+          add('Mode',     r[4] !== null ? String(r[4]) : null)
+        } else {
+          add('N', get('n')); add('Numeric Vars', get('numericVars')); add('Cat Vars', get('catVars'))
+        }
+      }
+      break
+    }
+
+    case 'frequency': {
+      add('N', get('n'))
+      add('Variable', get('variable'))
+      add('Categories', get('categories'))
+      // Most frequent value from first table
+      const ft = tables[0]
+      if (ft && ft.rows.length > 0) {
+        const topRow = ft.rows.reduce((best, row) => Number(row[1]) > Number(best[1] ?? 0) ? row : best, ft.rows[0])
+        if (topRow[0] !== null) add('Mode', String(topRow[0]))
+      }
+      break
+    }
+
+    case 'chi_square':
+      add('N', get('n')); add('χ²', get('chiSq') ?? get('chi2'))
+      add('p-value', get('pValue')); add("Cramér's V", get('cramersV') ?? get('v'))
+      break
+
+    case 't_test': {
+      // t_test summary only has testType + variable; pull from table
+      const tt = tables[0]
+      if (tt) {
+        const hi = (kw: string) => tt.headers.findIndex(h => h.toLowerCase().includes(kw))
+        const nIdx = hi('n'); const meanIdx = hi('mean'); const tIdx = hi('t'); const pIdx = hi('p')
+        const dIdx = hi('cohen')
+        const r = tt.rows[0]
+        if (r) {
+          if (nIdx >= 0)    add('N',         String(r[nIdx]))
+          if (meanIdx >= 0) add('Mean',      String(r[meanIdx]))
+          if (tIdx >= 0)    add('t',         String(r[tIdx]))
+          if (pIdx >= 0)    add('p-value',   String(r[pIdx]))
+          if (dIdx >= 0 && findings.length < 4) add("Cohen's d", String(r[dIdx]))
+        }
+      }
+      if (findings.length === 0) { add('Test', get('testType')); add('Variable', get('variable')) }
+      break
+    }
+
+    case 'anova':
+      add('N', get('n')); add('F', get('fStat'))
+      add('p-value', get('pValue')); add('η²', get('etaSq') ?? get('etaSquared'))
+      break
+
+    case 'correlation': {
+      add('Variables', get('variables')); add('Method', get('method'))
+      // First correlation value from table
+      const ct = tables[0]
+      if (ct && ct.rows.length > 0 && ct.rows[0].length >= 2) {
+        const rVal = ct.rows[0][1]
+        if (rVal !== null) add('r', String(rVal))
+        const pRow = ct.rows.find(row => String(row[0]).toLowerCase().includes('p-val'))
+        if (pRow && pRow[1] !== null) add('p-value', String(pRow[1]))
+      }
+      break
+    }
+
+    case 'simple_regression':
+      add('N', get('n')); add('R²', get('r2') ?? get('rSquared'))
+      add('p-value', get('pValue'))
+      // Get β (slope) from coefficients table, row 1 (predictor)
+      add('β', fromTable('coefficients', 'estimate', 1) ?? fromTable('coeff', 'b', 1))
+      break
+
+    case 'multiple_regression':
+      add('N', get('n')); add('R²', get('r2') ?? get('rSquared'))
+      add('Adj R²', get('adjR2') ?? get('adjustedR2')); add('p-value', get('pValue'))
+      break
+
+    case 'logistic_regression':
+      add('N', get('n')); add('Events', get('events'))
+      add('AUC', get('auc')); add('Nagelkerke R²', get('nagelkerkeR2'))
+      break
+
+    case 'multinomial_regression':
+    case 'ordinal_regression':
+      add('N', get('n')); add('AIC', get('aic'))
+      add('p-value', get('pValue')); add('Pseudo R²', get('pseudoR2') ?? get('mcfadden'))
+      break
+
+    case 'poisson_regression':
+    case 'negbinomial_regression':
+      add('N', get('n')); add('AIC', get('aic'))
+      add('Deviance', get('deviance')); add('p-value', get('pValue'))
+      break
+
+    case 'kaplan_meier':
+      add('N Total', get('n')); add('Events', get('events'))
+      add('Groups', get('groups')); add('Log-rank p', get('logRankP'))
+      break
+
+    case 'cox_regression':
+      add('N', get('n')); add('Events', get('events'))
+      add('C-statistic', get('concordance')); add('LR p-value', get('lrP'))
+      break
+
+    case 'time_series':
+      add('N', get('n')); add('Time Points', get('timePoints'))
+      add('Classifications', get('classifications'))
+      // Try AIC from table
+      const tst = tables.find(t => t.title?.toLowerCase().includes('fit') || t.title?.toLowerCase().includes('model'))
+      if (tst) {
+        const aicRow = tst.rows.find(r => String(r[0]).toLowerCase().includes('aic'))
+        if (aicRow && aicRow[1] !== null) add('AIC', String(aicRow[1]))
+      }
+      break
+
+    case 'pca':
+      add('N', get('n')); add('Components', get('nComp') ?? get('p'))
+      add('PC1 Var %', get('varExplained1')); add('PC2 Var %', get('varExplained2'))
+      break
+
+    case 'factor_analysis':
+      add('N', get('n')); add('Factors', get('nFactors') ?? get('factors'))
+      add('KMO', get('kmo')); add('Total Var %', get('variance') ?? get('totalVariance'))
+      break
+
+    case 'cluster_analysis':
+      add('N', get('n')); add('Clusters', get('nClusters') ?? get('k'))
+      add('Silhouette', get('avgSilhouette') ?? get('silhouette')); add('WCSS', get('wcss'))
+      break
+
+    case 'meta_analysis':
+      add('Studies', get('k')); add('Effect Size', get('summaryES'))
+      add('I²', get('I2') ?? get('i2')); add('p-value', get('pValue'))
+      break
+
+    case 'spatial_analysis':
+    case 'outbreak_investigation':
+      add('N', get('n')); add('Mean', get('mean'))
+      add('SD', get('sd')); add('p-value', get('pValue'))
+      break
+
+    case 'sample_size':
+      add('Design', get('design')); add('N per Group', get('nPerGroup'))
+      add('Total N', get('totalN') ?? get('finalN')); add('Power', get('power'))
+      break
+
+    default: {
+      const keys = Object.keys(s).filter(k => k !== 'error').slice(0, 4)
+      for (const k of keys) add(formatKey(k), get(k))
+    }
+  }
+
+  return findings
 }
 
 function formatKey(key: string): string {
