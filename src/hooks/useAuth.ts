@@ -43,13 +43,18 @@ export function useAuth() {
     // same auth lock and trigger the Supabase 5 s lock warning in
     // React Strict Mode.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_, session) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        await fetchProfile(session.user)
-      } else {
-        setProfile(null)
+      try {
+        setUser(session?.user ?? null)
+        if (session?.user) {
+          await fetchProfile(session.user)
+        } else {
+          setProfile(null)
+        }
+      } catch (e) {
+        console.error('[useAuth] onAuthStateChange error:', e)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     })
 
     return () => subscription.unsubscribe()
