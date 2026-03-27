@@ -69,12 +69,12 @@ function ChartRenderer({ chart, index }: { chart: ChartSpec; index: number }) {
   const { type, title, data, config } = chart
 
   return (
-    <div className={`group relative rounded-2xl border bg-white overflow-hidden transition-all ${expanded ? 'shadow-2xl shadow-primary/10' : 'hover:shadow-md hover:shadow-primary/5'}`}>
+    <div className={`group relative bg-white border border-[#E4E4E7] rounded-lg overflow-hidden transition-all duration-150 ${expanded ? 'shadow-[0_8px_24px_rgba(0,0,0,0.08)]' : 'hover:shadow-[0_4px_12px_rgba(0,82,204,0.06)]'}`}>
       {/* Chart Header */}
-      <div className="flex items-center justify-between px-6 pt-5 pb-2">
+      <div className="flex items-center justify-between px-5 pt-4 pb-2">
         <div>
-          <h4 className="font-semibold text-sm text-foreground">{title}</h4>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mt-0.5">
+          <h4 className="font-manrope font-bold text-sm text-[#18181B]">{title}</h4>
+          <p className="text-[10px] text-[#A1A1AA] uppercase tracking-wider font-medium mt-0.5">
             Interactive visualization
           </p>
         </div>
@@ -88,7 +88,7 @@ function ChartRenderer({ chart, index }: { chart: ChartSpec; index: number }) {
       </div>
 
       {/* Chart Body */}
-      <div className={`px-6 pb-6 ${expanded ? 'min-h-[500px]' : ''}`}>
+      <div className={`px-5 pb-5 ${expanded ? 'min-h-[500px]' : ''}`}>
         {type === 'histogram' && <HistogramChart data={data as { x0: number; x1: number; count: number }[]} expanded={expanded} />}
         {type === 'bar' && <FrequencyBarChart data={data as { value: string; count: number; percent: string | number }[]} expanded={expanded} />}
         {type === 'grouped_bar' && <GroupedBarChart data={data as Record<string, unknown>[]} config={config} expanded={expanded} />}

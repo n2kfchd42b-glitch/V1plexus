@@ -23,18 +23,29 @@ export function ResultsActions({ onSave, saved }: Props) {
     }
   }
 
+  if (done) {
+    return (
+      <button
+        disabled
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-[#166534] bg-[#F0FDF4] border border-[#E4E4E7] rounded-lg px-4 py-2 cursor-default"
+      >
+        <Check className="h-3.5 w-3.5" />
+        Saved
+      </button>
+    )
+  }
+
   return (
     <Button
       size="sm"
-      variant={done ? 'outline' : 'default'}
       onClick={handleSave}
-      disabled={saving || done}
-      className={`rounded-xl px-4 py-2.5 font-medium ${done ? 'border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-50' : 'shadow-lg shadow-primary/20'}`}
+      disabled={saving}
+      className="bg-[#0052CC] hover:bg-[#003D9B] text-white font-semibold rounded-lg transition-colors duration-150"
     >
-      {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-        : done ? <Check className="h-4 w-4 mr-1.5" />
-        : <Save className="h-4 w-4 mr-1.5" />}
-      {done ? 'Saved' : 'Save Results'}
+      {saving
+        ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+        : <Save className="h-3.5 w-3.5 mr-1.5" />}
+      Save Results
     </Button>
   )
 }

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import {
-  BarChart2, Clock, Database, Trash2, X, Check,
+  Clock, Database, Trash2, X, Check,
   CheckCircle2, Loader2, AlertCircle, ArrowRight
 } from 'lucide-react'
 import { formatRelative } from '@/lib/utils'
@@ -21,37 +21,37 @@ const statusConfig = {
   completed: {
     icon: CheckCircle2,
     label: 'Completed',
-    dotColor: 'bg-emerald-500',
-    badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    iconClass: 'text-emerald-500',
+    iconClass: 'text-[#22C55E]',
+    labelClass: 'text-[#166534]',
+    badgeClass: 'bg-[#F0FDF4] text-[#166534]',
   },
   failed: {
     icon: AlertCircle,
     label: 'Failed',
-    dotColor: 'bg-red-500',
-    badgeClass: 'bg-red-50 text-red-700 border-red-200',
-    iconClass: 'text-red-500',
+    iconClass: 'text-[#EF4444]',
+    labelClass: 'text-[#991B1B]',
+    badgeClass: 'bg-[#FEF2F2] text-[#991B1B]',
   },
   running: {
     icon: Loader2,
     label: 'Running',
-    dotColor: 'bg-blue-500',
-    badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
-    iconClass: 'text-blue-500',
+    iconClass: 'text-[#3B82F6]',
+    labelClass: 'text-[#1E40AF]',
+    badgeClass: 'bg-[#EFF6FF] text-[#1E40AF]',
   },
   pending: {
     icon: Clock,
     label: 'Pending',
-    dotColor: 'bg-gray-400',
-    badgeClass: 'bg-gray-50 text-gray-600 border-gray-200',
-    iconClass: 'text-gray-400',
+    iconClass: 'text-[#A1A1AA]',
+    labelClass: 'text-[#52525B]',
+    badgeClass: 'bg-[#F0F0F0] text-[#52525B]',
   },
   cancelled: {
     icon: X,
     label: 'Cancelled',
-    dotColor: 'bg-gray-400',
-    badgeClass: 'bg-gray-50 text-gray-600 border-gray-200',
-    iconClass: 'text-gray-400',
+    iconClass: 'text-[#A1A1AA]',
+    labelClass: 'text-[#52525B]',
+    badgeClass: 'bg-[#F0F0F0] text-[#52525B]',
   },
 }
 
@@ -73,70 +73,60 @@ export function AnalysisRunCard({ run, projectId, onDelete, viewMode = 'grid' }:
   return (
     <div className="group relative">
       <Link href={`/projects/${projectId}/analysis/${run.id}`}>
-        <div className="relative overflow-hidden rounded-2xl border bg-white hover:shadow-lg hover:shadow-primary/5 transition-all cursor-pointer h-full">
-          {/* Status stripe */}
-          <div className={`absolute top-0 left-0 right-0 h-0.5 ${status.dotColor}`} />
-
-          <div className="p-5">
+        <div className="bg-white border border-[#E4E4E7] rounded-lg transition-all duration-150 hover:shadow-[0_4px_16px_rgba(0,82,204,0.07)] cursor-pointer h-full">
+          <div className="p-4">
             {/* Header */}
             <div className="flex items-start justify-between mb-3">
-              <div className={`rounded-xl p-2 border ${status.badgeClass}`}>
-                <StatusIcon className={`h-4 w-4 ${status.iconClass} ${run.status === 'running' ? 'animate-spin' : ''}`} />
-              </div>
-              <span className={`text-[10px] font-bold uppercase tracking-widest ${status.iconClass}`}>
+              <div className={`rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-widest ${status.badgeClass}`}>
                 {status.label}
-              </span>
+              </div>
+              <StatusIcon className={`h-4 w-4 shrink-0 ${status.iconClass} ${run.status === 'running' ? 'animate-spin' : ''}`} />
             </div>
 
-            {/* Title & Type */}
-            <h4 className="font-semibold text-sm text-foreground truncate group-hover:text-primary transition-colors">
+            {/* Title */}
+            <h4 className="font-manrope font-bold text-sm text-[#18181B] truncate group-hover:text-[#0052CC] transition-colors duration-150">
               {run.title ?? info?.label ?? run.analysis_type}
             </h4>
-            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+            <p className="text-xs text-[#A1A1AA] mt-0.5 truncate">
               {info?.label ?? run.analysis_type.replace(/_/g, ' ')}
             </p>
 
             {/* Key Metrics */}
             {keyPairs.length > 0 && run.status === 'completed' && (
               <div className="mt-3 grid grid-cols-2 gap-1.5">
-                {keyPairs.slice(0, 4).map(([key, val]) => (
-                  <div key={key} className="bg-slate-50 rounded-lg px-2 py-1.5">
-                    <p className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground truncate">
+                {keyPairs.map(([key, val]) => (
+                  <div key={key} className="bg-[#F0F0F0] rounded-md px-2 py-1.5">
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-[#A1A1AA] truncate">
                       {formatKey(key)}
                     </p>
-                    <p className="text-xs font-bold text-foreground truncate">{String(val)}</p>
+                    <p className="text-xs font-manrope font-bold text-[#18181B] truncate">{String(val)}</p>
                   </div>
                 ))}
               </div>
             )}
 
             {/* Footer */}
-            <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-between mt-4 pt-3 border-t border-[#F0F0F0]">
               <div className="flex items-center gap-3 min-w-0">
                 {run.dataset && (
-                  <span className="flex items-center gap-1 text-[11px] text-muted-foreground truncate">
+                  <span className="flex items-center gap-1 text-xs text-[#A1A1AA] truncate">
                     <Database className="h-3 w-3 shrink-0" />
                     <span className="truncate">{(run.dataset as { name: string }).name}</span>
                   </span>
                 )}
-                <span className="flex items-center gap-1 text-[11px] text-muted-foreground shrink-0">
+                <span className="flex items-center gap-1 text-xs text-[#A1A1AA] shrink-0">
                   <Clock className="h-3 w-3" />
                   {formatRelative(run.created_at)}
                 </span>
               </div>
-              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/0 group-hover:text-primary transition-all group-hover:translate-x-0 -translate-x-1" />
+              <ArrowRight className="h-3.5 w-3.5 text-transparent group-hover:text-[#0052CC] transition-all duration-150" />
             </div>
           </div>
         </div>
       </Link>
 
-      {/* Delete Button */}
       {onDelete && (
-        <DeleteButton
-          confirming={confirming}
-          setConfirming={setConfirming}
-          onDelete={() => onDelete(run.id)}
-        />
+        <DeleteButton confirming={confirming} setConfirming={setConfirming} onDelete={() => onDelete(run.id)} />
       )}
     </div>
   )
@@ -157,62 +147,52 @@ function ListCard({ run, projectId, info, status, StatusIcon, keyPairs, onDelete
   return (
     <div className="group relative">
       <Link href={`/projects/${projectId}/analysis/${run.id}`}>
-        <div className="relative overflow-hidden rounded-xl border bg-white hover:shadow-md hover:shadow-primary/5 transition-all cursor-pointer">
+        <div className="bg-white border border-[#E4E4E7] rounded-lg transition-all duration-150 hover:shadow-[0_4px_12px_rgba(0,82,204,0.06)] cursor-pointer">
           <div className="flex items-center gap-4 p-4">
-            {/* Status Icon */}
-            <div className={`rounded-xl p-2.5 border shrink-0 ${status.badgeClass}`}>
-              <StatusIcon className={`h-4 w-4 ${status.iconClass} ${run.status === 'running' ? 'animate-spin' : ''}`} />
-            </div>
+            <StatusIcon className={`h-4 w-4 shrink-0 ${status.iconClass} ${run.status === 'running' ? 'animate-spin' : ''}`} />
 
-            {/* Main info */}
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold truncate group-hover:text-primary transition-colors">
+                <p className="text-sm font-manrope font-bold text-[#18181B] truncate group-hover:text-[#0052CC] transition-colors duration-150">
                   {run.title ?? info?.label ?? run.analysis_type}
                 </p>
-                <span className={`text-[10px] font-bold uppercase tracking-widest shrink-0 ${status.iconClass}`}>
+                <span className={`text-[10px] font-bold uppercase tracking-widest shrink-0 px-1.5 py-0.5 rounded ${status.badgeClass}`}>
                   {status.label}
                 </span>
               </div>
-              <div className="flex items-center gap-3 mt-1">
-                <span className="text-xs text-muted-foreground">{info?.label ?? run.analysis_type.replace(/_/g, ' ')}</span>
+              <div className="flex items-center gap-3 mt-0.5">
+                <span className="text-xs text-[#A1A1AA]">{info?.label ?? run.analysis_type.replace(/_/g, ' ')}</span>
                 {run.dataset && (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1 text-xs text-[#A1A1AA]">
                     <Database className="h-3 w-3" />
                     {(run.dataset as { name: string }).name}
                   </span>
                 )}
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1 text-xs text-[#A1A1AA]">
                   <Clock className="h-3 w-3" />
                   {formatRelative(run.created_at)}
                 </span>
               </div>
             </div>
 
-            {/* Key metrics inline */}
             {keyPairs.length > 0 && run.status === 'completed' && (
               <div className="hidden md:flex items-center gap-4 shrink-0">
                 {keyPairs.slice(0, 3).map(([key, val]) => (
                   <div key={key} className="text-right">
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">{formatKey(key)}</p>
-                    <p className="text-sm font-bold text-foreground">{String(val)}</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-[#A1A1AA]">{formatKey(key)}</p>
+                    <p className="text-sm font-manrope font-bold text-[#18181B]">{String(val)}</p>
                   </div>
                 ))}
               </div>
             )}
 
-            <ArrowRight className="h-4 w-4 text-muted-foreground/0 group-hover:text-primary shrink-0 transition-all" />
+            <ArrowRight className="h-4 w-4 text-transparent group-hover:text-[#0052CC] shrink-0 transition-all duration-150" />
           </div>
         </div>
       </Link>
 
       {onDelete && (
-        <DeleteButton
-          confirming={confirming}
-          setConfirming={setConfirming}
-          onDelete={() => onDelete(run.id)}
-          position="right-3 top-3"
-        />
+        <DeleteButton confirming={confirming} setConfirming={setConfirming} onDelete={() => onDelete(run.id)} position="right-3 top-3" />
       )}
     </div>
   )
@@ -226,18 +206,16 @@ function DeleteButton({ confirming, setConfirming, onDelete, position = 'right-2
     <div className={`absolute ${position} flex items-center gap-1 z-10`}>
       {confirming ? (
         <>
-          <span className="text-[11px] text-red-600 font-medium mr-1">Delete?</span>
+          <span className="text-[11px] text-[#991B1B] font-medium mr-1">Delete?</span>
           <button
             onClick={e => { e.preventDefault(); e.stopPropagation(); onDelete(); setConfirming(false) }}
-            className="flex items-center justify-center h-6 w-6 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
-            title="Confirm delete"
+            className="flex items-center justify-center h-6 w-6 rounded-md bg-[#FEF2F2] text-[#EF4444] hover:bg-red-100 transition-colors duration-150"
           >
             <Check className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={e => { e.preventDefault(); e.stopPropagation(); setConfirming(false) }}
-            className="flex items-center justify-center h-6 w-6 rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
-            title="Cancel"
+            className="flex items-center justify-center h-6 w-6 rounded-md bg-[#F0F0F0] text-[#52525B] hover:bg-[#E4E4E7] transition-colors duration-150"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -245,8 +223,7 @@ function DeleteButton({ confirming, setConfirming, onDelete, position = 'right-2
       ) : (
         <button
           onClick={e => { e.preventDefault(); e.stopPropagation(); setConfirming(true) }}
-          className="flex items-center justify-center h-7 w-7 rounded-lg opacity-0 group-hover:opacity-100 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all"
-          title="Delete analysis"
+          className="flex items-center justify-center h-7 w-7 rounded-md opacity-0 group-hover:opacity-100 text-[#A1A1AA] hover:bg-[#FEF2F2] hover:text-[#EF4444] transition-all duration-150"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>

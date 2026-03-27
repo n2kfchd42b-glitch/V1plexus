@@ -37,7 +37,7 @@ export function CoefficientTable({ table }: Props) {
         <button
           onClick={() => downloadCSV(table)}
           title="Download as CSV"
-          className="ml-auto flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg border hover:bg-muted/30"
+          className="ml-auto flex items-center gap-1.5 text-[11px] font-medium text-[#52525B] hover:text-[#18181B] transition-colors duration-150 px-3 py-1.5 rounded-lg border border-[#E4E4E7] hover:bg-[#F5F5F5]"
         >
           <Download className="h-3 w-3" />
           CSV
@@ -45,15 +45,15 @@ export function CoefficientTable({ table }: Props) {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border overflow-hidden">
+      <div className="rounded-lg border border-[#E4E4E7] overflow-hidden">
         <table className="w-full text-xs border-collapse">
           <thead>
-            <tr className="bg-slate-50">
+            <tr className="bg-[#F7F9FB]">
               {table.headers.map((h, i) => (
                 <th
                   key={i}
                   className={cn(
-                    'py-3 px-4 font-bold text-[10px] uppercase tracking-widest text-muted-foreground whitespace-nowrap border-b-2 border-slate-200',
+                    'py-3 px-4 font-bold text-[10px] uppercase tracking-widest text-[#A1A1AA] whitespace-nowrap border-b border-[#E4E4E7]',
                     i > 0 ? 'text-right' : 'text-left'
                   )}
                 >
@@ -66,14 +66,14 @@ export function CoefficientTable({ table }: Props) {
             {table.rows.map((row, ri) => (
               <tr
                 key={ri}
-                className="group border-b border-slate-100 last:border-0 hover:bg-blue-50/30 transition-colors cursor-default"
+                className="group border-b border-[#F0F0F0] last:border-0 hover:bg-[#F7F9FB] transition-colors duration-150 cursor-default"
               >
                 {row.map((cell, ci) => (
                   <td
                     key={ci}
                     className={cn(
                       'py-3 px-4 whitespace-nowrap',
-                      ci === 0 ? 'font-semibold text-foreground' : 'text-right font-mono text-muted-foreground'
+                      ci === 0 ? 'font-semibold text-[#18181B]' : 'text-right font-mono text-[#52525B]'
                     )}
                   >
                     {cell === null ? (

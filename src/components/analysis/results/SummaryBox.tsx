@@ -1,6 +1,5 @@
 "use client"
 
-import { Badge } from '@/components/ui/badge'
 import { BarChart2, TrendingUp } from 'lucide-react'
 import type { AnalysisType } from '@/types/database'
 
@@ -42,51 +41,45 @@ export function SummaryBox({ analysisType, summary, title, datasetName }: Props)
 
   if (summary.error) {
     return (
-      <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-5 mb-6">
-        <p className="text-sm font-semibold text-destructive">Analysis Error</p>
-        <p className="text-xs text-destructive/80 mt-1">{String(summary.error)}</p>
+      <div className="rounded-lg border border-[#E4E4E7] bg-[#FEF2F2] p-5 mb-6">
+        <p className="text-sm font-semibold text-[#991B1B]">Analysis Error</p>
+        <p className="text-xs text-[#52525B] mt-1">{String(summary.error)}</p>
       </div>
     )
   }
 
   return (
-    <div className="rounded-2xl bg-white border shadow-sm overflow-hidden mb-6">
+    <div className="bg-white border border-[#E4E4E7] rounded-lg overflow-hidden mb-6">
       {/* Header */}
-      <div className="px-6 py-4 border-b bg-gradient-to-r from-slate-50 to-white">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-primary/10 p-2.5">
-              <BarChart2 className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <h3 className="font-bold text-base text-foreground">
-                {title ?? analysisLabels[analysisType]}
-              </h3>
-              {datasetName && (
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Dataset: {datasetName}
-                </p>
-              )}
-            </div>
+      <div className="px-5 py-4 border-b border-[#F0F0F0] flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg bg-[#EFF6FF] p-2">
+            <BarChart2 className="h-4 w-4 text-[#3B82F6]" />
           </div>
-          <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200">
-            Completed
-          </Badge>
+          <div>
+            <h3 className="font-manrope font-bold text-sm text-[#18181B]">
+              {title ?? analysisLabels[analysisType]}
+            </h3>
+            {datasetName && (
+              <p className="text-xs text-[#A1A1AA] mt-0.5">Dataset: {datasetName}</p>
+            )}
+          </div>
         </div>
+        <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded bg-[#F0FDF4] text-[#166534]">
+          Completed
+        </span>
       </div>
 
       {/* Metric Cards Grid */}
       {pairs.length > 0 && (
-        <div className="p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="h-3.5 w-3.5 text-primary" />
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Key Results
-            </p>
+        <div className="p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <TrendingUp className="h-3.5 w-3.5 text-[#0052CC]" />
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[#A1A1AA]">Key Results</p>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {pairs.map(([key, val], i) => (
-              <MetricCard key={key} label={formatKey(key)} value={String(val)} index={i} />
+            {pairs.map(([key, val]) => (
+              <MetricCard key={key} label={formatKey(key)} value={String(val)} />
             ))}
           </div>
         </div>
@@ -95,22 +88,13 @@ export function SummaryBox({ analysisType, summary, title, datasetName }: Props)
   )
 }
 
-function MetricCard({ label, value, index }: { label: string; value: string; index: number }) {
-  const colors = [
-    'from-blue-50 to-blue-50/30 border-blue-100',
-    'from-indigo-50 to-indigo-50/30 border-indigo-100',
-    'from-violet-50 to-violet-50/30 border-violet-100',
-    'from-cyan-50 to-cyan-50/30 border-cyan-100',
-    'from-emerald-50 to-emerald-50/30 border-emerald-100',
-    'from-amber-50 to-amber-50/30 border-amber-100',
-  ]
-
+function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className={`rounded-xl border bg-gradient-to-br ${colors[index % colors.length]} p-3.5 transition-all hover:shadow-sm`}>
-      <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-1 truncate" title={label}>
+    <div className="bg-[#F0F0F0] border border-[#E4E4E7] rounded-lg p-3 transition-all duration-150 hover:bg-[#F5F5F5]">
+      <p className="text-[9px] font-bold uppercase tracking-widest text-[#A1A1AA] mb-1 truncate" title={label}>
         {label}
       </p>
-      <p className="text-lg font-extrabold text-foreground truncate" title={value}>
+      <p className="text-base font-manrope font-extrabold text-[#18181B] truncate" title={value}>
         {value}
       </p>
     </div>

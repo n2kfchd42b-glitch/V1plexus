@@ -4,10 +4,9 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
   ArrowLeft, Calendar, Database, CheckCircle2, Loader2,
-  AlertCircle, Clock, BarChart2, Share2, FileText
+  AlertCircle, Clock
 } from 'lucide-react'
 import { ResultsPanel } from '@/components/analysis/results/ResultsPanel'
 import { createClient } from '@/lib/supabase/client'
@@ -17,41 +16,11 @@ import type { AnalysisResult } from '@/lib/analysis/engine'
 import { ANALYSIS_TYPES } from '@/components/analysis/AnalysisTypePicker'
 
 const statusConfig = {
-  completed: {
-    icon: CheckCircle2,
-    label: 'Completed',
-    color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    iconColor: 'text-emerald-500',
-    bgGradient: 'from-emerald-50/50 via-white to-white',
-  },
-  failed: {
-    icon: AlertCircle,
-    label: 'Failed',
-    color: 'bg-red-50 text-red-700 border-red-200',
-    iconColor: 'text-red-500',
-    bgGradient: 'from-red-50/50 via-white to-white',
-  },
-  running: {
-    icon: Loader2,
-    label: 'Running',
-    color: 'bg-blue-50 text-blue-700 border-blue-200',
-    iconColor: 'text-blue-500',
-    bgGradient: 'from-blue-50/50 via-white to-white',
-  },
-  pending: {
-    icon: Clock,
-    label: 'Pending',
-    color: 'bg-gray-50 text-gray-600 border-gray-200',
-    iconColor: 'text-gray-400',
-    bgGradient: 'from-gray-50/50 via-white to-white',
-  },
-  cancelled: {
-    icon: AlertCircle,
-    label: 'Cancelled',
-    color: 'bg-gray-50 text-gray-600 border-gray-200',
-    iconColor: 'text-gray-400',
-    bgGradient: 'from-gray-50/50 via-white to-white',
-  },
+  completed: { icon: CheckCircle2, label: 'Completed', iconClass: 'text-[#22C55E]', badgeClass: 'bg-[#F0FDF4] text-[#166534]' },
+  failed:    { icon: AlertCircle,  label: 'Failed',    iconClass: 'text-[#EF4444]', badgeClass: 'bg-[#FEF2F2] text-[#991B1B]' },
+  running:   { icon: Loader2,      label: 'Running',   iconClass: 'text-[#3B82F6]', badgeClass: 'bg-[#EFF6FF] text-[#1E40AF]' },
+  pending:   { icon: Clock,        label: 'Pending',   iconClass: 'text-[#A1A1AA]', badgeClass: 'bg-[#F0F0F0] text-[#52525B]' },
+  cancelled: { icon: AlertCircle,  label: 'Cancelled', iconClass: 'text-[#A1A1AA]', badgeClass: 'bg-[#F0F0F0] text-[#52525B]' },
 }
 
 export default function AnalysisRunPage() {
@@ -77,13 +46,12 @@ export default function AnalysisRunPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50/50">
-        <div className="max-w-5xl mx-auto px-6 py-12">
-          <div className="space-y-6">
-            <div className="h-8 w-64 bg-muted rounded-lg animate-pulse" />
-            <div className="h-4 w-96 bg-muted rounded-lg animate-pulse" />
-            <div className="h-48 bg-white border rounded-2xl animate-pulse" />
-          </div>
+      <div className="min-h-screen bg-[#f7f9fb]">
+        <div className="max-w-5xl mx-auto px-6 py-10 space-y-5">
+          <div className="h-6 w-48 bg-[#F0F0F0] rounded animate-pulse" />
+          <div className="h-8 w-80 bg-[#F0F0F0] rounded animate-pulse" />
+          <div className="h-4 w-56 bg-[#F0F0F0] rounded animate-pulse" />
+          <div className="h-48 bg-white border border-[#E4E4E7] rounded-lg animate-pulse" />
         </div>
       </div>
     )
@@ -91,15 +59,13 @@ export default function AnalysisRunPage() {
 
   if (!run) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50/50">
-        <div className="max-w-5xl mx-auto px-6 py-12">
-          <div className="text-center py-16">
-            <AlertCircle className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-            <p className="text-muted-foreground font-medium">Analysis run not found</p>
-            <Link href={`/projects/${projectId}/analysis`}>
-              <Button variant="outline" className="mt-4">Back to Analysis Hub</Button>
-            </Link>
-          </div>
+      <div className="min-h-screen bg-[#f7f9fb]">
+        <div className="max-w-5xl mx-auto px-6 py-20 text-center">
+          <AlertCircle className="h-10 w-10 text-[#A1A1AA] mx-auto mb-4" />
+          <p className="font-manrope font-bold text-[#18181B]">Analysis run not found</p>
+          <Link href={`/projects/${projectId}/analysis`}>
+            <Button variant="outline" className="mt-4">Back to Analysis Hub</Button>
+          </Link>
         </div>
       </div>
     )
@@ -119,45 +85,39 @@ export default function AnalysisRunPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50/50">
-      {/* Hero Header */}
-      <div className={`relative overflow-hidden border-b bg-gradient-to-br ${status.bgGradient}`}>
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(59,130,246,0.04),transparent_50%)]" />
-        <div className="relative max-w-5xl mx-auto px-6 pt-6 pb-8">
+    <div className="min-h-screen bg-[#f7f9fb]">
+      {/* Page Header */}
+      <div className="border-b bg-white">
+        <div className="max-w-5xl mx-auto px-6 pt-5 pb-6">
           <Link href={`/projects/${projectId}/analysis`}>
-            <Button variant="ghost" size="sm" className="mb-4 h-7 text-xs -ml-2 text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" size="sm" className="mb-3 h-7 text-xs -ml-2 text-[#A1A1AA] hover:text-[#18181B]">
               <ArrowLeft className="h-3.5 w-3.5 mr-1" />
               Analysis Hub
             </Button>
           </Link>
 
-          <div className="flex items-start justify-between">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-3 mb-3">
-                <div className={`rounded-xl p-2.5 border ${status.color}`}>
-                  <StatusIcon className={`h-5 w-5 ${status.iconColor} ${run.status === 'running' ? 'animate-spin' : ''}`} />
-                </div>
-                <Badge variant="outline" className={`text-xs font-bold ${status.color}`}>
+          <div className="flex items-start gap-3">
+            <StatusIcon className={`h-5 w-5 mt-0.5 shrink-0 ${status.iconClass} ${run.status === 'running' ? 'animate-spin' : ''}`} />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <h1 className="font-manrope font-extrabold text-xl tracking-tight text-[#003D9B] truncate">
+                  {run.title ?? typeInfo?.label ?? run.analysis_type}
+                </h1>
+                <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded shrink-0 ${status.badgeClass}`}>
                   {status.label}
-                </Badge>
+                </span>
               </div>
-
-              <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
-                {run.title ?? typeInfo?.label ?? run.analysis_type}
-              </h1>
-
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-sm text-[#52525B]">
                 {typeInfo?.label ?? run.analysis_type.replace(/_/g, ' ')}
               </p>
-
-              <div className="flex items-center gap-5 mt-4">
+              <div className="flex items-center gap-4 mt-2">
                 {run.dataset && (
-                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1.5 text-xs text-[#A1A1AA]">
                     <Database className="h-3.5 w-3.5" />
                     {(run.dataset as { name: string }).name}
                   </span>
                 )}
-                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5 text-xs text-[#A1A1AA]">
                   <Calendar className="h-3.5 w-3.5" />
                   {formatDateTime(run.created_at)}
                 </span>
@@ -167,32 +127,30 @@ export default function AnalysisRunPage() {
         </div>
       </div>
 
-      {/* Results Content */}
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      {/* Content */}
+      <div className="max-w-5xl mx-auto px-6 py-6">
         {run.status === 'failed' ? (
-          <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-8">
+          <div className="bg-white border border-[#E4E4E7] rounded-lg p-8">
             <div className="flex items-start gap-4">
-              <div className="rounded-xl bg-red-100 p-3">
-                <AlertCircle className="h-6 w-6 text-red-600" />
+              <div className="rounded-lg bg-[#FEF2F2] p-3">
+                <AlertCircle className="h-5 w-5 text-[#EF4444]" />
               </div>
               <div>
-                <p className="text-base font-bold text-destructive">Analysis Failed</p>
-                <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                <p className="font-manrope font-bold text-[#18181B]">Analysis Failed</p>
+                <p className="text-sm text-[#52525B] mt-1.5 leading-relaxed">
                   {run.error_message ?? 'An unknown error occurred during analysis.'}
                 </p>
                 <Link href={`/projects/${projectId}/analysis/new`}>
-                  <Button variant="outline" size="sm" className="mt-4">
-                    Try Again
-                  </Button>
+                  <Button variant="outline" size="sm" className="mt-4">Try Again</Button>
                 </Link>
               </div>
             </div>
           </div>
         ) : run.status === 'running' || run.status === 'pending' ? (
-          <div className="rounded-2xl border bg-white p-12 text-center">
-            <Loader2 className="h-10 w-10 text-primary animate-spin mx-auto mb-4" />
-            <p className="font-semibold text-foreground">Analysis in progress</p>
-            <p className="text-sm text-muted-foreground mt-1">Results will appear here when complete.</p>
+          <div className="bg-white border border-[#E4E4E7] rounded-lg p-12 text-center">
+            <Loader2 className="h-8 w-8 text-[#3B82F6] animate-spin mx-auto mb-4" />
+            <p className="font-manrope font-bold text-[#18181B]">Analysis in progress</p>
+            <p className="text-sm text-[#52525B] mt-1">Results will appear here when complete.</p>
           </div>
         ) : (
           <ResultsPanel
