@@ -33,6 +33,7 @@ interface Props {
 const FULL_WIDTH_CHART_TYPES = new Set([
   'km_curve', 'time_series', 'heatmap', 'biplot',
   'epi_curve', 'mosaic', 'roc_curve', 'forest_meta',
+  'forest_or', 'forest_hr', 'forest_irr', 'coefficient_plot',
 ])
 
 export function AnalysisCharts({ charts }: Props) {
@@ -280,61 +281,205 @@ function ResidualChart({ data, expanded }: { data: Record<string, unknown>[]; ex
   )
 }
 
-// ── Coefficient Plot ─────────────────────────────────────────
+// ── SVG Forest Plot ──────────────────────────────────────────
 interface CoefficientPlotData { name: string; estimate?: number; or?: number; hr?: number; irr?: number; ciLow: number; ciHigh: number; p: string; sig?: string }
+interface ForestPlotData { label: string; es: number; ciLow: number; ciHigh: number; weight: number; isSummary: boolean }
 
-function CoefficientPlot({ data, isOR, label, nullLine, expanded }: { data: CoefficientPlotData[]; isOR: boolean; label?: string; nullLine?: number; expanded: boolean }) {
-  const plotData = data.map(d => ({
-    name: d.name,
-    value: d.or ?? d.hr ?? d.irr ?? d.estimate ?? 0,
-    error: [((d.or ?? d.hr ?? d.irr ?? d.estimate ?? 0) - d.ciLow), (d.ciHigh - (d.or ?? d.hr ?? d.irr ?? d.estimate ?? 0))] as [number, number],
-    ciLow: d.ciLow, ciHigh: d.ciHigh, p: d.p
-  }))
+type ForestRow = { name: string; value: number; ciLow: number; ciHigh: number; p: string; isSummary?: boolean; weight?: number }
 
-  const allValues = plotData.flatMap(d => [d.value, d.ciLow, d.ciHigh]).filter(v => isFinite(v))
-  const domain: [number, number] = [Math.min(...allValues) * 0.9, Math.max(...allValues) * 1.1]
+const FP_VW = 840
+const FP_LABEL_W = 178
+const FP_ANNOT_W = 192
+const FP_PAD_L = 14
+const FP_PAD_R = 14
+const FP_ROW_H = 42
+const FP_HEADER_H = 34
+const FP_PAD_TOP = 6
+const FP_PAD_BOT = 30
+
+function ForestPlotSVG({ rows, nullLine = 0, effectLabel = 'Estimate', isRatio = false }: {
+  rows: ForestRow[]
+  nullLine?: number
+  effectLabel?: string
+  isRatio?: boolean
+}) {
+  const plotX0 = FP_PAD_L + FP_LABEL_W
+  const plotX1 = FP_VW - FP_PAD_R - FP_ANNOT_W
+  const plotW = plotX1 - plotX0
+  const totalH = FP_HEADER_H + FP_PAD_TOP + rows.length * FP_ROW_H + FP_PAD_BOT
+
+  const allV = rows.flatMap(r => [r.ciLow, r.ciHigh, r.value, nullLine]).filter(v => isFinite(v) && !isNaN(v))
+  // Guard: if no finite values or span is zero, build a safe domain around nullLine
+  const rawMin = allV.length ? Math.min(...allV) : nullLine - 1
+  const rawMax = allV.length ? Math.max(...allV) : nullLine + 1
+  let span = rawMax - rawMin
+  if (span < 1e-9) span = Math.max(Math.abs(rawMin), 0.5)
+  const domainMin = rawMin - span * 0.14
+  const domainMax = rawMax + span * 0.14
+
+  const toX = (v: number) => plotX0 + ((v - domainMin) / (domainMax - domainMin)) * plotW
+  const rowY = (i: number) => FP_HEADER_H + FP_PAD_TOP + i * FP_ROW_H + FP_ROW_H / 2
+  const nullX = toX(nullLine)
+
+  // 5 nice axis ticks
+  const ticks = Array.from({ length: 5 }, (_, i) => domainMin + (i / 4) * (domainMax - domainMin))
+
+  if (rows.length === 0) {
+    return <p className="text-xs text-muted-foreground py-4 text-center">No data to display</p>
+  }
 
   return (
-    <ResponsiveContainer width="100%" height={Math.max(chartHeight(expanded, 160), plotData.length * 40)}>
-      <BarChart data={plotData} layout="vertical" margin={{ left: 130, right: 40 }}>
-        <CartesianGrid {...gridStyle} horizontal={false} />
-        <XAxis type="number" domain={domain} tick={axisTick} />
-        <YAxis type="category" dataKey="name" tick={axisTick} width={120} />
-        {nullLine !== undefined && <ReferenceLine x={nullLine} stroke="#94a3b8" strokeDasharray="6 4" />}
-        <Tooltip content={<CustomTooltip />} />
-        <Bar dataKey="value" fill={COLORS[0]} radius={[0, 4, 4, 0]} animationDuration={800}>
-          <ErrorBar dataKey="error" width={5} strokeWidth={2} stroke={COLORS[0]} direction="x" />
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    // height: auto lets the SVG scale proportionally to its container width — fixes squished layout
+    <svg viewBox={`0 0 ${FP_VW} ${totalH}`} style={{ display: 'block', width: '100%', height: 'auto', overflow: 'visible' }}>
+      {/* Alternating row bands */}
+      {rows.map((r, i) =>
+        !r.isSummary && i % 2 === 0 ? (
+          <rect key={`band-${i}`} x={FP_PAD_L} y={FP_HEADER_H + FP_PAD_TOP + i * FP_ROW_H} width={FP_VW - FP_PAD_L - FP_PAD_R} height={FP_ROW_H} fill="#f8fafc" rx={2} />
+        ) : null
+      )}
+
+      {/* Column headers */}
+      <text x={FP_PAD_L + 4} y={FP_HEADER_H - 9} fontSize={9.5} fontWeight={700} fill="#64748b" letterSpacing="0.08em">VARIABLE</text>
+      <text x={plotX0 + plotW / 2} y={FP_HEADER_H - 9} fontSize={9.5} fontWeight={700} fill="#64748b" textAnchor="middle" letterSpacing="0.08em">{effectLabel.toUpperCase()} [95% CI]</text>
+      <text x={FP_VW - FP_PAD_R - 4} y={FP_HEADER_H - 9} fontSize={9.5} fontWeight={700} fill="#64748b" textAnchor="end" letterSpacing="0.08em">P-VALUE</text>
+      <line x1={FP_PAD_L} y1={FP_HEADER_H} x2={FP_VW - FP_PAD_R} y2={FP_HEADER_H} stroke="#e2e8f0" strokeWidth={1.5} />
+
+      {/* Plot area background */}
+      <rect x={plotX0} y={FP_HEADER_H + FP_PAD_TOP} width={plotW} height={rows.length * FP_ROW_H} fill="#fafbfc" rx={3} />
+
+      {/* Null reference line */}
+      <line x1={nullX} y1={FP_HEADER_H + 2} x2={nullX} y2={FP_HEADER_H + FP_PAD_TOP + rows.length * FP_ROW_H} stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="5 4" />
+
+      {/* Rows */}
+      {rows.map((d, i) => {
+        const cy = rowY(i)
+        const est = d.value
+        const xEst = toX(est)
+        const xLow = Math.max(toX(d.ciLow), plotX0 + 2)
+        const xHigh = Math.min(toX(d.ciHigh), plotX1 - 2)
+        // p can be a raw number (coefficient_plot) or formatted string (forest_or/hr/irr)
+        const pStr = String(d.p ?? '')
+        const pNum = parseFloat(pStr)
+        const isSig = !isNaN(pNum) && pNum < 0.05
+
+        let color: string
+        if (d.isSummary) { color = '#7c3aed' }
+        else if (!isSig) { color = '#94a3b8' }
+        else if (isRatio) { color = est > nullLine ? '#ef4444' : '#10b981' }
+        else { color = est > nullLine ? '#3b82f6' : '#8b5cf6' }
+
+        const safeNum = (n: number) => isFinite(n) ? n.toFixed(2) : '—'
+        const annotText = `${safeNum(est)} [${safeNum(d.ciLow)}, ${safeNum(d.ciHigh)}]`
+        const pText = pStr === '<0.001' || pStr === '< 0.001' ? '<0.001' : (isNaN(pNum) ? pStr : pNum.toFixed(3))
+
+        return (
+          <g key={i}>
+            {/* Row divider */}
+            {i > 0 && (
+              <line x1={FP_PAD_L} y1={FP_HEADER_H + FP_PAD_TOP + i * FP_ROW_H} x2={FP_VW - FP_PAD_R} y2={FP_HEADER_H + FP_PAD_TOP + i * FP_ROW_H}
+                stroke={d.isSummary ? '#e2e8f0' : '#f1f5f9'} strokeWidth={d.isSummary ? 1.5 : 1} />
+            )}
+            {/* Variable label */}
+            <text x={FP_PAD_L + 6} y={cy + 4} fontSize={11.5} fill={d.isSummary ? '#7c3aed' : '#1e293b'} fontWeight={d.isSummary ? 700 : 400}>
+              {d.name.length > 23 ? d.name.slice(0, 21) + '…' : d.name}
+            </text>
+            {/* Confidence interval whisker + caps */}
+            {!d.isSummary && (
+              <>
+                <line x1={xLow} y1={cy} x2={xHigh} y2={cy} stroke={color} strokeWidth={2} strokeLinecap="round" />
+                <line x1={xLow} y1={cy - 5} x2={xLow} y2={cy + 5} stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+                <line x1={xHigh} y1={cy - 5} x2={xHigh} y2={cy + 5} stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+                {/* Point estimate square */}
+                <rect x={xEst - 5} y={cy - 5} width={10} height={10} fill={color} rx={2.5} />
+                {/* White inner dot for emphasis */}
+                <circle cx={xEst} cy={cy} r={2} fill="white" />
+              </>
+            )}
+            {/* Summary diamond */}
+            {d.isSummary && (
+              <>
+                <line x1={xLow} y1={cy} x2={xHigh} y2={cy} stroke={color} strokeWidth={1.5} strokeOpacity={0.5} strokeLinecap="round" />
+                <polygon
+                  points={`${xEst},${cy - 10} ${xHigh},${cy} ${xEst},${cy + 10} ${xLow},${cy}`}
+                  fill={color} fillOpacity={0.22} stroke={color} strokeWidth={2}
+                />
+                <polygon
+                  points={`${xEst - 4},${cy} ${xEst},${cy - 4} ${xEst + 4},${cy} ${xEst},${cy + 4}`}
+                  fill={color}
+                />
+              </>
+            )}
+            {/* Weight bar (meta-analysis) */}
+            {d.weight != null && !d.isSummary && (
+              <rect x={FP_PAD_L + FP_LABEL_W - 30} y={cy - 3} width={Math.max(2, d.weight * 28)} height={6} fill="#cbd5e1" rx={2} opacity={0.7} />
+            )}
+            {/* Annotation text */}
+            <text x={plotX1 + 10} y={cy + 4} fontSize={10.5} fill="#334155" fontFamily="ui-monospace, monospace">{annotText}</text>
+            {/* p-value */}
+            <text x={FP_VW - FP_PAD_R - 4} y={cy + 4} fontSize={10.5} fill={isSig ? '#0f766e' : '#94a3b8'} fontWeight={isSig ? 700 : 400} textAnchor="end">{pText}</text>
+          </g>
+        )
+      })}
+
+      {/* Bottom axis */}
+      {(() => {
+        const axisY = FP_HEADER_H + FP_PAD_TOP + rows.length * FP_ROW_H + 5
+        return (
+          <>
+            <line x1={plotX0} y1={axisY} x2={plotX1} y2={axisY} stroke="#cbd5e1" strokeWidth={1} />
+            {ticks.map((v, i) => {
+              const xTick = toX(v)
+              return (
+                <g key={i}>
+                  <line x1={xTick} y1={axisY} x2={xTick} y2={axisY + 5} stroke="#cbd5e1" strokeWidth={1} />
+                  <text x={xTick} y={axisY + 15} fontSize={9} fill="#94a3b8" textAnchor="middle">{v.toFixed(2)}</text>
+                </g>
+              )
+            })}
+          </>
+        )
+      })()}
+
+      {/* Legend */}
+      {isRatio && (() => {
+        const ly = FP_HEADER_H + FP_PAD_TOP + rows.length * FP_ROW_H + 7
+        return (
+          <g>
+            <rect x={FP_PAD_L} y={ly - 5} width={8} height={8} fill="#10b981" rx={1.5} />
+            <text x={FP_PAD_L + 12} y={ly + 3} fontSize={9} fill="#64748b">Protective (p&lt;0.05)</text>
+            <rect x={FP_PAD_L + 110} y={ly - 5} width={8} height={8} fill="#ef4444" rx={1.5} />
+            <text x={FP_PAD_L + 122} y={ly + 3} fontSize={9} fill="#64748b">Harmful (p&lt;0.05)</text>
+            <rect x={FP_PAD_L + 210} y={ly - 5} width={8} height={8} fill="#94a3b8" rx={1.5} />
+            <text x={FP_PAD_L + 222} y={ly + 3} fontSize={9} fill="#64748b">Non-significant</text>
+          </g>
+        )
+      })()}
+    </svg>
   )
 }
 
-// ── Forest Plot (meta-analysis) ──────────────────────────────
-interface ForestPlotData { label: string; es: number; ciLow: number; ciHigh: number; weight: number; isSummary: boolean }
-
-function ForestPlot({ data, config, expanded }: { data: ForestPlotData[]; config: Record<string, unknown>; expanded: boolean }) {
-  const plotData = data.map(d => ({
-    name: d.label, value: d.es, ciLow: d.ciLow, ciHigh: d.ciHigh, weight: d.weight, isSummary: d.isSummary,
-    error: [(d.es - d.ciLow), (d.ciHigh - d.es)] as [number, number]
+function CoefficientPlot({ data, isOR: _isOR, label, nullLine, expanded: _expanded }: { data: CoefficientPlotData[]; isOR: boolean; label?: string; nullLine?: number; expanded: boolean }) {
+  const rows: ForestRow[] = data.map(d => ({
+    name: d.name,
+    value: d.or ?? d.hr ?? d.irr ?? d.estimate ?? 0,
+    ciLow: d.ciLow,
+    ciHigh: d.ciHigh,
+    p: String(d.p ?? ''),
   }))
-  const allV = plotData.flatMap(d => [d.ciLow, d.ciHigh]).filter(isFinite)
-  const domain: [number, number] = [Math.min(...allV) - 0.1, Math.max(...allV) + 0.1]
-  return (
-    <ResponsiveContainer width="100%" height={Math.max(chartHeight(expanded, 200), plotData.length * 36)}>
-      <BarChart data={plotData} layout="vertical" margin={{ left: 130, right: 40 }}>
-        <CartesianGrid {...gridStyle} horizontal={false} />
-        <XAxis type="number" domain={domain} tick={axisTick} />
-        <YAxis type="category" dataKey="name" tick={axisTick} width={120} />
-        <ReferenceLine x={0} stroke="#94a3b8" strokeDasharray="6 4" />
-        <Tooltip content={<CustomTooltip />} />
-        <Bar dataKey="value" animationDuration={800} radius={[0, 4, 4, 0]}>
-          {plotData.map((d, i) => <Cell key={i} fill={d.isSummary ? COLORS[1] : COLORS[0]} fillOpacity={d.isSummary ? 1 : 0.8} />)}
-          <ErrorBar dataKey="error" width={5} strokeWidth={2} stroke={COLORS[0]} direction="x" />
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
-  )
+  return <ForestPlotSVG rows={rows} nullLine={nullLine ?? 0} effectLabel={label ?? 'Coefficient'} isRatio={nullLine === 1} />
+}
+
+function ForestPlot({ data, config: _config, expanded: _expanded }: { data: ForestPlotData[]; config: Record<string, unknown>; expanded: boolean }) {
+  const rows: ForestRow[] = data.map(d => ({
+    name: d.label,
+    value: d.es,
+    ciLow: d.ciLow,
+    ciHigh: d.ciHigh,
+    p: '',
+    isSummary: d.isSummary,
+    weight: d.weight,
+  }))
+  return <ForestPlotSVG rows={rows} nullLine={0} effectLabel="Effect Size" isRatio={false} />
 }
 
 // ── Funnel Plot ──────────────────────────────────────────────
@@ -619,16 +764,122 @@ interface BiplotData { scores: { id: number; pc1: number; pc2: number }[]; loadi
 function Biplot({ data, config, expanded }: { data: BiplotData; config: Record<string, unknown>; expanded: boolean }) {
   if (!data || !data.scores) return null
   const sample = data.scores.slice(0, 500)
+  const loadings = data.loadings ?? []
+  const varExp = config.varExplained as number[] | undefined
+
+  const VW = 600
+  const VH = expanded ? 520 : 380
+  const PAD = { t: 24, r: 24, b: 44, l: 44 }
+  const plotW = VW - PAD.l - PAD.r
+  const plotH = VH - PAD.t - PAD.b
+
+  // Score axis ranges (symmetric around 0)
+  const pc1s = sample.map(d => d.pc1)
+  const pc2s = sample.map(d => d.pc2)
+  const xRange = Math.max(Math.abs(Math.min(...pc1s)), Math.abs(Math.max(...pc1s))) * 1.25 || 1
+  const yRange = Math.max(Math.abs(Math.min(...pc2s)), Math.abs(Math.max(...pc2s))) * 1.25 || 1
+
+  const toSvgX = (x: number) => PAD.l + ((x + xRange) / (2 * xRange)) * plotW
+  const toSvgY = (y: number) => PAD.t + plotH - ((y + yRange) / (2 * yRange)) * plotH
+  const oX = toSvgX(0)
+  const oY = toSvgY(0)
+
+  // Scale loadings to fill ~72% of score range
+  const maxL = Math.max(...loadings.flatMap(l => [Math.abs(l.pc1), Math.abs(l.pc2)]), 0.001)
+  const lScale = (xRange * 0.72) / maxL
+
+  // Axis tick values
+  const axisTicks = [-1, -0.5, 0, 0.5, 1].map(f => f * xRange)
+
+  const pc1Label = varExp ? `PC1 (${(varExp[0] * 100).toFixed(1)}%)` : 'PC1'
+  const pc2Label = varExp ? `PC2 (${(varExp[1] * 100).toFixed(1)}%)` : 'PC2'
+
   return (
-    <ResponsiveContainer width="100%" height={chartHeight(expanded, 340)}>
-      <ScatterChart>
-        <CartesianGrid {...gridStyle} />
-        <XAxis type="number" dataKey="pc1" name="PC1" tick={axisTick} />
-        <YAxis type="number" dataKey="pc2" name="PC2" tick={axisTick} />
-        <Tooltip content={<CustomTooltip />} />
-        <Scatter data={sample} fill={COLORS[0]} opacity={0.4} animationDuration={800} />
-      </ScatterChart>
-    </ResponsiveContainer>
+    <svg viewBox={`0 0 ${VW} ${VH}`} width="100%" height={VH} style={{ display: 'block', overflow: 'visible' }}>
+      <defs>
+        {loadings.map((_, i) => (
+          <marker key={i} id={`bp-arrow-${i}`} markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+            <polygon points="0,0 7,3.5 0,7" fill={COLORS[i % COLORS.length]} />
+          </marker>
+        ))}
+      </defs>
+
+      {/* Subtle grid */}
+      {[-0.5, 0, 0.5].map(f => {
+        const gx = toSvgX(f * xRange)
+        const gy = toSvgY(f * yRange)
+        return (
+          <g key={f}>
+            <line x1={gx} y1={PAD.t} x2={gx} y2={PAD.t + plotH} stroke={f === 0 ? '#cbd5e1' : '#e2e8f0'} strokeWidth={f === 0 ? 1.5 : 1} strokeDasharray={f === 0 ? undefined : '3 5'} />
+            <line x1={PAD.l} y1={gy} x2={PAD.l + plotW} y2={gy} stroke={f === 0 ? '#cbd5e1' : '#e2e8f0'} strokeWidth={f === 0 ? 1.5 : 1} strokeDasharray={f === 0 ? undefined : '3 5'} />
+          </g>
+        )
+      })}
+
+      {/* Score scatter points */}
+      {sample.map((d, i) => (
+        <circle key={i} cx={toSvgX(d.pc1)} cy={toSvgY(d.pc2)} r={3.5} fill="#3b82f6" fillOpacity={0.35} stroke="#3b82f6" strokeOpacity={0.5} strokeWidth={0.5} />
+      ))}
+
+      {/* Loading arrows + labels */}
+      {loadings.map((l, i) => {
+        const ex = toSvgX(l.pc1 * lScale)
+        const ey = toSvgY(l.pc2 * lScale)
+        const color = COLORS[i % COLORS.length]
+        const dx = ex - oX, dy = ey - oY
+        const len = Math.sqrt(dx * dx + dy * dy) || 1
+        // Shorten endpoint by arrowhead size so head touches the target
+        const ax = ex - (dx / len) * 8
+        const ay = ey - (dy / len) * 8
+        // Label offset away from origin
+        const lx = ex + (dx / len) * 13
+        const ly = ey + (dy / len) * 13
+        return (
+          <g key={i}>
+            <line x1={oX} y1={oY} x2={ax} y2={ay} stroke={color} strokeWidth={1.8} strokeOpacity={0.85} markerEnd={`url(#bp-arrow-${i})`} />
+            <text x={lx} y={ly} fontSize={10} fill={color} fontWeight={700} textAnchor="middle" dominantBaseline="middle"
+              style={{ filter: 'drop-shadow(0 0 2px white)' }}>
+              {l.variable.length > 14 ? l.variable.slice(0, 12) + '…' : l.variable}
+            </text>
+          </g>
+        )
+      })}
+
+      {/* Axes border */}
+      <rect x={PAD.l} y={PAD.t} width={plotW} height={plotH} fill="none" stroke="#cbd5e1" strokeWidth={1} rx={2} />
+
+      {/* X-axis ticks */}
+      {axisTicks.map((v, i) => {
+        const tx = toSvgX(v)
+        return (
+          <g key={i}>
+            <line x1={tx} y1={PAD.t + plotH} x2={tx} y2={PAD.t + plotH + 4} stroke="#94a3b8" strokeWidth={1} />
+            <text x={tx} y={PAD.t + plotH + 14} fontSize={9} fill="#94a3b8" textAnchor="middle">{v.toFixed(1)}</text>
+          </g>
+        )
+      })}
+
+      {/* Y-axis ticks */}
+      {axisTicks.map((v, i) => {
+        const ty = toSvgY(v)
+        return (
+          <g key={i}>
+            <line x1={PAD.l - 4} y1={ty} x2={PAD.l} y2={ty} stroke="#94a3b8" strokeWidth={1} />
+            <text x={PAD.l - 6} y={ty + 4} fontSize={9} fill="#94a3b8" textAnchor="end">{v.toFixed(1)}</text>
+          </g>
+        )
+      })}
+
+      {/* Axis labels */}
+      <text x={PAD.l + plotW / 2} y={VH - 4} fontSize={11} fill="#64748b" textAnchor="middle" fontWeight={600}>{pc1Label}</text>
+      <text x={14} y={PAD.t + plotH / 2} fontSize={11} fill="#64748b" textAnchor="middle" fontWeight={600}
+        transform={`rotate(-90, 14, ${PAD.t + plotH / 2})`}>{pc2Label}</text>
+
+      {/* Sample size note */}
+      {data.scores.length > 500 && (
+        <text x={PAD.l + plotW - 4} y={PAD.t + plotH - 6} fontSize={9} fill="#94a3b8" textAnchor="end">first 500 observations shown</text>
+      )}
+    </svg>
   )
 }
 
