@@ -451,3 +451,21 @@
 .btn-clinical:active {
   transform: scale(0.95);
 }
+
+/* ─── Analysis Results — Shimmer Progress Bar ───────────────────────────── */
+@keyframes shimmer-progress {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+.shimmer-bar {
+  background: linear-gradient(
+    90deg,
+    #003d9b 0%,
+    #0052cc 40%,
+    #4c9bff 50%,
+    #0052cc 60%,
+    #003d9b 100%
+  );
+  background-size: 200% auto;
+  animation: shimmer-progress 3s linear infinite;
+}

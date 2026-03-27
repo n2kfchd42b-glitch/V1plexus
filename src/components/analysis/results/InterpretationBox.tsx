@@ -1,66 +1,65 @@
 "use client"
 
-import { useState } from 'react'
-import { Lightbulb, ChevronDown, ChevronUp, FlaskConical } from 'lucide-react'
-
 interface Props {
   plainLanguage?: string
   text: string
 }
 
 export function InterpretationBox({ plainLanguage, text }: Props) {
-  const [showTechnical, setShowTechnical] = useState(false)
+  const primary = plainLanguage || text
+  const hasSecondary = plainLanguage && text
+
+  if (!primary) return null
 
   return (
-    <div className="space-y-3">
-      {/* Plain language — always visible */}
-      {plainLanguage && (
-        <div className="bg-white border border-[#E4E4E7] rounded-lg p-5">
-          <div className="flex items-start gap-3">
-            <div className="rounded-lg bg-[#EFF6FF] p-2 shrink-0">
-              <Lightbulb className="h-4 w-4 text-[#3B82F6]" />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#A1A1AA] mb-1.5">
-                Plain Language Summary
-              </p>
-              <p className="text-sm text-[#52525B] leading-relaxed">{plainLanguage}</p>
-            </div>
-          </div>
-        </div>
-      )}
+    <div
+      className="rounded-2xl px-8 py-7 flex items-start gap-6 relative overflow-hidden"
+      style={{ background: 'linear-gradient(135deg, #003d9b 0%, #0052cc 100%)' }}
+    >
+      {/* Decorative circles */}
+      <div className="absolute right-[-40px] top-[-40px] w-48 h-48 rounded-full pointer-events-none" style={{ background: 'rgba(255,255,255,0.06)' }} />
+      <div className="absolute right-[60px] bottom-[-60px] w-40 h-40 rounded-full pointer-events-none" style={{ background: 'rgba(255,255,255,0.04)' }} />
 
-      {/* Technical summary — collapsible */}
-      {text && (
-        <div className="bg-white border border-[#E4E4E7] rounded-lg overflow-hidden">
-          <button
-            onClick={() => setShowTechnical(v => !v)}
-            className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-[#F5F5F5] transition-colors duration-150"
-          >
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-[#FFFBEB] p-2">
-                <FlaskConical className="h-4 w-4 text-[#F59E0B]" />
-              </div>
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#A1A1AA]">
-                  Statistical Summary
-                </span>
-                <p className="text-xs text-[#A1A1AA] mt-0.5">
-                  {showTechnical ? 'Click to collapse' : 'Technical details and methodology'}
-                </p>
-              </div>
-            </div>
-            {showTechnical
-              ? <ChevronUp className="h-4 w-4 text-[#A1A1AA] shrink-0" />
-              : <ChevronDown className="h-4 w-4 text-[#A1A1AA] shrink-0" />}
-          </button>
-          {showTechnical && (
-            <div className="px-5 pb-5 border-t border-[#F0F0F0]">
-              <p className="text-sm text-[#52525B] leading-relaxed pt-4">{text}</p>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Lightning icon */}
+      <div
+        className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+        style={{ background: 'rgba(255,255,255,0.12)' }}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+        </svg>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 relative z-10 min-w-0">
+        <p className="text-[9px] font-bold uppercase tracking-[0.16em] font-manrope mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
+          AI Insight Engine
+        </p>
+        <h3 className="font-manrope font-bold text-[1.125rem] text-white mb-2">
+          Key findings from your analysis
+        </h3>
+        <p className="text-[0.8125rem] leading-relaxed max-w-2xl" style={{ color: 'rgba(255,255,255,0.85)' }}>
+          {primary}
+        </p>
+
+        {/* Technical detail expandable */}
+        {hasSecondary && (
+          <details className="mt-3 group">
+            <summary className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em] cursor-pointer list-none transition-colors" style={{ color: 'rgba(255,255,255,0.5)' }}
+              onMouseOver={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.75)')}
+              onMouseOut={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.5)')}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+              Statistical details
+            </summary>
+            <p className="text-xs leading-relaxed mt-2.5" style={{ color: 'rgba(255,255,255,0.65)' }}>
+              {text}
+            </p>
+          </details>
+        )}
+      </div>
     </div>
   )
 }

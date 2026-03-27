@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, FileText, BarChart2, Table2, FlaskConical } from 'lucide-react'
+import { FileText } from 'lucide-react'
 import { SummaryBox } from './SummaryBox'
 import { CoefficientTable } from './CoefficientTable'
 import { InterpretationBox } from './InterpretationBox'
@@ -9,6 +9,10 @@ import { ResultsActions } from './ResultsActions'
 import { AnalysisCharts } from './AnalysisCharts'
 import type { AnalysisResult } from '@/lib/analysis/types'
 import type { AnalysisType } from '@/types/database'
+import type { ResultsTab } from '@/app/(dashboard)/projects/[id]/analysis/[runId]/page'
+
+// Chart types that belong in the Diagnostics tab
+const DIAGNOSTIC_CHART_TYPES = new Set(['residual_plot', 'acf_plot', 'funnel_plot'])
 
 interface Props {
   result: AnalysisResult
@@ -17,6 +21,7 @@ interface Props {
   datasetName?: string
   onSave: () => Promise<void>
   isSaved?: boolean
+  activeTab?: ResultsTab
 }
 
 function exportToWord(result: AnalysisResult, title: string) {
@@ -63,100 +68,161 @@ function exportToWord(result: AnalysisResult, title: string) {
   URL.revokeObjectURL(url)
 }
 
-export function ResultsPanel({ result, analysisType, title, datasetName, onSave, isSaved }: Props) {
-  const [showAdvanced, setShowAdvanced] = useState(false)
+export function ResultsPanel({ result, analysisType, title, datasetName, onSave, isSaved, activeTab = 'charts' }: Props) {
+  const [tableSearch, setTableSearch] = useState('')
 
   if (result.summary?.error) {
     return (
-      <div className="bg-[#FEF2F2] border border-[#E4E4E7] rounded-lg p-5">
+      <div className="bg-[#FEF2F2] rounded-2xl p-5" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}>
         <p className="text-sm font-semibold text-[#991B1B]">Analysis Error</p>
         <p className="text-sm text-[#52525B] mt-1">{String(result.summary.error)}</p>
       </div>
     )
   }
 
+  type ChartSpec = { type: string; title: string; data: unknown[]; config: Record<string, unknown> }
+  const mainCharts = result.charts.filter(c => !DIAGNOSTIC_CHART_TYPES.has((c as ChartSpec).type))
+  const diagnosticCharts = result.charts.filter(c => DIAGNOSTIC_CHART_TYPES.has((c as ChartSpec).type))
+
   const primaryTables = result.tables.filter(t => !t.advanced)
   const advancedTables = result.tables.filter(t => t.advanced)
+  const allTables = [...primaryTables, ...advancedTables]
+
+  const filteredTables = tableSearch
+    ? allTables.filter(t => t.title.toLowerCase().includes(tableSearch.toLowerCase()))
+    : allTables
+
   const exportTitle = title ?? `${analysisType} results`
 
   return (
-    <div className="space-y-6">
-      {/* Summary */}
-      <SummaryBox analysisType={analysisType} summary={result.summary} title={title} datasetName={datasetName} />
+    <div>
+      {/* ── Charts Tab ───────────────────────────────────────────────── */}
+      {activeTab === 'charts' && (
+        <div className="space-y-5">
+          <SummaryBox
+            analysisType={analysisType}
+            summary={result.summary}
+            title={title}
+            datasetName={datasetName}
+          />
 
-      {/* Interpretation */}
-      {(result.plainLanguage || result.interpretation) && (
-        <InterpretationBox plainLanguage={result.plainLanguage} text={result.interpretation} />
-      )}
+          {mainCharts.length > 0 && (
+            <AnalysisCharts charts={mainCharts as Parameters<typeof AnalysisCharts>[0]['charts']} />
+          )}
 
-      {/* Charts */}
-      {result.charts.length > 0 && (
-        <section>
-          <div className="flex items-center gap-2 mb-3">
-            <BarChart2 className="h-4 w-4 text-[#0052CC]" />
-            <h3 className="font-manrope font-bold text-sm text-[#18181B]">Visualizations</h3>
-            <span className="text-xs text-[#A1A1AA]">{result.charts.length} chart{result.charts.length > 1 ? 's' : ''}</span>
-          </div>
-          <AnalysisCharts charts={result.charts as Parameters<typeof AnalysisCharts>[0]['charts']} />
-        </section>
-      )}
-
-      {/* Primary Tables */}
-      {primaryTables.length > 0 && (
-        <section>
-          <div className="flex items-center gap-2 mb-3">
-            <Table2 className="h-4 w-4 text-[#0052CC]" />
-            <h3 className="font-manrope font-bold text-sm text-[#18181B]">Results Tables</h3>
-            <span className="text-xs text-[#A1A1AA]">{primaryTables.length} table{primaryTables.length > 1 ? 's' : ''}</span>
-          </div>
-          <div className="space-y-4">
-            {primaryTables.map(table => (
-              <div key={table.id} className="bg-white border border-[#E4E4E7] rounded-lg p-5">
-                <CoefficientTable table={table} />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Advanced Statistics */}
-      {advancedTables.length > 0 && (
-        <div className="bg-white border border-[#E4E4E7] rounded-lg overflow-hidden">
-          <button
-            onClick={() => setShowAdvanced(v => !v)}
-            className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-[#F5F5F5] transition-colors duration-150"
-          >
-            <div className="flex items-center gap-2">
-              <FlaskConical className="h-4 w-4 text-[#A1A1AA]" />
-              <span className="text-sm font-medium text-[#52525B]">
-                Advanced Statistics ({advancedTables.length} table{advancedTables.length > 1 ? 's' : ''})
-              </span>
-            </div>
-            {showAdvanced
-              ? <ChevronUp className="h-4 w-4 text-[#A1A1AA]" />
-              : <ChevronDown className="h-4 w-4 text-[#A1A1AA]" />}
-          </button>
-          {showAdvanced && (
-            <div className="px-5 pb-5 space-y-4 border-t border-[#F0F0F0] pt-4">
-              {advancedTables.map(table => (
-                <CoefficientTable key={table.id} table={table} />
-              ))}
-            </div>
+          {(result.plainLanguage || result.interpretation) && (
+            <InterpretationBox
+              plainLanguage={result.plainLanguage}
+              text={result.interpretation}
+            />
           )}
         </div>
       )}
 
-      {/* Actions */}
-      <div className="flex items-center gap-3 pt-4 border-t border-[#E4E4E7]">
-        <ResultsActions onSave={onSave} saved={isSaved} />
-        <button
-          onClick={() => exportToWord(result, exportTitle)}
-          className="inline-flex items-center gap-2 text-xs font-medium text-[#52525B] hover:text-[#18181B] border border-[#E4E4E7] rounded-lg px-4 py-2 hover:bg-[#F5F5F5] transition-all duration-150"
-        >
-          <FileText className="h-3.5 w-3.5" />
-          Export to Word
-        </button>
-      </div>
+      {/* ── Tables Tab ───────────────────────────────────────────────── */}
+      {activeTab === 'tables' && (
+        <div>
+          <div
+            className="bg-white rounded-2xl overflow-hidden"
+            style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}
+          >
+            {/* Table header */}
+            <div className="px-7 py-6 border-b border-[#f2f4f6] flex items-center justify-between gap-4 flex-wrap">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope mb-1">
+                  Results Output
+                </p>
+                <h2 className="font-manrope font-bold text-lg text-[#18181B]">
+                  {title ?? 'Results Tables'}
+                </h2>
+              </div>
+              <input
+                value={tableSearch}
+                onChange={e => setTableSearch(e.target.value)}
+                placeholder="Search tables..."
+                className="bg-[#f2f4f6] border border-[rgba(195,198,214,0.3)] rounded-lg px-3 py-2 text-sm text-[#18181B] outline-none focus:border-[rgba(0,82,204,0.4)] focus:shadow-[0_0_0_3px_rgba(0,82,204,0.08)] transition-all w-52"
+              />
+            </div>
+
+            {/* Tables */}
+            {filteredTables.length > 0 ? (
+              filteredTables.map(table => (
+                <div key={table.id} className="px-7 py-6 border-b border-[#f2f4f6] last:border-0">
+                  <CoefficientTable table={table} />
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-[#A1A1AA] text-center py-14">
+                No tables match your search.
+              </p>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-3 mt-5">
+            <ResultsActions onSave={onSave} saved={isSaved} />
+            <button
+              onClick={() => exportToWord(result, exportTitle)}
+              className="inline-flex items-center gap-2 text-xs font-medium text-[#52525B] hover:text-[#18181B] border border-[rgba(195,198,214,0.4)] rounded-lg px-4 py-2 hover:bg-[#f2f4f6] transition-all bg-white"
+              style={{ boxShadow: '0 8px 24px rgba(0,24,72,0.05)' }}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Export to Word
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Diagnostics Tab ──────────────────────────────────────────── */}
+      {activeTab === 'diagnostics' && (
+        <div className="space-y-5">
+          {diagnosticCharts.length > 0 ? (
+            <AnalysisCharts charts={diagnosticCharts as Parameters<typeof AnalysisCharts>[0]['charts']} />
+          ) : (
+            <div
+              className="bg-white rounded-2xl p-14 text-center"
+              style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}
+            >
+              <p className="text-sm text-[#A1A1AA]">
+                No diagnostic plots available for this analysis type.
+              </p>
+            </div>
+          )}
+
+          {advancedTables.length > 0 && (
+            <div
+              className="bg-white rounded-2xl overflow-hidden"
+              style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}
+            >
+              <div className="px-7 py-5 border-b border-[#f2f4f6]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope mb-1">
+                  Advanced
+                </p>
+                <h2 className="font-manrope font-bold text-lg text-[#18181B]">
+                  Diagnostic Statistics
+                </h2>
+              </div>
+              {advancedTables.map(table => (
+                <div key={table.id} className="px-7 py-6 border-b border-[#f2f4f6] last:border-0">
+                  <CoefficientTable table={table} />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {result.interpretation && (
+            <div
+              className="bg-white rounded-2xl p-7"
+              style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}
+            >
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope mb-4">
+                Statistical Summary
+              </p>
+              <p className="text-sm text-[#52525B] leading-relaxed">{result.interpretation}</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

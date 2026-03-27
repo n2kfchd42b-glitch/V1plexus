@@ -1,6 +1,5 @@
 "use client"
 
-import { BarChart2, TrendingUp } from 'lucide-react'
 import type { AnalysisType } from '@/types/database'
 
 interface Props {
@@ -10,101 +9,107 @@ interface Props {
   datasetName?: string
 }
 
-const analysisLabels: Record<AnalysisType, string> = {
-  descriptive: 'Descriptive Statistics',
-  frequency: 'Frequency Table',
-  chi_square: 'Chi-Square Test',
-  t_test: 'T-Test',
-  anova: 'ANOVA',
-  correlation: 'Correlation Analysis',
-  simple_regression: 'Simple Linear Regression',
-  multiple_regression: 'Multiple Linear Regression',
-  logistic_regression: 'Binary Logistic Regression',
-  multinomial_regression: 'Multinomial Logistic Regression',
-  ordinal_regression: 'Ordinal Logistic Regression',
-  poisson_regression: 'Poisson Regression',
-  negbinomial_regression: 'Negative Binomial Regression',
-  kaplan_meier: 'Kaplan-Meier Survival Analysis',
-  cox_regression: 'Cox Proportional Hazards',
-  time_series: 'Time Series Analysis',
-  pca: 'Principal Component Analysis',
-  factor_analysis: 'Factor Analysis',
-  cluster_analysis: 'Cluster Analysis',
-  meta_analysis: 'Meta-Analysis',
-  spatial_analysis: 'Spatial Analysis',
-  outbreak_investigation: 'Outbreak Investigation',
-  sample_size: 'Sample Size Calculation',
-}
-
-export function SummaryBox({ analysisType, summary, title, datasetName }: Props) {
-  const pairs = Object.entries(summary).filter(([k]) => k !== 'error')
-
-  if (summary.error) {
-    return (
-      <div className="rounded-lg border border-[#E4E4E7] bg-[#FEF2F2] p-5 mb-6">
-        <p className="text-sm font-semibold text-[#991B1B]">Analysis Error</p>
-        <p className="text-xs text-[#52525B] mt-1">{String(summary.error)}</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="bg-white border border-[#E4E4E7] rounded-lg overflow-hidden mb-6">
-      {/* Header */}
-      <div className="px-5 py-4 border-b border-[#F0F0F0] flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-[#EFF6FF] p-2">
-            <BarChart2 className="h-4 w-4 text-[#3B82F6]" />
-          </div>
-          <div>
-            <h3 className="font-manrope font-bold text-sm text-[#18181B]">
-              {title ?? analysisLabels[analysisType]}
-            </h3>
-            {datasetName && (
-              <p className="text-xs text-[#A1A1AA] mt-0.5">Dataset: {datasetName}</p>
-            )}
-          </div>
-        </div>
-        <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded bg-[#F0FDF4] text-[#166534]">
-          Completed
-        </span>
-      </div>
-
-      {/* Metric Cards Grid */}
-      {pairs.length > 0 && (
-        <div className="p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="h-3.5 w-3.5 text-[#0052CC]" />
-            <p className="text-[10px] font-bold uppercase tracking-widest text-[#A1A1AA]">Key Results</p>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {pairs.map(([key, val]) => (
-              <MetricCard key={key} label={formatKey(key)} value={String(val)} />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-[#F0F0F0] border border-[#E4E4E7] rounded-lg p-3 transition-all duration-150 hover:bg-[#F5F5F5]">
-      <p className="text-[9px] font-bold uppercase tracking-widest text-[#A1A1AA] mb-1 truncate" title={label}>
-        {label}
-      </p>
-      <p className="text-base font-manrope font-extrabold text-[#18181B] truncate" title={value}>
-        {value}
-      </p>
-    </div>
-  )
-}
-
 function formatKey(key: string): string {
   return key
     .replace(/([A-Z])/g, ' $1')
     .replace(/_/g, ' ')
     .trim()
     .replace(/^./, c => c.toUpperCase())
+}
+
+function formatValue(val: unknown): string {
+  if (val === null || val === undefined) return '—'
+  if (typeof val === 'number') {
+    if (Number.isInteger(val)) return val.toLocaleString()
+    // Percentages stored as decimals < 1
+    if (Math.abs(val) <= 1 && val !== 0 && String(val).length > 4) return val.toFixed(3)
+    return val.toLocaleString(undefined, { maximumFractionDigits: 3 })
+  }
+  return String(val)
+}
+
+type Badge = { label: string; cls: string }
+
+function getStatBadge(key: string, val: unknown): Badge | null {
+  const k = key.toLowerCase()
+  const num = Number(val)
+  if (isNaN(num)) return null
+
+  if (k.includes('pval') || k === 'p' || k.includes('p_val') || k.includes('p-val')) {
+    if (num < 0.001) return { label: 'p<0.001 ***', cls: 'bg-[#eff6ff] text-[#003d9b]' }
+    if (num < 0.01)  return { label: 'p<0.01 **',   cls: 'bg-[#eff6ff] text-[#003d9b]' }
+    if (num < 0.05)  return { label: 'Significant',  cls: 'bg-[#eff6ff] text-[#003d9b]' }
+    return { label: 'Not significant', cls: 'bg-[#f2f4f6] text-[#52525B]' }
+  }
+  if (k.includes('auc') || k.includes('roc')) {
+    if (num >= 0.8)  return { label: 'Good discrimination', cls: 'bg-[#f0fdf4] text-[#166534]' }
+    if (num >= 0.7)  return { label: 'Acceptable',           cls: 'bg-[#fffbeb] text-[#b45309]' }
+    return { label: 'Poor discrimination', cls: 'bg-[#fef2f2] text-[#991B1B]' }
+  }
+  if (k.includes('r2') || k.includes('r_squared') || k.includes('rsquared')) {
+    return { label: 'Pseudo R²', cls: 'bg-[#fffbeb] text-[#b45309]' }
+  }
+  if (k === 'n' || k === 'samplen' || k === 'samplesize') {
+    return { label: 'Complete cases', cls: 'bg-[#f0fdf4] text-[#166534]' }
+  }
+  return null
+}
+
+// Decide text color for the large number — blue for primary metrics
+const PRIMARY_KEYS = new Set(['prevalence', 'incidence', 'auc', 'roc', 'or', 'hr', 'irr', 'rr'])
+
+function getValueColor(key: string): string {
+  const k = key.toLowerCase().replace(/[^a-z]/g, '')
+  for (const pk of PRIMARY_KEYS) {
+    if (k.includes(pk)) return '#003d9b'
+  }
+  return '#18181B'
+}
+
+export function SummaryBox({ analysisType, summary }: Props) {
+  const pairs = Object.entries(summary)
+    .filter(([k]) => k !== 'error')
+    .slice(0, 8)
+
+  if (summary.error) {
+    return (
+      <div className="rounded-2xl bg-[#FEF2F2] p-5" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}>
+        <p className="text-sm font-semibold text-[#991B1B]">Analysis Error</p>
+        <p className="text-xs text-[#52525B] mt-1">{String(summary.error)}</p>
+      </div>
+    )
+  }
+
+  if (pairs.length === 0) return null
+
+  return (
+    <div className={`grid gap-4 ${pairs.length === 1 ? 'grid-cols-1 max-w-xs' : pairs.length === 2 ? 'grid-cols-2' : pairs.length === 3 ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'}`}>
+      {pairs.map(([key, val]) => {
+        const badge = getStatBadge(key, val)
+        const valColor = getValueColor(key)
+        return (
+          <div
+            key={key}
+            className="bg-white rounded-2xl px-6 py-5 transition-all duration-200 hover:-translate-y-0.5 cursor-default"
+            style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}
+          >
+            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#A1A1AA] mb-2 truncate font-manrope">
+              {formatKey(key)}
+            </p>
+            <p
+              className="font-manrope font-extrabold text-[1.75rem] leading-none mb-2.5 truncate"
+              style={{ color: valColor }}
+            >
+              {formatValue(val)}
+            </p>
+            {badge && (
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-[0.08em] ${badge.cls}`}>
+                {badge.label}
+              </span>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
 }

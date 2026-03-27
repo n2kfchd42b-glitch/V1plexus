@@ -29,12 +29,27 @@ interface Props {
   charts: ChartSpec[]
 }
 
+// Chart types that should always span the full grid width
+const FULL_WIDTH_CHART_TYPES = new Set([
+  'km_curve', 'time_series', 'heatmap', 'biplot',
+  'epi_curve', 'mosaic', 'roc_curve', 'forest_meta',
+])
+
 export function AnalysisCharts({ charts }: Props) {
   if (!charts || charts.length === 0) return null
+  const visible = charts.filter(c => SUPPORTED_CHART_TYPES.has(c.type))
+  if (visible.length === 0) return null
+
+  const useGrid = visible.length > 1
   return (
-    <div className="space-y-6">
-      {charts.map((chart, idx) => (
-        <ChartRenderer key={idx} chart={chart} index={idx} />
+    <div className={useGrid ? 'grid grid-cols-1 lg:grid-cols-2 gap-5' : 'flex flex-col gap-5'}>
+      {visible.map((chart, idx) => (
+        <div
+          key={idx}
+          className={useGrid && FULL_WIDTH_CHART_TYPES.has(chart.type) ? 'lg:col-span-2' : ''}
+        >
+          <ChartRenderer chart={chart} index={idx} />
+        </div>
       ))}
     </div>
   )
@@ -79,18 +94,22 @@ function ChartRenderer({ chart, index }: { chart: ChartSpec; index: number }) {
   if (!SUPPORTED_CHART_TYPES.has(type)) return null
 
   return (
-    <div className={`group relative bg-white border border-[#E4E4E7] rounded-lg overflow-hidden transition-all duration-150 ${expanded ? 'shadow-[0_8px_24px_rgba(0,0,0,0.08)]' : 'hover:shadow-[0_4px_12px_rgba(0,82,204,0.06)]'}`}>
+    <div
+      className={`bg-white rounded-2xl overflow-hidden h-full transition-all duration-200 ${expanded ? '' : 'hover:-translate-y-0.5'}`}
+      style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}
+    >
       {/* Chart Header */}
-      <div className="flex items-center justify-between px-5 pt-4 pb-2">
+      <div className="flex items-start justify-between px-7 pt-6 pb-2">
         <div>
-          <h4 className="font-manrope font-bold text-sm text-[#18181B]">{title}</h4>
-          <p className="text-[10px] text-[#A1A1AA] uppercase tracking-wider font-medium mt-0.5">
-            Interactive visualization
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope mb-1">
+            Visualization
           </p>
+          <h4 className="font-manrope font-bold text-[1.0625rem] text-[#18181B]">{title}</h4>
+          <p className="text-[11px] text-[#A1A1AA] mt-0.5">Interactive chart · hover for details</p>
         </div>
         <button
           onClick={() => setExpanded(v => !v)}
-          className="p-2 rounded-lg hover:bg-slate-100 text-muted-foreground hover:text-foreground transition-colors"
+          className="p-2 rounded-lg hover:bg-[#f2f4f6] text-[#A1A1AA] hover:text-[#18181B] transition-colors mt-0.5"
           title={expanded ? 'Collapse' : 'Expand'}
         >
           {expanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
@@ -98,7 +117,7 @@ function ChartRenderer({ chart, index }: { chart: ChartSpec; index: number }) {
       </div>
 
       {/* Chart Body */}
-      <div className={`px-5 pb-5 ${expanded ? 'min-h-[500px]' : ''}`}>
+      <div className={`px-7 pb-7 ${expanded ? 'min-h-[500px]' : ''}`}>
         {type === 'histogram' && <HistogramChart data={data as { x0: number; x1: number; count: number }[]} expanded={expanded} />}
         {type === 'bar' && <FrequencyBarChart data={data as { value: string; count: number; percent: string | number }[]} expanded={expanded} />}
         {type === 'grouped_bar' && <GroupedBarChart data={data as Record<string, unknown>[]} config={config} expanded={expanded} />}
