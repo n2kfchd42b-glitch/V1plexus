@@ -64,9 +64,19 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
 }
 
 // ── Chart Wrapper with expand ────────────────────────────────
+const SUPPORTED_CHART_TYPES = new Set([
+  'histogram', 'bar', 'grouped_bar', 'scatter_regression', 'residual_plot',
+  'coefficient_plot', 'forest_or', 'forest_hr', 'forest_irr', 'forest_meta',
+  'funnel_plot', 'roc_curve', 'km_curve', 'heatmap', 'time_series',
+  'scree_plot', 'cluster_scatter', 'power_curve', 'epi_curve', 'acf_plot',
+  'biplot', 'boxplot_2group', 'boxplot_groups', 'mosaic',
+])
+
 function ChartRenderer({ chart, index }: { chart: ChartSpec; index: number }) {
   const [expanded, setExpanded] = useState(false)
   const { type, title, data, config } = chart
+
+  if (!SUPPORTED_CHART_TYPES.has(type)) return null
 
   return (
     <div className={`group relative bg-white border border-[#E4E4E7] rounded-lg overflow-hidden transition-all duration-150 ${expanded ? 'shadow-[0_8px_24px_rgba(0,0,0,0.08)]' : 'hover:shadow-[0_4px_12px_rgba(0,82,204,0.06)]'}`}>
@@ -605,7 +615,7 @@ function Biplot({ data, config, expanded }: { data: BiplotData; config: Record<s
 
 // ── Box Plot (2 groups) ──────────────────────────────────────
 function BoxPlot2Group({ data, expanded }: { data: Record<string, unknown>; expanded: boolean }) {
-  const groups = (data.groups as { group: string; mean: number; sd: number }[]) ?? []
+  const groups = (Array.isArray(data) ? data : (data.groups as { group: string; mean: number; sd: number }[])) ?? []
   if (!groups.length) return null
   const plotData = groups.map(g => ({ name: g.group, mean: g.mean, error: g.sd }))
   return (
@@ -626,7 +636,7 @@ function BoxPlot2Group({ data, expanded }: { data: Record<string, unknown>; expa
 
 // ── Box Plot (multiple groups) ───────────────────────────────
 function BoxPlotGroups({ data, expanded }: { data: Record<string, unknown>; expanded: boolean }) {
-  const groupData = (data.data as { group: string; mean: number; sd: number }[]) ?? []
+  const groupData = (Array.isArray(data) ? data : (data.data as { group: string; mean: number; sd: number }[])) ?? []
   if (!groupData.length) return null
   return (
     <ResponsiveContainer width="100%" height={chartHeight(expanded, 280)}>

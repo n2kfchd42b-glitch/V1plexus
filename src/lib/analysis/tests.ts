@@ -1,5 +1,14 @@
 // Statistical tests: Chi-Square, T-Test, ANOVA, Correlation
 
+function makeHistBins(vals: number[], nBins = 20): { x0: number; x1: number; count: number }[] {
+  if (vals.length === 0) return []
+  const min = Math.min(...vals), max = Math.max(...vals)
+  const w = max === min ? 1 : (max - min) / nBins
+  const bins = Array.from({ length: nBins }, (_, i) => ({ x0: min + i * w, x1: min + (i + 1) * w, count: 0 }))
+  for (const v of vals) bins[Math.min(Math.floor((v - min) / w), nBins - 1)].count++
+  return bins
+}
+
 import type { DataRow, AnalysisResult, ResultTable } from './types'
 import {
   getNumericValues, getCategoricalValues, countMissing,
@@ -93,7 +102,7 @@ export function runChiSquare(data: DataRow[], config: ChiSquareConfig): Analysis
 
   const chartData = cats1.flatMap(cat1 => cats2.map(cat2 => {
     const r = cats1.indexOf(cat1); const c = cats2.indexOf(cat2)
-    return { row: cat1, col: cat2, observed: observed[r][c], expected: expected[r][c] }
+    return { row: cat1, col: cat2, count: observed[r][c] }
   }))
 
   const sig = pValue < 0.05 ? 'statistically significant' : 'not statistically significant'
@@ -205,10 +214,10 @@ export function runTTest(data: DataRow[], config: TTestConfig): AnalysisResult {
     })
 
     chartData = [
-      { type: 'boxplot_2group', groups: [groups[0], groups[1]], data: [
-        { group: groups[0], values: g1Vals, mean: m1, sd: s1 },
-        { group: groups[1], values: g2Vals, mean: m2, sd: s2 }
-      ], pValue: formatPValue(pValue) }
+      { type: 'boxplot_2group', title: `${variable} by ${groupVariable}`, data: [
+        { group: groups[0], mean: m1, sd: s1 },
+        { group: groups[1], mean: m2, sd: s2 }
+      ], config: {} }
     ]
 
     const sig = pValue < 0.05 ? 'significant' : 'not significant'
@@ -255,7 +264,7 @@ export function runTTest(data: DataRow[], config: TTestConfig): AnalysisResult {
       rows: [[variable, n, fmt(m), fmt(s), fmt(t), df, formatPValue(pValue), fmtCI(m - tCrit * se, m + tCrit * se)]]
     })
 
-    chartData = [{ type: 'histogram', variable, values: vals, mean: m, muNull }]
+    chartData = [{ type: 'histogram', title: `Distribution: ${variable}`, data: makeHistBins(vals), config: {} }]
     interpretation = `One-sample t-test of ${variable} against μ=${muNull}: t(${df}) = ${fmt(t, 2)}, p ${formatPValue(pValue)}. Sample mean = ${fmt(m, 2)} ± ${fmt(s, 2)}.`
   }
 
@@ -427,7 +436,7 @@ export function runAnova(data: DataRow[], config: AnovaConfig): AnalysisResult {
   }
 
   const chartData = [
-    { type: 'boxplot_groups', groups, data: groupStats.map(g => ({ ...g, values: groupData[g.group] })), pValue: formatPValue(pValue) }
+    { type: 'boxplot_groups', title: `${dependent} by ${factor1}`, data: groupStats.map(g => ({ group: g.group, mean: g.mean, sd: g.sd })), config: {} }
   ]
 
   const sig = pValue < 0.05 ? 'significant' : 'not significant'
