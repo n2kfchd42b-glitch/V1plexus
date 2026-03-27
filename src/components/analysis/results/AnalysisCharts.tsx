@@ -308,7 +308,8 @@ function ForestPlotSVG({ rows, nullLine = 0, effectLabel = 'Estimate', isRatio =
   const plotW = plotX1 - plotX0
   const totalH = FP_HEADER_H + FP_PAD_TOP + rows.length * FP_ROW_H + FP_PAD_BOT
 
-  const allV = rows.flatMap(r => [r.ciLow, r.ciHigh, r.value, nullLine]).filter(v => isFinite(v) && !isNaN(v))
+  // null coerces to 0 in isFinite — must explicitly exclude null/undefined
+  const allV = rows.flatMap(r => [r.ciLow, r.ciHigh, r.value, nullLine]).filter((v): v is number => v != null && typeof v === 'number' && isFinite(v) && !isNaN(v))
   // Guard: if no finite values or span is zero, build a safe domain around nullLine
   const rawMin = allV.length ? Math.min(...allV) : nullLine - 1
   const rawMax = allV.length ? Math.max(...allV) : nullLine + 1
@@ -353,10 +354,12 @@ function ForestPlotSVG({ rows, nullLine = 0, effectLabel = 'Estimate', isRatio =
       {/* Rows */}
       {rows.map((d, i) => {
         const cy = rowY(i)
-        const est = d.value
+        const est = d.value ?? nullLine
+        const ciLow = d.ciLow ?? est
+        const ciHigh = d.ciHigh ?? est
         const xEst = toX(est)
-        const xLow = Math.max(toX(d.ciLow), plotX0 + 2)
-        const xHigh = Math.min(toX(d.ciHigh), plotX1 - 2)
+        const xLow = Math.max(toX(ciLow), plotX0 + 2)
+        const xHigh = Math.min(toX(ciHigh), plotX1 - 2)
         // p can be a raw number (coefficient_plot) or formatted string (forest_or/hr/irr)
         const pStr = String(d.p ?? '')
         const pNum = parseFloat(pStr)
@@ -368,8 +371,8 @@ function ForestPlotSVG({ rows, nullLine = 0, effectLabel = 'Estimate', isRatio =
         else if (isRatio) { color = est > nullLine ? '#ef4444' : '#10b981' }
         else { color = est > nullLine ? '#3b82f6' : '#8b5cf6' }
 
-        const safeNum = (n: number) => isFinite(n) ? n.toFixed(2) : '—'
-        const annotText = `${safeNum(est)} [${safeNum(d.ciLow)}, ${safeNum(d.ciHigh)}]`
+        const safeNum = (n: number | null | undefined) => (n != null && typeof n === 'number' && isFinite(n)) ? n.toFixed(2) : '—'
+        const annotText = `${safeNum(est)} [${safeNum(ciLow)}, ${safeNum(ciHigh)}]`
         const pText = pStr === '<0.001' || pStr === '< 0.001' ? '<0.001' : (isNaN(pNum) ? pStr : pNum.toFixed(3))
 
         return (
