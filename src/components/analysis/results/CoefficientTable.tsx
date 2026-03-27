@@ -29,61 +29,77 @@ function downloadCSV(table: ResultTable) {
 export function CoefficientTable({ table }: Props) {
   return (
     <div className="overflow-x-auto">
-      <div className="flex items-center justify-between mb-2">
+      {/* Table Header */}
+      <div className="flex items-center justify-between mb-4">
         {table.title && (
-          <h4 className="text-sm font-semibold">{table.title}</h4>
+          <h4 className="text-sm font-bold text-foreground">{table.title}</h4>
         )}
         <button
           onClick={() => downloadCSV(table)}
           title="Download as CSV"
-          className="ml-auto flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors px-1.5 py-0.5 rounded hover:bg-muted/50"
+          className="ml-auto flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg border hover:bg-muted/30"
         >
           <Download className="h-3 w-3" />
           CSV
         </button>
       </div>
-      <table className="w-full text-xs border-collapse">
-        <thead>
-          <tr className="border-b-2 border-border">
-            {table.headers.map((h, i) => (
-              <th
-                key={i}
-                className={cn(
-                  'py-1.5 px-2 font-semibold text-foreground whitespace-nowrap',
-                  i > 0 ? 'text-right' : 'text-left'
-                )}
-              >
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {table.rows.map((row, ri) => (
-            <tr
-              key={ri}
-              className="border-b border-border/40 hover:bg-muted/20 transition-colors"
-            >
-              {row.map((cell, ci) => (
-                <td
-                  key={ci}
+
+      {/* Table */}
+      <div className="rounded-xl border overflow-hidden">
+        <table className="w-full text-xs border-collapse">
+          <thead>
+            <tr className="bg-slate-50">
+              {table.headers.map((h, i) => (
+                <th
+                  key={i}
                   className={cn(
-                    'py-1.5 px-2 whitespace-nowrap',
-                    ci === 0 ? 'font-medium' : 'text-right font-mono'
+                    'py-3 px-4 font-bold text-[10px] uppercase tracking-widest text-muted-foreground whitespace-nowrap border-b-2 border-slate-200',
+                    i > 0 ? 'text-right' : 'text-left'
                   )}
                 >
-                  {cell === null ? '—' :
-                    (cell === '***' || cell === '**' || cell === '*' || cell === '†')
-                      ? <span className="text-destructive font-bold">{cell}</span>
-                      : String(cell)}
-                </td>
+                  {h}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {table.rows.map((row, ri) => (
+              <tr
+                key={ri}
+                className="group border-b border-slate-100 last:border-0 hover:bg-blue-50/30 transition-colors cursor-default"
+              >
+                {row.map((cell, ci) => (
+                  <td
+                    key={ci}
+                    className={cn(
+                      'py-3 px-4 whitespace-nowrap',
+                      ci === 0 ? 'font-semibold text-foreground' : 'text-right font-mono text-muted-foreground'
+                    )}
+                  >
+                    {cell === null ? (
+                      <span className="text-muted-foreground/40">—</span>
+                    ) : (cell === '***' || cell === '**' || cell === '*' || cell === '†') ? (
+                      <span className={cn(
+                        'font-bold',
+                        cell === '***' ? 'text-red-600' :
+                        cell === '**' ? 'text-orange-600' :
+                        cell === '*' ? 'text-amber-600' :
+                        'text-muted-foreground'
+                      )}>
+                        {cell}
+                      </span>
+                    ) : String(cell)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Footnotes */}
       {table.footnotes && table.footnotes.length > 0 && (
-        <div className="mt-1.5 space-y-0.5">
+        <div className="mt-3 px-1 space-y-1">
           {table.footnotes.map((fn, i) => (
             <p key={i} className="text-[11px] text-muted-foreground italic leading-snug">{fn}</p>
           ))}
