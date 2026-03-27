@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Plus, BarChart2, CheckCircle2, AlertCircle,
-  Search, Activity, X, ChevronRight, Database,
+  Search, X, ChevronRight, Database,
   ArrowLeft, ArrowRight, Download, FileText,
 } from 'lucide-react'
 import { AnalysisTypePicker, ANALYSIS_TYPES } from './AnalysisTypePicker'
@@ -403,6 +403,38 @@ export function AnalysisHub({ projectId }: Props) {
                       </div>
                     )}
 
+                    {/* Key Findings */}
+                    {latestResult?.summary && (() => {
+                      const summary = latestResult.summary as Record<string, unknown>
+                      // Priority keys to display — covers most analysis types
+                      const PRIORITY = ['n','sampleSize','mean','median','sd','standardDeviation','r2','rSquared','pValue','p','auc','f','chiSquare','correlation','hr','or','irr','beta','incidenceRate']
+                      const picked: [string, unknown][] = []
+                      // First pass: priority keys
+                      for (const k of PRIORITY) {
+                        const found = Object.entries(summary).find(([key]) => key.toLowerCase() === k.toLowerCase() && key !== 'error')
+                        if (found && picked.length < 4) picked.push(found)
+                      }
+                      // Fill remaining slots with any other non-error keys
+                      for (const [k, v] of Object.entries(summary)) {
+                        if (k === 'error') continue
+                        if (!picked.find(([pk]) => pk === k) && picked.length < 4) picked.push([k, v])
+                      }
+                      if (picked.length === 0) return null
+                      return (
+                        <div className="mt-4 bg-white rounded-2xl p-5" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}>
+                          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#0040a2] font-manrope mb-4">Key Findings</p>
+                          <div className="grid grid-cols-4 gap-3">
+                            {picked.map(([key, val]) => (
+                              <div key={key} className="bg-[#f7f9fb] rounded-xl px-4 py-3">
+                                <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-[#A1A1AA] truncate font-manrope mb-1">{formatKey(key)}</p>
+                                <p className="font-manrope font-extrabold text-lg text-[#18181B] leading-none truncate">{String(val)}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })()}
+
                     {/* View full results */}
                     <div className="mt-3 flex justify-end">
                       <Link href={`/projects/${projectId}/analysis/${latestCompleted.id}`}>
@@ -461,20 +493,6 @@ export function AnalysisHub({ projectId }: Props) {
                   </div>
                   <div className="w-8 h-8 rounded-xl bg-[#F0FDF4] flex items-center justify-center">
                     <CheckCircle2 className="h-4 w-4 text-[#22C55E]" />
-                  </div>
-                </div>
-
-                {/* Active */}
-                <div
-                  className="rounded-2xl px-5 py-4 flex items-center justify-between bg-white flex-1"
-                  style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}
-                >
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#A1A1AA] font-manrope">Active</p>
-                    <p className="font-manrope font-extrabold text-[1.75rem] leading-none tracking-tight text-[#1E40AF] mt-1">{stats.active}</p>
-                  </div>
-                  <div className="w-8 h-8 rounded-xl bg-[#EFF6FF] flex items-center justify-center">
-                    <Activity className="h-4 w-4 text-[#3B82F6]" />
                   </div>
                 </div>
 

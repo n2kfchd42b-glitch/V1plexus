@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { FlaskConical, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
+import { LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { WorkspaceSwitcher } from '@/components/workspace/WorkspaceSwitcher'
 import { PersonalSidebar } from '@/components/sidebar/PersonalSidebar'
@@ -48,14 +48,15 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
           collapsed ? 'justify-center' : '',
           !collapsed ? 'mb-4' : 'mb-2'
         )}>
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-[#0052CC] flex-shrink-0 shadow-lg shadow-[#0052CC]/20">
-            <FlaskConical className="h-5 w-5 text-white" />
+          <div className="relative flex items-center justify-center w-9 h-9 rounded-lg bg-[#00288e] flex-shrink-0 shadow-md shadow-[#00288e]/30 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1e40af] to-[#00288e]" />
+            <span className="relative z-10 text-white font-black text-sm tracking-tight leading-none select-none">PR</span>
+            <div className="absolute bottom-0 right-0 w-3 h-3 bg-blue-300/20 rounded-tl-lg" />
           </div>
           {!collapsed && (
-            <div>
-              <h1 className="text-xl font-extrabold text-[#001848] font-manrope tracking-tight leading-tight">PLEXUS</h1>
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Research Platform</p>
-            </div>
+            <span className="text-[15px] font-bold tracking-tight text-[#00288e] font-manrope">
+              PLEXUS <span className="text-slate-400 font-normal">Research</span>
+            </span>
           )}
         </div>
 
