@@ -121,9 +121,8 @@ function MiniDistribution({ col }: { col: ColumnSchema }) {
   )
 }
 
-// ── FIX 1: Completeness bar chart (replaces vertical matrix) ──────────────────
+// ── Completeness bar chart ─────────────────────────────────────────────────────
 function CompletenessChart({ columns, rowCount }: { columns: ColumnSchema[]; rowCount: number }) {
-  // Sort by completeness ascending so worst columns appear at top
   const sorted = useMemo(() =>
     [...columns]
       .map(c => ({
@@ -133,39 +132,41 @@ function CompletenessChart({ columns, rowCount }: { columns: ColumnSchema[]; row
         missing: c.null_count,
       }))
       .sort((a, b) => a.pct - b.pct)
-      .slice(0, 20) // show worst 20
+      .slice(0, 20)
   , [columns, rowCount])
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       {sorted.map(col => (
-        <div key={col.name} className="flex items-center gap-3 group">
-          <div className="w-32 shrink-0 flex items-center gap-1.5">
-            <span className="text-[#003d9b]/60">{typeIcon(col.type)}</span>
-            <span className="font-mono text-[10px] text-slate-500 truncate">{col.name}</span>
+        <div key={col.name} className="flex items-center gap-3">
+          <div className="w-36 shrink-0 flex items-center gap-1.5">
+            <span className="text-white/40">{typeIcon(col.type)}</span>
+            <span className="font-mono text-[10px] text-white/60 truncate">{col.name}</span>
           </div>
-          <div className="flex-1 h-2 bg-[#f2f4f6] rounded-full overflow-hidden">
+          <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
             <div
               className="h-full rounded-full transition-all"
               style={{
                 width: `${col.pct}%`,
-                background: col.pct < 80 ? '#ef4444' : col.pct < 95 ? '#f59e0b' : '#003d9b',
+                background: col.pct < 80 ? '#f87171' : col.pct < 95 ? '#fbbf24' : 'rgba(255,255,255,0.75)',
               }}
             />
           </div>
-          <span className="w-12 text-right font-mono text-[10px] shrink-0"
-            style={{ color: col.pct < 80 ? '#ef4444' : col.pct < 95 ? '#d97706' : '#94a3b8' }}>
+          <span
+            className="w-12 text-right font-mono text-[10px] shrink-0"
+            style={{ color: col.pct < 80 ? '#f87171' : col.pct < 95 ? '#fbbf24' : 'rgba(255,255,255,0.5)' }}
+          >
             {col.pct.toFixed(1)}%
           </span>
           {col.missing > 0 && (
-            <span className="w-16 text-right font-mono text-[10px] text-slate-400 shrink-0">
+            <span className="w-16 text-right font-mono text-[10px] text-white/30 shrink-0">
               {col.missing.toLocaleString()} null
             </span>
           )}
         </div>
       ))}
       {columns.length > 20 && (
-        <p className="text-[10px] text-slate-400 pt-1">
+        <p className="text-[10px] text-white/30 pt-1">
           Showing {Math.min(columns.length, 20)} of {columns.length} columns sorted by completeness
         </p>
       )}
@@ -537,6 +538,7 @@ export default function DatasetViewerPage() {
 
         {/* ════════════════ SCHEMA TAB ════════════════ */}
         {activeTab === 'schema' && (
+          <>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
 
             {/* ── Left column ── */}
@@ -600,7 +602,7 @@ export default function DatasetViewerPage() {
                           <th className="pb-3 px-2 w-4" />
                           <th className="pb-3 px-2">Variable</th>
                           <th className="pb-3 px-2">Type</th>
-                          <th className="pb-3 px-2">Completeness</th>
+                          <th className="pb-3 px-2">Quality</th>
                           <th className="pb-3 px-2">Distribution</th>
                           <th className="pb-3 px-2 text-right">Missing</th>
                         </tr>
@@ -608,10 +610,12 @@ export default function DatasetViewerPage() {
                       <tbody className="text-xs">
                         {filteredColumns.map(col => {
                           const completeness = rowCount > 0 ? ((rowCount - col.null_count) / rowCount) * 100 : 100
+                          const cardinalityRatio = rowCount > 0 ? Math.round((col.unique_count / rowCount) * 100) : 0
+                          const qualityDot = completeness < 80 ? '#ef4444' : completeness < 95 ? '#f59e0b' : '#22c55e'
                           const isExpanded = expandedRow === col.name
                           return (
                             <>
-                              {/* Main row — IMPROVEMENT 2: click to expand */}
+                              {/* Main row */}
                               <tr
                                 key={col.name}
                                 className="group hover:bg-[#f7f9fb] border-b border-[#f2f4f6] transition-colors cursor-pointer"
@@ -630,18 +634,22 @@ export default function DatasetViewerPage() {
                                     {typeLabel(col.type)}
                                   </span>
                                 </td>
+                                {/* Quality Signal: dot + cardinality */}
                                 <td className="py-3 px-2">
                                   <div className="flex items-center gap-2">
-                                    <div className="h-1.5 w-20 bg-[#f2f4f6] rounded-full overflow-hidden">
-                                      <div
-                                        className="h-full rounded-full transition-all"
-                                        style={{
-                                          width: `${completeness}%`,
-                                          background: completeness < 80 ? '#ef4444' : completeness < 95 ? '#f59e0b' : '#003d9b',
-                                        }}
-                                      />
-                                    </div>
-                                    <span className="font-mono text-[10px] text-slate-500">{completeness.toFixed(1)}%</span>
+                                    <div
+                                      className="w-2 h-2 rounded-full shrink-0"
+                                      style={{ background: qualityDot, boxShadow: `0 0 0 2px white, 0 0 0 3px ${qualityDot}` }}
+                                    />
+                                    <span className="font-mono text-[10px] text-slate-400">
+                                      {col.unique_count.toLocaleString()} uniq
+                                    </span>
+                                    {cardinalityRatio <= 5 && col.unique_count > 1 && (
+                                      <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1 rounded">low</span>
+                                    )}
+                                    {cardinalityRatio >= 95 && (
+                                      <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1 rounded">id</span>
+                                    )}
                                   </div>
                                 </td>
                                 <td className="py-3 px-2">
@@ -713,32 +721,6 @@ export default function DatasetViewerPage() {
                 )}
               </div>
 
-              {/* FIX 1: Completeness bar chart (replaces vertical matrix) */}
-              {columns.length > 0 && (
-                <div className="bg-white rounded-xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
-                  <div className="flex justify-between items-start mb-5">
-                    <div>
-                      <h3 className="font-manrope font-bold text-lg text-[#191c1e]">Completeness Profile</h3>
-                      <p className="text-[10px] text-slate-500 mt-0.5">Per-column data completeness, sorted by worst first</p>
-                    </div>
-                    <div className="flex items-center gap-4 text-[10px] font-bold uppercase text-slate-400 tracking-wider shrink-0">
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
-                        <span>&lt; 80%</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                        <span>&lt; 95%</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-2.5 h-2.5 rounded-full bg-[#003d9b]" />
-                        <span>Complete</span>
-                      </div>
-                    </div>
-                  </div>
-                  <CompletenessChart columns={columns} rowCount={rowCount} />
-                </div>
-              )}
             </div>
 
             {/* ── Right column ── */}
@@ -817,39 +799,40 @@ export default function DatasetViewerPage() {
                   <ExplorationEmptyCard href={`/projects/${projectId}/data/${datasetId}/explore`} />
                 ) : (
                   <>
-                    {savedCharts.slice(0, 3).map(chart => {
-                      const meta = CHART_META[chart.chart_type] ?? { label: chart.chart_type, icon: <BarChart2 size={14} />, color: 'bg-gray-100 text-gray-700' }
+                    {savedCharts.slice(0, 4).map(chart => {
+                      const meta = CHART_META[chart.chart_type] ?? { label: chart.chart_type, icon: <BarChart2 size={14} />, color: 'bg-white/10 text-white/80' }
                       return (
-                        <div key={chart.id} className="bg-white rounded-xl overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:-translate-y-0.5 transition-all duration-200">
-                          <div className="h-14 bg-[#f7f9fb] flex items-center justify-center border-b border-[#f2f4f6]">
-                            <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${meta.color}`}>
-                              {meta.icon}{meta.label}
-                            </span>
-                          </div>
-                          <div className="p-3 flex items-center justify-between">
-                            <div className="min-w-0">
-                              <h4 className="text-xs font-bold text-[#191c1e] truncate">{chart.title}</h4>
-                              <p className="text-[10px] text-slate-400 mt-0.5">{fmtDate(chart.created_at)}</p>
+                        <div
+                          key={chart.id}
+                          className="bg-gradient-to-br from-[#003d9b] to-[#0052cc] rounded-xl overflow-hidden shadow-lg shadow-[#003d9b]/20 hover:-translate-y-0.5 transition-all duration-200"
+                        >
+                          <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/15 text-white/80 mb-2">
+                                {meta.icon}{meta.label}
+                              </span>
+                              <h4 className="text-xs font-bold text-white truncate">{chart.title}</h4>
+                              <p className="text-[10px] text-white/40 mt-0.5">{fmtDate(chart.created_at)}</p>
                             </div>
-                            <div className="flex items-center gap-1 ml-2 shrink-0">
+                            <div className="flex items-center gap-0.5 shrink-0 mt-0.5">
                               <Link href={`/projects/${projectId}/data/${datasetId}/explore?load=${chart.id}`}>
-                                <button className="p-1.5 rounded-lg text-slate-400 hover:text-[#003d9b] hover:bg-blue-50 transition-colors">
-                                  <ExternalLink size={12} />
+                                <button className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors">
+                                  <ExternalLink size={11} />
                                 </button>
                               </Link>
                               <button
                                 onClick={() => handleDeleteChart(chart.id)}
                                 disabled={deletingId === chart.id}
-                                className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                className="p-1.5 rounded-lg text-white/30 hover:text-red-300 hover:bg-white/10 transition-colors"
                               >
-                                {deletingId === chart.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                                {deletingId === chart.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
                               </button>
                             </div>
                           </div>
                         </div>
                       )
                     })}
-                    {savedCharts.length > 3 && (
+                    {savedCharts.length > 4 && (
                       <button
                         onClick={() => setActiveTab('charts')}
                         className="w-full py-2.5 bg-white rounded-xl text-xs font-bold text-slate-500 hover:text-[#003d9b] transition-colors shadow-[0_4px_20px_rgba(0,0,0,0.04)]"
@@ -862,6 +845,34 @@ export default function DatasetViewerPage() {
               </div>
             </div>
           </div>
+
+          {/* ── COMPLETENESS PROFILE — full-width dark card ── */}
+          {columns.length > 0 && (
+            <div className="mt-8 bg-gradient-to-br from-[#003d9b] to-[#0046b0] rounded-xl p-8 shadow-lg shadow-[#003d9b]/25">
+              <div className="flex justify-between items-start mb-7">
+                <div>
+                  <h3 className="font-manrope font-bold text-lg text-white">Completeness Profile</h3>
+                  <p className="text-[10px] text-white/50 mt-0.5">Per-column data completeness — sorted worst first</p>
+                </div>
+                <div className="flex items-center gap-5 text-[10px] font-bold uppercase tracking-wider shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
+                    <span className="text-white/50">&lt; 80%</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                    <span className="text-white/50">&lt; 95%</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-white/60" />
+                    <span className="text-white/50">Complete</span>
+                  </div>
+                </div>
+              </div>
+              <CompletenessChart columns={columns} rowCount={rowCount} />
+            </div>
+          )}
+          </>
         )}
 
         {/* ════════════════ RAW DATA TAB ════════════════ */}
