@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { DocumentsGrid } from "@/components/document/DocumentsGrid";
+import { DocumentsActions } from "@/components/document/DocumentsActions";
 import { Plus, FileText } from "lucide-react";
 
 export default async function DocumentsPage({
@@ -32,13 +33,7 @@ export default async function DocumentsPage({
             {documents?.length ?? 0} document{documents?.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <Link
-          href={`/projects/${id}/documents/new`}
-          className="flex items-center gap-1.5 bg-clinical-blue text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-clinical-deep transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          New document
-        </Link>
+        <DocumentsActions projectId={id} />
       </div>
 
       {!documents || documents.length === 0 ? (
@@ -62,3 +57,4 @@ export default async function DocumentsPage({
     </div>
   );
 }
+

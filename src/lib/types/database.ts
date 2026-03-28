@@ -171,7 +171,14 @@ export type Database = {
             | "thesis_chapter"
             | "ethics_application"
             | "analysis_plan"
-            | "general";
+            | "general"
+            | "introduction"
+            | "methodology"
+            | "results"
+            | "discussion"
+            | "abstract"
+            | "conclusion"
+            | "literature_review";
           content: Json;
           template_id: string | null;
           status:
@@ -199,7 +206,14 @@ export type Database = {
             | "thesis_chapter"
             | "ethics_application"
             | "analysis_plan"
-            | "general";
+            | "general"
+            | "introduction"
+            | "methodology"
+            | "results"
+            | "discussion"
+            | "abstract"
+            | "conclusion"
+            | "literature_review";
           content?: Json;
           template_id?: string | null;
           status?:
@@ -227,7 +241,14 @@ export type Database = {
             | "thesis_chapter"
             | "ethics_application"
             | "analysis_plan"
-            | "general";
+            | "general"
+            | "introduction"
+            | "methodology"
+            | "results"
+            | "discussion"
+            | "abstract"
+            | "conclusion"
+            | "literature_review";
           content?: Json;
           template_id?: string | null;
           status?:

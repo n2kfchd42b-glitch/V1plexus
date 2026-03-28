@@ -22,6 +22,13 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   ethics_application: 'Ethics Application',
   analysis_plan: 'Analysis Plan',
   general: 'General',
+  abstract: 'Abstract',
+  introduction: 'Introduction',
+  literature_review: 'Literature Review',
+  methodology: 'Methodology',
+  results: 'Results',
+  discussion: 'Discussion',
+  conclusion: 'Conclusion',
 }
 
 type DeleteState = 'idle' | 'confirm' | 'deleting'

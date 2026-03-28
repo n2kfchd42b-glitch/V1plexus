@@ -111,6 +111,47 @@ serve(async (req) => {
         break
       }
 
+      case 'compile_manuscript': {
+        const intro = context?.introduction ?? ''
+        const methods = context?.methodology ?? ''
+        const discussion = context?.discussion ?? ''
+        const datasets: string[] = context?.datasets ?? []
+        const charts: string[] = context?.charts ?? []
+        const journal = context?.journal ? `Target journal: ${context.journal}.` : ''
+
+        const resultsSummary = [
+          datasets.length > 0 ? `Dataset tables included: ${datasets.join(', ')}.` : '',
+          charts.length > 0 ? `Analysis charts included: ${charts.join(', ')}.` : '',
+        ].filter(Boolean).join(' ')
+
+        userMessage = `You are assembling a full academic manuscript from research section drafts. ${journal}
+
+Here are the source sections provided by the research team:
+
+## Introduction draft:
+${intro || '[No introduction draft provided — write a suitable introduction based on the methodology and discussion.]'}
+
+## Methodology draft:
+${methods || '[No methodology draft provided — write a suitable methods section.]'}
+
+## Results context:
+${resultsSummary || '[No specific datasets or charts selected.]'}
+
+## Discussion draft:
+${discussion || '[No discussion draft provided — write a suitable discussion section.]'}
+
+Your task:
+1. Write a concise Abstract (200-300 words) synthesising the whole study.
+2. Write or refine an Introduction (connecting background, gap, objectives).
+3. Write or refine a Methods section (clear, reproducible, formal).
+4. Write a Results narrative that references the tables/charts listed above (use [TABLE: name] and [CHART: name] as placeholders for figures).
+5. Write or refine a Discussion (interpret findings, limitations, implications).
+6. Write a brief Conclusion paragraph.
+
+Separate each section with its heading in the format "## Section Name". Use formal academic English. Use [PLACEHOLDER] where specific data points are unknown.`
+        break
+      }
+
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
           status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
@@ -124,6 +165,8 @@ serve(async (req) => {
       })
     }
 
+    const maxTokens = action === 'compile_manuscript' ? 6000 : 2048
+
     const anthropicRes = await fetch(ANTHROPIC_API_URL, {
       method: 'POST',
       headers: {
@@ -133,7 +176,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 2048,
+        max_tokens: maxTokens,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userMessage }],
       }),
@@ -182,6 +225,13 @@ serve(async (req) => {
       } catch {
         result = []
       }
+    }
+
+    // compile_manuscript returns { text } so the modal can read it directly
+    if (action === 'compile_manuscript') {
+      return new Response(JSON.stringify({ text: resultText, input_tokens: inputTokens, output_tokens: outputTokens }), {
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
+      })
     }
 
     return new Response(JSON.stringify({ result, input_tokens: inputTokens, output_tokens: outputTokens }), {
