@@ -9,6 +9,7 @@ import {
   ArrowLeft, ArrowRight, Download, FileText,
 } from 'lucide-react'
 import { AnalysisTypePicker, ANALYSIS_TYPES } from './AnalysisTypePicker'
+import { KeyFindingCard } from './KeyFindingCard'
 import { ProjectDatasetSelector } from './ProjectDatasetSelector'
 import { AISuggestions } from './AISuggestions'
 import { AnalysisCharts } from './results/AnalysisCharts'
@@ -508,6 +509,11 @@ export function AnalysisHub({ projectId }: Props) {
                     {stats.failed === 0 ? 'All analyses passed' : `${stats.failed} run${stats.failed > 1 ? 's' : ''} need review`}
                   </p>
                 </div>
+
+                {/* Card 4 — Key Finding */}
+                {latestCompleted && latestResult && !latestResult.summary?.error && (
+                  <KeyFindingCard run={latestCompleted} result={latestResult} />
+                )}
               </div>
             </div>
 
