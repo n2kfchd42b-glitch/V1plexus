@@ -1,6 +1,6 @@
 "use client"
 
-import { BarChart2, ArrowRight } from 'lucide-react'
+import { BarChart2, ArrowRight, Activity } from 'lucide-react'
 import Link from 'next/link'
 
 interface ForestRow {
@@ -11,12 +11,22 @@ interface ForestRow {
   p: string
 }
 
+interface KMPoint {
+  time: number
+  survival: number
+  ciLow: number
+  ciHigh: number
+  group: string
+}
+
 interface LatestAnalysisCardsProps {
   projectId: string
   runTitle: string | null
   runId: string
   analysisType: string
   forestRows: ForestRow[]
+  kmData: KMPoint[]
+  kmGroups: string[]
   plainLanguage: string | null
   interpretation: string | null
 }
@@ -230,6 +240,116 @@ function MiniForestPlot({ rows }: { rows: ForestRow[] }) {
   )
 }
 
+// ── Pure-SVG mini Kaplan-Meier curve ─────────────────────────
+function MiniKMCurve({ data, groups }: { data: KMPoint[]; groups: string[] }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-[200px]">
+        <p className="text-slate-300 text-xs">No chart data</p>
+      </div>
+    )
+  }
+
+  const W = 480
+  const H = 220
+  const PAD_L = 36
+  const PAD_R = 16
+  const PAD_T = 10
+  const PAD_B = 30
+  const plotW = W - PAD_L - PAD_R
+  const plotH = H - PAD_T - PAD_B
+
+  const maxTime = Math.max(...data.map(d => d.time), 1)
+  const xScale = (t: number) => PAD_L + (t / maxTime) * plotW
+  const yScale = (s: number) => PAD_T + (1 - Math.min(Math.max(s, 0), 1)) * plotH
+
+  const KM_COLORS = ['#1d4ed8', '#7c3aed', '#0891b2', '#059669']
+
+  const getStepPath = (groupData: KMPoint[]) => {
+    if (groupData.length === 0) return ''
+    const sorted = [...groupData].sort((a, b) => a.time - b.time)
+    let d = `M ${xScale(sorted[0].time).toFixed(1)} ${yScale(sorted[0].survival).toFixed(1)}`
+    for (let i = 1; i < sorted.length; i++) {
+      d += ` H ${xScale(sorted[i].time).toFixed(1)}`
+      d += ` V ${yScale(sorted[i].survival).toFixed(1)}`
+    }
+    return d
+  }
+
+  const yTicks = [0, 0.25, 0.5, 0.75, 1.0]
+  const xTicks = Array.from({ length: 5 }, (_, i) => (i / 4) * maxTime)
+  const fmtT = (v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v))
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet" style={{ display: 'block' }}>
+      {/* Grid lines */}
+      {yTicks.map(v => (
+        <line key={v} x1={PAD_L} y1={yScale(v)} x2={W - PAD_R} y2={yScale(v)}
+          stroke="rgba(241,245,249,0.9)" strokeWidth={1} />
+      ))}
+
+      {/* Y-axis */}
+      <line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={PAD_T + plotH} stroke="#e5e7eb" strokeWidth={1} />
+
+      {/* X-axis baseline */}
+      <line x1={PAD_L} y1={PAD_T + plotH} x2={W - PAD_R} y2={PAD_T + plotH} stroke="#e5e7eb" strokeWidth={1} />
+
+      {/* Y-axis labels */}
+      {yTicks.map(v => (
+        <text key={v} x={PAD_L - 5} y={yScale(v)} textAnchor="end" dominantBaseline="middle"
+          fontSize={8.5} fill="#9ca3af" fontFamily="Inter, sans-serif">
+          {v.toFixed(2)}
+        </text>
+      ))}
+
+      {/* X-axis ticks + labels */}
+      {xTicks.map(v => (
+        <g key={v}>
+          <line x1={xScale(v)} y1={PAD_T + plotH} x2={xScale(v)} y2={PAD_T + plotH + 4}
+            stroke="#d1d5db" strokeWidth={1} />
+          <text x={xScale(v)} y={PAD_T + plotH + 14} textAnchor="middle"
+            fontSize={8.5} fill="#9ca3af" fontFamily="Inter, sans-serif">
+            {fmtT(v)}
+          </text>
+        </g>
+      ))}
+
+      {/* Survival curves */}
+      {groups.map((group, i) => {
+        const groupData = data.filter(d => d.group === group)
+        const path = getStepPath(groupData)
+        if (!path) return null
+        return (
+          <path key={group} d={path} fill="none"
+            stroke={KM_COLORS[i % KM_COLORS.length]}
+            strokeWidth={2.2} strokeLinejoin="round" />
+        )
+      })}
+
+      {/* Legend */}
+      <g transform={`translate(${PAD_L + 4}, ${H - 6})`}>
+        {groups.length === 1 ? (
+          <>
+            <line x1={0} y1={0} x2={14} y2={0} stroke={KM_COLORS[0]} strokeWidth={2.2} />
+            <text x={18} y={1} fontSize={7.5} fill="#9ca3af" dominantBaseline="middle" fontFamily="Inter, sans-serif">
+              Survival Probability
+            </text>
+          </>
+        ) : (
+          groups.slice(0, 3).map((group, i) => (
+            <g key={group} transform={`translate(${i * 80}, 0)`}>
+              <line x1={0} y1={0} x2={14} y2={0} stroke={KM_COLORS[i % KM_COLORS.length]} strokeWidth={2.2} />
+              <text x={18} y={1} fontSize={7.5} fill="#9ca3af" dominantBaseline="middle" fontFamily="Inter, sans-serif">
+                {group.length > 9 ? group.slice(0, 9) + '…' : group}
+              </text>
+            </g>
+          ))
+        )}
+      </g>
+    </svg>
+  )
+}
+
 // ── Main export ──────────────────────────────────────────────────
 export function LatestAnalysisCards({
   projectId,
@@ -237,11 +357,15 @@ export function LatestAnalysisCards({
   runId,
   analysisType,
   forestRows,
+  kmData,
+  kmGroups,
   plainLanguage,
   interpretation,
 }: LatestAnalysisCardsProps) {
   const text = plainLanguage || interpretation || 'No summary available for this analysis.'
   const hasForest = forestRows && forestRows.length > 0
+  const hasKM = !hasForest && kmData && kmData.length > 0
+  const hasChart = hasForest || hasKM
 
   return (
     <div className="space-y-4">
@@ -272,24 +396,29 @@ export function LatestAnalysisCards({
             <div className="flex items-start justify-between mb-5">
               <div>
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                  Forest Plot
+                  {hasKM ? 'Survival Curve' : 'Forest Plot'}
                 </p>
                 <h3 className="text-sm font-bold text-[#191c1e] font-manrope leading-snug line-clamp-1">
                   {runTitle || analysisType}
                 </h3>
               </div>
               <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center flex-shrink-0">
-                <BarChart2 className="h-3.5 w-3.5 text-[#003d9b]" />
+                {hasKM
+                  ? <Activity className="h-3.5 w-3.5 text-[#003d9b]" />
+                  : <BarChart2 className="h-3.5 w-3.5 text-[#003d9b]" />
+                }
               </div>
             </div>
 
             <div className="w-full overflow-hidden">
               {hasForest ? (
                 <MiniForestPlot rows={forestRows} />
+              ) : hasKM ? (
+                <MiniKMCurve data={kmData} groups={kmGroups} />
               ) : (
                 <div className="h-[180px] flex items-center justify-center">
                   <p className="text-slate-300 text-xs text-center">
-                    No forest plot data available
+                    No chart data available
                   </p>
                 </div>
               )}

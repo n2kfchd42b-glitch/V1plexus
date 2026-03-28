@@ -121,12 +121,15 @@ export default async function ProjectOverviewPage({
   // Extract latest analysis data for preview cards
   const latestRun = latestRuns?.[0] ?? null
   type ForestRow = { name: string; value: number; ciLow: number; ciHigh: number; p: string }
+  type KMPoint = { time: number; survival: number; ciLow: number; ciHigh: number; group: string }
   let forestRows: ForestRow[] = []
+  let kmData: KMPoint[] = []
+  let kmGroups: string[] = []
   let plainLanguage: string | null = null
   if (latestRun?.results) {
     const res = latestRun.results as Record<string, unknown>
     plainLanguage = (res.plainLanguage as string) ?? null
-    const charts = (res.charts as Array<{ type: string; data: unknown[] }>) ?? []
+    const charts = (res.charts as Array<{ type: string; data: unknown[]; config?: Record<string, unknown> }>) ?? []
     const forestChart = charts.find(c =>
       ['forest_or', 'forest_hr', 'forest_irr', 'coefficient_plot'].includes(c.type)
     )
@@ -138,6 +141,20 @@ export default async function ProjectOverviewPage({
         ciHigh: Number(d.ciHigh ?? 0),
         p: String(d.p ?? ''),
       }))
+    } else {
+      // Fall back to KM curve if no forest chart
+      const kmChart = charts.find(c => c.type === 'km_curve')
+      if (kmChart?.data) {
+        kmData = (kmChart.data as Array<Record<string, unknown>>).map(d => ({
+          time: Number(d.time ?? 0),
+          survival: Number(d.survival ?? 0),
+          ciLow: Number(d.ciLow ?? 0),
+          ciHigh: Number(d.ciHigh ?? 0),
+          group: String(d.group ?? 'All'),
+        }))
+        const configGroups = (kmChart.config as Record<string, unknown>)?.groups as string[] | undefined
+        kmGroups = configGroups ?? [...new Set(kmData.map(d => d.group))]
+      }
     }
   }
 
@@ -322,6 +339,8 @@ export default async function ProjectOverviewPage({
             runTitle={latestRun.title}
             analysisType={latestRun.analysis_type}
             forestRows={forestRows}
+            kmData={kmData}
+            kmGroups={kmGroups}
             plainLanguage={plainLanguage}
             interpretation={latestRun.interpretation}
           />
