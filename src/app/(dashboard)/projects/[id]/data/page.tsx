@@ -10,6 +10,7 @@ import { LatestAnalysisCards } from '@/components/analysis/LatestAnalysisCards'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { logAudit } from '@/lib/audit'
 import type { Dataset, DatasetVersion } from '@/types/database'
 
 type ForestRow = { name: string; value: number; ciLow: number; ciHigh: number; p: string }
@@ -154,6 +155,7 @@ export default function ProjectDataPage() {
       .from('datasets').update({ deleted_at: new Date().toISOString() }).eq('id', id)
     if (error) { toast.error('Failed to delete dataset'); return }
     setDatasets(prev => prev.filter(d => d.id !== id))
+    logAudit('delete', 'dataset', id, {}, projectId)
     toast.success('Dataset deleted')
   }
 
@@ -162,6 +164,7 @@ export default function ProjectDataPage() {
       .from('datasets').update({ archived_at: archive ? new Date().toISOString() : null }).eq('id', id)
     if (error) { toast.error(archive ? 'Failed to archive dataset' : 'Failed to unarchive dataset'); return }
     setDatasets(prev => prev.filter(d => d.id !== id))
+    logAudit(archive ? 'archive' : 'unarchive', 'dataset', id, {}, projectId)
     toast.success(archive ? 'Dataset archived' : 'Dataset unarchived')
   }
 

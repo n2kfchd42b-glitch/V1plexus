@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { parseFile } from '@/lib/data/parser'
 import { uploadDataset } from '@/lib/data/storage'
 import { useAuth } from '@/hooks/useAuth'
+import { logAudit } from '@/lib/audit'
 import type { ParsedDataset, ColumnType } from '@/types/database'
 
 // Type badge colors
@@ -77,6 +78,13 @@ export function DatasetUpload({ projectId, onSuccess, onCancel }: DatasetUploadP
         uploadedBy: user.id,
         parsedData: parsed,
       })
+      logAudit('upload', 'dataset', datasetId, {
+        name: name || file.name,
+        rows: parsed.row_count,
+        columns: parsed.column_count,
+        file_name: file.name,
+        file_size_mb: parseFloat((file.size / 1024 / 1024).toFixed(2)),
+      }, projectId)
       onSuccess(datasetId)
     } catch (e) {
       setError(`Upload failed: ${e instanceof Error ? e.message : 'Unknown error'}`)

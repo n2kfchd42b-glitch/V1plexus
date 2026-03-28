@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { ArrowLeft } from "lucide-react";
+import { logAudit } from "@/lib/audit";
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -45,6 +46,7 @@ export default function NewProjectPage() {
       setError(error.message);
       setLoading(false);
     } else {
+      logAudit('create', 'project', data.id, { title, status }, data.id)
       router.push(`/projects/${data.id}/overview`);
       setLoading(false);
     }

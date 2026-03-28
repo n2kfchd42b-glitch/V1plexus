@@ -8,6 +8,7 @@ import { formatRelativeTime } from '@/lib/utils'
 import { DocumentStatusBadge } from './DocumentStatusBadge'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { logAudit } from '@/lib/audit'
 import { cn } from '@/lib/utils'
 import type { Document } from '@/lib/types/database'
 
@@ -47,6 +48,7 @@ export function DocumentCard({
         toast.error('Failed to delete document')
         setDeleteState('idle')
       } else {
+        logAudit('delete', 'document', doc.id, { title: doc.title }, projectId)
         toast.success('Document deleted')
         router.refresh()
       }
