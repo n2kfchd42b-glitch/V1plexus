@@ -25,96 +25,113 @@ interface LatestAnalysisCardsProps {
 function MiniForestPlot({ rows }: { rows: ForestRow[] }) {
   if (!rows || rows.length === 0) {
     return (
-      <div className="flex items-center justify-center h-[180px]">
-        <p className="text-blue-200/30 text-xs">No chart data</p>
+      <div className="flex items-center justify-center h-[200px]">
+        <p className="text-slate-300 text-xs">No chart data</p>
       </div>
     )
   }
 
-  const display = rows.slice(0, 7)
-  const ROW_H = 24
-  const LABEL_W = 88
-  const PAD_R = 12
-  const PAD_T = 8
-  const PAD_B = 20 // room for x-axis ticks
-  const W = 340
+  const display = rows.slice(0, 8)
+  const ROW_H = 34
+  const LABEL_W = 100
+  const PAD_R = 16
+  const PAD_T = 10
+  const PAD_B = 26
+  const W = 480
   const plotW = W - LABEL_W - PAD_R
   const H = PAD_T + display.length * ROW_H + PAD_B
 
-  // domain
-  const allVals = display.flatMap(r => [r.ciLow, r.ciHigh, r.value]).filter(v => isFinite(v))
-  if (allVals.length === 0) return null
-  const rawMin = Math.min(...allVals)
-  const rawMax = Math.max(...allVals)
-  const pad = Math.max((rawMax - rawMin) * 0.18, 0.3)
-  const domMin = rawMin - pad
-  const domMax = rawMax + pad
+  // ── Domain based on POINT ESTIMATES only to prevent outlier CIs
+  //    blowing out the scale. Extreme CIs are clipped and shown with arrows.
+  const estimates = display.map(r => r.value).filter(v => isFinite(v) && !isNaN(v))
+  if (estimates.length === 0) return null
+  const estMin = Math.min(...estimates)
+  const estMax = Math.max(...estimates)
+  const estRange = Math.max(estMax - estMin, 0.5)
+  const domMin = estMin - estRange * 0.45
+  const domMax = estMax + estRange * 0.45
 
-  const xScale = (v: number) => LABEL_W + ((v - domMin) / (domMax - domMin)) * plotW
+  const xScale = (v: number) =>
+    LABEL_W + ((v - domMin) / (domMax - domMin)) * plotW
 
-  // reference line position (1 for ratios, 0 for coefficients)
-  const isRatio = display.some(r => r.value > 0.5 && r.ciLow > 0)
+  const isRatio = display.some(r => r.value > 0 && r.ciLow > 0)
   const refVal = isRatio ? 1 : 0
   const refX = xScale(refVal)
 
-  // x-axis ticks
-  const tickCount = 4
-  const ticks = Array.from({ length: tickCount }, (_, i) => {
-    const v = domMin + (i / (tickCount - 1)) * (domMax - domMin)
+  // 5 evenly-spaced ticks across the visible domain
+  const ticks = Array.from({ length: 5 }, (_, i) => {
+    const v = domMin + (i / 4) * (domMax - domMin)
     return { v, x: xScale(v) }
   })
+
+  const fmt = (v: number) => {
+    const abs = Math.abs(v)
+    if (abs >= 1000) return v.toExponential(1)
+    if (abs >= 10)   return v.toFixed(1)
+    return v.toFixed(2)
+  }
 
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
       width="100%"
-      height={H}
-      overflow="visible"
+      preserveAspectRatio="xMidYMid meet"
       style={{ display: 'block' }}
     >
+      {/* Alternating row fills */}
+      {display.map((_, i) =>
+        i % 2 === 0 ? (
+          <rect
+            key={i}
+            x={LABEL_W} y={PAD_T + i * ROW_H}
+            width={plotW} height={ROW_H}
+            fill="rgba(241,245,249,0.8)"
+          />
+        ) : null
+      )}
+
       {/* Reference line */}
       {refX >= LABEL_W && refX <= W - PAD_R && (
         <line
-          x1={refX} y1={PAD_T - 4}
+          x1={refX} y1={PAD_T}
           x2={refX} y2={H - PAD_B + 4}
-          stroke="rgba(0,61,155,0.2)"
-          strokeDasharray="3 3"
-          strokeWidth={1}
+          stroke="rgba(0,61,155,0.25)"
+          strokeDasharray="4 3"
+          strokeWidth={1.2}
         />
       )}
-
-      {/* Plot background strip — alternating row tints */}
-      {display.map((_, i) => i % 2 === 0 ? (
-        <rect
-          key={i}
-          x={LABEL_W} y={PAD_T + i * ROW_H}
-          width={plotW} height={ROW_H}
-          fill="rgba(241,245,249,0.7)"
-        />
-      ) : null)}
 
       {/* Rows */}
       {display.map((r, i) => {
         const cy = PAD_T + i * ROW_H + ROW_H / 2
-        const cx = xScale(r.value)
-        const loX = xScale(Math.max(r.ciLow, domMin))
-        const hiX = xScale(Math.min(r.ciHigh, domMax))
+        const cx  = xScale(r.value)
         const sig = parseFloat(r.p) < 0.05
+
+        // Clamp CI to visible domain; track if clipped
+        const rawLoX = xScale(r.ciLow)
+        const rawHiX = xScale(r.ciHigh)
+        const loX    = Math.max(rawLoX, LABEL_W + 1)
+        const hiX    = Math.min(rawHiX, W - PAD_R - 1)
+        const clippedLeft  = rawLoX < LABEL_W + 1
+        const clippedRight = rawHiX > W - PAD_R - 1
+
+        const ciColor     = sig ? 'rgba(29,78,216,0.65)'  : 'rgba(156,163,175,0.7)'
+        const whiskerColor = sig ? 'rgba(29,78,216,0.55)' : 'rgba(156,163,175,0.6)'
 
         return (
           <g key={r.name}>
-            {/* Label */}
+            {/* Row label */}
             <text
-              x={LABEL_W - 6}
-              y={cy + 1}
+              x={LABEL_W - 8}
+              y={cy}
               textAnchor="end"
               dominantBaseline="middle"
-              fontSize={9}
+              fontSize={10}
               fill={sig ? '#1e3a5f' : '#6b7280'}
               fontFamily="Inter, sans-serif"
               fontWeight={sig ? '600' : '400'}
             >
-              {r.name.length > 12 ? r.name.slice(0, 12) + '…' : r.name}
+              {r.name.length > 13 ? r.name.slice(0, 13) + '…' : r.name}
             </text>
 
             {/* CI line */}
@@ -122,38 +139,48 @@ function MiniForestPlot({ rows }: { rows: ForestRow[] }) {
               <line
                 x1={loX} y1={cy}
                 x2={hiX} y2={cy}
-                stroke={sig ? 'rgba(37,99,235,0.5)' : 'rgba(156,163,175,0.6)'}
-                strokeWidth={1.5}
+                stroke={ciColor}
+                strokeWidth={2}
               />
             )}
 
-            {/* CI whiskers */}
-            {loX >= LABEL_W && (
-              <line x1={loX} y1={cy - 3.5} x2={loX} y2={cy + 3.5}
-                stroke={sig ? 'rgba(37,99,235,0.45)' : 'rgba(156,163,175,0.5)'}
-                strokeWidth={1} />
+            {/* Left whisker or clipped arrow */}
+            {clippedLeft ? (
+              <polygon
+                points={`${LABEL_W + 6},${cy - 5} ${LABEL_W + 1},${cy} ${LABEL_W + 6},${cy + 5}`}
+                fill={ciColor}
+              />
+            ) : (
+              <line x1={loX} y1={cy - 5} x2={loX} y2={cy + 5}
+                stroke={whiskerColor} strokeWidth={1.8} strokeLinecap="round" />
             )}
-            {hiX <= W - PAD_R && (
-              <line x1={hiX} y1={cy - 3.5} x2={hiX} y2={cy + 3.5}
-                stroke={sig ? 'rgba(37,99,235,0.45)' : 'rgba(156,163,175,0.5)'}
-                strokeWidth={1} />
+
+            {/* Right whisker or clipped arrow */}
+            {clippedRight ? (
+              <polygon
+                points={`${W - PAD_R - 6},${cy - 5} ${W - PAD_R - 1},${cy} ${W - PAD_R - 6},${cy + 5}`}
+                fill={ciColor}
+              />
+            ) : (
+              <line x1={hiX} y1={cy - 5} x2={hiX} y2={cy + 5}
+                stroke={whiskerColor} strokeWidth={1.8} strokeLinecap="round" />
             )}
 
             {/* Point estimate */}
             {cx >= LABEL_W && cx <= W - PAD_R && (
               sig ? (
                 <polygon
-                  points={`${cx},${cy - 5} ${cx + 4.5},${cy} ${cx},${cy + 5} ${cx - 4.5},${cy}`}
-                  fill="#2563eb"
+                  points={`${cx},${cy - 6} ${cx + 5.5},${cy} ${cx},${cy + 6} ${cx - 5.5},${cy}`}
+                  fill="#1d4ed8"
                   stroke="#bfdbfe"
-                  strokeWidth={0.8}
+                  strokeWidth={1}
                 />
               ) : (
                 <circle
-                  cx={cx} cy={cy} r={3.5}
-                  fill="rgba(37,99,235,0.12)"
+                  cx={cx} cy={cy} r={4.5}
+                  fill="rgba(29,78,216,0.14)"
                   stroke="#93c5fd"
-                  strokeWidth={1}
+                  strokeWidth={1.2}
                 />
               )
             )}
@@ -161,32 +188,42 @@ function MiniForestPlot({ rows }: { rows: ForestRow[] }) {
         )
       })}
 
-      {/* X-axis ticks */}
+      {/* X-axis baseline */}
+      <line
+        x1={LABEL_W} y1={H - PAD_B + 4}
+        x2={W - PAD_R} y2={H - PAD_B + 4}
+        stroke="#e5e7eb" strokeWidth={1}
+      />
+
+      {/* X-axis ticks + labels */}
       {ticks.map(({ v, x }) => (
         <g key={v}>
-          <line x1={x} y1={H - PAD_B + 2} x2={x} y2={H - PAD_B + 5}
-            stroke="#d1d5db" strokeWidth={1} />
+          <line
+            x1={x} y1={H - PAD_B + 4}
+            x2={x} y2={H - PAD_B + 8}
+            stroke="#d1d5db" strokeWidth={1}
+          />
           <text
-            x={x} y={H - PAD_B + 12}
+            x={x} y={H - PAD_B + 18}
             textAnchor="middle"
-            fontSize={7.5}
+            fontSize={8.5}
             fill="#9ca3af"
             fontFamily="Inter, sans-serif"
           >
-            {v.toFixed(1)}
+            {fmt(v)}
           </text>
         </g>
       ))}
 
       {/* Legend */}
-      <g transform={`translate(${LABEL_W}, ${H - 6})`}>
-        <polygon points="0,-4 3.5,0 0,4 -3.5,0" fill="#2563eb" />
-        <text x={7} y={1} fontSize={7} fill="#9ca3af" dominantBaseline="middle" fontFamily="Inter, sans-serif">
-          significant
+      <g transform={`translate(${LABEL_W + 4}, ${H - 6})`}>
+        <polygon points="0,-4 4,0 0,4 -4,0" fill="#1d4ed8" />
+        <text x={8} y={1} fontSize={7.5} fill="#9ca3af" dominantBaseline="middle" fontFamily="Inter, sans-serif">
+          p &lt; 0.05
         </text>
-        <circle cx={60} cy={0} r={3.5} fill="rgba(37,99,235,0.15)" stroke="#93c5fd" strokeWidth={1} />
-        <text x={67} y={1} fontSize={7} fill="#9ca3af" dominantBaseline="middle" fontFamily="Inter, sans-serif">
-          non-significant
+        <circle cx={62} cy={0} r={4} fill="rgba(29,78,216,0.14)" stroke="#93c5fd" strokeWidth={1.2} />
+        <text x={70} y={1} fontSize={7.5} fill="#9ca3af" dominantBaseline="middle" fontFamily="Inter, sans-serif">
+          n.s.
         </text>
       </g>
     </svg>
