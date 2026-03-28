@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import {
   LineChart, Line, BarChart, Bar, ScatterChart, Scatter,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine,
@@ -281,183 +281,227 @@ function ResidualChart({ data, expanded }: { data: Record<string, unknown>[]; ex
   )
 }
 
-// ── SVG Forest Plot ──────────────────────────────────────────
+// ── Forest Plot (Table-based, responsive) ─────────────────────
 interface CoefficientPlotData { name: string; estimate?: number; or?: number; hr?: number; irr?: number; ciLow: number; ciHigh: number; p: string; sig?: string }
 interface ForestPlotData { label: string; es: number; ciLow: number; ciHigh: number; weight: number; isSummary: boolean }
 
 type ForestRow = { name: string; value: number; ciLow: number; ciHigh: number; p: string; isSummary?: boolean; weight?: number }
 
-const FP_VW = 840
-const FP_LABEL_W = 178
-const FP_ANNOT_W = 192
-const FP_PAD_L = 14
-const FP_PAD_R = 14
-const FP_ROW_H = 42
-const FP_HEADER_H = 34
-const FP_PAD_TOP = 6
-const FP_PAD_BOT = 30
+const BAR_W = 220
+const BAR_H = 28
 
-function ForestPlotSVG({ rows, nullLine = 0, effectLabel = 'Estimate', isRatio = false }: {
+function computeForestDomain(rows: ForestRow[], nullLine: number) {
+  const finite = (v: unknown): v is number => typeof v === 'number' && isFinite(v) && !isNaN(v)
+  const rawVals = rows.flatMap(r => [r.value, r.ciLow, r.ciHigh]).filter(finite)
+  rawVals.push(nullLine)
+
+  if (rawVals.length === 0) return { domainMin: nullLine - 1, domainMax: nullLine + 1 }
+
+  // IQR-based fence to suppress extreme outliers (e.g. infinite CIs from perfect separation)
+  const sorted = [...rawVals].sort((a, b) => a - b)
+  const q1 = sorted[Math.floor(sorted.length * 0.25)]
+  const q3 = sorted[Math.floor(sorted.length * 0.75)]
+  const iqr = q3 - q1
+  const fence = Math.max(iqr * 3, Math.abs(nullLine) + 1, 1)
+  const clampMin = Math.min(q1 - fence, nullLine)
+  const clampMax = Math.max(q3 + fence, nullLine)
+
+  const pad = Math.max((clampMax - clampMin) * 0.12, 0.2)
+  return { domainMin: clampMin - pad, domainMax: clampMax + pad }
+}
+
+function ForestPlotTable({ rows, nullLine = 0, effectLabel = 'Estimate', isRatio = false }: {
   rows: ForestRow[]
   nullLine?: number
   effectLabel?: string
   isRatio?: boolean
 }) {
-  const plotX0 = FP_PAD_L + FP_LABEL_W
-  const plotX1 = FP_VW - FP_PAD_R - FP_ANNOT_W
-  const plotW = plotX1 - plotX0
-  const totalH = FP_HEADER_H + FP_PAD_TOP + rows.length * FP_ROW_H + FP_PAD_BOT
-
-  // null coerces to 0 in isFinite — must explicitly exclude null/undefined
-  const allV = rows.flatMap(r => [r.ciLow, r.ciHigh, r.value, nullLine]).filter((v): v is number => v != null && typeof v === 'number' && isFinite(v) && !isNaN(v))
-  // Guard: if no finite values or span is zero, build a safe domain around nullLine
-  const rawMin = allV.length ? Math.min(...allV) : nullLine - 1
-  const rawMax = allV.length ? Math.max(...allV) : nullLine + 1
-  let span = rawMax - rawMin
-  if (span < 1e-9) span = Math.max(Math.abs(rawMin), 0.5)
-  const domainMin = rawMin - span * 0.14
-  const domainMax = rawMax + span * 0.14
-
-  const toX = (v: number) => plotX0 + ((v - domainMin) / (domainMax - domainMin)) * plotW
-  const rowY = (i: number) => FP_HEADER_H + FP_PAD_TOP + i * FP_ROW_H + FP_ROW_H / 2
-  const nullX = toX(nullLine)
-
-  // 5 nice axis ticks
-  const ticks = Array.from({ length: 5 }, (_, i) => domainMin + (i / 4) * (domainMax - domainMin))
-
   if (rows.length === 0) {
-    return <p className="text-xs text-muted-foreground py-4 text-center">No data to display</p>
+    return <p className="text-xs text-[#94a3b8] py-4 text-center">No data to display</p>
   }
 
+  const { domainMin, domainMax } = computeForestDomain(rows, nullLine)
+  const domainSpan = domainMax - domainMin
+
+  const toBarX = (v: number) => {
+    const clamped = Math.max(domainMin, Math.min(domainMax, v))
+    return ((clamped - domainMin) / domainSpan) * BAR_W
+  }
+  const nullX = toBarX(nullLine)
+
+  const safeNum = (n: number | null | undefined) =>
+    n != null && typeof n === 'number' && isFinite(n) ? n.toFixed(2) : '—'
+
+  // Generate 5 axis tick values across the domain
+  const ticks = Array.from({ length: 5 }, (_, i) => domainMin + (i / 4) * domainSpan)
+
   return (
-    // height: auto lets the SVG scale proportionally to its container width — fixes squished layout
-    <svg viewBox={`0 0 ${FP_VW} ${totalH}`} style={{ display: 'block', width: '100%', height: 'auto', overflow: 'visible' }}>
-      {/* Alternating row bands */}
-      {rows.map((r, i) =>
-        !r.isSummary && i % 2 === 0 ? (
-          <rect key={`band-${i}`} x={FP_PAD_L} y={FP_HEADER_H + FP_PAD_TOP + i * FP_ROW_H} width={FP_VW - FP_PAD_L - FP_PAD_R} height={FP_ROW_H} fill="#f8fafc" rx={2} />
-        ) : null
-      )}
+    <div className="w-full overflow-x-auto">
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className="border-b border-[#e2e8f0]">
+            <th className="pb-3 text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748b] font-manrope pr-4 whitespace-nowrap">Variable</th>
+            <th className="pb-3 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748b] font-manrope" style={{ width: BAR_W + 'px', minWidth: BAR_W + 'px' }}>
+              {effectLabel} Scale
+            </th>
+            <th className="pb-3 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748b] font-manrope pr-4 whitespace-nowrap">{effectLabel} [95% CI]</th>
+            <th className="pb-3 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748b] font-manrope whitespace-nowrap">P-Value</th>
+          </tr>
+        </thead>
+        <tbody className="tabular-nums">
+          {rows.map((row, i) => {
+            const val = row.value ?? nullLine
+            const ciLow = row.ciLow ?? val
+            const ciHigh = row.ciHigh ?? val
+            const pStr = String(row.p ?? '')
+            const pNum = parseFloat(pStr)
+            const isSig = !isNaN(pNum) && pNum < 0.05
 
-      {/* Column headers */}
-      <text x={FP_PAD_L + 4} y={FP_HEADER_H - 9} fontSize={9.5} fontWeight={700} fill="#64748b" letterSpacing="0.08em">VARIABLE</text>
-      <text x={plotX0 + plotW / 2} y={FP_HEADER_H - 9} fontSize={9.5} fontWeight={700} fill="#64748b" textAnchor="middle" letterSpacing="0.08em">{effectLabel.toUpperCase()} [95% CI]</text>
-      <text x={FP_VW - FP_PAD_R - 4} y={FP_HEADER_H - 9} fontSize={9.5} fontWeight={700} fill="#64748b" textAnchor="end" letterSpacing="0.08em">P-VALUE</text>
-      <line x1={FP_PAD_L} y1={FP_HEADER_H} x2={FP_VW - FP_PAD_R} y2={FP_HEADER_H} stroke="#e2e8f0" strokeWidth={1.5} />
+            const isClippedLow = ciLow < domainMin
+            const isClippedHigh = ciHigh > domainMax
 
-      {/* Plot area background */}
-      <rect x={plotX0} y={FP_HEADER_H + FP_PAD_TOP} width={plotW} height={rows.length * FP_ROW_H} fill="#fafbfc" rx={3} />
+            let color: string
+            if (row.isSummary) color = '#6d28d9'
+            else if (!isSig) color = '#94a3b8'
+            else if (isRatio) color = val > nullLine ? '#ef4444' : '#10b981'
+            else color = val > nullLine ? '#0040a2' : '#8b5cf6'
 
-      {/* Null reference line */}
-      <line x1={nullX} y1={FP_HEADER_H + 2} x2={nullX} y2={FP_HEADER_H + FP_PAD_TOP + rows.length * FP_ROW_H} stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="5 4" />
+            const xVal = toBarX(val)
+            const xLow = toBarX(ciLow)
+            const xHigh = toBarX(ciHigh)
+            const cy = BAR_H / 2
 
-      {/* Rows */}
-      {rows.map((d, i) => {
-        const cy = rowY(i)
-        const est = d.value ?? nullLine
-        const ciLow = d.ciLow ?? est
-        const ciHigh = d.ciHigh ?? est
-        const xEst = toX(est)
-        const xLow = Math.max(toX(ciLow), plotX0 + 2)
-        const xHigh = Math.min(toX(ciHigh), plotX1 - 2)
-        // p can be a raw number (coefficient_plot) or formatted string (forest_or/hr/irr)
-        const pStr = String(d.p ?? '')
-        const pNum = parseFloat(pStr)
-        const isSig = !isNaN(pNum) && pNum < 0.05
+            const annotText = `${safeNum(val)} [${safeNum(ciLow)}, ${safeNum(ciHigh)}]`
+            const pText = pStr === '<0.001' || pStr === '< 0.001'
+              ? '<0.001'
+              : isNaN(pNum) ? pStr : pNum.toFixed(3)
 
-        let color: string
-        if (d.isSummary) { color = '#7c3aed' }
-        else if (!isSig) { color = '#94a3b8' }
-        else if (isRatio) { color = est > nullLine ? '#ef4444' : '#10b981' }
-        else { color = est > nullLine ? '#3b82f6' : '#8b5cf6' }
+            const rowBg = row.isSummary
+              ? 'bg-[#f5f3ff]'
+              : i % 2 === 0 ? 'bg-white' : 'bg-[#fafbfc]'
 
-        const safeNum = (n: number | null | undefined) => (n != null && typeof n === 'number' && isFinite(n)) ? n.toFixed(2) : '—'
-        const annotText = `${safeNum(est)} [${safeNum(ciLow)}, ${safeNum(ciHigh)}]`
-        const pText = pStr === '<0.001' || pStr === '< 0.001' ? '<0.001' : (isNaN(pNum) ? pStr : pNum.toFixed(3))
+            return (
+              <tr key={i} className={rowBg}>
+                {/* Variable label */}
+                <td className="py-3 pr-4">
+                  <span className={`text-sm leading-tight ${row.isSummary ? 'font-bold text-[#6d28d9]' : 'font-medium text-[#1e293b]'}`}>
+                    {row.name}
+                  </span>
+                  {/* Meta-analysis weight bar */}
+                  {row.weight != null && !row.isSummary && (
+                    <div className="mt-1 h-1 rounded-full bg-[#e2e8f0] overflow-hidden" style={{ width: '80px' }}>
+                      <div className="h-full rounded-full bg-[#cbd5e1]" style={{ width: `${Math.max(4, row.weight * 100)}%` }} />
+                    </div>
+                  )}
+                </td>
 
-        return (
-          <g key={i}>
-            {/* Row divider */}
-            {i > 0 && (
-              <line x1={FP_PAD_L} y1={FP_HEADER_H + FP_PAD_TOP + i * FP_ROW_H} x2={FP_VW - FP_PAD_R} y2={FP_HEADER_H + FP_PAD_TOP + i * FP_ROW_H}
-                stroke={d.isSummary ? '#e2e8f0' : '#f1f5f9'} strokeWidth={d.isSummary ? 1.5 : 1} />
-            )}
-            {/* Variable label */}
-            <text x={FP_PAD_L + 6} y={cy + 4} fontSize={11.5} fill={d.isSummary ? '#7c3aed' : '#1e293b'} fontWeight={d.isSummary ? 700 : 400}>
-              {d.name.length > 23 ? d.name.slice(0, 21) + '…' : d.name}
-            </text>
-            {/* Confidence interval whisker + caps */}
-            {!d.isSummary && (
-              <>
-                <line x1={xLow} y1={cy} x2={xHigh} y2={cy} stroke={color} strokeWidth={2} strokeLinecap="round" />
-                <line x1={xLow} y1={cy - 5} x2={xLow} y2={cy + 5} stroke={color} strokeWidth={1.5} strokeLinecap="round" />
-                <line x1={xHigh} y1={cy - 5} x2={xHigh} y2={cy + 5} stroke={color} strokeWidth={1.5} strokeLinecap="round" />
-                {/* Point estimate square */}
-                <rect x={xEst - 5} y={cy - 5} width={10} height={10} fill={color} rx={2.5} />
-                {/* White inner dot for emphasis */}
-                <circle cx={xEst} cy={cy} r={2} fill="white" />
-              </>
-            )}
-            {/* Summary diamond */}
-            {d.isSummary && (
-              <>
-                <line x1={xLow} y1={cy} x2={xHigh} y2={cy} stroke={color} strokeWidth={1.5} strokeOpacity={0.5} strokeLinecap="round" />
-                <polygon
-                  points={`${xEst},${cy - 10} ${xHigh},${cy} ${xEst},${cy + 10} ${xLow},${cy}`}
-                  fill={color} fillOpacity={0.22} stroke={color} strokeWidth={2}
-                />
-                <polygon
-                  points={`${xEst - 4},${cy} ${xEst},${cy - 4} ${xEst + 4},${cy} ${xEst},${cy + 4}`}
-                  fill={color}
-                />
-              </>
-            )}
-            {/* Weight bar (meta-analysis) */}
-            {d.weight != null && !d.isSummary && (
-              <rect x={FP_PAD_L + FP_LABEL_W - 30} y={cy - 3} width={Math.max(2, d.weight * 28)} height={6} fill="#cbd5e1" rx={2} opacity={0.7} />
-            )}
-            {/* Annotation text */}
-            <text x={plotX1 + 10} y={cy + 4} fontSize={10.5} fill="#334155" fontFamily="ui-monospace, monospace">{annotText}</text>
-            {/* p-value */}
-            <text x={FP_VW - FP_PAD_R - 4} y={cy + 4} fontSize={10.5} fill={isSig ? '#0f766e' : '#94a3b8'} fontWeight={isSig ? 700 : 400} textAnchor="end">{pText}</text>
-          </g>
-        )
-      })}
+                {/* Mini SVG bar */}
+                <td className="py-3" style={{ width: BAR_W + 'px', minWidth: BAR_W + 'px' }}>
+                  <svg width={BAR_W} height={BAR_H} viewBox={`0 0 ${BAR_W} ${BAR_H}`} style={{ display: 'block' }}>
+                    {/* Null reference line */}
+                    <line x1={nullX} y1={2} x2={nullX} y2={BAR_H - 2}
+                      stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="4 3" />
 
-      {/* Bottom axis */}
-      {(() => {
-        const axisY = FP_HEADER_H + FP_PAD_TOP + rows.length * FP_ROW_H + 5
-        return (
+                    {!row.isSummary ? (
+                      <>
+                        {/* CI whisker */}
+                        <line x1={xLow} y1={cy} x2={xHigh} y2={cy}
+                          stroke={color} strokeWidth={2} strokeLinecap="round" />
+                        {/* Left cap or arrow when clipped */}
+                        {isClippedLow
+                          ? <polygon points={`4,${cy} 12,${cy - 5} 12,${cy + 5}`} fill={color} />
+                          : <line x1={xLow} y1={cy - 5} x2={xLow} y2={cy + 5} stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+                        }
+                        {/* Right cap or arrow when clipped */}
+                        {isClippedHigh
+                          ? <polygon points={`${BAR_W - 4},${cy} ${BAR_W - 12},${cy - 5} ${BAR_W - 12},${cy + 5}`} fill={color} />
+                          : <line x1={xHigh} y1={cy - 5} x2={xHigh} y2={cy + 5} stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+                        }
+                        {/* Point estimate square */}
+                        <rect x={xVal - 5} y={cy - 5} width={10} height={10} fill={color} rx={2} />
+                        <circle cx={xVal} cy={cy} r={2} fill="white" />
+                      </>
+                    ) : (
+                      <>
+                        {/* Summary CI whisker */}
+                        <line x1={xLow} y1={cy} x2={xHigh} y2={cy}
+                          stroke={color} strokeWidth={1.5} strokeOpacity={0.4} strokeLinecap="round" />
+                        {/* Summary diamond */}
+                        <polygon
+                          points={`${xVal},${cy - 9} ${xHigh},${cy} ${xVal},${cy + 9} ${xLow},${cy}`}
+                          fill={color} fillOpacity={0.18} stroke={color} strokeWidth={2}
+                        />
+                      </>
+                    )}
+                  </svg>
+                </td>
+
+                {/* Annotation */}
+                <td className="py-3 pr-4 text-right">
+                  <span className={`text-[11px] font-mono ${row.isSummary ? 'font-bold text-[#6d28d9]' : 'text-[#334155]'}`}>
+                    {annotText}
+                  </span>
+                  {(isClippedLow || isClippedHigh) && (
+                    <span className="ml-1 text-[9px] text-[#f59e0b] font-bold">†</span>
+                  )}
+                </td>
+
+                {/* P-value */}
+                <td className="py-3 text-right">
+                  <span className={`text-[11px] font-mono font-bold ${isSig ? 'text-[#0f766e]' : 'text-[#94a3b8]'}`}>
+                    {pText || '—'}
+                  </span>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+
+      {/* Axis ticks */}
+      <div className="mt-1 pl-0" style={{ paddingLeft: '0px' }}>
+        <svg width="100%" height="20" style={{ display: 'block', overflow: 'visible' }}>
+          {/* We render ticks relative to the bar column — approximate via absolute positioning trick below */}
+        </svg>
+      </div>
+
+      {/* Scale labels */}
+      <div className="flex justify-between text-[9px] font-bold uppercase tracking-widest text-[#94a3b8] mt-2 border-t border-[#f1f5f9] pt-2">
+        {isRatio ? (
           <>
-            <line x1={plotX0} y1={axisY} x2={plotX1} y2={axisY} stroke="#cbd5e1" strokeWidth={1} />
-            {ticks.map((v, i) => {
-              const xTick = toX(v)
-              return (
-                <g key={i}>
-                  <line x1={xTick} y1={axisY} x2={xTick} y2={axisY + 5} stroke="#cbd5e1" strokeWidth={1} />
-                  <text x={xTick} y={axisY + 15} fontSize={9} fill="#94a3b8" textAnchor="middle">{v.toFixed(2)}</text>
-                </g>
-              )
-            })}
+            <span className="text-[#0f766e]">Favors Treatment</span>
+            <span className="text-[#64748b]">1.0 (Null)</span>
+            <span className="text-[#ef4444]">Favors Control</span>
           </>
-        )
-      })()}
+        ) : (
+          ticks.map((v, i) => (
+            <span key={i}>{v.toFixed(2)}</span>
+          ))
+        )}
+      </div>
 
       {/* Legend */}
-      {isRatio && (() => {
-        const ly = FP_HEADER_H + FP_PAD_TOP + rows.length * FP_ROW_H + 7
-        return (
-          <g>
-            <rect x={FP_PAD_L} y={ly - 5} width={8} height={8} fill="#10b981" rx={1.5} />
-            <text x={FP_PAD_L + 12} y={ly + 3} fontSize={9} fill="#64748b">Protective (p&lt;0.05)</text>
-            <rect x={FP_PAD_L + 110} y={ly - 5} width={8} height={8} fill="#ef4444" rx={1.5} />
-            <text x={FP_PAD_L + 122} y={ly + 3} fontSize={9} fill="#64748b">Harmful (p&lt;0.05)</text>
-            <rect x={FP_PAD_L + 210} y={ly - 5} width={8} height={8} fill="#94a3b8" rx={1.5} />
-            <text x={FP_PAD_L + 222} y={ly + 3} fontSize={9} fill="#64748b">Non-significant</text>
-          </g>
-        )
-      })()}
-    </svg>
+      {isRatio && (
+        <div className="flex flex-wrap items-center gap-4 mt-3">
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-sm bg-[#10b981]" />
+            <span className="text-[10px] text-[#64748b]">Protective (p&lt;0.05)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-sm bg-[#ef4444]" />
+            <span className="text-[10px] text-[#64748b]">Harmful (p&lt;0.05)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-sm bg-[#94a3b8]" />
+            <span className="text-[10px] text-[#64748b]">Non-significant</span>
+          </div>
+          <div className="flex items-center gap-1.5 ml-auto">
+            <span className="text-[9px] text-[#f59e0b] font-bold">†</span>
+            <span className="text-[10px] text-[#94a3b8]">CI extends beyond axis</span>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -469,7 +513,7 @@ function CoefficientPlot({ data, isOR: _isOR, label, nullLine, expanded: _expand
     ciHigh: d.ciHigh,
     p: String(d.p ?? ''),
   }))
-  return <ForestPlotSVG rows={rows} nullLine={nullLine ?? 0} effectLabel={label ?? 'Coefficient'} isRatio={nullLine === 1} />
+  return <ForestPlotTable rows={rows} nullLine={nullLine ?? 0} effectLabel={label ?? 'Coefficient'} isRatio={nullLine === 1} />
 }
 
 function ForestPlot({ data, config: _config, expanded: _expanded }: { data: ForestPlotData[]; config: Record<string, unknown>; expanded: boolean }) {
@@ -482,7 +526,7 @@ function ForestPlot({ data, config: _config, expanded: _expanded }: { data: Fore
     isSummary: d.isSummary,
     weight: d.weight,
   }))
-  return <ForestPlotSVG rows={rows} nullLine={0} effectLabel="Effect Size" isRatio={false} />
+  return <ForestPlotTable rows={rows} nullLine={0} effectLabel="Effect Size" isRatio={false} />
 }
 
 // ── Funnel Plot ──────────────────────────────────────────────
@@ -590,8 +634,8 @@ function CorrelationHeatmap({ data, config }: { data: HeatmapData[]; config: Rec
           <div key={v} className="text-[10px] font-semibold text-center text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap" title={v}>{v}</div>
         ))}
         {variables.map((v1, i) => (
-          <>
-            <div key={`label-${v1}`} className="text-[10px] font-semibold text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap flex items-center">{v1}</div>
+          <Fragment key={v1}>
+            <div className="text-[10px] font-semibold text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap flex items-center">{v1}</div>
             {variables.map((v2, j) => {
               const cell = data.find(d => d.x === v1 && d.y === v2)
               const r = cell?.r ?? (i === j ? 1 : 0)
@@ -619,7 +663,7 @@ function CorrelationHeatmap({ data, config }: { data: HeatmapData[]; config: Rec
                 </div>
               )
             })}
-          </>
+          </Fragment>
         ))}
       </div>
     </div>
