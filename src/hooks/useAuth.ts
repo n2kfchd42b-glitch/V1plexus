@@ -43,32 +43,39 @@ export function useAuth() {
     // same auth lock and trigger the Supabase 5 s lock warning in
     // React Strict Mode.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_, session) => {
+      const authUser = session?.user ?? null
+      setUser(authUser)
+
+      if (!authUser) {
+        setProfile(null)
+        setLoading(false)
+        return
+      }
+
+      // Unblock the UI immediately — profile loads in the background
+      setLoading(false)
+
       try {
-        setUser(session?.user ?? null)
-        if (session?.user) {
-          await fetchProfile(session.user)
-        } else {
-          setProfile(null)
-        }
+        await fetchProfile(authUser)
       } catch (e) {
         console.error('[useAuth] onAuthStateChange error:', e)
-      } finally {
-        setLoading(false)
       }
     })
 
     return () => subscription.unsubscribe()
   }, [supabase])
 
-  const signOut = () => {
+  const signOut = async () => {
     // Clear the middleware cache cookie so a different user won't inherit
     // the previous user's workspace-ready state.
     document.cookie = 'workspace_ready=; path=/; max-age=0'
-    // signOut({ scope: 'local' }) clears cookies/storage synchronously —
-    // no need to await.  Awaiting would block navigation while
-    // onAuthStateChange cascades re-renders through useAuth + WorkspaceProvider.
-    supabase.auth.signOut({ scope: 'local' })
-    window.location.href = '/login'
+    // Await signOut so auth cookies are fully cleared before navigating.
+    // Without this, the middleware still sees a valid session and redirects
+    // back to /dashboard, creating a loop.
+    await supabase.auth.signOut({ scope: 'local' })
+    // The ?signout=1 flag tells the middleware to skip the
+    // "redirect authenticated users away from /login" guard as a safety net.
+    window.location.href = '/login?signout=1'
   }
 
   return { user, profile, loading, signOut }

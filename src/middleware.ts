@@ -54,8 +54,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users away from auth pages (except to setup)
-  if (isAuthPage && user) {
+  // Redirect authenticated users away from auth pages (except to setup,
+  // and except when they just signed out — ?signout=1 acts as a safety flag
+  // in case cookies haven't been fully cleared by the time this runs).
+  const isSigningOut = request.nextUrl.searchParams.get("signout") === "1";
+  if (isAuthPage && user && !isSigningOut) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
