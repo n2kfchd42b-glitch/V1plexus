@@ -48,13 +48,13 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
           collapsed ? 'justify-center' : '',
           !collapsed ? 'mb-4' : 'mb-2'
         )}>
-          <div className="relative flex items-center justify-center w-9 h-9 rounded-lg bg-[#00288e] flex-shrink-0 shadow-md shadow-[#00288e]/30 overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#1e40af] to-[#00288e]" />
+          <div className="relative flex items-center justify-center w-9 h-9 rounded-lg bg-clinical-deep flex-shrink-0 shadow-md shadow-clinical-deep/30 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary-container to-clinical-deep" />
             <span className="relative z-10 text-white font-black text-sm tracking-tight leading-none select-none">PR</span>
             <div className="absolute bottom-0 right-0 w-3 h-3 bg-blue-300/20 rounded-tl-lg" />
           </div>
           {!collapsed && (
-            <span className="text-[15px] font-bold tracking-tight text-[#00288e] font-manrope">
+            <span className="text-[15px] font-bold tracking-tight text-clinical-deep font-manrope">
               PLEXUS <span className="text-slate-400 font-normal">Research</span>
             </span>
           )}
@@ -94,7 +94,7 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
                 <span>Storage</span>
               </div>
               <div className="w-full bg-slate-200 h-1 rounded-full overflow-hidden">
-                <div className="bg-[#0052CC] h-full rounded-full w-[32%] transition-all" />
+                <div className="bg-clinical-blue h-full rounded-full w-[32%] transition-all" />
               </div>
             </div>
           </div>
@@ -109,7 +109,7 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
           )}
         >
           <div className={cn(
-            'flex items-center justify-center rounded-lg bg-[#0052CC] text-white text-xs font-bold flex-shrink-0 ring-2 ring-transparent group-hover:ring-[#0052CC]/20 transition-all',
+            'flex items-center justify-center rounded-lg bg-clinical-blue text-white text-xs font-bold flex-shrink-0 ring-2 ring-transparent group-hover:ring-clinical-blue/20 transition-all',
             'h-8 w-8'
           )}>
             {profile?.avatar_url ? (

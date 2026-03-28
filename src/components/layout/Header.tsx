@@ -115,7 +115,7 @@ export function Header({ profile, title, onSearchClick }: HeaderProps) {
                 <p className="text-xs font-bold text-slate-900 leading-none">{profile.full_name ?? 'User'}</p>
                 <p className="text-[10px] text-slate-500 font-medium capitalize">{profile.role}</p>
               </div>
-              <div className="w-8 h-8 rounded-lg bg-[#0052CC] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-clinical-blue flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                 {profile.avatar_url ? (
                   <img src={profile.avatar_url} alt="" className="w-8 h-8 rounded-lg object-cover" />
                 ) : (

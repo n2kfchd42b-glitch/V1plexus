@@ -51,7 +51,7 @@ export default function MembersPage() {
             <div className="space-y-2">
               {members.map(m => (
                 <div key={m.id} className="flex items-center gap-3 p-3 bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg">
-                  <div className="h-8 w-8 rounded-full bg-[#1B3A5C] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                  <div className="h-8 w-8 rounded-full bg-accent-primary flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                     {m.user?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) ?? '??'}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -68,7 +68,7 @@ export default function MembersPage() {
                         ? 'bg-purple-100 text-purple-700'
                         : m.role === 'student'
                           ? 'bg-green-100 text-green-700'
-                          : 'bg-gray-100 text-gray-700'
+                          : 'bg-slate-100 text-slate-700'
                   )}>
                     {m.role.replace('_', ' ')}
                   </span>

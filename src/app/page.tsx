@@ -8,12 +8,12 @@ export default function LandingPage() {
         <div className="flex justify-between items-center w-full px-6 py-4 max-w-screen-2xl mx-auto">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="relative flex items-center justify-center w-9 h-9 rounded-lg bg-[#00288e] shadow-md shadow-[#00288e]/30 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-[#1e40af] to-[#00288e]" />
+            <div className="relative flex items-center justify-center w-9 h-9 rounded-lg bg-[#003D9B] shadow-md shadow-[#003D9B]/30 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-[#1e40af] to-[#003D9B]" />
               <span className="relative z-10 text-white font-black text-sm tracking-tight leading-none select-none">PR</span>
               <div className="absolute bottom-0 right-0 w-3 h-3 bg-blue-300/20 rounded-tl-lg" />
             </div>
-            <span className="text-[15px] font-bold tracking-tight text-[#00288e]">
+            <span className="text-[15px] font-bold tracking-tight text-[#003D9B]">
               PLEXUS <span className="text-slate-400 font-normal">Research</span>
             </span>
           </div>
@@ -23,7 +23,7 @@ export default function LandingPage() {
             </Link>
             <Link
               href="/register"
-              className="bg-[#00288e] hover:bg-[#1e40af] text-white px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 active:scale-90"
+              className="bg-[#003D9B] hover:bg-[#1e40af] text-white px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 active:scale-90"
             >
               Sign Up
             </Link>
@@ -49,13 +49,13 @@ export default function LandingPage() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
                 href="/register"
-                className="w-full sm:w-auto px-8 py-4 bg-[#00288e] text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
+                className="w-full sm:w-auto px-8 py-4 bg-[#003D9B] text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
               >
                 Get Started Free
               </Link>
               <a
                 href="#how-it-works"
-                className="w-full sm:w-auto px-8 py-4 bg-white text-[#00288e] border border-[#c4c5d5]/30 font-semibold rounded-xl hover:bg-[#f3f4f6] transition-all duration-300 flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-8 py-4 bg-white text-[#003D9B] border border-[#c4c5d5]/30 font-semibold rounded-xl hover:bg-[#f3f4f6] transition-all duration-300 flex items-center justify-center gap-2"
               >
                 See How It Works
                 <span className="material-symbols-outlined">play_circle</span>
@@ -70,7 +70,7 @@ export default function LandingPage() {
             {/* Main Dashboard Peek */}
             <div className="md:col-span-8 bg-white rounded-2xl overflow-hidden border border-[#c4c5d5]/10 shadow-sm relative group flex flex-col">
               <div className="p-8 pb-0">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#00288e] mb-2 block">Central Intelligence</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#003D9B] mb-2 block">Central Intelligence</span>
                 <h3 className="text-2xl font-bold tracking-tight mb-2">Real-time Orchestration</h3>
                 <p className="text-[#444653] text-sm max-w-md">Monitor every study, data point, and ethical review across your entire institution in a single command center.</p>
               </div>
@@ -88,8 +88,8 @@ export default function LandingPage() {
                   {/* Legend strip */}
                   <rect x="0" y="28" width="600" height="26" fill="white" />
                   <rect x="0" y="53" width="600" height="1" fill="#f3f4f6" />
-                  <line x1="58" y1="41" x2="78" y2="41" stroke="#00288e" strokeWidth="2.5" />
-                  <circle cx="68" cy="41" r="2.5" fill="#00288e" />
+                  <line x1="58" y1="41" x2="78" y2="41" stroke="#003D9B" strokeWidth="2.5" />
+                  <circle cx="68" cy="41" r="2.5" fill="#003D9B" />
                   <text x="82" y="45" fontSize="8.5" fill="#191c1e" fontFamily="Inter,sans-serif">Treatment group (n=148)</text>
                   <line x1="225" y1="41" x2="245" y2="41" stroke="#9ca3af" strokeWidth="2" strokeDasharray="4,2" />
                   <text x="249" y="45" fontSize="8.5" fill="#444653" fontFamily="Inter,sans-serif">Control group (n=152)</text>
@@ -135,7 +135,7 @@ export default function LandingPage() {
                   {/* CI band — treatment ±0.08 */}
                   <path
                     d="M55,58 H106 V58 H156 V66 H207 V81 H257 V96 H308 V110 H358 V123 H409 V137 H459 V148 H510 V160 H560 V169 V200 H510 V191 H459 V179 H409 V167 H358 V154 H308 V141 H257 V127 H207 V112 H156 V83 H106 V73 H55 Z"
-                    fill="#00288e"
+                    fill="#003D9B"
                     fillOpacity="0.07"
                   />
                   {/* Control curve (dashed gray) */}
@@ -146,20 +146,20 @@ export default function LandingPage() {
                   {/* Treatment curve (solid blue) */}
                   <path
                     d="M55,58 H106 V68 H156 V81 H207 V96 H257 V112 H308 V125 H358 V139 H409 V152 H459 V164 H510 V175 H560 V185"
-                    fill="none" stroke="#00288e" strokeWidth="2.5" strokeLinejoin="miter" strokeLinecap="round"
+                    fill="none" stroke="#003D9B" strokeWidth="2.5" strokeLinejoin="miter" strokeLinecap="round"
                   />
                   {/* Censoring marks — treatment */}
-                  <line x1="178" y1="84" x2="178" y2="92" stroke="#00288e" strokeWidth="1.5" />
-                  <line x1="290" y1="117" x2="290" y2="125" stroke="#00288e" strokeWidth="1.5" />
-                  <line x1="435" y1="154" x2="435" y2="162" stroke="#00288e" strokeWidth="1.5" />
+                  <line x1="178" y1="84" x2="178" y2="92" stroke="#003D9B" strokeWidth="1.5" />
+                  <line x1="290" y1="117" x2="290" y2="125" stroke="#003D9B" strokeWidth="1.5" />
+                  <line x1="435" y1="154" x2="435" y2="162" stroke="#003D9B" strokeWidth="1.5" />
                   {/* Censoring marks — control */}
                   <line x1="145" y1="106" x2="145" y2="114" stroke="#9ca3af" strokeWidth="1.5" />
                   <line x1="275" y1="159" x2="275" y2="167" stroke="#9ca3af" strokeWidth="1.5" />
                   <line x1="440" y1="203" x2="440" y2="211" stroke="#9ca3af" strokeWidth="1.5" />
                   {/* Median survival annotation — treatment */}
-                  <line x1="55" y1="154" x2="350" y2="154" stroke="#00288e" strokeWidth="0.75" strokeDasharray="3,2" opacity="0.4" />
-                  <line x1="350" y1="154" x2="350" y2="250" stroke="#00288e" strokeWidth="0.75" strokeDasharray="3,2" opacity="0.4" />
-                  <text x="354" y="247" fontSize="7" fill="#00288e" fontFamily="Inter,sans-serif">m=35mo</text>
+                  <line x1="55" y1="154" x2="350" y2="154" stroke="#003D9B" strokeWidth="0.75" strokeDasharray="3,2" opacity="0.4" />
+                  <line x1="350" y1="154" x2="350" y2="250" stroke="#003D9B" strokeWidth="0.75" strokeDasharray="3,2" opacity="0.4" />
+                  <text x="354" y="247" fontSize="7" fill="#003D9B" fontFamily="Inter,sans-serif">m=35mo</text>
                 </svg>
               </div>
             </div>
@@ -192,7 +192,7 @@ export default function LandingPage() {
             {/* Analysis Engine Peek */}
             <div className="md:col-span-4 bg-[#e7e8ea] rounded-2xl overflow-hidden border border-[#c4c5d5]/10 shadow-sm relative group">
               <div className="p-8">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#00288e] mb-2 block">Data Science</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#003D9B] mb-2 block">Data Science</span>
                 <h3 className="text-2xl font-bold tracking-tight mb-2">Clinical-Grade Analysis</h3>
                 <p className="text-[#444653] text-sm">Automated statistical modeling compliant with international health standards.</p>
               </div>
@@ -207,7 +207,7 @@ export default function LandingPage() {
             </div>
 
             {/* Collaborative Section */}
-            <div className="md:col-span-8 bg-[#00288e] rounded-2xl overflow-hidden shadow-xl flex flex-col md:flex-row">
+            <div className="md:col-span-8 bg-[#003D9B] rounded-2xl overflow-hidden shadow-xl flex flex-col md:flex-row">
               <div className="p-8 md:w-1/2 flex flex-col justify-center">
                 <h3 className="text-3xl font-bold tracking-tight text-white mb-4">The New Standard for Collaboration.</h3>
                 <p className="text-[#a8b8ff] text-sm leading-relaxed">Built for teams of any size, from local field offices to intercontinental research consortiums. PLEXUS synchronizes your work instantly.</p>
@@ -230,12 +230,12 @@ export default function LandingPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {[
-                { icon: 'school', label: 'Students', bg: 'bg-[#dde1ff]', text: 'text-[#00288e]', desc: 'Streamlined tools to design protocols and collect field data with ease.' },
+                { icon: 'school', label: 'Students', bg: 'bg-[#dde1ff]', text: 'text-[#003D9B]', desc: 'Streamlined tools to design protocols and collect field data with ease.' },
                 { icon: 'psychology', label: 'Supervisors', bg: 'bg-[#d8e2ff]', text: 'text-[#0058be]', desc: 'Oversee multiple cohorts and provide real-time feedback on progress.' },
                 { icon: 'account_balance', label: 'Departments', bg: 'bg-[#d9e3f4]', text: 'text-[#2b3542]', desc: 'Manage resource allocation and ethics compliance across the faculty.' },
                 { icon: 'hub', label: 'Institutions', bg: 'bg-[#ffdad6]', text: 'text-[#93000a]', desc: 'Enterprise-grade security, data governance, and long-term registry.' },
               ].map(({ icon, label, bg, text, desc }) => (
-                <div key={label} className="p-8 bg-[#edeef0] rounded-xl border border-transparent hover:border-[#00288e]/20 transition-all">
+                <div key={label} className="p-8 bg-[#edeef0] rounded-xl border border-transparent hover:border-[#003D9B]/20 transition-all">
                   <div className={`w-12 h-12 rounded-lg ${bg} flex items-center justify-center ${text} mb-6`}>
                     <span className="material-symbols-outlined">{icon}</span>
                   </div>
@@ -327,11 +327,11 @@ export default function LandingPage() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
               <Link
                 href="/register"
-                className="px-10 py-5 bg-[#00288e] text-white font-bold rounded-xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all font-geist"
+                className="px-10 py-5 bg-[#003D9B] text-white font-bold rounded-xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all font-geist"
               >
                 Get Started for Free
               </Link>
-              <a href="mailto:team@plexusresearch.io" className="text-[#00288e] font-bold hover:underline font-geist">
+              <a href="mailto:team@plexusresearch.io" className="text-[#003D9B] font-bold hover:underline font-geist">
                 Contact our Institutional Team
               </a>
             </div>

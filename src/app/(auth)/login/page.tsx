@@ -74,9 +74,9 @@ function LoginForm() {
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? 'Please wait...' : 'Sign In'}
           </Button>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-slate-500">
             Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-blue-600 hover:underline font-medium">
+            <Link href="/register" className="text-clinical-blue hover:underline font-medium">
               Sign up
             </Link>
           </p>
@@ -88,17 +88,15 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <FlaskConical className="h-8 w-8 text-blue-600" />
-            <span className="text-2xl font-bold text-gray-900">PLEXUS</span>
-          </div>
-          <p className="text-gray-600">Institution-grade Research Lab Platform</p>
+    <div className="w-full">
+      <div className="text-center mb-8">
+        <div className="flex items-center justify-center gap-2 mb-3">
+          <FlaskConical className="h-8 w-8 text-clinical-blue" />
+          <span className="text-2xl font-bold text-slate-900 font-manrope tracking-tight">PLEXUS</span>
         </div>
-        <LoginForm />
+        <p className="text-slate-500 text-sm">Institution-grade Research Lab Platform</p>
       </div>
+      <LoginForm />
     </div>
   )
 }

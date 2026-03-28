@@ -91,7 +91,7 @@ export default function InstitutionMembersPage() {
               className={cn(
                 'bg-white p-5 rounded-xl border shadow-sm transition-all duration-150 text-left',
                 roleFilter === role
-                  ? 'border-[#0052CC] ring-1 ring-[#0052CC]/20'
+                  ? 'border-clinical-blue ring-1 ring-clinical-blue/20'
                   : 'border-slate-200 hover:border-slate-300'
               )}
             >
