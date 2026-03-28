@@ -77,19 +77,21 @@ function MiniForestPlot({ rows }: { rows: ForestRow[] }) {
         <line
           x1={refX} y1={PAD_T - 4}
           x2={refX} y2={H - PAD_B + 4}
-          stroke="rgba(255,255,255,0.12)"
+          stroke="rgba(0,61,155,0.2)"
           strokeDasharray="3 3"
           strokeWidth={1}
         />
       )}
 
-      {/* Plot background strip */}
-      <rect
-        x={LABEL_W} y={PAD_T - 2}
-        width={plotW} height={display.length * ROW_H + 4}
-        rx={4}
-        fill="rgba(255,255,255,0.02)"
-      />
+      {/* Plot background strip — alternating row tints */}
+      {display.map((_, i) => i % 2 === 0 ? (
+        <rect
+          key={i}
+          x={LABEL_W} y={PAD_T + i * ROW_H}
+          width={plotW} height={ROW_H}
+          fill="rgba(241,245,249,0.7)"
+        />
+      ) : null)}
 
       {/* Rows */}
       {display.map((r, i) => {
@@ -108,7 +110,7 @@ function MiniForestPlot({ rows }: { rows: ForestRow[] }) {
               textAnchor="end"
               dominantBaseline="middle"
               fontSize={9}
-              fill={sig ? 'rgba(147,197,253,0.75)' : 'rgba(147,197,253,0.4)'}
+              fill={sig ? '#1e3a5f' : '#6b7280'}
               fontFamily="Inter, sans-serif"
               fontWeight={sig ? '600' : '400'}
             >
@@ -120,7 +122,7 @@ function MiniForestPlot({ rows }: { rows: ForestRow[] }) {
               <line
                 x1={loX} y1={cy}
                 x2={hiX} y2={cy}
-                stroke={sig ? 'rgba(96,165,250,0.55)' : 'rgba(96,165,250,0.25)'}
+                stroke={sig ? 'rgba(37,99,235,0.5)' : 'rgba(156,163,175,0.6)'}
                 strokeWidth={1.5}
               />
             )}
@@ -128,31 +130,29 @@ function MiniForestPlot({ rows }: { rows: ForestRow[] }) {
             {/* CI whiskers */}
             {loX >= LABEL_W && (
               <line x1={loX} y1={cy - 3.5} x2={loX} y2={cy + 3.5}
-                stroke={sig ? 'rgba(96,165,250,0.5)' : 'rgba(96,165,250,0.2)'}
+                stroke={sig ? 'rgba(37,99,235,0.45)' : 'rgba(156,163,175,0.5)'}
                 strokeWidth={1} />
             )}
             {hiX <= W - PAD_R && (
               <line x1={hiX} y1={cy - 3.5} x2={hiX} y2={cy + 3.5}
-                stroke={sig ? 'rgba(96,165,250,0.5)' : 'rgba(96,165,250,0.2)'}
+                stroke={sig ? 'rgba(37,99,235,0.45)' : 'rgba(156,163,175,0.5)'}
                 strokeWidth={1} />
             )}
 
-            {/* Point estimate diamond */}
+            {/* Point estimate */}
             {cx >= LABEL_W && cx <= W - PAD_R && (
               sig ? (
-                // Filled diamond for significant
                 <polygon
-                  points={`${cx},${cy - 5} ${cx + 4},${cy} ${cx},${cy + 5} ${cx - 4},${cy}`}
-                  fill="#3b82f6"
-                  stroke="#93c5fd"
+                  points={`${cx},${cy - 5} ${cx + 4.5},${cy} ${cx},${cy + 5} ${cx - 4.5},${cy}`}
+                  fill="#2563eb"
+                  stroke="#bfdbfe"
                   strokeWidth={0.8}
                 />
               ) : (
-                // Open circle for non-significant
                 <circle
                   cx={cx} cy={cy} r={3.5}
-                  fill="rgba(59,130,246,0.3)"
-                  stroke="rgba(96,165,250,0.6)"
+                  fill="rgba(37,99,235,0.12)"
+                  stroke="#93c5fd"
                   strokeWidth={1}
                 />
               )
@@ -165,12 +165,12 @@ function MiniForestPlot({ rows }: { rows: ForestRow[] }) {
       {ticks.map(({ v, x }) => (
         <g key={v}>
           <line x1={x} y1={H - PAD_B + 2} x2={x} y2={H - PAD_B + 5}
-            stroke="rgba(147,197,253,0.2)" strokeWidth={1} />
+            stroke="#d1d5db" strokeWidth={1} />
           <text
             x={x} y={H - PAD_B + 12}
             textAnchor="middle"
             fontSize={7.5}
-            fill="rgba(147,197,253,0.35)"
+            fill="#9ca3af"
             fontFamily="Inter, sans-serif"
           >
             {v.toFixed(1)}
@@ -180,12 +180,12 @@ function MiniForestPlot({ rows }: { rows: ForestRow[] }) {
 
       {/* Legend */}
       <g transform={`translate(${LABEL_W}, ${H - 6})`}>
-        <polygon points="0,-4 3.5,0 0,4 -3.5,0" fill="#3b82f6" />
-        <text x={7} y={1} fontSize={7} fill="rgba(147,197,253,0.3)" dominantBaseline="middle" fontFamily="Inter, sans-serif">
+        <polygon points="0,-4 3.5,0 0,4 -3.5,0" fill="#2563eb" />
+        <text x={7} y={1} fontSize={7} fill="#9ca3af" dominantBaseline="middle" fontFamily="Inter, sans-serif">
           significant
         </text>
-        <circle cx={60} cy={0} r={3.5} fill="rgba(59,130,246,0.3)" stroke="rgba(96,165,250,0.6)" strokeWidth={1} />
-        <text x={67} y={1} fontSize={7} fill="rgba(147,197,253,0.3)" dominantBaseline="middle" fontFamily="Inter, sans-serif">
+        <circle cx={60} cy={0} r={3.5} fill="rgba(37,99,235,0.15)" stroke="#93c5fd" strokeWidth={1} />
+        <text x={67} y={1} fontSize={7} fill="#9ca3af" dominantBaseline="middle" fontFamily="Inter, sans-serif">
           non-significant
         </text>
       </g>
@@ -229,26 +229,20 @@ export function LatestAnalysisCards({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
-        {/* Left — SVG Forest Plot */}
-        <div className="relative bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-[0_20px_50px_rgba(0,24,72,0.12)]">
-          {/* Ambient glow */}
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-0 left-1/4 w-48 h-32 bg-blue-600/8 blur-[70px] rounded-full" />
-            <div className="absolute bottom-0 right-1/4 w-32 h-24 bg-indigo-500/8 blur-[50px] rounded-full" />
-          </div>
-
-          <div className="relative z-10 p-6">
+        {/* Left — SVG Forest Plot (light card) */}
+        <div className="bg-white rounded-xl overflow-hidden border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
+          <div className="p-6">
             <div className="flex items-start justify-between mb-5">
               <div>
-                <p className="text-[9px] font-bold text-blue-300/50 uppercase tracking-widest mb-1">
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">
                   Forest Plot
                 </p>
-                <h3 className="text-sm font-bold text-white font-manrope leading-snug line-clamp-1">
+                <h3 className="text-sm font-bold text-[#191c1e] font-manrope leading-snug line-clamp-1">
                   {runTitle || analysisType}
                 </h3>
               </div>
-              <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
-                <BarChart2 className="h-3.5 w-3.5 text-blue-400" />
+              <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center flex-shrink-0">
+                <BarChart2 className="h-3.5 w-3.5 text-[#003d9b]" />
               </div>
             </div>
 
@@ -257,20 +251,20 @@ export function LatestAnalysisCards({
                 <MiniForestPlot rows={forestRows} />
               ) : (
                 <div className="h-[180px] flex items-center justify-center">
-                  <p className="text-blue-200/30 text-xs text-center">
+                  <p className="text-slate-300 text-xs text-center">
                     No forest plot data available
                   </p>
                 </div>
               )}
             </div>
 
-            <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
-              <span className="text-[9px] font-bold text-blue-300/40 uppercase tracking-widest">
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
                 {analysisType.replace(/_/g, ' ')}
               </span>
               <Link
                 href={`/projects/${projectId}/analysis/${runId}`}
-                className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-400 hover:text-blue-300 transition-colors group/link"
+                className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#003d9b] hover:text-[#0052cc] transition-colors group/link"
               >
                 View full results
                 <ArrowRight className="h-3 w-3 group-hover/link:translate-x-0.5 transition-transform" />
