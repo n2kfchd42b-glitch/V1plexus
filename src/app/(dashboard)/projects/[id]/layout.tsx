@@ -1,7 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { ProjectTabNav } from "@/components/layout/ProjectTabNav";
 import { THESIS_ENABLED } from "@/lib/flags";
 
 export default async function ProjectWorkspaceLayout({
@@ -44,42 +43,27 @@ export default async function ProjectWorkspaceLayout({
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Project header */}
-      <div className="bg-white border-b border-gray-200 px-8 py-4">
-        <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-          <Link href="/projects" className="hover:text-gray-900">Projects</Link>
+      {/* Project breadcrumb */}
+      <div className="bg-white/80 backdrop-blur-xl border-b border-slate-100 px-8 py-3 shadow-[0_1px_0_rgba(0,24,72,0.04)]">
+        <div className="flex items-center gap-2 text-xs text-slate-400">
+          <Link href="/projects" className="hover:text-[#003d9b] transition-colors font-medium">
+            Projects
+          </Link>
           <span>/</span>
-          <span className="text-gray-900 font-medium">{project.title}</span>
+          <span className="text-slate-600 font-medium">{project.title}</span>
           {isThesis && (
             <>
               <span>/</span>
-              <span className="text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+              <span className="text-[10px] font-bold text-[#003d9b] bg-blue-50 px-1.5 py-0.5 rounded uppercase tracking-wider">
                 Thesis
               </span>
             </>
           )}
         </div>
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">{project.title}</h1>
-          <span
-            className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-              project.status === "active"
-                ? "bg-green-100 text-green-700"
-                : project.status === "completed"
-                ? "bg-blue-100 text-blue-700"
-                : "bg-gray-100 text-gray-600"
-            }`}
-          >
-            {project.status.replace("_", " ")}
-          </span>
-        </div>
       </div>
 
-      {/* Tabs */}
-      <ProjectTabNav projectId={id} isThesis={isThesis} />
-
       {/* Content */}
-      <div className="flex-1 bg-gray-50">{children}</div>
+      <div className="flex-1 bg-[#f7f9fb]">{children}</div>
     </div>
   );
 }

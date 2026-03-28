@@ -2,17 +2,58 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/utils";
-import { FileText, ShieldCheck, Calendar, ClipboardList, GitMerge, CheckCircle, Clock, Circle } from "lucide-react";
+import { Calendar, ArrowRight } from "lucide-react";
 
-const PHASES = [
-  { key: "design",          label: "Design" },
-  { key: "data_collection", label: "Data Collection" },
-  { key: "analysis",        label: "Analysis" },
-  { key: "writing",         label: "Writing" },
-  { key: "submitted",       label: "Submitted" },
-  { key: "published",       label: "Published" },
-] as const
-
+const modules = (id: string) => [
+  {
+    href: `/projects/${id}/data`,
+    title: "Dataset Hub",
+    materialIcon: "cloud_download",
+    subKey: "datasets",
+  },
+  {
+    href: `/projects/${id}/team`,
+    title: "Team Management",
+    materialIcon: "groups",
+    subKey: "members",
+  },
+  {
+    href: `/projects/${id}/documents`,
+    title: "Document Editor",
+    materialIcon: "edit_note",
+    subKey: "documents",
+  },
+  {
+    href: `/projects/${id}/analysis`,
+    title: "Analysis Engine",
+    materialIcon: "bolt",
+    subKey: "analysis",
+  },
+  {
+    href: `/projects/${id}/field`,
+    title: "Field Operations",
+    materialIcon: "location_on",
+    subKey: "field",
+  },
+  {
+    href: `/projects/${id}/settings`,
+    title: "System Settings",
+    materialIcon: "tune",
+    subKey: "settings",
+  },
+  {
+    href: `/projects/${id}/ethics`,
+    title: "Integrity & Ethics",
+    materialIcon: "verified_user",
+    subKey: "ethics",
+  },
+  {
+    href: `/projects/${id}/approvals`,
+    title: "Compliance Approval",
+    materialIcon: "approval_delegation",
+    subKey: "approvals",
+  },
+];
 
 export default async function ProjectOverviewPage({
   params,
@@ -36,9 +77,9 @@ export default async function ProjectOverviewPage({
   const [
     { count: docCount },
     { count: ethicsCount },
-    { count: pendingReviewCount },
+    { count: datasetCount },
+    { count: memberCount },
     { data: gates },
-    { data: milestones },
   ] = await Promise.all([
     supabase
       .from("documents")
@@ -50,242 +91,197 @@ export default async function ProjectOverviewPage({
       .select("id", { count: "exact", head: true })
       .eq("project_id", id),
     supabase
-      .from("review_requests")
+      .from("datasets")
       .select("id", { count: "exact", head: true })
-      .eq("documents.project_id", id)
-      .in("status", ["pending", "in_review"]),
+      .eq("project_id", id)
+      .is("deleted_at", null),
+    supabase
+      .from("project_members")
+      .select("id", { count: "exact", head: true })
+      .eq("project_id", id),
     supabase
       .from("approval_gates")
-      .select("id, title, status, gate_type")
-      .eq("project_id", id)
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("project_milestones")
-      .select("id, title, due_date, completed_at, status")
-      .eq("project_id", id)
-      .order("sort_order", { ascending: true })
-      .limit(8),
+      .select("id, status")
+      .eq("project_id", id),
   ]);
 
-  const approvedGates = gates?.filter(g => g.status === "approved").length ?? 0;
   const totalGates = gates?.length ?? 0;
+  const approvedGates = gates?.filter((g) => g.status === "approved").length ?? 0;
 
-  const statCards = [
-    {
-      href: `/projects/${id}/documents`,
-      label: "Documents",
-      count: docCount ?? 0,
-      icon: FileText,
-      color: "blue" as const,
-    },
-    {
-      href: `/projects/${id}/ethics`,
-      label: "Ethics Applications",
-      count: ethicsCount ?? 0,
-      icon: ShieldCheck,
-      color: "green" as const,
-    },
-    {
-      href: `/reviews`,
-      label: "Pending Reviews",
-      count: pendingReviewCount ?? 0,
-      icon: ClipboardList,
-      color: "orange" as const,
-    },
-    {
-      href: `/projects/${id}/approvals`,
-      label: "Approval Gates",
-      count: totalGates,
-      icon: GitMerge,
-      color: "purple" as const,
-      sub: totalGates > 0 ? `${approvedGates}/${totalGates} approved` : undefined,
-    },
-  ];
-
-  const colorMap = {
-    blue:   { bg: "bg-blue-50 dark:bg-blue-950/30",   icon: "text-blue-600",   hover: "hover:border-blue-200 dark:hover:border-blue-800" },
-    green:  { bg: "bg-green-50 dark:bg-green-950/30", icon: "text-green-600",  hover: "hover:border-green-200 dark:hover:border-green-800" },
-    orange: { bg: "bg-orange-50 dark:bg-orange-950/30", icon: "text-orange-600", hover: "hover:border-orange-200 dark:hover:border-orange-800" },
-    purple: { bg: "bg-purple-50 dark:bg-purple-950/30", icon: "text-purple-600", hover: "hover:border-purple-200 dark:hover:border-purple-800" },
+  const subLabels: Record<string, string> = {
+    datasets: `${datasetCount ?? 0} Dataset${(datasetCount ?? 0) !== 1 ? "s" : ""} Active`,
+    members: `${memberCount ?? 0} Active Researcher${(memberCount ?? 0) !== 1 ? "s" : ""}`,
+    documents: `${docCount ?? 0} Document${(docCount ?? 0) !== 1 ? "s" : ""}`,
+    analysis: "Compute Nodes Ready",
+    field: "Coming Soon",
+    settings: "All Services Operational",
+    ethics: (ethicsCount ?? 0) > 0 ? `${ethicsCount} Application${(ethicsCount ?? 0) !== 1 ? "s" : ""}` : "No Pending Reviews",
+    approvals: totalGates > 0 ? `${approvedGates}/${totalGates} Gates Approved` : "No Gates Set",
   };
 
-  // Compute phase stepper state
-  const currentPhase = project.phase as string | null
-  const phaseIndex = PHASES.findIndex(p => p.key === currentPhase)
-
   return (
-    <div className="p-8 max-w-3xl mx-auto">
-      {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold text-[var(--text-primary)] tracking-tight">{project.title}</h2>
-        {(project.start_date || project.end_date) && (
-          <div className="flex items-center gap-5 mt-2 text-sm text-[var(--text-tertiary)]">
-            {project.start_date && (
-              <span className="flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5" />
-                Start: {formatDate(project.start_date)}
-              </span>
-            )}
-            {project.end_date && (
-              <span className="flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5" />
-                End: {formatDate(project.end_date)}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
+    <div className="min-h-screen bg-[#f7f9fb] p-8">
+      <div className="max-w-7xl mx-auto space-y-12">
 
-      {project.description && (
-        <p className="text-sm text-[var(--text-secondary)] mb-7 leading-relaxed">{project.description}</p>
-      )}
+        {/* ── Hero & Metrics ── */}
+        <div className="grid grid-cols-12 gap-6 items-stretch">
 
-      {/* Phase stepper */}
-      <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-5 mb-6">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-tertiary)] mb-5">Research Phase</h3>
-        <div className="relative">
-          {/* Background track */}
-          <div className="absolute top-3.5 left-3.5 right-3.5 h-0.5 bg-[var(--border-default)]" />
-          {/* Progress track */}
-          {phaseIndex > 0 && (
+          {/* Hero Card */}
+          <div className="col-span-12 lg:col-span-8 relative rounded-xl overflow-hidden flex items-end p-10 bg-slate-900 shadow-[0_20px_50px_rgba(0,24,72,0.08)] min-h-[300px]">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#003d9b]/90 via-slate-900/80 to-slate-950" />
             <div
-              className="absolute top-3.5 h-0.5 bg-blue-600"
-              style={{ left: 14, width: `calc(${(phaseIndex / (PHASES.length - 1)) * 100}% - ${(phaseIndex / (PHASES.length - 1)) * 28}px)` }}
+              className="absolute inset-0 opacity-10"
+              style={{
+                backgroundImage:
+                  "radial-gradient(circle at 20% 50%, #0052cc 0%, transparent 50%), radial-gradient(circle at 80% 20%, #1e40af 0%, transparent 40%)",
+              }}
             />
-          )}
-          {/* Steps row */}
-          <div className="relative flex justify-between">
-            {PHASES.map((phase, i) => {
-              const state = phaseIndex < 0 ? "upcoming" : i < phaseIndex ? "done" : i === phaseIndex ? "current" : "upcoming"
-              return (
-                <div key={phase.key} className="flex flex-col items-center gap-2">
-                  <div className={`h-7 w-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                    state === "done"    ? "bg-blue-600 border-blue-600" :
-                    state === "current" ? "bg-[var(--bg-surface)] border-blue-600" :
-                                          "bg-[var(--bg-surface)] border-[var(--border-default)]"
-                  }`}>
-                    {state === "done" ? (
-                      <CheckCircle className="h-4 w-4 text-white fill-blue-600 stroke-white" />
-                    ) : state === "current" ? (
-                      <div className="h-2.5 w-2.5 rounded-full bg-blue-600" />
-                    ) : (
-                      <div className="h-2 w-2 rounded-full bg-[var(--border-default)]" />
-                    )}
-                  </div>
-                  <span className={`text-[10px] font-medium text-center leading-tight max-w-[52px] ${
-                    state === "current" ? "text-blue-600" :
-                    state === "done"    ? "text-[var(--text-secondary)]" :
-                                          "text-[var(--text-tertiary)]"
-                  }`}>{phase.label}</span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Quick stats grid */}
-      <div className="grid grid-cols-2 gap-3 mb-8">
-        {statCards.map(({ href, label, count, icon: Icon, color, sub }) => {
-          const c = colorMap[color];
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={`bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-5 ${c.hover} hover:shadow-sm transition-all duration-150`}
-            >
-              <div className="flex items-center gap-3">
-                <div className={`${c.bg} rounded-lg p-2`}>
-                  <Icon className={`h-5 w-5 ${c.icon}`} />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-[var(--text-primary)]">{count}</p>
-                  <p className="text-sm text-[var(--text-tertiary)]">{label}</p>
-                  {sub && <p className="text-xs text-[var(--text-tertiary)] mt-0.5">{sub}</p>}
-                </div>
-              </div>
-            </Link>
-          );
-        })}
-      </div>
-
-      {/* Milestones */}
-      {milestones && milestones.length > 0 && (
-        <div className="mb-8">
-          <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
-            <Clock className="h-4 w-4 text-[var(--text-tertiary)]" />
-            Milestones
-          </h3>
-          <div className="space-y-1.5">
-            {milestones.map(milestone => {
-              const isComplete = !!milestone.completed_at || milestone.status === "completed"
-              const isOverdue = !isComplete && milestone.due_date && new Date(milestone.due_date) < new Date()
-              return (
-                <div
-                  key={milestone.id}
-                  className="flex items-center gap-3 p-3 bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg"
-                >
-                  {isComplete ? (
-                    <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-                  ) : (
-                    <Circle className={`h-4 w-4 flex-shrink-0 ${isOverdue ? "text-red-400" : "text-[var(--text-tertiary)]"}`} />
+            <div className="relative z-10 space-y-3 max-w-2xl">
+              <span className="inline-block px-3 py-1 bg-[#0052cc] text-white text-[10px] font-bold uppercase tracking-widest rounded-md">
+                {project.status.replace("_", " ")}
+              </span>
+              <h1 className="text-4xl font-bold text-white font-manrope tracking-tight leading-tight">
+                {project.title}
+              </h1>
+              {project.description && (
+                <p className="text-blue-100/70 text-sm leading-relaxed line-clamp-3">
+                  {project.description}
+                </p>
+              )}
+              {(project.start_date || project.end_date) && (
+                <div className="flex items-center gap-5 pt-1">
+                  {project.start_date && (
+                    <span className="flex items-center gap-1.5 text-blue-200/60 text-xs font-medium">
+                      <Calendar className="h-3 w-3" />
+                      Start: {formatDate(project.start_date)}
+                    </span>
                   )}
-                  <span className={`text-sm flex-1 ${isComplete ? "line-through text-[var(--text-tertiary)]" : "text-[var(--text-primary)]"}`}>
-                    {milestone.title}
-                  </span>
-                  {milestone.due_date && (
-                    <span className={`text-xs flex-shrink-0 ${isOverdue ? "text-red-500 font-medium" : "text-[var(--text-tertiary)]"}`}>
-                      {isOverdue ? "Overdue · " : ""}{formatDate(milestone.due_date)}
+                  {project.end_date && (
+                    <span className="flex items-center gap-1.5 text-blue-200/60 text-xs font-medium">
+                      <Calendar className="h-3 w-3" />
+                      End: {formatDate(project.end_date)}
                     </span>
                   )}
                 </div>
-              )
-            })}
+              )}
+            </div>
+          </div>
+
+          {/* Metrics Column */}
+          <div className="col-span-12 lg:col-span-4 flex flex-col gap-4">
+
+            {/* Documents metric */}
+            <Link
+              href={`/projects/${id}/documents`}
+              className="bg-white rounded-xl p-6 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center justify-between group hover:border-[#003d9b]/20 hover:shadow-md transition-all duration-300"
+            >
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Documentation</p>
+                <div className="flex items-baseline gap-2">
+                  <h3 className="text-3xl font-bold text-[#003d9b] font-manrope">{docCount ?? 0}</h3>
+                  <span className="text-xs text-slate-400 font-medium italic">Total docs</span>
+                </div>
+              </div>
+              <span className="material-symbols-outlined text-4xl text-slate-200 group-hover:text-[#003d9b] transition-colors duration-300">
+                library_books
+              </span>
+            </Link>
+
+            {/* Datasets metric */}
+            <Link
+              href={`/projects/${id}/data`}
+              className="bg-white rounded-xl p-6 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center justify-between group hover:border-[#003d9b]/20 hover:shadow-md transition-all duration-300"
+            >
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Datasets</p>
+                <h3 className="text-3xl font-bold text-[#003d9b] font-manrope">{datasetCount ?? 0}</h3>
+              </div>
+              <span className="material-symbols-outlined text-4xl text-slate-200 group-hover:text-[#003d9b] transition-colors duration-300">
+                database
+              </span>
+            </Link>
+
+            {/* Compliance card */}
+            <Link
+              href={`/projects/${id}/approvals`}
+              className="bg-[#003d9b] text-white rounded-xl p-6 shadow-xl shadow-[#003d9b]/10 flex flex-col justify-between border border-[#0052cc]/30 hover:bg-[#0052cc] transition-colors duration-300 flex-1"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] font-bold text-blue-200/70 uppercase tracking-widest">
+                  Compliance Status
+                </p>
+                <span
+                  className="material-symbols-outlined text-sm text-green-400"
+                  style={{ fontVariationSettings: "'FILL' 1" }}
+                >
+                  verified
+                </span>
+              </div>
+              <p className="text-sm font-medium leading-snug mb-3">
+                {totalGates > 0
+                  ? `${approvedGates} of ${totalGates} approval gates cleared.`
+                  : "No approval gates configured yet."}
+              </p>
+              <div className="grid grid-cols-2 gap-2 border-t border-white/10 pt-3">
+                <div>
+                  <p className="text-[9px] uppercase tracking-tighter text-blue-200/70 font-bold">Ethics</p>
+                  <p className="text-lg font-bold font-manrope">{ethicsCount ?? 0}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] uppercase tracking-tighter text-blue-200/70 font-bold">Gates</p>
+                  <p className="text-lg font-bold font-manrope">{totalGates}</p>
+                </div>
+              </div>
+            </Link>
           </div>
         </div>
-      )}
 
-      {/* Approval Gates summary */}
-      {totalGates > 0 && (
-        <div className="mb-8">
-          <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
-            <GitMerge className="h-4 w-4 text-[var(--text-tertiary)]" />
-            Approval Gates
-          </h3>
-          <div className="space-y-2">
-            {gates!.map(gate => (
+        {/* ── Core Infrastructure ── */}
+        <div className="space-y-6">
+          <div className="flex items-end justify-between">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight text-[#191c1e] font-manrope">
+                Core Infrastructure
+              </h2>
+              <p className="text-slate-500 text-sm mt-0.5">
+                Select a module to manage your research operations
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <div className="h-1 w-12 bg-[#003d9b] rounded-full" />
+              <div className="h-1 w-4 bg-slate-200 rounded-full" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {modules(id).map(({ href, title, materialIcon, subKey }) => (
               <Link
-                key={gate.id}
-                href={`/projects/${id}/approvals`}
-                className="flex items-center gap-3 p-3 bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg hover:border-[var(--border-strong)] transition-colors duration-150"
+                key={href}
+                href={href}
+                className="bg-white p-8 rounded-xl border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] hover:shadow-lg hover:border-[#003d9b]/20 transition-all duration-300 group"
               >
-                {gate.status === "approved" ? (
-                  <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-                ) : gate.status === "blocked" ? (
-                  <Clock className="h-4 w-4 text-red-500 flex-shrink-0" />
-                ) : (
-                  <Clock className="h-4 w-4 text-[var(--text-tertiary)] flex-shrink-0" />
-                )}
-                <span className="text-sm text-[var(--text-primary)] flex-1 truncate">{gate.title}</span>
-                <span className={`text-xs font-medium capitalize px-2 py-0.5 rounded-full ${
-                  gate.status === "approved"
-                    ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400"
-                    : gate.status === "blocked"
-                    ? "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400"
-                    : "bg-[var(--bg-inset)] text-[var(--text-tertiary)]"
-                }`}>
-                  {gate.status}
-                </span>
+                <div className="w-12 h-12 rounded-lg bg-slate-50 flex items-center justify-center mb-6 group-hover:bg-[#003d9b] transition-colors duration-300">
+                  <span className="material-symbols-outlined text-[#003d9b] group-hover:text-white transition-colors duration-300">
+                    {materialIcon}
+                  </span>
+                </div>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="font-bold text-base text-[#191c1e] font-manrope mb-1 leading-snug">
+                      {title}
+                    </h3>
+                    <p className="text-xs text-slate-400 font-medium tracking-tight">
+                      {subLabels[subKey]}
+                    </p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-slate-300 group-hover:text-[#003d9b] group-hover:translate-x-0.5 transition-all duration-300 flex-shrink-0 mt-0.5" />
+                </div>
               </Link>
             ))}
           </div>
         </div>
-      )}
 
-      {/* Footer */}
-      <p className="text-xs text-[var(--text-tertiary)]">
-        Project created {formatDate(project.created_at)}
-      </p>
+      </div>
     </div>
   );
 }
