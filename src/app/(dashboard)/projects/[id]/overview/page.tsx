@@ -269,19 +269,6 @@ export default async function ProjectOverviewPage({
           </div>
         </div>
 
-        {/* ── Latest Analysis Cards ── */}
-        {latestRun && (
-          <LatestAnalysisCards
-            projectId={id}
-            runId={latestRun.id}
-            runTitle={latestRun.title}
-            analysisType={latestRun.analysis_type}
-            forestRows={forestRows}
-            plainLanguage={plainLanguage}
-            interpretation={latestRun.interpretation}
-          />
-        )}
-
         {/* ── Core Infrastructure ── */}
         <div className="space-y-6">
           <div className="flex items-end justify-between">
@@ -326,6 +313,19 @@ export default async function ProjectOverviewPage({
             ))}
           </div>
         </div>
+
+        {/* ── Latest Analysis Cards ── */}
+        {latestRun && (
+          <LatestAnalysisCards
+            projectId={id}
+            runId={latestRun.id}
+            runTitle={latestRun.title}
+            analysisType={latestRun.analysis_type}
+            forestRows={forestRows}
+            plainLanguage={plainLanguage}
+            interpretation={latestRun.interpretation}
+          />
+        )}
 
       </div>
     </div>
