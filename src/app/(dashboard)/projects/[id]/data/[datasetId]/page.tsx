@@ -6,7 +6,8 @@ import Link from 'next/link'
 import {
   ArrowLeft, Wand2, BarChart2, GitMerge, GitCommit, Loader2, RefreshCw,
   BarChart, LineChart, ScatterChart, TrendingUp, PieChart, Box, Grid3x3,
-  Trash2, ExternalLink, Search, Filter, Plus,
+  Trash2, ExternalLink, Search, Filter, Plus, ChevronDown, ChevronRight,
+  Hash, Type, Calendar, ToggleLeft, Tag, MapPin, Fingerprint,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DatasetTable } from '@/components/data/DatasetTable'
@@ -15,7 +16,10 @@ import { BranchSelector } from '@/components/data/BranchSelector'
 import { loadVersionData } from '@/lib/data/storage'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
-import type { Dataset, DatasetVersion, DatasetBranch, ParsedDataset, DatasetExploration, ChartType, ChartConfig, ColumnSchema } from '@/types/database'
+import type {
+  Dataset, DatasetVersion, DatasetBranch, ParsedDataset,
+  DatasetExploration, ChartType, ChartConfig, ColumnSchema,
+} from '@/types/database'
 
 // ─── Chart type metadata ──────────────────────────────────────────────────────
 
@@ -30,6 +34,8 @@ const CHART_META: Partial<Record<ChartType, { label: string; icon: React.ReactNo
   donut:     { label: 'Donut',     icon: <PieChart size={14} />,     color: 'bg-pink-100 text-pink-700' },
   heatmap:   { label: 'Heatmap',   icon: <Grid3x3 size={14} />,      color: 'bg-amber-100 text-amber-700' },
 }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
@@ -50,18 +56,49 @@ function typeLabel(type: string): string {
 }
 
 function typeBadgeClass(type: string): string {
-  const numeric = ['number', 'integer', 'float']
-  if (numeric.includes(type)) return 'bg-blue-50 text-blue-600'
-  if (type === 'date') return 'bg-slate-100 text-slate-700'
+  if (['number', 'integer', 'float'].includes(type)) return 'bg-blue-50 text-blue-600'
+  if (type === 'date') return 'bg-amber-50 text-amber-700'
   if (type === 'boolean') return 'bg-purple-50 text-purple-700'
-  return 'bg-slate-100 text-slate-700'
+  if (type === 'categorical') return 'bg-emerald-50 text-emerald-700'
+  if (type === 'id') return 'bg-slate-100 text-slate-500'
+  return 'bg-slate-100 text-slate-600'
 }
 
-// Mini sparkline bars for distribution
+function typeIcon(type: string) {
+  if (['number', 'integer', 'float'].includes(type)) return <Hash className="h-3 w-3" />
+  if (type === 'text') return <Type className="h-3 w-3" />
+  if (type === 'date') return <Calendar className="h-3 w-3" />
+  if (type === 'boolean') return <ToggleLeft className="h-3 w-3" />
+  if (type === 'categorical') return <Tag className="h-3 w-3" />
+  if (type === 'geo') return <MapPin className="h-3 w-3" />
+  if (type === 'id') return <Fingerprint className="h-3 w-3" />
+  return <Hash className="h-3 w-3" />
+}
+
+// ── IMPROVEMENT 1: Type breakdown strip ───────────────────────────────────────
+type TypeGroup = { label: string; icon: React.ReactNode; color: string; bgColor: string }
+const TYPE_GROUPS: Record<string, TypeGroup> = {
+  numeric:     { label: 'Numeric',     icon: <Hash className="h-3 w-3" />,       color: 'text-blue-700',    bgColor: 'bg-blue-50' },
+  text:        { label: 'Text',        icon: <Type className="h-3 w-3" />,       color: 'text-slate-700',   bgColor: 'bg-slate-100' },
+  categorical: { label: 'Categorical', icon: <Tag className="h-3 w-3" />,        color: 'text-emerald-700', bgColor: 'bg-emerald-50' },
+  date:        { label: 'Date',        icon: <Calendar className="h-3 w-3" />,   color: 'text-amber-700',   bgColor: 'bg-amber-50' },
+  boolean:     { label: 'Boolean',     icon: <ToggleLeft className="h-3 w-3" />, color: 'text-purple-700',  bgColor: 'bg-purple-50' },
+  other:       { label: 'Other',       icon: <Fingerprint className="h-3 w-3" />,color: 'text-slate-500',   bgColor: 'bg-slate-100' },
+}
+function getTypeGroup(type: string): string {
+  if (['number', 'integer', 'float'].includes(type)) return 'numeric'
+  if (type === 'text') return 'text'
+  if (type === 'categorical') return 'categorical'
+  if (type === 'date') return 'date'
+  if (type === 'boolean') return 'boolean'
+  return 'other'
+}
+
+// ── IMPROVEMENT 2: Mini sparkline ─────────────────────────────────────────────
 function MiniDistribution({ col }: { col: ColumnSchema }) {
   const counts = col.value_counts
   if (counts) {
-    const vals = Object.values(counts).slice(0, 5)
+    const vals = Object.values(counts).slice(0, 6)
     const max = Math.max(...vals, 1)
     return (
       <div className="flex items-end gap-0.5 h-5">
@@ -69,132 +106,192 @@ function MiniDistribution({ col }: { col: ColumnSchema }) {
           <div
             key={i}
             className="w-1.5 rounded-sm"
-            style={{ height: `${Math.max(2, Math.round((v / max) * 20))}px`, background: '#003d9b', opacity: 0.3 + 0.7 * (v / max) }}
+            style={{ height: `${Math.max(2, Math.round((v / max) * 20))}px`, background: '#003d9b', opacity: 0.25 + 0.75 * (v / max) }}
           />
         ))}
       </div>
     )
   }
-  // Numeric: show simple gradient bar
   return (
     <div className="flex items-end gap-0.5 h-5">
-      {[0.3, 0.6, 1, 0.7, 0.4].map((h, i) => (
-        <div key={i} className="w-1.5 rounded-sm bg-[#003d9b]" style={{ height: `${h * 20}px`, opacity: h * 0.9 }} />
+      {[0.3, 0.6, 1, 0.8, 0.5, 0.3].map((h, i) => (
+        <div key={i} className="w-1.5 rounded-sm bg-[#003d9b]" style={{ height: `${h * 20}px`, opacity: h * 0.8 }} />
       ))}
     </div>
   )
 }
 
-// Missing data matrix cell grid
-function MissingMatrix({ columns, rowCount }: { columns: ColumnSchema[]; rowCount: number }) {
-  const SAMPLE = 80
-  const cells = useMemo(() => {
-    return columns.map(col => {
-      const missingRate = rowCount > 0 ? col.null_count / rowCount : 0
-      return Array.from({ length: SAMPLE }, (_, i) => Math.random() < missingRate)
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columns.length, rowCount])
+// ── FIX 1: Completeness bar chart (replaces vertical matrix) ──────────────────
+function CompletenessChart({ columns, rowCount }: { columns: ColumnSchema[]; rowCount: number }) {
+  // Sort by completeness ascending so worst columns appear at top
+  const sorted = useMemo(() =>
+    [...columns]
+      .map(c => ({
+        name: c.name,
+        pct: rowCount > 0 ? ((rowCount - c.null_count) / rowCount) * 100 : 100,
+        type: c.type,
+        missing: c.null_count,
+      }))
+      .sort((a, b) => a.pct - b.pct)
+      .slice(0, 20) // show worst 20
+  , [columns, rowCount])
 
   return (
-    <div className="overflow-x-auto">
-      <div className="flex gap-px" style={{ minWidth: `${columns.length * 14}px` }}>
-        {cells.map((colCells, ci) => (
-          <div key={ci} className="flex flex-col gap-px">
-            {colCells.map((missing, ri) => (
-              <div
-                key={ri}
-                className={`w-2.5 h-1.5 rounded-[1px] ${missing ? 'bg-red-300/60' : 'bg-[#003d9b]/10'}`}
-              />
-            ))}
+    <div className="space-y-2">
+      {sorted.map(col => (
+        <div key={col.name} className="flex items-center gap-3 group">
+          <div className="w-32 shrink-0 flex items-center gap-1.5">
+            <span className="text-[#003d9b]/60">{typeIcon(col.type)}</span>
+            <span className="font-mono text-[10px] text-slate-500 truncate">{col.name}</span>
           </div>
-        ))}
+          <div className="flex-1 h-2 bg-[#f2f4f6] rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{
+                width: `${col.pct}%`,
+                background: col.pct < 80 ? '#ef4444' : col.pct < 95 ? '#f59e0b' : '#003d9b',
+              }}
+            />
+          </div>
+          <span className="w-12 text-right font-mono text-[10px] shrink-0"
+            style={{ color: col.pct < 80 ? '#ef4444' : col.pct < 95 ? '#d97706' : '#94a3b8' }}>
+            {col.pct.toFixed(1)}%
+          </span>
+          {col.missing > 0 && (
+            <span className="w-16 text-right font-mono text-[10px] text-slate-400 shrink-0">
+              {col.missing.toLocaleString()} null
+            </span>
+          )}
+        </div>
+      ))}
+      {columns.length > 20 && (
+        <p className="text-[10px] text-slate-400 pt-1">
+          Showing {Math.min(columns.length, 20)} of {columns.length} columns sorted by completeness
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ── IMPROVEMENT 4: Exploration empty state ────────────────────────────────────
+function ExplorationEmptyCard({ href }: { href: string }) {
+  return (
+    <div className="bg-white rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.04)] overflow-hidden">
+      {/* Illustrated preview */}
+      <div className="bg-[#f7f9fb] px-5 pt-5 pb-3">
+        <div className="flex items-end gap-1.5 h-14 mb-2">
+          {[0.4, 0.7, 0.55, 1, 0.85, 0.6, 0.45, 0.9].map((h, idx) => (
+            <div
+              key={idx}
+              className="flex-1 rounded-sm bg-[#003d9b]/20"
+              style={{ height: `${h * 100}%` }}
+            />
+          ))}
+        </div>
+        <div className="flex gap-1">
+          {['', '', '', ''].map((_, i) => (
+            <div key={i} className="flex-1 h-1 rounded-full bg-slate-200" />
+          ))}
+        </div>
+      </div>
+      <div className="p-4 text-center">
+        <p className="text-xs font-bold text-[#191c1e]">No explorations yet</p>
+        <p className="text-[10px] text-slate-400 mt-1 mb-3 leading-relaxed">
+          Build charts, histograms, and scatter plots from your data.
+        </p>
+        <Link href={href}>
+          <button className="w-full py-2 bg-[#003d9b] text-white rounded-lg text-xs font-bold hover:bg-[#0052cc] transition-colors">
+            Open Explorer
+          </button>
+        </Link>
       </div>
     </div>
   )
 }
 
+// ── IMPROVEMENT 3: Schema diff between versions ───────────────────────────────
+function versionDiff(curr: ColumnSchema[], prev: ColumnSchema[] | undefined) {
+  if (!prev) return null
+  const prevNames = new Set(prev.map(c => c.name))
+  const currNames = new Set(curr.map(c => c.name))
+  const added   = curr.filter(c => !prevNames.has(c.name)).length
+  const removed = prev.filter(c => !currNames.has(c.name)).length
+  return { added, removed }
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DatasetViewerPage() {
-  const params = useParams()
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const projectId = params.id as string
-  const datasetId = params.datasetId as string
+  const params        = useParams()
+  const router        = useRouter()
+  const searchParams  = useSearchParams()
+  const projectId     = params.id as string
+  const datasetId     = params.datasetId as string
   const { user, loading: authLoading } = useAuth()
 
-  const [dataset, setDataset] = useState<Dataset | null>(null)
-  const [versions, setVersions] = useState<DatasetVersion[]>([])
-  const [branches, setBranches] = useState<DatasetBranch[]>([])
-  const [activeVersionId, setActiveVersionId] = useState<string>('')
+  const [dataset,        setDataset]        = useState<Dataset | null>(null)
+  const [versions,       setVersions]       = useState<DatasetVersion[]>([])
+  const [branches,       setBranches]       = useState<DatasetBranch[]>([])
+  const [activeVersionId,setActiveVersionId]= useState<string>('')
   const [activeBranchId, setActiveBranchId] = useState<string>('')
-  const [parsedData, setParsedData] = useState<ParsedDataset | null>(null)
-  const [metaLoading, setMetaLoading] = useState(true)
-  const [dataLoading, setDataLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [parsedData,     setParsedData]     = useState<ParsedDataset | null>(null)
+  const [metaLoading,    setMetaLoading]    = useState(true)
+  const [dataLoading,    setDataLoading]    = useState(false)
+  const [error,          setError]          = useState<string | null>(null)
 
-  // Tabs
   const [activeTab, setActiveTab] = useState<'schema' | 'data' | 'charts'>(
     searchParams.get('tab') === 'charts' ? 'charts' : searchParams.get('tab') === 'data' ? 'data' : 'schema'
   )
 
-  // Schema search
-  const [schemaSearch, setSchemaSearch] = useState('')
+  const [schemaSearch,  setSchemaSearch]  = useState('')
+  // IMPROVEMENT 2: expanded row state
+  const [expandedRow,   setExpandedRow]   = useState<string | null>(null)
 
-  // Saved charts
-  const [savedCharts, setSavedCharts] = useState<DatasetExploration[]>([])
+  // FIX 2: fetch charts on mount, not gated to tab
+  const [savedCharts,   setSavedCharts]   = useState<DatasetExploration[]>([])
   const [chartsLoading, setChartsLoading] = useState(false)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deletingId,    setDeletingId]    = useState<string | null>(null)
 
   const supabase = createClient()
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login')
-    }
+    if (!authLoading && !user) router.push('/login')
   }, [authLoading, user, router])
 
-  // Fetch dataset metadata
+  // Fetch dataset metadata + saved charts on mount
   useEffect(() => {
     if (!user) return
 
-    const fetchMeta = async () => {
+    const fetchAll = async () => {
       setMetaLoading(true)
+      setChartsLoading(true)
       setError(null)
       try {
-        const [datasetRes, versionsRes, branchesRes] = await Promise.all([
+        const [datasetRes, versionsRes, branchesRes, chartsRes] = await Promise.all([
           supabase.from('datasets').select('*').eq('id', datasetId).single(),
-          supabase
-            .from('dataset_versions')
-            .select('*')
-            .eq('dataset_id', datasetId)
+          supabase.from('dataset_versions').select('*').eq('dataset_id', datasetId)
             .order('version_number', { ascending: false }),
-          supabase
-            .from('dataset_branches')
-            .select('*')
-            .eq('dataset_id', datasetId)
+          supabase.from('dataset_branches').select('*').eq('dataset_id', datasetId)
             .order('is_default', { ascending: false }),
+          supabase.from('dataset_explorations').select('*').eq('dataset_id', datasetId)
+            .order('created_at', { ascending: false }),
         ])
 
         if (datasetRes.error) throw new Error(datasetRes.error.message)
         if (datasetRes.data) setDataset(datasetRes.data)
 
         const versionList: DatasetVersion[] = versionsRes.data ?? []
-        const branchList: DatasetBranch[] = branchesRes.data ?? []
-
+        const branchList:  DatasetBranch[]  = branchesRes.data ?? []
         setVersions(versionList)
         setBranches(branchList)
+        setSavedCharts((chartsRes.data as DatasetExploration[]) ?? [])
 
         const defaultBranch = branchList.find(b => b.is_default) ?? branchList[0]
         if (defaultBranch) {
           setActiveBranchId(defaultBranch.id)
           const headVersion = versionList.find(v => v.id === defaultBranch.head_version)
-          if (headVersion) {
-            setActiveVersionId(headVersion.id)
-          } else if (versionList.length > 0) {
-            setActiveVersionId(versionList[0].id)
-          }
+          if (headVersion) setActiveVersionId(headVersion.id)
+          else if (versionList.length > 0) setActiveVersionId(versionList[0].id)
         } else if (versionList.length > 0) {
           setActiveVersionId(versionList[0].id)
         }
@@ -202,51 +299,27 @@ export default function DatasetViewerPage() {
         setError(e instanceof Error ? e.message : 'Failed to load dataset')
       } finally {
         setMetaLoading(false)
+        setChartsLoading(false)
       }
     }
 
-    fetchMeta()
+    fetchAll()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [datasetId, user])
 
   // Load data file when active version changes
   useEffect(() => {
     if (!activeVersionId || versions.length === 0) return
-
     const version = versions.find(v => v.id === activeVersionId)
     if (!version) return
 
-    const loadData = async () => {
-      setDataLoading(true)
-      setError(null)
-      try {
-        const data = await loadVersionData(version.file_path)
-        setParsedData(data)
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load data')
-      } finally {
-        setDataLoading(false)
-      }
-    }
-
-    loadData()
+    setDataLoading(true)
+    setError(null)
+    loadVersionData(version.file_path)
+      .then(data => setParsedData(data))
+      .catch(e => setError(e instanceof Error ? e.message : 'Failed to load data'))
+      .finally(() => setDataLoading(false))
   }, [activeVersionId, versions])
-
-  // Fetch saved charts when Charts tab becomes active
-  useEffect(() => {
-    if (activeTab !== 'charts' || !user) return
-    setChartsLoading(true)
-    supabase
-      .from('dataset_explorations')
-      .select('*')
-      .eq('dataset_id', datasetId)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        setSavedCharts((data as DatasetExploration[]) ?? [])
-        setChartsLoading(false)
-      })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, user, datasetId])
 
   async function handleDeleteChart(id: string) {
     setDeletingId(id)
@@ -255,7 +328,10 @@ export default function DatasetViewerPage() {
     setDeletingId(null)
   }
 
-  const handleVersionChange = (versionId: string) => setActiveVersionId(versionId)
+  const handleVersionChange = (versionId: string) => {
+    setActiveVersionId(versionId)
+    setExpandedRow(null)
+  }
 
   const handleBranchChange = (branchId: string) => {
     setActiveBranchId(branchId)
@@ -270,15 +346,25 @@ export default function DatasetViewerPage() {
 
   // Derived schema stats
   const columns: ColumnSchema[] = parsedData?.columns ?? activeVersion?.schema_info ?? []
-  const rowCount = parsedData?.row_count ?? activeVersion?.row_count ?? 0
-  const totalMissing = columns.reduce((acc, c) => acc + c.null_count, 0)
+  const rowCount   = parsedData?.row_count ?? activeVersion?.row_count ?? 0
   const totalCells = rowCount * columns.length
-  const missingPct = totalCells > 0 ? ((totalMissing / totalCells) * 100).toFixed(1) : '0.0'
+  const totalMissing = columns.reduce((acc, c) => acc + c.null_count, 0)
+  const missingPct   = totalCells > 0 ? ((totalMissing / totalCells) * 100).toFixed(1) : '0.0'
   const integrityPct = totalCells > 0 ? (100 - (totalMissing / totalCells) * 100).toFixed(1) : '100.0'
 
   const filteredColumns = columns.filter(c =>
     c.name.toLowerCase().includes(schemaSearch.toLowerCase())
   )
+
+  // IMPROVEMENT 1: type breakdown counts
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const col of columns) {
+      const g = getTypeGroup(col.type)
+      counts[g] = (counts[g] ?? 0) + 1
+    }
+    return counts
+  }, [columns])
 
   if (authLoading || metaLoading) {
     return (
@@ -298,6 +384,38 @@ export default function DatasetViewerPage() {
     )
   }
 
+  // ── COMMAND BAR CONFIG with Lucide icons ──────────────────────────────────
+  const commandCards = [
+    {
+      key: 'clean',
+      icon: <Wand2 className="h-5 w-5" />,
+      title: 'Clean Data',
+      desc: 'Remove outliers & handle nulls',
+      action: () => router.push(`/projects/${projectId}/data/${datasetId}/clean`),
+    },
+    {
+      key: 'explore',
+      icon: <BarChart2 className="h-5 w-5" />,
+      title: 'Explore Charts',
+      desc: 'Visual EDA and distribution',
+      action: () => router.push(`/projects/${projectId}/data/${datasetId}/explore`),
+    },
+    {
+      key: 'merge',
+      icon: <GitMerge className="h-5 w-5" />,
+      title: 'Merge Datasets',
+      desc: 'Join protocols and lab results',
+      action: () => router.push(`/projects/${projectId}/data/${datasetId}/merge`),
+    },
+    {
+      key: 'versions',
+      icon: <GitCommit className="h-5 w-5" />,
+      title: 'Version Control',
+      desc: 'Commit snapshots & rollback',
+      action: () => router.push(`/projects/${projectId}/data/${datasetId}/versions`),
+    },
+  ]
+
   return (
     <div className="min-h-screen bg-[#f7f9fb]">
 
@@ -312,7 +430,7 @@ export default function DatasetViewerPage() {
         </Link>
 
         <section className="flex flex-col md:flex-row justify-between items-end gap-6 mb-8">
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <div className="flex items-center gap-3">
               <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-bold font-mono uppercase tracking-widest">
                 Dataset
@@ -324,86 +442,49 @@ export default function DatasetViewerPage() {
             <h1 className="font-manrope text-4xl font-extrabold tracking-tight text-[#191c1e]">
               {dataset.name}
             </h1>
-
-            {/* Branch & Version selectors */}
             {(branches.length > 0 || versions.length > 0) && (
-              <div className="flex items-center gap-3 mt-3">
+              <div className="flex items-center gap-3 pt-1">
                 {branches.length > 0 && activeBranchId && (
-                  <BranchSelector
-                    branches={branches}
-                    currentBranchId={activeBranchId}
-                    onBranchChange={handleBranchChange}
-                  />
+                  <BranchSelector branches={branches} currentBranchId={activeBranchId} onBranchChange={handleBranchChange} />
                 )}
                 {versions.length > 0 && activeVersionId && (
-                  <VersionSelector
-                    versions={versions}
-                    currentVersionId={activeVersionId}
-                    onVersionChange={handleVersionChange}
-                  />
+                  <VersionSelector versions={versions} currentVersionId={activeVersionId} onVersionChange={handleVersionChange} />
                 )}
               </div>
             )}
           </div>
 
-          {/* Metrics */}
           <div className="flex gap-8 shrink-0">
-            <div className="text-right">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Rows</p>
-              <p className="text-2xl font-mono font-semibold text-[#003d9b]">{rowCount.toLocaleString()}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Columns</p>
-              <p className="text-2xl font-mono font-semibold text-[#003d9b]">{columns.length}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Missing</p>
-              <p className="text-2xl font-mono font-semibold text-red-500">{missingPct}%</p>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Integrity</p>
-              <p className="text-2xl font-mono font-semibold text-[#003d9b]">{integrityPct}%</p>
-            </div>
+            {[
+              { label: 'Rows',      value: rowCount.toLocaleString(),    color: 'text-[#003d9b]' },
+              { label: 'Columns',   value: String(columns.length),       color: 'text-[#003d9b]' },
+              { label: 'Missing',   value: `${missingPct}%`,             color: 'text-red-500' },
+              { label: 'Integrity', value: `${integrityPct}%`,           color: 'text-[#003d9b]' },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="text-right">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+                <p className={`text-2xl font-mono font-semibold ${color}`}>{value}</p>
+              </div>
+            ))}
           </div>
         </section>
 
-        {/* ── COMMAND BAR CARDS ── */}
+        {/* ── COMMAND BAR — FIX 3: Lucide icons, better contrast ── */}
         <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {[
-            { href: `clean`, icon: 'auto_fix_high', title: 'Clean Data', desc: 'Remove outliers & handle nulls', tab: 'schema' as const },
-            { href: `explore`, icon: 'bar_chart_4_bars', title: 'Explore Charts', desc: 'Visual EDA and distribution', tab: 'charts' as const },
-            { href: `merge`, icon: 'join_inner', title: 'Merge Datasets', desc: 'Join protocols and lab results', tab: 'schema' as const },
-            { href: `versions`, icon: 'history_toggle_off', title: 'Version Control', desc: 'Commit snapshots & rollback', tab: 'schema' as const },
-          ].map(({ href, icon, title, desc, tab }) => (
-            href === 'explore' ? (
-              <button
-                key={title}
-                onClick={() => setActiveTab(tab)}
-                className="bg-[#003d9b] p-5 rounded-xl text-white group cursor-pointer hover:bg-[#0052cc] transition-all duration-300 shadow-lg shadow-[#003d9b]/15 text-left"
-              >
-                <span
-                  className="material-symbols-outlined mb-3 text-white/80 group-hover:text-white transition-colors block"
-                  style={{ fontVariationSettings: "'FILL' 1" }}
-                >
-                  {icon}
-                </span>
-                <h3 className="font-manrope font-bold text-base mb-0.5">{title}</h3>
-                <p className="text-xs text-blue-200/70 group-hover:text-white/80 transition-colors">{desc}</p>
-              </button>
-            ) : (
-              <Link key={title} href={`/projects/${projectId}/data/${datasetId}/${href}`}>
-                <div className="bg-[#003d9b] p-5 rounded-xl text-white group cursor-pointer hover:bg-[#0052cc] transition-all duration-300 shadow-lg shadow-[#003d9b]/15 h-full">
-                  <span
-                    className="material-symbols-outlined mb-3 text-white/80 group-hover:text-white transition-colors block"
-                    style={{ fontVariationSettings: "'FILL' 1" }}
-                  >
-                    {icon}
-                  </span>
-                  <h3 className="font-manrope font-bold text-base mb-0.5">{title}</h3>
-                  <p className="text-xs text-blue-200/70 group-hover:text-white/80 transition-colors">{desc}</p>
-                </div>
-              </Link>
-            )
+          {commandCards.map(card => (
+            <button
+              key={card.key}
+              onClick={card.action}
+              className="group bg-gradient-to-br from-[#003d9b] to-[#0052cc] p-5 rounded-xl text-white text-left
+                         hover:from-[#0046b5] hover:to-[#0060e6] active:scale-[0.98]
+                         transition-all duration-200 shadow-lg shadow-[#003d9b]/20"
+            >
+              <div className="mb-3 text-white/90 group-hover:text-white transition-colors">
+                {card.icon}
+              </div>
+              <h3 className="font-manrope font-bold text-base text-white mb-0.5">{card.title}</h3>
+              <p className="text-xs text-white/65 group-hover:text-white/85 transition-colors leading-relaxed">{card.desc}</p>
+            </button>
           ))}
         </section>
 
@@ -413,13 +494,13 @@ export default function DatasetViewerPage() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors capitalize flex items-center gap-1.5 ${
+              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
                 activeTab === tab
                   ? 'border-[#003d9b] text-[#003d9b]'
                   : 'border-transparent text-slate-400 hover:text-slate-700'
               }`}
             >
-              {tab === 'charts' ? (
+              {tab === 'schema' ? 'Schema' : tab === 'data' ? 'Raw Data' : (
                 <>
                   Explorations
                   {savedCharts.length > 0 && (
@@ -428,7 +509,7 @@ export default function DatasetViewerPage() {
                     </span>
                   )}
                 </>
-              ) : tab === 'schema' ? 'Schema' : 'Raw Data'}
+              )}
             </button>
           ))}
         </div>
@@ -439,56 +520,69 @@ export default function DatasetViewerPage() {
         {error && (
           <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-xl text-sm flex items-center justify-between">
             <span>{error}</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setError(null)
-                if (activeVersion) {
-                  setDataLoading(true)
-                  loadVersionData(activeVersion.file_path)
-                    .then(data => setParsedData(data))
-                    .catch(e => setError(e instanceof Error ? e.message : 'Failed to load data'))
-                    .finally(() => setDataLoading(false))
-                }
-              }}
-            >
-              <RefreshCw className="h-4 w-4 mr-1" />
-              Retry
+            <Button variant="ghost" size="sm" onClick={() => {
+              setError(null)
+              if (activeVersion) {
+                setDataLoading(true)
+                loadVersionData(activeVersion.file_path)
+                  .then(d => setParsedData(d))
+                  .catch(e => setError(e instanceof Error ? e.message : 'Failed to load data'))
+                  .finally(() => setDataLoading(false))
+              }
+            }}>
+              <RefreshCw className="h-4 w-4 mr-1" />Retry
             </Button>
           </div>
         )}
 
-        {/* ── SCHEMA TAB ── */}
+        {/* ════════════════ SCHEMA TAB ════════════════ */}
         {activeTab === 'schema' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
 
-            {/* Variable Browser */}
+            {/* ── Left column ── */}
             <div className="lg:col-span-2 space-y-6">
+
+              {/* Variable Browser card */}
               <div className="bg-white rounded-xl p-8 shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+
+                {/* Header row */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-5">
                   <div>
                     <h3 className="font-manrope font-bold text-xl text-[#191c1e]">Schema &amp; Variables</h3>
-                    <p className="text-xs text-slate-500 mt-1">
-                      {dataLoading ? 'Loading...' : `Found ${columns.length} variables in this dataset`}
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {dataLoading ? 'Loading schema…' : `${columns.length} variable${columns.length !== 1 ? 's' : ''} in this dataset`}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 w-full md:w-auto">
-                    <div className="relative flex-1 md:w-64">
+                    <div className="relative flex-1 md:w-60">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-3.5 w-3.5" />
                       <input
                         value={schemaSearch}
                         onChange={e => setSchemaSearch(e.target.value)}
                         className="w-full pl-9 pr-4 py-2 bg-[#f2f4f6] border-none rounded-lg text-xs focus:ring-2 focus:ring-[#003d9b]/20 outline-none"
-                        placeholder="Search variables..."
+                        placeholder="Search variables…"
                       />
                     </div>
                     <button className="flex items-center gap-1.5 px-3 py-2 bg-[#f2f4f6] rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors">
-                      <Filter className="h-3 w-3" />
-                      Filter
+                      <Filter className="h-3 w-3" />Filter
                     </button>
                   </div>
                 </div>
+
+                {/* IMPROVEMENT 1: Type breakdown strip */}
+                {columns.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-6 pb-5 border-b border-[#f2f4f6]">
+                    {Object.entries(typeCounts).map(([group, count]) => {
+                      const g = TYPE_GROUPS[group]
+                      return (
+                        <span key={group} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold ${g.bgColor} ${g.color}`}>
+                          {g.icon}
+                          {count} {g.label}
+                        </span>
+                      )
+                    })}
+                  </div>
+                )}
 
                 {dataLoading ? (
                   <div className="flex items-center justify-center py-16">
@@ -496,49 +590,112 @@ export default function DatasetViewerPage() {
                   </div>
                 ) : columns.length === 0 ? (
                   <div className="flex items-center justify-center py-16">
-                    <p className="text-sm text-slate-400">No schema available yet. Data is still loading.</p>
+                    <p className="text-sm text-slate-400">No schema available yet.</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
                       <thead className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">
                         <tr className="border-b border-[#f2f4f6]">
-                          <th className="pb-4 px-2">Variable Name</th>
-                          <th className="pb-4 px-2">Type</th>
-                          <th className="pb-4 px-2">Completeness</th>
-                          <th className="pb-4 px-2">Distribution</th>
-                          <th className="pb-4 px-2 text-right">Missing</th>
+                          <th className="pb-3 px-2 w-4" />
+                          <th className="pb-3 px-2">Variable</th>
+                          <th className="pb-3 px-2">Type</th>
+                          <th className="pb-3 px-2">Completeness</th>
+                          <th className="pb-3 px-2">Distribution</th>
+                          <th className="pb-3 px-2 text-right">Missing</th>
                         </tr>
                       </thead>
                       <tbody className="text-xs">
                         {filteredColumns.map(col => {
-                          const completeness = rowCount > 0
-                            ? ((rowCount - col.null_count) / rowCount) * 100
-                            : 100
+                          const completeness = rowCount > 0 ? ((rowCount - col.null_count) / rowCount) * 100 : 100
+                          const isExpanded = expandedRow === col.name
                           return (
-                            <tr key={col.name} className="group hover:bg-[#f2f4f6] border-b border-[#f2f4f6] transition-colors">
-                              <td className="py-3 px-2 font-mono font-medium text-[#003d9b]">{col.name}</td>
-                              <td className="py-3 px-2">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${typeBadgeClass(col.type)}`}>
-                                  {typeLabel(col.type)}
-                                </span>
-                              </td>
-                              <td className="py-3 px-2">
-                                <div className="flex items-center gap-2">
-                                  <div className="h-1.5 w-16 bg-[#f2f4f6] rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full bg-[#003d9b] rounded-full"
-                                      style={{ width: `${completeness}%` }}
-                                    />
+                            <>
+                              {/* Main row — IMPROVEMENT 2: click to expand */}
+                              <tr
+                                key={col.name}
+                                className="group hover:bg-[#f7f9fb] border-b border-[#f2f4f6] transition-colors cursor-pointer"
+                                onClick={() => setExpandedRow(isExpanded ? null : col.name)}
+                              >
+                                <td className="py-3 px-2 text-slate-300 group-hover:text-[#003d9b] transition-colors">
+                                  {isExpanded
+                                    ? <ChevronDown className="h-3.5 w-3.5" />
+                                    : <ChevronRight className="h-3.5 w-3.5" />
+                                  }
+                                </td>
+                                <td className="py-3 px-2 font-mono font-medium text-[#003d9b]">{col.name}</td>
+                                <td className="py-3 px-2">
+                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${typeBadgeClass(col.type)}`}>
+                                    {typeIcon(col.type)}
+                                    {typeLabel(col.type)}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="h-1.5 w-20 bg-[#f2f4f6] rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full rounded-full transition-all"
+                                        style={{
+                                          width: `${completeness}%`,
+                                          background: completeness < 80 ? '#ef4444' : completeness < 95 ? '#f59e0b' : '#003d9b',
+                                        }}
+                                      />
+                                    </div>
+                                    <span className="font-mono text-[10px] text-slate-500">{completeness.toFixed(1)}%</span>
                                   </div>
-                                  <span className="font-mono text-[10px] text-slate-500">{completeness.toFixed(1)}%</span>
-                                </div>
-                              </td>
-                              <td className="py-3 px-2">
-                                <MiniDistribution col={col} />
-                              </td>
-                              <td className="py-3 px-2 text-right font-mono text-slate-500">{col.null_count}</td>
-                            </tr>
+                                </td>
+                                <td className="py-3 px-2">
+                                  <MiniDistribution col={col} />
+                                </td>
+                                <td className="py-3 px-2 text-right font-mono text-slate-400">{col.null_count}</td>
+                              </tr>
+
+                              {/* IMPROVEMENT 2: Expanded inline stats */}
+                              {isExpanded && (
+                                <tr key={`${col.name}-expanded`} className="bg-[#f7f9fb]">
+                                  <td colSpan={6} className="px-6 py-4">
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                      {col.min !== undefined && col.min !== null && (
+                                        <div className="bg-white rounded-lg p-3 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+                                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Min</p>
+                                          <p className="font-mono text-sm font-semibold text-[#191c1e] truncate">{String(col.min)}</p>
+                                        </div>
+                                      )}
+                                      {col.max !== undefined && col.max !== null && (
+                                        <div className="bg-white rounded-lg p-3 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+                                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Max</p>
+                                          <p className="font-mono text-sm font-semibold text-[#191c1e] truncate">{String(col.max)}</p>
+                                        </div>
+                                      )}
+                                      {col.mean !== undefined && col.mean !== null && (
+                                        <div className="bg-white rounded-lg p-3 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+                                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Mean</p>
+                                          <p className="font-mono text-sm font-semibold text-[#191c1e]">{col.mean.toFixed(2)}</p>
+                                        </div>
+                                      )}
+                                      {col.unique_count !== undefined && (
+                                        <div className="bg-white rounded-lg p-3 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+                                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Unique</p>
+                                          <p className="font-mono text-sm font-semibold text-[#191c1e]">{col.unique_count.toLocaleString()}</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                    {col.sample_values?.length > 0 && (
+                                      <div className="mt-3">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Sample values</p>
+                                        <div className="flex flex-wrap gap-1.5">
+                                          {col.sample_values.slice(0, 8).map((v, i) => (
+                                            <span key={i} className="px-2 py-0.5 bg-white border border-[#e0e3e5] rounded text-[10px] font-mono text-slate-600">
+                                              {String(v ?? 'null')}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              )}
+                            </>
                           )
                         })}
                       </tbody>
@@ -547,44 +704,47 @@ export default function DatasetViewerPage() {
                 )}
 
                 {columns.length > 0 && (
-                  <div className="mt-6 pt-5 border-t border-[#f2f4f6] flex justify-between items-center text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                  <div className="mt-5 pt-4 border-t border-[#f2f4f6] flex justify-between items-center text-[10px] font-bold uppercase text-slate-400 tracking-wider">
                     <span>Showing {filteredColumns.length} of {columns.length} variables</span>
-                    <span className="font-mono text-[#003d9b]/60">{versions.length} version{versions.length !== 1 ? 's' : ''}</span>
+                    <span className="font-mono text-[#003d9b]/50">
+                      {versions.length} version{versions.length !== 1 ? 's' : ''}
+                    </span>
                   </div>
                 )}
               </div>
 
-              {/* Missing Data Matrix */}
+              {/* FIX 1: Completeness bar chart (replaces vertical matrix) */}
               {columns.length > 0 && (
                 <div className="bg-white rounded-xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                  <div className="flex justify-between items-start mb-5">
                     <div>
-                      <h3 className="font-manrope font-bold text-lg text-[#191c1e]">Missing Data Matrix</h3>
-                      <p className="text-[10px] text-slate-500 font-medium mt-0.5">
-                        Visual density check ({columns.length} variables × 80 observations sampled)
-                      </p>
+                      <h3 className="font-manrope font-bold text-lg text-[#191c1e]">Completeness Profile</h3>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Per-column data completeness, sorted by worst first</p>
                     </div>
-                    <div className="flex items-center gap-5">
+                    <div className="flex items-center gap-4 text-[10px] font-bold uppercase text-slate-400 tracking-wider shrink-0">
                       <div className="flex items-center gap-1.5">
-                        <div className="w-2.5 h-2.5 bg-[#003d9b]/10 rounded-[1px]" />
-                        <span className="text-[10px] font-bold uppercase text-slate-400">Present</span>
+                        <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
+                        <span>&lt; 80%</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <div className="w-2.5 h-2.5 bg-red-300/60 rounded-[1px]" />
-                        <span className="text-[10px] font-bold uppercase text-slate-400">Missing</span>
+                        <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                        <span>&lt; 95%</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#003d9b]" />
+                        <span>Complete</span>
                       </div>
                     </div>
                   </div>
-                  <div className="rounded-lg overflow-hidden py-1">
-                    <MissingMatrix columns={columns} rowCount={rowCount} />
-                  </div>
+                  <CompletenessChart columns={columns} rowCount={rowCount} />
                 </div>
               )}
             </div>
 
-            {/* Right Column */}
+            {/* ── Right column ── */}
             <div className="space-y-6">
-              {/* Research Chronology (Version History) */}
+
+              {/* Version History — IMPROVEMENT 3: schema diff */}
               <div className="bg-white rounded-xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
                 <h3 className="font-manrope font-bold text-lg text-[#191c1e] mb-6">Version History</h3>
                 {versions.length === 0 ? (
@@ -593,27 +753,38 @@ export default function DatasetViewerPage() {
                   <div className="space-y-5 relative before:content-[''] before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#f2f4f6]">
                     {versions.slice(0, 5).map((v, idx) => {
                       const isActive = v.id === activeVersionId
+                      // IMPROVEMENT 3: diff vs previous version
+                      const prevVersion = versions[idx + 1]
+                      const diff = versionDiff(v.schema_info ?? [], prevVersion?.schema_info)
                       return (
                         <div key={v.id} className="relative pl-10">
                           <button
                             onClick={() => handleVersionChange(v.id)}
                             className={`absolute left-0 top-1 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ring-4 ring-white transition-colors ${
-                              isActive
-                                ? 'bg-[#003d9b] text-white'
-                                : 'bg-[#f2f4f6] text-slate-500 hover:bg-[#003d9b]/10'
+                              isActive ? 'bg-[#003d9b] text-white' : 'bg-[#f2f4f6] text-slate-500 hover:bg-[#003d9b]/10'
                             }`}
                           >
                             {versions.length - idx}
                           </button>
                           {isActive && (
-                            <p className="text-[10px] font-bold text-[#003d9b] tracking-widest uppercase mb-0.5">
-                              Current
-                            </p>
+                            <p className="text-[10px] font-bold text-[#003d9b] tracking-widest uppercase mb-0.5">Current</p>
                           )}
                           <h4 className={`font-bold text-sm ${isActive ? 'text-[#191c1e]' : 'text-slate-600'}`}>
-                            v{v.version_number} — {v.commit_message ?? 'Upload'}
+                            v{v.version_number} — {v.commit_message || 'Initial upload'}
                           </h4>
-                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">{fmtDateShort(v.created_at)}</p>
+                          <div className="flex items-center gap-3 mt-0.5">
+                            <p className="text-[10px] text-slate-400 font-mono">{fmtDateShort(v.created_at)}</p>
+                            {diff && (diff.added > 0 || diff.removed > 0) && (
+                              <div className="flex items-center gap-1.5">
+                                {diff.added > 0 && (
+                                  <span className="text-[10px] font-bold text-emerald-600">+{diff.added} col{diff.added > 1 ? 's' : ''}</span>
+                                )}
+                                {diff.removed > 0 && (
+                                  <span className="text-[10px] font-bold text-red-500">−{diff.removed} col{diff.removed > 1 ? 's' : ''}</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )
                     })}
@@ -626,14 +797,13 @@ export default function DatasetViewerPage() {
                 </Link>
               </div>
 
-              {/* Saved Explorations */}
-              <div className="space-y-4">
+              {/* Saved Explorations — FIX 2: loaded on mount, IMPROVEMENT 4: rich empty state */}
+              <div className="space-y-3">
                 <div className="flex justify-between items-center px-1">
                   <h3 className="font-manrope font-bold text-lg text-[#191c1e]">Saved Explorations</h3>
                   <Link href={`/projects/${projectId}/data/${datasetId}/explore`}>
                     <button className="flex items-center gap-1 text-xs font-semibold text-[#003d9b] hover:text-[#0052cc] transition-colors">
-                      <Plus className="h-3.5 w-3.5" />
-                      New
+                      <Plus className="h-3.5 w-3.5" />New
                     </button>
                   </Link>
                 </div>
@@ -643,36 +813,23 @@ export default function DatasetViewerPage() {
                     <Loader2 className="h-5 w-5 animate-spin text-slate-300" />
                   </div>
                 ) : savedCharts.length === 0 ? (
-                  <div className="bg-white rounded-xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)] text-center">
-                    <BarChart2 className="h-8 w-8 text-slate-200 mx-auto mb-3" />
-                    <p className="text-xs text-slate-400">No saved explorations yet.</p>
-                    <Link href={`/projects/${projectId}/data/${datasetId}/explore`}>
-                      <button className="mt-3 text-xs font-semibold text-[#003d9b] hover:underline">
-                        Open Explorer →
-                      </button>
-                    </Link>
-                  </div>
+                  // IMPROVEMENT 4: illustrated empty state
+                  <ExplorationEmptyCard href={`/projects/${projectId}/data/${datasetId}/explore`} />
                 ) : (
-                  <div className="space-y-3">
+                  <>
                     {savedCharts.slice(0, 3).map(chart => {
                       const meta = CHART_META[chart.chart_type] ?? { label: chart.chart_type, icon: <BarChart2 size={14} />, color: 'bg-gray-100 text-gray-700' }
                       return (
-                        <div
-                          key={chart.id}
-                          className="bg-white rounded-xl overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:-translate-y-0.5 transition-all duration-200 group cursor-pointer"
-                        >
-                          <div className="h-16 bg-[#f2f4f6] flex items-center justify-center">
+                        <div key={chart.id} className="bg-white rounded-xl overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:-translate-y-0.5 transition-all duration-200">
+                          <div className="h-14 bg-[#f7f9fb] flex items-center justify-center border-b border-[#f2f4f6]">
                             <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${meta.color}`}>
-                              {meta.icon}
-                              {meta.label}
+                              {meta.icon}{meta.label}
                             </span>
                           </div>
                           <div className="p-3 flex items-center justify-between">
                             <div className="min-w-0">
                               <h4 className="text-xs font-bold text-[#191c1e] truncate">{chart.title}</h4>
-                              <p className="text-[10px] text-slate-400 mt-0.5 uppercase tracking-wider font-bold">
-                                {fmtDate(chart.created_at)}
-                              </p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">{fmtDate(chart.created_at)}</p>
                             </div>
                             <div className="flex items-center gap-1 ml-2 shrink-0">
                               <Link href={`/projects/${projectId}/data/${datasetId}/explore?load=${chart.id}`}>
@@ -697,32 +854,28 @@ export default function DatasetViewerPage() {
                         onClick={() => setActiveTab('charts')}
                         className="w-full py-2.5 bg-white rounded-xl text-xs font-bold text-slate-500 hover:text-[#003d9b] transition-colors shadow-[0_4px_20px_rgba(0,0,0,0.04)]"
                       >
-                        View all {savedCharts.length} explorations
+                        View all {savedCharts.length} explorations →
                       </button>
                     )}
-                  </div>
+                  </>
                 )}
               </div>
             </div>
           </div>
         )}
 
-        {/* ── RAW DATA TAB ── */}
+        {/* ════════════════ RAW DATA TAB ════════════════ */}
         {activeTab === 'data' && (
           <div className="bg-white rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.04)] overflow-hidden" style={{ minHeight: 400 }}>
             {dataLoading ? (
               <div className="flex items-center justify-center py-24">
                 <div className="text-center">
                   <Loader2 className="h-8 w-8 animate-spin text-[#003d9b]/40 mx-auto mb-3" />
-                  <p className="text-sm text-slate-400">Loading data...</p>
+                  <p className="text-sm text-slate-400">Loading data…</p>
                 </div>
               </div>
             ) : parsedData ? (
-              <DatasetTable
-                rows={parsedData.rows}
-                columns={parsedData.columns}
-                className="h-full"
-              />
+              <DatasetTable rows={parsedData.rows} columns={parsedData.columns} className="h-full" />
             ) : !error ? (
               <div className="flex items-center justify-center py-24">
                 <p className="text-sm text-slate-400">No data available for this version.</p>
@@ -731,7 +884,7 @@ export default function DatasetViewerPage() {
           </div>
         )}
 
-        {/* ── EXPLORATIONS TAB ── */}
+        {/* ════════════════ EXPLORATIONS TAB ════════════════ */}
         {activeTab === 'charts' && (
           <div>
             {chartsLoading ? (
@@ -739,16 +892,21 @@ export default function DatasetViewerPage() {
                 <Loader2 className="h-5 w-5 animate-spin text-slate-300" />
               </div>
             ) : savedCharts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 gap-4 text-center bg-white rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
-                <div className="h-14 w-14 rounded-full bg-[#f2f4f6] flex items-center justify-center">
-                  <BarChart2 className="h-6 w-6 text-slate-300" />
+              <div className="flex flex-col items-center justify-center py-24 gap-5 text-center bg-white rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
+                {/* Illustrated preview */}
+                <div className="flex items-end gap-2 h-20">
+                  {[0.4, 0.7, 0.55, 1, 0.85, 0.6, 0.45, 0.9, 0.75, 0.5].map((h, i) => (
+                    <div key={i} className="w-5 rounded-t-sm bg-[#003d9b]/15" style={{ height: `${h * 80}px` }} />
+                  ))}
                 </div>
                 <div>
-                  <p className="font-semibold text-sm text-[#191c1e]">No saved explorations yet</p>
-                  <p className="text-xs text-slate-400 mt-1">Open the Explorer, build a chart, and save it to see it here.</p>
+                  <p className="font-manrope font-bold text-base text-[#191c1e]">No saved explorations yet</p>
+                  <p className="text-xs text-slate-400 mt-1 max-w-xs">
+                    Open the Explorer to build bar charts, histograms, scatter plots, and more — then save them here.
+                  </p>
                 </div>
                 <Link href={`/projects/${projectId}/data/${datasetId}/explore`}>
-                  <button className="inline-flex items-center gap-2 bg-[#003d9b] text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-[#0052cc] transition-colors">
+                  <button className="inline-flex items-center gap-2 bg-[#003d9b] text-white px-6 py-2.5 rounded-lg text-sm font-semibold hover:bg-[#0052cc] transition-colors shadow-lg shadow-[#003d9b]/20">
                     <BarChart2 className="h-4 w-4" />
                     Open Explorer
                   </button>
@@ -757,11 +915,12 @@ export default function DatasetViewerPage() {
             ) : (
               <>
                 <div className="flex items-center justify-between mb-6">
-                  <p className="text-sm font-semibold text-[#191c1e]">{savedCharts.length} saved exploration{savedCharts.length !== 1 ? 's' : ''}</p>
+                  <p className="text-sm font-semibold text-[#191c1e]">
+                    {savedCharts.length} saved exploration{savedCharts.length !== 1 ? 's' : ''}
+                  </p>
                   <Link href={`/projects/${projectId}/data/${datasetId}/explore`}>
                     <button className="inline-flex items-center gap-1.5 bg-[#003d9b] text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#0052cc] transition-colors">
-                      <Plus className="h-3.5 w-3.5" />
-                      New Chart
+                      <Plus className="h-3.5 w-3.5" />New Chart
                     </button>
                   </Link>
                 </div>
@@ -773,8 +932,7 @@ export default function DatasetViewerPage() {
                       <div key={chart.id} className="bg-white rounded-xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:shadow-md transition-shadow flex flex-col gap-3">
                         <div className="flex items-center justify-between">
                           <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${meta.color}`}>
-                            {meta.icon}
-                            {meta.label}
+                            {meta.icon}{meta.label}
                           </span>
                           <span className="text-[10px] text-slate-400 font-mono">{fmtDate(chart.created_at)}</span>
                         </div>
@@ -789,8 +947,7 @@ export default function DatasetViewerPage() {
                         <div className="flex items-center gap-2 mt-auto pt-1">
                           <Link href={`/projects/${projectId}/data/${datasetId}/explore?load=${chart.id}`} className="flex-1">
                             <button className="w-full flex items-center justify-center gap-1.5 border border-slate-200 rounded-lg py-1.5 text-xs font-semibold text-slate-600 hover:border-[#003d9b] hover:text-[#003d9b] transition-colors">
-                              <ExternalLink size={12} />
-                              Open
+                              <ExternalLink size={12} />Open
                             </button>
                           </Link>
                           <button
