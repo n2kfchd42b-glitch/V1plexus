@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { FileText, Clock, Pencil, Trash2, AlertTriangle, Loader2 } from 'lucide-react'
+import { FileText, Clock, Pencil, Trash2, AlertTriangle, Loader2, X, Check } from 'lucide-react'
 import { formatRelativeTime } from '@/lib/utils'
 import { DocumentStatusBadge } from './DocumentStatusBadge'
 import { createClient } from '@/lib/supabase/client'
@@ -63,13 +63,13 @@ export function DocumentCard({
 
   return (
     <div className={cn(
-      'group relative bg-white border border-gray-200 rounded-xl p-5 transition-all',
+      'bg-white border border-gray-200 rounded-xl transition-all',
       deleteState === 'confirm'
         ? 'border-red-200 shadow-sm'
         : 'hover:border-blue-300 hover:shadow-sm'
     )}>
       {/* Main clickable area */}
-      <Link href={href} className="block">
+      <Link href={href} className="block p-5">
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-center gap-2 min-w-0">
             <div className="bg-blue-50 rounded-lg p-1.5 flex-shrink-0">
@@ -96,53 +96,52 @@ export function DocumentCard({
         </div>
       </Link>
 
-      {/* Action buttons — shown on hover or during delete confirm */}
-      <div className={cn(
-        'absolute top-3 right-3 flex items-center gap-1 transition-opacity',
-        deleteState !== 'idle' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-      )}>
+      {/* Action bar — always visible */}
+      <div className="border-t border-gray-100 px-4 py-2 flex items-center gap-2">
         {deleteState === 'idle' && (
           <>
             <Link
               href={href}
               onClick={e => e.stopPropagation()}
-              className="flex items-center gap-1 h-7 px-2 rounded-md text-xs font-medium text-slate-500 bg-white border border-slate-200 hover:border-blue-300 hover:text-blue-600 transition-colors shadow-sm"
+              className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-xs font-medium text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-colors"
             >
-              <Pencil className="h-3 w-3" />
+              <Pencil className="h-3.5 w-3.5" />
               Edit
             </Link>
             <button
               onClick={handleDelete}
-              className="flex items-center justify-center h-7 w-7 rounded-md text-slate-400 bg-white border border-slate-200 hover:border-red-200 hover:text-red-500 transition-colors shadow-sm"
-              title="Delete document"
+              className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-xs font-medium text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors ml-auto"
             >
               <Trash2 className="h-3.5 w-3.5" />
+              Delete
             </button>
           </>
         )}
 
         {deleteState === 'confirm' && (
-          <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 rounded-lg px-2 py-1 shadow-sm">
-            <AlertTriangle className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
-            <span className="text-xs text-red-700 font-medium">Delete?</span>
+          <>
+            <AlertTriangle className="h-3.5 w-3.5 text-red-500 shrink-0" />
+            <span className="text-xs text-red-700 font-medium flex-1">Delete this document?</span>
             <button
               onClick={handleDelete}
-              className="h-6 px-2 rounded-md bg-red-600 hover:bg-red-700 text-white text-xs font-medium transition-colors"
+              className="flex items-center gap-1 h-7 px-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-medium transition-colors"
             >
+              <Check className="h-3.5 w-3.5" />
               Confirm
             </button>
             <button
               onClick={handleCancelDelete}
-              className="h-6 px-2 rounded-md border border-slate-200 bg-white text-xs text-slate-600 hover:bg-slate-50 transition-colors"
+              className="flex items-center gap-1 h-7 px-2.5 rounded-lg border border-slate-200 text-slate-600 text-xs font-medium hover:bg-slate-50 transition-colors"
             >
+              <X className="h-3.5 w-3.5" />
               Cancel
             </button>
-          </div>
+          </>
         )}
 
         {deleteState === 'deleting' && (
-          <span className="flex items-center gap-1 text-xs text-slate-500 bg-white border border-slate-200 rounded-lg px-2 py-1 shadow-sm">
-            <Loader2 className="h-3 w-3 animate-spin" /> Deleting…
+          <span className="flex items-center gap-1.5 text-xs text-slate-500">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Deleting…
           </span>
         )}
       </div>
