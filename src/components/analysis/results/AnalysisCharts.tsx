@@ -38,7 +38,7 @@ const FULL_WIDTH_CHART_TYPES = new Set([
 
 export function AnalysisCharts({ charts }: Props) {
   if (!charts || charts.length === 0) return null
-  const visible = charts.filter(c => SUPPORTED_CHART_TYPES.has(c.type))
+  const visible = charts.filter(c => SUPPORTED_CHART_TYPES.has(c.type) && c.type !== 'roc_curve')
   if (visible.length === 0) return null
 
   const useGrid = visible.length > 1

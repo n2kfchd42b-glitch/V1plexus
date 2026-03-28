@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/utils";
 import { Calendar, ArrowRight } from "lucide-react";
+import { LatestAnalysisCards } from "@/components/analysis/LatestAnalysisCards";
 
 const modules = (id: string) => [
   {
@@ -80,6 +81,7 @@ export default async function ProjectOverviewPage({
     { count: datasetCount },
     { count: memberCount },
     { data: gates },
+    { data: latestRuns },
   ] = await Promise.all([
     supabase
       .from("documents")
@@ -103,10 +105,41 @@ export default async function ProjectOverviewPage({
       .from("approval_gates")
       .select("id, status")
       .eq("project_id", id),
+    supabase
+      .from("analysis_runs")
+      .select("id, title, analysis_type, results, interpretation")
+      .eq("project_id", id)
+      .eq("status", "completed")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1),
   ]);
 
   const totalGates = gates?.length ?? 0;
   const approvedGates = gates?.filter((g) => g.status === "approved").length ?? 0;
+
+  // Extract latest analysis data for preview cards
+  const latestRun = latestRuns?.[0] ?? null
+  type ForestRow = { name: string; value: number; ciLow: number; ciHigh: number; p: string }
+  let forestRows: ForestRow[] = []
+  let plainLanguage: string | null = null
+  if (latestRun?.results) {
+    const res = latestRun.results as Record<string, unknown>
+    plainLanguage = (res.plainLanguage as string) ?? null
+    const charts = (res.charts as Array<{ type: string; data: unknown[] }>) ?? []
+    const forestChart = charts.find(c =>
+      ['forest_or', 'forest_hr', 'forest_irr', 'coefficient_plot'].includes(c.type)
+    )
+    if (forestChart?.data) {
+      forestRows = (forestChart.data as Array<Record<string, unknown>>).map(d => ({
+        name: String(d.name ?? ''),
+        value: Number(d.or ?? d.hr ?? d.irr ?? d.estimate ?? 0),
+        ciLow: Number(d.ciLow ?? 0),
+        ciHigh: Number(d.ciHigh ?? 0),
+        p: String(d.p ?? ''),
+      }))
+    }
+  }
 
   const subLabels: Record<string, string> = {
     datasets: `${datasetCount ?? 0} Dataset${(datasetCount ?? 0) !== 1 ? "s" : ""} Active`,
@@ -235,6 +268,19 @@ export default async function ProjectOverviewPage({
             </Link>
           </div>
         </div>
+
+        {/* ── Latest Analysis Cards ── */}
+        {latestRun && (
+          <LatestAnalysisCards
+            projectId={id}
+            runId={latestRun.id}
+            runTitle={latestRun.title}
+            analysisType={latestRun.analysis_type}
+            forestRows={forestRows}
+            plainLanguage={plainLanguage}
+            interpretation={latestRun.interpretation}
+          />
+        )}
 
         {/* ── Core Infrastructure ── */}
         <div className="space-y-6">
