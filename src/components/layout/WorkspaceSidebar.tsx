@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { WorkspaceSwitcher } from '@/components/workspace/WorkspaceSwitcher'
@@ -19,6 +20,11 @@ interface WorkspaceSidebarProps {
 export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: WorkspaceSidebarProps) {
   const [collapsed, setCollapsed] = useState(true)
   const { isPersonal, isInstitutional, loading } = useWorkspaceContext()
+  const pathname = usePathname()
+
+  useEffect(() => {
+    setCollapsed(true)
+  }, [pathname])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

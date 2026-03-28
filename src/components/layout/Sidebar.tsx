@@ -45,6 +45,11 @@ export function Sidebar({ profile, onSignOut, onCommandPalette }: SidebarProps) 
   const [activeIndex, setActiveIndex] = useState(0)
   const [prevIndex, setPrevIndex] = useState(0)
 
+  // Collapse sidebar on navigation
+  useEffect(() => {
+    setCollapsed(true)
+  }, [pathname])
+
   // Track active item index for sliding indicator
   useEffect(() => {
     const idx = navItems.findIndex(item =>
