@@ -16,7 +16,6 @@ import { THESIS_ENABLED, INSTITUTIONAL_INTELLIGENCE_ENABLED } from '@/lib/flags'
 
 const navItems = [
   { href: '/dashboard',     label: 'Dashboard', icon: LayoutDashboard, shortcut: 'G D' },
-  { href: '/projects',      label: 'Projects',  icon: FolderOpen,      shortcut: 'G P' },
   { href: '/reviews',       label: 'Reviews',   icon: ClipboardList,   shortcut: 'G R' },
   { href: '/notifications', label: 'Inbox',     icon: Bell,            shortcut: 'G N' },
   { href: '/settings/sso',  label: 'SSO Settings', icon: Settings, adminOnly: true },
@@ -42,7 +41,7 @@ interface SidebarProps {
 
 export function Sidebar({ profile, onSignOut, onCommandPalette }: SidebarProps) {
   const pathname = usePathname()
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(true)
   const [activeIndex, setActiveIndex] = useState(0)
   const [prevIndex, setPrevIndex] = useState(0)
 

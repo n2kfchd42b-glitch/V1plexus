@@ -27,7 +27,6 @@ export function InstitutionalSidebar({ collapsed, onCommandPalette }: Institutio
 
   const coreNav = [
     { href: '/dashboard',     label: 'Dashboard',     icon: LayoutDashboard, shortcut: 'G D' },
-    { href: '/projects',      label: 'Projects',      icon: FolderOpen,      shortcut: 'G P' },
     { href: '/reviews',       label: 'Reviews',       icon: ClipboardList,   shortcut: 'G R' },
     { href: '/notifications', label: 'Notifications', icon: Bell,            shortcut: 'G N' },
     { href: '/exports',       label: 'Exports',       icon: Download },

@@ -11,7 +11,6 @@ import { NETWORK_COMPLIANCE_ENABLED } from '@/lib/flags'
 
 const personalNav = [
   { href: '/dashboard',     label: 'Dashboard',     icon: LayoutDashboard, shortcut: 'G D' },
-  { href: '/projects',      label: 'My Projects',   icon: FolderOpen,      shortcut: 'G P' },
   { href: '/reviews',       label: 'Reviews',       icon: ClipboardList,   shortcut: 'G R' },
   { href: '/notifications', label: 'Notifications', icon: Bell,            shortcut: 'G N' },
   { href: '/exports',       label: 'Exports',       icon: Download },

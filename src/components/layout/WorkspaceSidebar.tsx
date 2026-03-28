@@ -17,7 +17,7 @@ interface WorkspaceSidebarProps {
 }
 
 export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: WorkspaceSidebarProps) {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(true)
   const { isPersonal, isInstitutional, loading } = useWorkspaceContext()
 
   useEffect(() => {

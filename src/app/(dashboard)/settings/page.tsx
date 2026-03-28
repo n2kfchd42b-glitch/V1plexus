@@ -114,6 +114,7 @@ export default function ProfilePage() {
           .from('projects')
           .select('id, title, status, phase, updated_at')
           .eq('owner_id', user.id)
+          .is('deleted_at', null)
           .order('updated_at', { ascending: false })
           .limit(5),
         supabase
