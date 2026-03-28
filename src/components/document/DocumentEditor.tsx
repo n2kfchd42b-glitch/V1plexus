@@ -157,11 +157,11 @@ export function DocumentEditor({
   return (
     <div className="flex flex-col h-screen bg-white">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-slate-200">
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.push(`/projects/${projectId}/documents`)}
-            className="text-gray-400 hover:text-gray-700 transition-colors"
+            className="text-slate-400 hover:text-slate-700 transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
@@ -170,13 +170,13 @@ export function DocumentEditor({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onBlur={handleTitleBlur}
-            className="text-lg font-semibold text-gray-900 border-none outline-none bg-transparent min-w-0 w-80"
+            className="text-lg font-semibold text-slate-900 border-none outline-none bg-transparent min-w-0 w-80"
           />
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowHistory((v) => !v)}
-            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900"
+            className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900"
           >
             <History className="h-4 w-4" />
             History
@@ -186,11 +186,11 @@ export function DocumentEditor({
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center gap-1 px-2 py-1 border-b border-gray-200 flex-wrap">
+      <div className="flex items-center gap-1 px-2 py-1 border-b border-slate-200 flex-wrap">
         <EditorToolbar editor={editor} />
         {editor && (
           <>
-            <div className="h-5 w-px bg-gray-200 mx-1" />
+            <div className="h-5 w-px bg-slate-200 mx-1" />
             <AIAssistPopover editor={editor} documentId={doc.id} />
           </>
         )}
@@ -215,7 +215,7 @@ export function DocumentEditor({
       </div>
 
       {/* Status bar */}
-      <div className="flex items-center gap-4 px-6 py-2 border-t border-gray-200 text-xs text-gray-400 bg-gray-50">
+      <div className="flex items-center gap-4 px-6 py-2 border-t border-slate-200 text-xs text-slate-400 bg-slate-50">
         <span>Words: {words.toLocaleString()}</span>
         <span>·</span>
         <span>
