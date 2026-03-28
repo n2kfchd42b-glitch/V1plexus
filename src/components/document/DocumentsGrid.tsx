@@ -40,33 +40,52 @@ function approvedCount(docs: Document[]): number {
 }
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
+// Option B palette: bg #001848 (on-primary-fixed), text #eff1f3 (inverse-on-surface),
+// label + icon #b2c5ff (primary-fixed-dim)
 
 function StatCard({
   icon: Icon,
   label,
   value,
   sub,
-  accent,
 }: {
   icon: React.ElementType
   label: string
   value: string
   sub?: string
-  accent: string
 }) {
   return (
-    <div className="bg-slate-900 rounded-2xl p-5 flex flex-col gap-3">
-      <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${accent}`}>
-        <Icon className="h-4 w-4 text-white" />
-      </div>
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">
+    <div
+      className="rounded-2xl px-5 py-4 flex items-center justify-between gap-4"
+      style={{ backgroundColor: "#001848" }}
+    >
+      {/* Left: value + label */}
+      <div className="min-w-0">
+        <p
+          className="text-2xl font-extrabold leading-none"
+          style={{ color: "#eff1f3" }}
+        >
+          {value}
+        </p>
+        <p
+          className="text-[10px] font-semibold uppercase tracking-widest mt-1 truncate"
+          style={{ color: "#b2c5ff" }}
+        >
           {label}
         </p>
-        <p className="text-3xl font-extrabold text-white leading-none">{value}</p>
         {sub && (
-          <p className="text-[10px] text-slate-500 font-medium mt-1.5">{sub}</p>
+          <p className="text-[10px] mt-0.5 truncate" style={{ color: "#415382" }}>
+            {sub}
+          </p>
         )}
+      </div>
+
+      {/* Right: icon */}
+      <div
+        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+        style={{ backgroundColor: "rgba(178,197,255,0.10)" }}
+      >
+        <Icon className="h-4.5 w-4.5" style={{ color: "#b2c5ff" }} />
       </div>
     </div>
   )
@@ -100,28 +119,24 @@ export function DocumentsGrid({
           label="Total Documents"
           value={String(documents.length)}
           sub={`${draftCount} still in draft`}
-          accent="bg-blue-600"
         />
         <StatCard
           icon={PenLine}
           label="Words Written"
           value={fmtNumber(wordsTotal)}
           sub="across all documents"
-          accent="bg-violet-600"
         />
         <StatCard
           icon={FlaskConical}
           label="Under Review"
           value={String(inReview)}
           sub={inReview === 0 ? "Nothing pending" : "Awaiting feedback"}
-          accent="bg-amber-500"
         />
         <StatCard
           icon={CheckCircle2}
           label="Approved"
           value={String(approved)}
           sub={approved === documents.length && documents.length > 0 ? "All complete!" : `of ${documents.length} documents`}
-          accent="bg-emerald-600"
         />
       </div>
 

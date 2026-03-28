@@ -17,21 +17,33 @@ export default async function DocumentsPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: documents } = await supabase
-    .from("documents")
-    .select("*")
-    .eq("project_id", id)
-    .is("deleted_at", null)
-    .order("updated_at", { ascending: false });
+  const [{ data: documents }, { data: project }] = await Promise.all([
+    supabase
+      .from("documents")
+      .select("*")
+      .eq("project_id", id)
+      .is("deleted_at", null)
+      .order("updated_at", { ascending: false }),
+    supabase
+      .from("projects")
+      .select("name")
+      .eq("id", id)
+      .single(),
+  ]);
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      {/* ── Page header ───────────────────────────────────────────── */}
+      <div className="flex items-end justify-between mb-8">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">Documents</h2>
-          <p className="text-xs text-slate-400 mt-0.5">
-            {documents?.length ?? 0} document{documents?.length !== 1 ? "s" : ""}
-          </p>
+          <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 leading-none">
+            Documents
+          </h1>
+          {project?.name && (
+            <p className="text-base font-medium text-slate-400 mt-1.5">
+              {project.name}
+            </p>
+          )}
         </div>
         <DocumentsActions projectId={id} />
       </div>
@@ -57,4 +69,3 @@ export default async function DocumentsPage({
     </div>
   );
 }
-
