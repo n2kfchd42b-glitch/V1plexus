@@ -2,28 +2,29 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Database, GitBranch, Rows, Columns, Clock, ArrowRight, Trash2, Archive, ArchiveRestore, X, Check } from 'lucide-react'
+import { Database, Clock, Trash2, Archive, ArchiveRestore, X, Check } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import type { Dataset } from '@/types/database'
 
 const SOURCE_LABELS: Record<string, string> = {
-  upload: 'Upload',
-  merge: 'Merged',
-  append: 'Appended',
-  clean: 'Cleaned',
-  branch: 'Branch',
-  kobo: 'KoboToolbox',
-  redcap: 'REDCap',
+  upload:  'Upload',
+  merge:   'Merged',
+  append:  'Appended',
+  clean:   'Cleaned',
+  branch:  'Branch',
+  kobo:    'KoboToolbox',
+  redcap:  'REDCap',
+  csv:     'CSV',
+  excel:   'Excel',
+  spss:    'SPSS',
 }
 
-const SOURCE_COLORS: Record<string, string> = {
-  upload: 'bg-blue-100 text-blue-700',
-  merge: 'bg-purple-100 text-purple-700',
-  append: 'bg-green-100 text-green-700',
-  clean: 'bg-orange-100 text-orange-700',
-  branch: 'bg-yellow-100 text-yellow-700',
-  kobo: 'bg-teal-100 text-teal-700',
-  redcap: 'bg-pink-100 text-pink-700',
+/** Deterministic sparkline heights (3–9px) seeded from dataset ID */
+function getSparklineHeights(id: string): number[] {
+  return Array.from({ length: 8 }, (_, i) => {
+    const code = id.charCodeAt(i % id.length)
+    return 3 + ((code * (i + 3) * 7) % 7)
+  })
 }
 
 interface DatasetCardProps {
@@ -38,66 +39,101 @@ export function DatasetCard({ dataset, projectId, onDelete, onArchive }: Dataset
   const version = dataset.latest_version
   const href = `/projects/${projectId}/data/${dataset.id}`
   const isArchived = !!dataset.archived_at
+  const sparkHeights = getSparklineHeights(dataset.id)
 
   return (
     <div className="group relative">
       <Link href={href} className="block">
-        <div className={`bg-white border rounded-lg p-4 hover:border-blue-300 hover:shadow-sm transition-all ${isArchived ? 'border-gray-200 opacity-60' : 'border-gray-200'}`}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3 min-w-0">
-              <div className={`p-2 rounded-lg shrink-0 ${isArchived ? 'bg-gray-100' : 'bg-blue-50'}`}>
-                <Database className={`h-5 w-5 ${isArchived ? 'text-gray-400' : 'text-blue-600'}`} />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
-                    {dataset.name}
-                  </h3>
-                  {isArchived && (
-                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 shrink-0">
-                      Archived
+        <div
+          className={`bg-white p-6 rounded-xl shadow-[0_20px_50px_rgba(0,24,72,0.04)] hover:shadow-[0_20px_50px_rgba(0,24,72,0.10)] hover:-translate-y-0.5 transition-all cursor-pointer ${
+            isArchived ? 'opacity-60' : ''
+          }`}
+        >
+          {/* Header: source icon + version badge */}
+          <div className="flex justify-between items-start mb-4">
+            <div className="p-2 bg-[#003d9b]/5 rounded-lg text-[#003d9b]">
+              <Database className="h-5 w-5" />
+            </div>
+            <div className="flex items-center gap-2">
+              {isArchived && (
+                <span className="px-2 py-0.5 bg-surface-container text-on-surface-variant text-[10px] font-bold rounded font-mono">
+                  ARCHIVED
+                </span>
+              )}
+              {version && (
+                <span className="px-2 py-0.5 bg-surface-container text-on-surface-variant text-[10px] font-bold rounded font-mono">
+                  v{version.version_number}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Title + description */}
+          <h3 className="font-bold text-lg mb-1 font-manrope text-[#191c1e] group-hover:text-[#003d9b] transition-colors leading-tight">
+            {dataset.name}
+          </h3>
+          {dataset.description ? (
+            <p className="text-xs text-on-surface-variant mb-6 line-clamp-2">{dataset.description}</p>
+          ) : (
+            <p className="text-xs text-on-surface-variant/40 mb-6 italic">No description</p>
+          )}
+
+          {/* Stats + sparkline */}
+          <div className="flex justify-between items-end mb-4">
+            <div className="flex gap-4">
+              {version ? (
+                <>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] uppercase font-bold text-slate-400">Records</span>
+                    <span className="text-sm font-mono font-medium text-[#191c1e]">
+                      {version.row_count.toLocaleString()}
                     </span>
-                  )}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] uppercase font-bold text-slate-400">Columns</span>
+                    <span className="text-sm font-mono font-medium text-[#191c1e]">
+                      {version.column_count}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col">
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Status</span>
+                  <span className="text-sm font-mono font-medium text-on-surface-variant">Processing</span>
                 </div>
-                {dataset.description && (
-                  <p className="text-sm text-gray-500 mt-0.5 truncate">{dataset.description}</p>
-                )}
-                <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-gray-500">
-                  {version && (
-                    <>
-                      <span className="flex items-center gap-1">
-                        <Rows className="h-3 w-3" />
-                        {version.row_count.toLocaleString()} rows
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Columns className="h-3 w-3" />
-                        {version.column_count} cols
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <GitBranch className="h-3 w-3" />
-                        v{version.version_number}
-                      </span>
-                    </>
-                  )}
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {formatDistanceToNow(new Date(dataset.updated_at), { addSuffix: true })}
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className={`text-xs font-medium px-2 py-1 rounded-full ${SOURCE_COLORS[dataset.source] ?? 'bg-gray-100 text-gray-700'}`}>
-                {SOURCE_LABELS[dataset.source] ?? dataset.source}
-              </span>
-              <ArrowRight className="h-4 w-4 text-gray-400 group-hover:text-blue-500 transition-colors" />
+
+            {/* Mini sparkline */}
+            <div className="flex items-end gap-[2px]">
+              {sparkHeights.map((h, i) => (
+                <div
+                  key={i}
+                  className="w-1 rounded-full bg-[#003d9b]"
+                  style={{
+                    height: `${h * 3}px`,
+                    opacity: 0.12 + (i / sparkHeights.length) * 0.88,
+                  }}
+                />
+              ))}
             </div>
+          </div>
+
+          {/* Footer */}
+          <div className="pt-4 border-t border-outline-variant/10 flex justify-between items-center">
+            <span className="flex items-center gap-1 text-[10px] text-slate-500 font-mono">
+              <Clock className="h-3 w-3" />
+              {formatDistanceToNow(new Date(dataset.updated_at), { addSuffix: true }).toUpperCase()}
+            </span>
+            <span className="px-2 py-0.5 bg-surface-container text-on-surface-variant text-[10px] font-bold rounded font-mono">
+              {SOURCE_LABELS[dataset.source] ?? dataset.source.toUpperCase()}
+            </span>
           </div>
         </div>
       </Link>
 
-      {/* Action buttons (shown on hover) */}
-      <div className="absolute top-3 right-10 flex items-center gap-1">
+      {/* Action buttons — visible on hover */}
+      <div className="absolute top-4 right-4 flex items-center gap-1 z-10">
         {confirmingDelete ? (
           <>
             <span className="text-[11px] text-red-600 font-medium mr-1">Delete?</span>
@@ -121,7 +157,7 @@ export function DatasetCard({ dataset, projectId, onDelete, onArchive }: Dataset
             {onArchive && (
               <button
                 onClick={e => { e.preventDefault(); e.stopPropagation(); onArchive(dataset.id, !isArchived) }}
-                className="flex items-center justify-center h-6 w-6 rounded opacity-0 group-hover:opacity-100 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all"
+                className="flex items-center justify-center h-6 w-6 rounded opacity-0 group-hover:opacity-100 text-on-surface-variant hover:bg-surface-container hover:text-[#003d9b] transition-all"
                 title={isArchived ? 'Unarchive dataset' : 'Archive dataset'}
               >
                 {isArchived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
@@ -130,7 +166,7 @@ export function DatasetCard({ dataset, projectId, onDelete, onArchive }: Dataset
             {onDelete && (
               <button
                 onClick={e => { e.preventDefault(); e.stopPropagation(); setConfirmingDelete(true) }}
-                className="flex items-center justify-center h-6 w-6 rounded opacity-0 group-hover:opacity-100 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all"
+                className="flex items-center justify-center h-6 w-6 rounded opacity-0 group-hover:opacity-100 text-on-surface-variant hover:bg-red-50 hover:text-red-500 transition-all"
                 title="Delete dataset"
               >
                 <Trash2 className="h-3.5 w-3.5" />

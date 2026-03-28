@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Plus, Database, Upload, Loader2, Archive } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DatasetCard } from '@/components/data/DatasetCard'
 import { DatasetUpload } from '@/components/data/DatasetUpload'
@@ -137,7 +136,7 @@ export default function ProjectDataPage() {
   if (authLoading) {
     return (
       <div className="flex items-center justify-center h-full min-h-[400px]">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Loader2 className="h-6 w-6 animate-spin text-on-surface-variant" />
       </div>
     )
   }
@@ -146,66 +145,131 @@ export default function ProjectDataPage() {
     return null
   }
 
-  return (
-    <div className="p-6 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Database className="h-6 w-6 text-clinical-blue" />
-            Datasets
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Manage and explore datasets for this project
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowArchived(v => !v)}
-            className={showArchived ? 'border-amber-300 text-amber-700 bg-amber-50' : ''}
-          >
-            <Archive className="h-4 w-4 mr-2" />
-            {showArchived ? 'View Active' : 'View Archived'}
-          </Button>
-          <Button onClick={() => setShowUpload(true)}>
-            <Upload className="h-4 w-4 mr-2" />
-            Upload Dataset
-          </Button>
-        </div>
-      </div>
+  const totalRecords = datasets.reduce((acc, d) => acc + (d.latest_version?.row_count ?? 0), 0)
+  const totalColumns = datasets.reduce((acc, d) => acc + (d.latest_version?.column_count ?? 0), 0)
 
-      {/* Content */}
+  return (
+    <div className="p-8 min-h-screen bg-[#f7f9fb]">
+
+      {/* ── PAGE HEADER ── */}
+      <section className="mb-10 flex flex-col gap-6">
+        <div className="flex justify-between items-end">
+          <div>
+            <h1 className="font-manrope text-4xl font-extrabold text-[#191c1e] tracking-tight">Dataset Hub</h1>
+            <p className="text-on-surface-variant font-mono text-xs mt-1">
+              Manage and explore project datasets
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowArchived(v => !v)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                showArchived
+                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                  : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
+              }`}
+            >
+              <Archive className="h-4 w-4" />
+              {showArchived ? 'View Active' : 'View Archived'}
+            </button>
+            <button
+              onClick={() => setShowUpload(true)}
+              className="flex items-center gap-2 bg-gradient-to-br from-[#003d9b] to-[#0052cc] text-white px-6 py-2.5 rounded-lg font-semibold shadow-xl hover:opacity-90 active:scale-95 transition-all"
+            >
+              <Upload className="h-4 w-4" />
+              Import Dataset
+            </button>
+          </div>
+        </div>
+
+        {/* Status Strip */}
+        <div className="flex gap-8 p-6 bg-white rounded-xl shadow-[0_20px_50px_rgba(0,24,72,0.04)]">
+          <div className="flex flex-col">
+            <span className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Total Datasets</span>
+            <span className="text-2xl font-mono font-medium text-[#003d9b]">{datasets.length}</span>
+          </div>
+          <div className="w-px h-10 bg-outline-variant/20 self-center" />
+          <div className="flex flex-col">
+            <span className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Total Records</span>
+            <span className="text-2xl font-mono font-medium text-[#191c1e]">{totalRecords.toLocaleString()}</span>
+          </div>
+          <div className="w-px h-10 bg-outline-variant/20 self-center" />
+          <div className="flex flex-col">
+            <span className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Total Columns</span>
+            <span className="text-2xl font-mono font-medium text-[#191c1e]">{totalColumns.toLocaleString()}</span>
+          </div>
+        </div>
+      </section>
+
+      {/* ── IMPORT ZONE ── */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+        <div
+          onClick={() => setShowUpload(true)}
+          className="lg:col-span-2 bg-white p-8 rounded-xl shadow-[0_20px_50px_rgba(0,24,72,0.04)] border-dashed border-2 border-outline-variant/30 flex flex-col items-center justify-center min-h-[200px] hover:bg-surface-container-low transition-colors group cursor-pointer"
+        >
+          <div className="flex gap-8 mb-6 opacity-40 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all">
+            <Database className="h-10 w-10 text-[#003d9b]" />
+            <Upload className="h-10 w-10 text-[#003d9b]" />
+          </div>
+          <p className="text-on-surface-variant font-medium">Drag and drop files or connect to source</p>
+          <div className="flex gap-4 mt-6">
+            <span className="px-4 py-1.5 bg-surface-container rounded font-mono text-xs text-slate-600">KoboToolbox</span>
+            <span className="px-4 py-1.5 bg-surface-container rounded font-mono text-xs text-slate-600">REDCap</span>
+            <span className="px-4 py-1.5 bg-surface-container rounded font-mono text-xs text-slate-600">CSV / JSON</span>
+          </div>
+        </div>
+
+        {/* Quick Overview Panel */}
+        <div className="bg-surface-container-low p-6 rounded-xl shadow-[0_20px_50px_rgba(0,24,72,0.04)]">
+          <h3 className="font-bold text-sm text-[#003d9b] mb-4">
+            {showArchived ? 'Archived Datasets' : 'Recent Datasets'}
+          </h3>
+          <div className="space-y-4">
+            {datasets.length === 0 ? (
+              <p className="text-xs text-on-surface-variant italic">No datasets yet</p>
+            ) : (
+              datasets.slice(0, 4).map(d => (
+                <div key={d.id} className="flex justify-between items-center border-b border-outline-variant/10 pb-2">
+                  <span className="text-xs text-on-surface-variant truncate max-w-[120px]">{d.name}</span>
+                  <span className="text-xs font-mono font-medium text-[#191c1e]">
+                    {d.latest_version?.row_count?.toLocaleString() ?? '—'}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ── DATASET CARDS GRID ── */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <Loader2 className="h-6 w-6 animate-spin text-on-surface-variant" />
         </div>
       ) : datasets.length === 0 ? (
-        <div className="text-center py-20 border rounded-lg bg-muted/20">
-          <Database className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
+        <div className="text-center py-20 bg-white rounded-xl shadow-[0_20px_50px_rgba(0,24,72,0.04)]">
+          <Database className="h-12 w-12 mx-auto text-[#003d9b]/20 mb-4" />
           {showArchived ? (
             <>
-              <p className="text-lg font-medium text-muted-foreground">No archived datasets</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Archived datasets will appear here
-              </p>
+              <p className="text-lg font-semibold font-manrope text-on-surface-variant">No archived datasets</p>
+              <p className="text-sm text-on-surface-variant mt-1">Archived datasets will appear here</p>
             </>
           ) : (
             <>
-              <p className="text-lg font-medium text-muted-foreground">No datasets yet</p>
-              <p className="text-sm text-muted-foreground mt-1 mb-4">
-                Upload your first dataset to get started
-              </p>
-              <Button onClick={() => setShowUpload(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Upload Dataset
-              </Button>
+              <p className="text-lg font-semibold font-manrope text-on-surface-variant">No datasets yet</p>
+              <p className="text-sm text-on-surface-variant mt-1 mb-6">Upload your first dataset to get started</p>
+              <button
+                onClick={() => setShowUpload(true)}
+                className="inline-flex items-center gap-2 bg-gradient-to-br from-[#003d9b] to-[#0052cc] text-white px-6 py-2.5 rounded-lg font-semibold shadow-xl hover:opacity-90 active:scale-95 transition-all"
+              >
+                <Plus className="h-4 w-4" />
+                Import Dataset
+              </button>
             </>
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3">
+        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {datasets.map(dataset => (
             <DatasetCard
               key={dataset.id}
@@ -215,14 +279,14 @@ export default function ProjectDataPage() {
               onArchive={handleArchive}
             />
           ))}
-        </div>
+        </section>
       )}
 
       {/* Upload Dialog */}
       <Dialog open={showUpload} onOpenChange={setShowUpload}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Upload Dataset</DialogTitle>
+            <DialogTitle>Import Dataset</DialogTitle>
           </DialogHeader>
           <DatasetUpload
             projectId={projectId}
