@@ -1,8 +1,9 @@
 'use client'
 
+import { useState, useRef } from 'react'
 import { Node, mergeAttributes } from '@tiptap/core'
 import { NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
-import { Table2 } from 'lucide-react'
+import { Table2, Pencil, Check } from 'lucide-react'
 import {
   formatContValue,
   type AnyTableSpec,
@@ -267,8 +268,17 @@ function Table3Render({ spec }: { spec: Table3Spec }) {
 
 // ─── NodeView component ───────────────────────────────────────────────────────
 
-function TableBlockView({ node }: { node: { attrs: Record<string, unknown> } }) {
+function TableBlockView({
+  node,
+  updateAttributes,
+}: {
+  node: { attrs: Record<string, unknown> }
+  updateAttributes: (attrs: Record<string, unknown>) => void
+}) {
   const { tableSpec } = node.attrs as { tableSpec: string }
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleDraft, setTitleDraft] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
 
   let spec: AnyTableSpec | null = null
   try {
@@ -298,6 +308,20 @@ function TableBlockView({ node }: { node: { attrs: Record<string, unknown> } }) 
     if (n != null) meta = `N=${n.toLocaleString()}`
   }
 
+  function startEdit() {
+    setTitleDraft(spec!.title)
+    setEditingTitle(true)
+    setTimeout(() => inputRef.current?.focus(), 0)
+  }
+
+  function commitTitle() {
+    if (titleDraft.trim() && titleDraft !== spec!.title) {
+      const updated = { ...spec!, title: titleDraft.trim() }
+      updateAttributes({ tableSpec: JSON.stringify(updated) })
+    }
+    setEditingTitle(false)
+  }
+
   return (
     <NodeViewWrapper className="my-5">
       <div
@@ -311,13 +335,42 @@ function TableBlockView({ node }: { node: { attrs: Record<string, unknown> } }) 
           style={{ background: 'rgba(0,64,162,0.04)', borderColor: 'rgba(0,82,204,0.12)' }}
         >
           <Table2 className="h-3.5 w-3.5 text-[#0052cc] shrink-0" />
-          <span
-            className="text-sm font-semibold text-[#003d9b] truncate flex-1"
-            style={{ fontFamily: 'var(--font-manrope)' }}
-          >
-            {spec.title}
-          </span>
-          {meta && (
+          {editingTitle ? (
+            <input
+              ref={inputRef}
+              value={titleDraft}
+              onChange={e => setTitleDraft(e.target.value)}
+              onBlur={commitTitle}
+              onKeyDown={e => { if (e.key === 'Enter') commitTitle(); if (e.key === 'Escape') setEditingTitle(false) }}
+              className="flex-1 text-sm font-semibold text-[#003d9b] bg-white border border-[rgba(0,82,204,0.3)] rounded px-2 py-0.5 outline-none"
+              style={{ fontFamily: 'var(--font-manrope)' }}
+            />
+          ) : (
+            <span
+              className="text-sm font-semibold text-[#003d9b] truncate flex-1"
+              style={{ fontFamily: 'var(--font-manrope)' }}
+            >
+              {spec.title}
+            </span>
+          )}
+          {!editingTitle && (
+            <button
+              onClick={startEdit}
+              className="p-1 rounded hover:bg-[rgba(0,82,204,0.08)] text-[#A1A1AA] hover:text-[#0052cc] transition-colors shrink-0"
+              title="Edit title"
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+          )}
+          {editingTitle && (
+            <button
+              onClick={commitTitle}
+              className="p-1 rounded bg-[rgba(0,82,204,0.08)] text-[#0052cc] shrink-0"
+            >
+              <Check className="h-3 w-3" />
+            </button>
+          )}
+          {meta && !editingTitle && (
             <span
               className="text-[10px] text-[#0040a2] font-bold uppercase tracking-wide shrink-0"
               style={{ fontFamily: 'var(--font-manrope)' }}

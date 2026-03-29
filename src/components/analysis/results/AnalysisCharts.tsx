@@ -89,6 +89,7 @@ interface Props {
   datasetId?: string | null
   versionId?: string | null
   analysisType?: AnalysisType
+  savedConfig?: Record<string, unknown> | null
 }
 
 // Chart types that should always span the full grid width
@@ -98,7 +99,7 @@ const FULL_WIDTH_CHART_TYPES = new Set([
   'forest_or', 'forest_hr', 'forest_irr', 'coefficient_plot',
 ])
 
-export function AnalysisCharts({ charts, runId, datasetId, versionId, analysisType }: Props) {
+export function AnalysisCharts({ charts, runId, datasetId, versionId, analysisType, savedConfig }: Props) {
   if (!charts || charts.length === 0) return null
   const visible = charts.filter(c => SUPPORTED_CHART_TYPES.has(c.type) && c.type !== 'roc_curve')
   if (visible.length === 0) return null
@@ -118,6 +119,7 @@ export function AnalysisCharts({ charts, runId, datasetId, versionId, analysisTy
             datasetId={datasetId}
             versionId={versionId}
             analysisType={analysisType}
+            savedConfig={savedConfig}
           />
         </div>
       ))}
@@ -164,6 +166,7 @@ function ChartRenderer({
   datasetId,
   versionId,
   analysisType,
+  savedConfig,
 }: {
   chart: ChartSpec
   index: number
@@ -171,11 +174,12 @@ function ChartRenderer({
   datasetId?: string | null
   versionId?: string | null
   analysisType?: AnalysisType
+  savedConfig?: Record<string, unknown> | null
 }) {
   const [expanded, setExpanded] = useState(false)
   const [editorOpen, setEditorOpen] = useState(false)
   const [editorConfig, setEditorConfig] = useState<ChartEditorConfig>(() =>
-    getDefaultConfig(chart.type)
+    getDefaultConfig(chart.type, savedConfig ?? undefined)
   )
   const chartAreaRef = useRef<HTMLDivElement>(null)
   const { type, title, data, config } = chart

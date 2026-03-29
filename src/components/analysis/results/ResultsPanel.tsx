@@ -25,6 +25,7 @@ interface Props {
   runId?: string
   datasetId?: string | null
   versionId?: string | null
+  savedChartConfig?: Record<string, unknown> | null
 }
 
 function exportToWord(result: AnalysisResult, title: string) {
@@ -71,7 +72,7 @@ function exportToWord(result: AnalysisResult, title: string) {
   URL.revokeObjectURL(url)
 }
 
-export function ResultsPanel({ result, analysisType, title, datasetName, onSave, isSaved, activeTab = 'charts', runId, datasetId, versionId }: Props) {
+export function ResultsPanel({ result, analysisType, title, datasetName, onSave, isSaved, activeTab = 'charts', runId, datasetId, versionId, savedChartConfig }: Props) {
   const [tableSearch, setTableSearch] = useState('')
 
   if (result.summary?.error) {
@@ -116,6 +117,7 @@ export function ResultsPanel({ result, analysisType, title, datasetName, onSave,
               datasetId={datasetId}
               versionId={versionId}
               analysisType={analysisType}
+              savedConfig={savedChartConfig}
             />
           )}
 

@@ -278,6 +278,7 @@ export default function AnalysisRunPage() {
             runId={run.id}
             datasetId={run.dataset_id ?? null}
             versionId={run.version_id ?? null}
+            savedChartConfig={run.chart_config ?? null}
           />
         )}
       </div>
