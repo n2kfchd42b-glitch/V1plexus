@@ -6,8 +6,9 @@ import Link from 'next/link'
 import {
   Plus, BarChart2, CheckCircle2, AlertCircle,
   Search, X, ChevronRight, Database,
-  ArrowLeft, ArrowRight, Download, FileText,
+  ArrowLeft, ArrowRight, Download, FileText, Table2,
 } from 'lucide-react'
+import { HubTableGeneratorModal } from './HubTableGeneratorModal'
 import { AnalysisTypePicker, ANALYSIS_TYPES } from './AnalysisTypePicker'
 import { KeyFindingCard } from './KeyFindingCard'
 import { ProjectDatasetSelector } from './ProjectDatasetSelector'
@@ -145,6 +146,9 @@ export function AnalysisHub({ projectId }: Props) {
   const [running, setRunning]         = useState(false)
   const [result, setResult]           = useState<AnalysisResult | null>(null)
   const [savedRunId, setSavedRunId]   = useState<string | null>(null)
+
+  // Hub table generator
+  const [hubTableModalOpen, setHubTableModalOpen] = useState(false)
 
   useEffect(() => {
     supabase.from('analysis_runs')
@@ -310,14 +314,24 @@ export function AnalysisHub({ projectId }: Props) {
               }
             </p>
           </div>
-          <button
-            onClick={openDrawer}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
-            style={{ background: 'linear-gradient(135deg, #003d9b, #0052cc)', boxShadow: '0 4px 20px rgba(0,82,204,0.28)' }}
-          >
-            <Plus className="h-4 w-4" />
-            New Analysis
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setHubTableModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:scale-[1.02] active:scale-[0.98] border"
+              style={{ color: '#003d9b', borderColor: 'rgba(0,82,204,0.25)', background: 'rgba(0,64,162,0.04)' }}
+            >
+              <Table2 className="h-4 w-4" />
+              Generate Table
+            </button>
+            <button
+              onClick={openDrawer}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
+              style={{ background: 'linear-gradient(135deg, #003d9b, #0052cc)', boxShadow: '0 4px 20px rgba(0,82,204,0.28)' }}
+            >
+              <Plus className="h-4 w-4" />
+              New Analysis
+            </button>
+          </div>
         </div>
       </div>
 
@@ -787,6 +801,13 @@ export function AnalysisHub({ projectId }: Props) {
           )}
         </div>
       </div>
+
+      {hubTableModalOpen && (
+        <HubTableGeneratorModal
+          projectId={projectId}
+          onClose={() => setHubTableModalOpen(false)}
+        />
+      )}
     </div>
   )
 }

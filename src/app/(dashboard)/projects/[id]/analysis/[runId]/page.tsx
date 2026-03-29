@@ -187,7 +187,7 @@ export default function AnalysisRunPage() {
                 Export PDF
               </button>
 
-              {isCompleted && run.analysis_type === 'descriptive' && (
+              {isCompleted && (
                 <button
                   onClick={() => setTableModalOpen(true)}
                   title="Generate Table"

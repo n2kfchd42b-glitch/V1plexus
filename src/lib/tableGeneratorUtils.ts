@@ -1,6 +1,7 @@
 import type { AnalysisResult } from './analysis/types'
+import type { AnalysisType } from '@/types/database'
 
-// ─── Variable data shapes ─────────────────────────────────────────────────────
+// ─── Variable data shapes (Table 1) ──────────────────────────────────────────
 
 export interface ContVar {
   name: string
@@ -25,9 +26,73 @@ export type TableVar = ContVar | CatVar
 
 export type FormatOption = 'mean_sd' | 'median_iqr'
 
-// ─── Stored table spec (JSON attr in TipTap node) ────────────────────────────
+// ─── Regression (Table 2) ─────────────────────────────────────────────────────
 
-export interface GeneratedTableSpec {
+export interface RegressionRow {
+  variable: string
+  crude?: string   // "1.23 (1.05–1.45)"
+  crude_p?: string
+  adj?: string     // "1.18 (1.02–1.37)"
+  adj_p?: string
+  sig: string
+}
+
+// ─── Survival (Table 3) ──────────────────────────────────────────────────────
+
+export interface SurvivalSummaryRow {
+  group?: string
+  n: number
+  events: number
+  eventPct: string
+  medianSurvival: string
+  ci: string
+}
+
+// ─── Stratified column (for multi-run Table 1) ───────────────────────────────
+
+export interface StratifiedColumn {
+  label: string
+  n: number
+  variables: TableVar[]
+}
+
+// ─── Spec types ───────────────────────────────────────────────────────────────
+
+export interface Table1Spec {
+  specType: 'table1'
+  title: string
+  footnote: string
+  format: FormatOption
+  // Simple (single run)
+  totalN?: number
+  variables?: TableVar[]
+  // Stratified (multi-run)
+  stratified?: boolean
+  columns?: StratifiedColumn[]
+}
+
+export interface Table2Spec {
+  specType: 'table2'
+  title: string
+  effectLabel: string
+  footnote: string
+  rows: RegressionRow[]
+  showCrude: boolean
+  showAdjusted: boolean
+}
+
+export interface Table3Spec {
+  specType: 'table3'
+  title: string
+  footnote: string
+  rows: SurvivalSummaryRow[]
+  timeUnit: string
+  eventLabel: string
+}
+
+// Legacy format (no specType) — existing saved tables
+export interface LegacyTableSpec {
+  specType?: undefined
   title: string
   totalN: number
   footnote: string
@@ -35,7 +100,29 @@ export interface GeneratedTableSpec {
   format: FormatOption
 }
 
-// ─── Parse descriptive result ─────────────────────────────────────────────────
+export type GeneratedTableSpec = Table1Spec | Table2Spec | Table3Spec
+export type AnyTableSpec = GeneratedTableSpec | LegacyTableSpec
+
+// ─── Analysis type categories ─────────────────────────────────────────────────
+
+export const REGRESSION_TYPES = new Set<AnalysisType>([
+  'simple_regression', 'multiple_regression', 'logistic_regression',
+  'multinomial_regression', 'ordinal_regression', 'poisson_regression',
+  'negbinomial_regression', 'cox_regression',
+])
+
+export const SURVIVAL_TYPES = new Set<AnalysisType>([
+  'kaplan_meier', 'cox_regression',
+])
+
+export function getTableTemplate(type: AnalysisType): 'table1' | 'table2' | 'table3' | 'generic' {
+  if (type === 'descriptive') return 'table1'
+  if (REGRESSION_TYPES.has(type)) return 'table2'
+  if (type === 'kaplan_meier') return 'table3'
+  return 'generic'
+}
+
+// ─── Parse descriptive result (Table 1) ──────────────────────────────────────
 
 export function parseDescriptiveResult(result: AnalysisResult): {
   continuous: ContVar[]
@@ -46,8 +133,6 @@ export function parseDescriptiveResult(result: AnalysisResult): {
   const categorical: CatVar[] = []
   const totalN = (result.summary?.n as number) ?? 0
 
-  // Continuous: from numeric_summary table
-  // headers: ['Variable','N','Missing','Mean','SD','Median','IQR','Min','Max','Skewness','Kurtosis']
   const numericTable = result.tables.find(t => t.id === 'numeric_summary')
   if (numericTable) {
     for (const row of numericTable.rows) {
@@ -64,8 +149,6 @@ export function parseDescriptiveResult(result: AnalysisResult): {
     }
   }
 
-  // Categorical: from categorical_summary table + bar chart data for category breakdown
-  // headers: ['Variable','N','Missing','Unique Values','Mode','Mode Freq (%)']
   const catTable = result.tables.find(t => t.id === 'categorical_summary')
   if (catTable) {
     for (const row of catTable.rows) {
@@ -73,7 +156,6 @@ export function parseDescriptiveResult(result: AnalysisResult): {
       const n = Number(row[1] ?? 0)
       const missing = Number(row[2] ?? 0)
 
-      // Get per-category breakdown from the bar chart emitted by the descriptive engine
       const barChart = result.charts.find(
         c => (c as { type: string; title: string }).title === `Frequency: ${varName}`
       ) as { data: { value: string | number; count: number; percent: string | number }[] } | undefined
@@ -94,6 +176,117 @@ export function parseDescriptiveResult(result: AnalysisResult): {
   return { continuous, categorical, totalN }
 }
 
+// ─── Parse regression result (Table 2) ───────────────────────────────────────
+
+export function parseRegressionResult(result: AnalysisResult): {
+  rows: RegressionRow[]
+  effectLabel: string
+  hasCrude: boolean
+  hasAdjusted: boolean
+} {
+  // Primary table: 'results' has crude/adjusted columns (logistic, cox, poisson, negbinomial)
+  // Fallback: 'coefs' table has β coefficients (linear regression)
+  const resultsTable =
+    result.tables.find(t => t.id === 'results') ??
+    result.tables.find(t => t.id === 'coefs' || t.id === 'coefficients') ??
+    result.tables.find(t => !t.advanced && t.rows.length > 0)
+
+  if (!resultsTable) return { rows: [], effectLabel: 'Estimate', hasCrude: false, hasAdjusted: false }
+
+  const headers = resultsTable.headers
+
+  // Detect effect label from header text
+  let effectLabel = 'Estimate'
+  if (headers.some(h => h.includes('OR'))) effectLabel = 'OR'
+  else if (headers.some(h => h.includes('HR'))) effectLabel = 'HR'
+  else if (headers.some(h => h.includes('IRR'))) effectLabel = 'IRR'
+  else if (headers.some(h => h === 'B' || h === 'β' || h === 'b')) effectLabel = 'β'
+
+  const hasCrude = headers.some(h => /crude/i.test(h))
+  const hasAdjusted = headers.some(h => /adj/i.test(h))
+
+  const sigIdx = headers.length - 1  // Sig is always last
+
+  let rows: RegressionRow[]
+
+  if (hasCrude || hasAdjusted) {
+    // Format: ['Variable', 'Crude X (95% CI)', 'p', 'Adjusted X (95% CI)', 'p', 'Sig']
+    rows = resultsTable.rows.map(row => ({
+      variable: String(row[0] ?? ''),
+      crude: hasCrude ? String(row[1] ?? '') : undefined,
+      crude_p: hasCrude ? String(row[2] ?? '') : undefined,
+      adj: hasAdjusted ? String(row[hasCrude ? 3 : 1] ?? '') : undefined,
+      adj_p: hasAdjusted ? String(row[hasCrude ? 4 : 2] ?? '') : undefined,
+      sig: String(row[sigIdx] ?? ''),
+    }))
+  } else {
+    // Linear regression: ['', 'B', 'SE', 't', 'p-value', '95% CI', 'Sig']
+    const bIdx = headers.findIndex(h => h === 'B' || h === 'β' || h === 'b')
+    const pIdx = headers.findIndex(h => /p-value|p value|p$/i.test(h))
+    const ciIdx = headers.findIndex(h => /\d+%\s*ci|ci$/i.test(h))
+
+    rows = resultsTable.rows.map(row => {
+      const bVal = bIdx >= 1 ? String(row[bIdx] ?? '') : ''
+      const ciVal = ciIdx >= 1 ? ` ${String(row[ciIdx] ?? '')}` : ''
+      return {
+        variable: String(row[0] ?? ''),
+        adj: `${bVal}${ciVal}`.trim(),
+        adj_p: pIdx >= 1 ? String(row[pIdx] ?? '') : undefined,
+        sig: String(row[sigIdx] ?? ''),
+      }
+    })
+    return { rows, effectLabel: effectLabel === 'Estimate' ? 'β' : effectLabel, hasCrude: false, hasAdjusted: false }
+  }
+
+  return { rows, effectLabel, hasCrude, hasAdjusted }
+}
+
+// ─── Parse survival result (Table 3) ─────────────────────────────────────────
+
+export function parseSurvivalResult(result: AnalysisResult): {
+  rows: SurvivalSummaryRow[]
+  timeUnit: string
+  eventLabel: string
+} {
+  const summary = result.summary as Record<string, unknown>
+
+  // Try to find a summary table
+  const summaryTable = result.tables.find(t =>
+    t.id === 'survival_summary' || t.id === 'km_summary' || t.id === 'group_summary'
+  )
+
+  if (summaryTable) {
+    const rows: SurvivalSummaryRow[] = summaryTable.rows.map(row => ({
+      group: String(row[0] ?? ''),
+      n: Number(row[1] ?? 0),
+      events: Number(row[2] ?? 0),
+      eventPct: String(row[3] ?? '—'),
+      medianSurvival: String(row[4] ?? 'NR'),
+      ci: String(row[5] ?? '—'),
+    }))
+    return {
+      rows,
+      timeUnit: String(summary.timeUnit ?? 'months'),
+      eventLabel: String(summary.eventLabel ?? 'Event'),
+    }
+  }
+
+  // Fallback: build from summary object
+  const n = Number(summary.n ?? 0)
+  const events = Number(summary.events ?? 0)
+  return {
+    rows: [{
+      n,
+      events,
+      eventPct: n > 0 ? `${((events / n) * 100).toFixed(1)}%` : '—',
+      medianSurvival: summary.medianSurvival != null ? String(summary.medianSurvival) : 'NR',
+      ci: '—',
+    }],
+    timeUnit: String(summary.timeUnit ?? 'months'),
+    eventLabel: String(summary.eventLabel ?? 'Event'),
+  }
+}
+
 // ─── Format helpers ───────────────────────────────────────────────────────────
 
 export function formatContValue(v: ContVar, format: FormatOption): string {
@@ -110,4 +303,58 @@ export function generateFootnote(
   if (hasContinuous) parts.push(format === 'mean_sd' ? 'Mean (SD)' : 'Median [IQR]')
   if (hasCategorical) parts.push('n (%)')
   return parts.join('; ')
+}
+
+// ─── Auto table numbering ─────────────────────────────────────────────────────
+
+export async function getNextTableNumber(
+  projectId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+): Promise<number> {
+  const { data } = await supabase
+    .from('documents')
+    .select('title')
+    .eq('project_id', projectId)
+    .ilike('title', 'Table %')
+
+  const nums = ((data as { title: string }[]) ?? []).flatMap(d => {
+    const m = d.title.match(/^Table\s+(\d+)/i)
+    return m ? [parseInt(m[1], 10)] : []
+  })
+
+  return nums.length > 0 ? Math.max(...nums) + 1 : 1
+}
+
+// ─── Insert table into existing document ─────────────────────────────────────
+
+export async function insertTableIntoDocument(
+  documentId: string,
+  spec: AnyTableSpec,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+): Promise<void> {
+  const { data: doc, error: fetchErr } = await supabase
+    .from('documents')
+    .select('content, word_count')
+    .eq('id', documentId)
+    .single()
+
+  if (fetchErr || !doc) throw new Error(fetchErr?.message ?? 'Document not found')
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const existing = (doc.content as any) ?? { type: 'doc', content: [] }
+  const newNode = { type: 'tableBlock', attrs: { tableSpec: JSON.stringify(spec) } }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const content = Array.isArray((existing as any).content)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ? { ...existing, content: [...(existing as any).content, newNode] }
+    : { type: 'doc', content: [newNode] }
+
+  const { error: updateErr } = await supabase
+    .from('documents')
+    .update({ content, updated_at: new Date().toISOString() })
+    .eq('id', documentId)
+
+  if (updateErr) throw new Error(updateErr.message)
 }

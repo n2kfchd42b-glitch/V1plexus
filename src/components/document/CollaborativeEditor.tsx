@@ -22,6 +22,7 @@ import { GrammarCheckPanel } from '@/components/ai/GrammarCheckPanel'
 import { InsertDataModal } from './InsertDataModal'
 import { DatasetTableExtension } from './extensions/DatasetTableNode'
 import { ChartNodeExtension } from './extensions/ChartNode'
+import { TableBlockNodeExtension } from './extensions/TableBlockNode'
 
 interface CollaborativeEditorProps {
   documentId: string
@@ -114,6 +115,7 @@ export function CollaborativeEditor({
       Link.configure({ openOnClick: false }),
       DatasetTableExtension,
       ChartNodeExtension,
+      TableBlockNodeExtension,
     ],
     content: (initialContent ?? undefined) as Record<string, unknown> | undefined,
     editable: !readOnly,
