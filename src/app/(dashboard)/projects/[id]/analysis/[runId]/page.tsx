@@ -251,6 +251,9 @@ export default function AnalysisRunPage() {
             onSave={async () => {}}
             isSaved={true}
             activeTab={activeTab}
+            runId={run.id}
+            datasetId={run.dataset_id ?? null}
+            versionId={run.version_id ?? null}
           />
         )}
       </div>

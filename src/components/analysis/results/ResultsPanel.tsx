@@ -22,6 +22,9 @@ interface Props {
   onSave: () => Promise<void>
   isSaved?: boolean
   activeTab?: ResultsTab
+  runId?: string
+  datasetId?: string | null
+  versionId?: string | null
 }
 
 function exportToWord(result: AnalysisResult, title: string) {
@@ -68,7 +71,7 @@ function exportToWord(result: AnalysisResult, title: string) {
   URL.revokeObjectURL(url)
 }
 
-export function ResultsPanel({ result, analysisType, title, datasetName, onSave, isSaved, activeTab = 'charts' }: Props) {
+export function ResultsPanel({ result, analysisType, title, datasetName, onSave, isSaved, activeTab = 'charts', runId, datasetId, versionId }: Props) {
   const [tableSearch, setTableSearch] = useState('')
 
   if (result.summary?.error) {
@@ -107,7 +110,13 @@ export function ResultsPanel({ result, analysisType, title, datasetName, onSave,
           />
 
           {mainCharts.length > 0 && (
-            <AnalysisCharts charts={mainCharts as Parameters<typeof AnalysisCharts>[0]['charts']} />
+            <AnalysisCharts
+              charts={mainCharts as Parameters<typeof AnalysisCharts>[0]['charts']}
+              runId={runId}
+              datasetId={datasetId}
+              versionId={versionId}
+              analysisType={analysisType}
+            />
           )}
 
           {(result.plainLanguage || result.interpretation) && (
@@ -165,7 +174,13 @@ export function ResultsPanel({ result, analysisType, title, datasetName, onSave,
       {activeTab === 'diagnostics' && (
         <div className="space-y-5">
           {diagnosticCharts.length > 0 ? (
-            <AnalysisCharts charts={diagnosticCharts as Parameters<typeof AnalysisCharts>[0]['charts']} />
+            <AnalysisCharts
+              charts={diagnosticCharts as Parameters<typeof AnalysisCharts>[0]['charts']}
+              runId={runId}
+              datasetId={datasetId}
+              versionId={versionId}
+              analysisType={analysisType}
+            />
           ) : (
             <div
               className="bg-white rounded-2xl p-14 text-center"
