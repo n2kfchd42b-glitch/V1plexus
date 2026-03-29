@@ -1,11 +1,14 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useContext, createContext } from 'react'
 import {
   BarChart2, TrendingUp, Circle, Activity, Box, PieChart as PieIcon,
   Grid3x3, AreaChart as AreaChartIcon, Hash, Tag, Calendar, ToggleLeft, ChevronDown,
-  Save, ArrowLeft, Lightbulb, FileText,
+  Save, ArrowLeft, Lightbulb, FileText, SlidersHorizontal,
 } from 'lucide-react'
+import { ChartEditor } from '@/components/analysis/ChartEditor'
+import { getDefaultConfig, DEFAULT_CHART_EDITOR_CONFIG } from '@/lib/chartEditorConfig'
+import type { ChartEditorConfig } from '@/lib/chartEditorConfig'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
@@ -166,13 +169,15 @@ function RenderChart({
   rows,
   columns,
   config,
+  height = 380,
 }: {
   chartType: ChartType
   rows: DataRow[]
   columns: ColumnSchema[]
   config: ChartConfig
+  height?: number
 }) {
-  const props = { data: rows, columns, config, height: 380 }
+  const props = { data: rows, columns, config, height }
   switch (chartType) {
     case 'bar': return <BarChart {...props} />
     case 'line': return <LineChart {...props} />
@@ -194,9 +199,11 @@ function RenderChart({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function ChartBuilder({ rows, columns, datasetId: _datasetId, versionId: _versionId, onBack, onSave, onInsertIntoDocument, initialChartType, initialConfig }: ChartBuilderProps) {
+export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSave, onInsertIntoDocument, initialChartType, initialConfig }: ChartBuilderProps) {
   const [chartType, setChartType] = useState<ChartType>(initialChartType ?? 'bar')
   const [config, setConfig] = useState<ChartConfig>(initialConfig ?? {})
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [editorConfig, setEditorConfig] = useState<ChartEditorConfig>(() => getDefaultConfig(initialChartType ?? 'bar'))
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     numeric: true,
     categorical: true,
@@ -229,7 +236,10 @@ export function ChartBuilder({ rows, columns, datasetId: _datasetId, versionId: 
   }
 
   function handleSuggest() {
-    if (suggestion) setChartType(suggestion.chartType)
+    if (suggestion) {
+      setChartType(suggestion.chartType)
+      setEditorConfig(c => getDefaultConfig(suggestion.chartType, { height_px: c.height_px }))
+    }
   }
 
   // ── Variable panel section ──────────────────────────────────────────────────
@@ -330,6 +340,19 @@ export function ChartBuilder({ rows, columns, datasetId: _datasetId, versionId: 
               Insert into Document
             </Button>
           )}
+          <button
+            onClick={() => setEditorOpen(v => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
+              editorOpen
+                ? 'text-[#003d9b] bg-[#dde1ff]'
+                : 'text-[#52525B] border border-[rgba(195,198,214,0.4)] bg-white hover:bg-[#f2f4f6]'
+            }`}
+            style={editorOpen ? {} : { boxShadow: '0 2px 8px rgba(0,24,72,0.06)' }}
+            title={editorOpen ? 'Close style editor' : 'Edit chart style'}
+          >
+            <SlidersHorizontal size={13} />
+            {editorOpen ? 'Done' : 'Edit Style'}
+          </button>
           <Button
             size="sm"
             className="gap-1.5"
@@ -366,7 +389,10 @@ export function ChartBuilder({ rows, columns, datasetId: _datasetId, versionId: 
             {CHART_TYPES.map(ct => (
               <button
                 key={ct.id}
-                onClick={() => setChartType(ct.id)}
+                onClick={() => {
+                  setChartType(ct.id)
+                  setEditorConfig(c => getDefaultConfig(ct.id, { height_px: c.height_px }))
+                }}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs whitespace-nowrap transition-colors ${
                   chartType === ct.id
                     ? 'bg-primary text-primary-foreground'
@@ -403,9 +429,34 @@ export function ChartBuilder({ rows, columns, datasetId: _datasetId, versionId: 
               rows={rows}
               columns={columns}
               config={config}
+              height={editorConfig.height_px}
             />
           </div>
         </div>
+
+        {/* ── Style Editor Panel (shown when editorOpen) ──────────────────── */}
+        {editorOpen && (
+          <div
+            className="w-[288px] flex-shrink-0 border-l flex flex-col overflow-hidden"
+            style={{
+              background: '#f3f4f6',
+              borderLeft: '1px solid rgba(195,198,214,0.2)',
+              boxShadow: 'inset 4px 0 16px rgba(0,24,72,0.02)',
+            }}
+          >
+            <ChartEditor
+              config={editorConfig}
+              onChange={update => setEditorConfig(c => ({ ...c, ...update }))}
+              chartType={chartType}
+              datasetLabels={[]}
+              datasetId={datasetId}
+              versionId={versionId}
+              chartTitle={config.title ?? chartType}
+              chartData={undefined}
+              onDownload={() => {}}
+            />
+          </div>
+        )}
 
         {/* ── Right: Config ───────────────────────────────────────────────── */}
         <div className="w-56 border-l flex flex-col shrink-0">

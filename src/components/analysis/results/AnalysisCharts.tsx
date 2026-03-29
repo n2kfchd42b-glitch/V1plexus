@@ -225,7 +225,7 @@ function ChartRenderer({
 
   return (
     <div
-      className={`bg-white rounded-2xl overflow-hidden h-full transition-all duration-200 ${
+      className={`bg-white rounded-2xl overflow-hidden transition-all duration-200 ${
         !editorOpen && !expanded ? 'hover:-translate-y-0.5' : ''
       }`}
       style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}
