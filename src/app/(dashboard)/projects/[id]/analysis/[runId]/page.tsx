@@ -6,9 +6,10 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import {
   ArrowLeft, Calendar, Database, CheckCircle2, Loader2,
-  AlertCircle, Clock, Download, FileText,
+  AlertCircle, Clock, Download, FileText, Table2,
 } from 'lucide-react'
 import { ResultsPanel } from '@/components/analysis/results/ResultsPanel'
+import { GenerateTableModal } from '@/components/analysis/GenerateTableModal'
 import { createClient } from '@/lib/supabase/client'
 import { formatDateTime } from '@/lib/utils'
 import type { AnalysisRun, AnalysisType } from '@/types/database'
@@ -33,6 +34,7 @@ export default function AnalysisRunPage() {
   const [run, setRun] = useState<AnalysisRun | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<ResultsTab>('charts')
+  const [tableModalOpen, setTableModalOpen] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
@@ -185,6 +187,18 @@ export default function AnalysisRunPage() {
                 Export PDF
               </button>
 
+              {isCompleted && run.analysis_type === 'descriptive' && (
+                <button
+                  onClick={() => setTableModalOpen(true)}
+                  title="Generate Table"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-white border border-[rgba(195,198,214,0.4)] rounded-lg text-[11px] font-bold uppercase tracking-[0.06em] text-[#0052cc] hover:bg-[rgba(0,64,162,0.04)] transition-colors"
+                  style={{ boxShadow: '0 8px 24px rgba(0,24,72,0.05)' }}
+                >
+                  <Table2 className="h-3.5 w-3.5" />
+                  Generate Table
+                </button>
+              )}
+
               <button
                 title="Draft Manuscript"
                 className="flex items-center gap-1.5 px-4 py-2 text-white rounded-lg text-[11px] font-bold uppercase tracking-[0.06em] transition-all hover:scale-[1.02] active:scale-[0.98]"
@@ -216,6 +230,16 @@ export default function AnalysisRunPage() {
           )}
         </div>
       </div>
+
+      {/* Generate Table modal */}
+      {tableModalOpen && result && (
+        <GenerateTableModal
+          result={displayResult}
+          projectId={projectId}
+          runTitle={run.title ?? typeInfo?.label}
+          onClose={() => setTableModalOpen(false)}
+        />
+      )}
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-8 py-8">

@@ -15,6 +15,7 @@ import { VersionHistory } from "./VersionHistory";
 import { SaveVersionButton } from "./SaveVersionButton";
 import { DocumentStatusBadge } from "./DocumentStatusBadge";
 import { formatRelativeTime } from "@/lib/utils";
+import { TableBlockNodeExtension } from "./extensions/TableBlockNode";
 import type { Document, DocumentVersion, Json } from "@/lib/types/database";
 
 function getTextContent(json: Json): string {
@@ -66,6 +67,7 @@ export function DocumentEditor({
       UnderlineExtension,
       LinkExtension.configure({ openOnClick: false }),
       Placeholder.configure({ placeholder: "Start writing…" }),
+      TableBlockNodeExtension,
     ],
     content: doc.content && Object.keys(doc.content).length > 0
       ? (doc.content as object)
