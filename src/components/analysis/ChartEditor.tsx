@@ -144,6 +144,7 @@ export function ChartEditor({
     setIsSavingExp(true)
     try {
       const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
       const title =
         config.show_title && config.chart_title
           ? config.chart_title
@@ -158,6 +159,7 @@ export function ChartEditor({
           editor_config: config,
         },
         thumbnail_path: null,
+        created_by: user?.id ?? null,
       })
       if (error) throw error
       toast.success('Chart saved to Dataset Explorations')
