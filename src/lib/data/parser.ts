@@ -12,11 +12,20 @@ function detectType(values: (string | number | boolean | null | undefined)[]): C
   const boolSet = new Set(['true', 'false', '0', '1', 'yes', 'no', 'y', 'n'])
   if (nonNull.every(v => boolSet.has(String(v).toLowerCase()))) return 'boolean'
 
-  // Integer check
-  if (nonNull.every(v => !isNaN(Number(v)) && Number.isInteger(Number(v)))) return 'integer'
+  // Compute unique values for numeric threshold check
+  const unique = new Set(nonNull.map(v => String(v)))
 
-  // Decimal check
-  if (nonNull.every(v => !isNaN(Number(v)))) return 'decimal'
+  // Integer check — but treat small unique-value sets as categorical (coded variables)
+  if (nonNull.every(v => !isNaN(Number(v)) && Number.isInteger(Number(v)))) {
+    if (unique.size <= 10 && nonNull.length > 5) return 'categorical'
+    return 'integer'
+  }
+
+  // Decimal check — same categorical threshold
+  if (nonNull.every(v => !isNaN(Number(v)))) {
+    if (unique.size <= 10 && nonNull.length > 5) return 'categorical'
+    return 'decimal'
+  }
 
   // Date check
   const datePatterns = [
@@ -27,7 +36,6 @@ function detectType(values: (string | number | boolean | null | undefined)[]): C
   if (nonNull.every(v => datePatterns.some(p => p.test(String(v))))) return 'date'
 
   // Categorical: <= 20 unique values and total > 10
-  const unique = new Set(nonNull.map(v => String(v)))
   if (unique.size <= 20 && nonNull.length > 10) return 'categorical'
 
   return 'text'

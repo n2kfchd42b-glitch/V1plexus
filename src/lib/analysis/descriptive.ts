@@ -16,14 +16,20 @@ export function runDescriptive(data: DataRow[], config: DescriptiveConfig): Anal
   const chartData: unknown[] = []
 
   // Numeric summary table
+  // A variable is continuous only if it has >10 unique values — otherwise treat as categorical
+  // (handles coded variables like 1=Male, 2=Female, 3=Other)
   const numericVars = variables.filter(v => {
     const vals = getNumericValues(data, v)
-    return vals.length > 0
+    if (vals.length === 0) return false
+    const unique = new Set(vals)
+    return unique.size > 10
   })
 
   const catVars = variables.filter(v => {
     const vals = getNumericValues(data, v)
-    return vals.length === 0
+    if (vals.length === 0) return true
+    const unique = new Set(vals)
+    return unique.size <= 10
   })
 
   if (numericVars.length > 0) {

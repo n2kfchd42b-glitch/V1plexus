@@ -187,7 +187,9 @@ export function detectColumnTypes(data: DataRow[]): Record<string, 'numeric' | '
     // Check numeric
     const numericCount = vals.filter(v => !isNaN(Number(v))).length
     if (numericCount / vals.length > 0.9) {
-      types[col] = uniqueVals.size <= 2 ? 'binary' : 'numeric'
+      if (uniqueVals.size <= 2) { types[col] = 'binary'; continue }
+      if (uniqueVals.size <= 10) { types[col] = 'categorical'; continue }
+      types[col] = 'numeric'
       continue
     }
 
