@@ -125,53 +125,100 @@ function MiniDistribution({ col }: { col: ColumnSchema }) {
 
 // ── Completeness bar chart ─────────────────────────────────────────────────────
 function CompletenessChart({ columns, rowCount }: { columns: ColumnSchema[]; rowCount: number }) {
-  const sorted = useMemo(() =>
-    [...columns]
-      .map(c => ({
-        name: c.name,
-        pct: rowCount > 0 ? ((rowCount - c.null_count) / rowCount) * 100 : 100,
-        type: c.type,
-        missing: c.null_count,
-      }))
-      .sort((a, b) => a.pct - b.pct)
-      .slice(0, 20)
-  , [columns, rowCount])
+  const [showIncompleteOnly, setShowIncompleteOnly] = useState(false)
+  const [sortMode, setSortMode] = useState<'worst_first' | 'best_first' | 'alphabetical'>('worst_first')
+
+  const items = useMemo(() => {
+    let list = columns.map(c => ({
+      name: c.name,
+      pct: rowCount > 0 ? ((rowCount - c.null_count) / rowCount) * 100 : 100,
+      type: c.type,
+      missing: c.null_count,
+    }))
+    if (showIncompleteOnly) list = list.filter(c => c.pct < 100)
+    if (sortMode === 'worst_first')   list.sort((a, b) => a.pct - b.pct)
+    else if (sortMode === 'best_first') list.sort((a, b) => b.pct - a.pct)
+    else list.sort((a, b) => a.name.localeCompare(b.name))
+    return list
+  }, [columns, rowCount, showIncompleteOnly, sortMode])
+
+  const incompleteCount = useMemo(() => columns.filter(c => {
+    const pct = rowCount > 0 ? ((rowCount - c.null_count) / rowCount) * 100 : 100
+    return pct < 100
+  }).length, [columns, rowCount])
 
   return (
-    <div className="space-y-2.5">
-      {sorted.map(col => (
-        <div key={col.name} className="flex items-center gap-3">
-          <div className="w-36 shrink-0 flex items-center gap-1.5">
-            <span className="text-white/40">{typeIcon(col.type)}</span>
-            <span className="font-mono text-[10px] text-white/60 truncate">{col.name}</span>
-          </div>
-          <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all"
-              style={{
-                width: `${col.pct}%`,
-                background: col.pct < 80 ? '#f87171' : col.pct < 95 ? '#fbbf24' : 'rgba(255,255,255,0.75)',
-              }}
-            />
-          </div>
-          <span
-            className="w-12 text-right font-mono text-[10px] shrink-0"
-            style={{ color: col.pct < 80 ? '#f87171' : col.pct < 95 ? '#fbbf24' : 'rgba(255,255,255,0.5)' }}
-          >
-            {col.pct.toFixed(1)}%
-          </span>
-          {col.missing > 0 && (
-            <span className="w-16 text-right font-mono text-[10px] text-white/30 shrink-0">
-              {col.missing.toLocaleString()} null
-            </span>
+    <div>
+      {/* Controls */}
+      <div className="flex flex-wrap items-center gap-3 mb-5">
+        <button
+          onClick={() => setShowIncompleteOnly(v => !v)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${
+            showIncompleteOnly
+              ? 'bg-white/20 text-white'
+              : 'bg-white/8 text-white/50 hover:bg-white/12 hover:text-white/70'
+          }`}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+          Incomplete only
+          {incompleteCount > 0 && (
+            <span className="ml-0.5 text-[10px] opacity-70">({incompleteCount})</span>
           )}
+        </button>
+        <div className="flex items-center gap-1 ml-auto">
+          {(['worst_first', 'best_first', 'alphabetical'] as const).map(mode => (
+            <button
+              key={mode}
+              onClick={() => setSortMode(mode)}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-colors ${
+                sortMode === mode ? 'bg-white/20 text-white' : 'text-white/40 hover:text-white/60'
+              }`}
+            >
+              {mode === 'worst_first' ? 'Worst first' : mode === 'best_first' ? 'Best first' : 'A–Z'}
+            </button>
+          ))}
         </div>
-      ))}
-      {columns.length > 20 && (
-        <p className="text-[10px] text-white/30 pt-1">
-          Showing {Math.min(columns.length, 20)} of {columns.length} columns sorted by completeness
-        </p>
-      )}
+      </div>
+
+      {/* Scrollable rows — 8 visible at a time */}
+      <div className="overflow-y-auto max-h-[220px] space-y-2.5 pr-1 scrollbar-thin">
+        {items.length === 0 ? (
+          <p className="text-[11px] text-white/40 italic py-4 text-center">All columns are 100% complete</p>
+        ) : items.map(col => (
+          <div key={col.name} className="flex items-center gap-3">
+            <div className="w-36 shrink-0 flex items-center gap-1.5">
+              <span className="text-white/40">{typeIcon(col.type)}</span>
+              <span className="font-mono text-[10px] text-white/60 truncate">{col.name}</span>
+            </div>
+            <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${col.pct}%`,
+                  background: col.pct < 80 ? '#f87171' : col.pct < 95 ? '#fbbf24' : 'rgba(255,255,255,0.75)',
+                }}
+              />
+            </div>
+            <span
+              className="w-12 text-right font-mono text-[10px] shrink-0"
+              style={{ color: col.pct < 80 ? '#f87171' : col.pct < 95 ? '#fbbf24' : 'rgba(255,255,255,0.5)' }}
+            >
+              {col.pct.toFixed(1)}%
+            </span>
+            {col.missing > 0 && (
+              <span className="w-16 text-right font-mono text-[10px] text-white/30 shrink-0">
+                {col.missing.toLocaleString()} null
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <p className="text-[10px] text-white/25 mt-3">
+        {showIncompleteOnly
+          ? `${items.length} incomplete column${items.length !== 1 ? 's' : ''} of ${columns.length} total`
+          : `${items.length} column${items.length !== 1 ? 's' : ''} · scroll to see all`}
+      </p>
     </div>
   )
 }
@@ -246,7 +293,8 @@ export default function DatasetViewerPage() {
     searchParams.get('tab') === 'charts' ? 'charts' : searchParams.get('tab') === 'data' ? 'data' : 'schema'
   )
 
-  const [schemaSearch,  setSchemaSearch]  = useState('')
+  const [schemaSearch,     setSchemaSearch]     = useState('')
+  const [schemaTypeFilter, setSchemaTypeFilter] = useState<Set<string>>(new Set())
   // IMPROVEMENT 2: expanded row state
   const [expandedRow,   setExpandedRow]   = useState<string | null>(null)
 
@@ -357,9 +405,13 @@ export default function DatasetViewerPage() {
   const missingPct   = totalCells > 0 ? ((totalMissing / totalCells) * 100).toFixed(1) : '0.0'
   const integrityPct = totalCells > 0 ? (100 - (totalMissing / totalCells) * 100).toFixed(1) : '100.0'
 
-  const filteredColumns = columns.filter(c =>
-    c.name.toLowerCase().includes(schemaSearch.toLowerCase())
-  )
+  const filteredColumns = useMemo(() =>
+    columns.filter(c => {
+      const matchesSearch = c.name.toLowerCase().includes(schemaSearch.toLowerCase())
+      const matchesType   = schemaTypeFilter.size === 0 || schemaTypeFilter.has(getTypeGroup(c.type))
+      return matchesSearch && matchesType
+    })
+  , [columns, schemaSearch, schemaTypeFilter])
 
   // Duplicate detection — run when parsed data is available
   const duplicateReport = useMemo(() => {
@@ -564,7 +616,11 @@ export default function DatasetViewerPage() {
                   <div>
                     <h3 className="font-manrope font-bold text-xl text-[#191c1e]">Schema &amp; Variables</h3>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      {dataLoading ? 'Loading schema…' : `${columns.length} variable${columns.length !== 1 ? 's' : ''} in this dataset`}
+                      {dataLoading ? 'Loading schema…' : (
+                        schemaTypeFilter.size > 0 || schemaSearch
+                          ? <><span className="font-semibold text-[#003d9b]">{filteredColumns.length}</span> of {columns.length} variable{columns.length !== 1 ? 's' : ''} shown</>
+                          : <>{columns.length} variable{columns.length !== 1 ? 's' : ''} in this dataset</>
+                      )}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 w-full md:w-auto">
@@ -577,22 +633,39 @@ export default function DatasetViewerPage() {
                         placeholder="Search variables…"
                       />
                     </div>
-                    <button className="flex items-center gap-1.5 px-3 py-2 bg-[#f2f4f6] rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors">
-                      <Filter className="h-3 w-3" />Filter
-                    </button>
+                    {(schemaTypeFilter.size > 0 || schemaSearch) && (
+                      <button
+                        onClick={() => { setSchemaTypeFilter(new Set()); setSchemaSearch('') }}
+                        className="flex items-center gap-1 px-3 py-2 bg-[#003d9b]/8 rounded-lg text-xs font-bold text-[#003d9b] hover:bg-[#003d9b]/15 transition-colors whitespace-nowrap"
+                      >
+                        Clear filters
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                {/* IMPROVEMENT 1: Type breakdown strip */}
+                {/* Clickable type filter chips */}
                 {columns.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-6 pb-5 border-b border-[#f2f4f6]">
                     {Object.entries(typeCounts).map(([group, count]) => {
                       const g = TYPE_GROUPS[group]
+                      const isActive = schemaTypeFilter.size === 0 || schemaTypeFilter.has(group)
                       return (
-                        <span key={group} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold ${g.bgColor} ${g.color}`}>
+                        <button
+                          key={group}
+                          onClick={() => setSchemaTypeFilter(prev => {
+                            const next = new Set(prev)
+                            if (next.has(group)) { next.delete(group) }
+                            else { next.add(group) }
+                            return next
+                          })}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
+                            isActive ? `${g.bgColor} ${g.color}` : 'bg-slate-100 text-slate-400'
+                          } hover:opacity-80`}
+                        >
                           {g.icon}
                           {count} {g.label}
-                        </span>
+                        </button>
                       )
                     })}
                   </div>
@@ -607,9 +680,9 @@ export default function DatasetViewerPage() {
                     <p className="text-sm text-slate-400">No schema available yet.</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto overflow-y-auto max-h-[540px]">
                     <table className="w-full text-left">
-                      <thead className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">
+                      <thead className="text-[10px] uppercase tracking-widest text-slate-400 font-bold sticky top-0 bg-white z-10">
                         <tr className="border-b border-[#f2f4f6]">
                           <th className="pb-3 px-2 w-4" />
                           <th className="pb-3 px-2">Variable</th>
@@ -725,7 +798,12 @@ export default function DatasetViewerPage() {
 
                 {columns.length > 0 && (
                   <div className="mt-5 pt-4 border-t border-[#f2f4f6] flex justify-between items-center text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-                    <span>Showing {filteredColumns.length} of {columns.length} variables</span>
+                    <span>
+                      {filteredColumns.length < columns.length
+                        ? <><span className="text-[#003d9b]">{filteredColumns.length}</span> of {columns.length} variables</>
+                        : <>{columns.length} variable{columns.length !== 1 ? 's' : ''} · scroll to see all</>
+                      }
+                    </span>
                     <span className="font-mono text-[#003d9b]/50">
                       {versions.length} version{versions.length !== 1 ? 's' : ''}
                     </span>
@@ -897,7 +975,7 @@ export default function DatasetViewerPage() {
               <div className="flex justify-between items-start mb-7">
                 <div>
                   <h3 className="font-manrope font-bold text-lg text-white">Completeness Profile</h3>
-                  <p className="text-[10px] text-white/50 mt-0.5">Per-column data completeness — sorted worst first</p>
+                  <p className="text-[10px] text-white/50 mt-0.5">Per-column data completeness · filter and sort below</p>
                 </div>
                 <div className="flex items-center gap-5 text-[10px] font-bold uppercase tracking-wider shrink-0">
                   <div className="flex items-center gap-1.5">
