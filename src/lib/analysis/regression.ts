@@ -104,30 +104,34 @@ export function runMultipleRegression(data: DataRow[], config: MultipleRegressio
 
   // Build design matrix with dummies for categorical vars
   const numericIndeps: string[] = []
-  const dummyGroups: { baseName: string; names: string[]; ref: string }[] = []
+  const dummyGroups: { baseName: string; names: string[]; ref: string; matrix: number[][] }[] = []
   const allPredictorNames: string[] = []
 
   for (const v of independents) {
     const numVals = getNumericValues(data, v)
-    const catVals = getCategoricalValues(data, v)
     if (numVals.length > data.length * 0.5) {
       numericIndeps.push(v)
       allPredictorNames.push(v)
     } else {
-      const { names, categories, ref } = encodeCategories(data, v)
-      dummyGroups.push({ baseName: v, names, ref })
-      allPredictorNames.push(...names)
+      const enc = encodeCategories(data, v)
+      dummyGroups.push({ baseName: v, names: enc.names, ref: enc.ref, matrix: enc.matrix })
+      allPredictorNames.push(...enc.names)
     }
   }
 
-  // Build complete cases
-  const allVars = [dependent, ...independents]
-  const completeCases = data.filter(row =>
-    allVars.every(v => {
-      const val = row[v]
-      return val !== null && val !== undefined && val !== '' && !isNaN(parseFloat(String(val)))
-    })
-  )
+  // Build complete cases — only require numeric for dependent + numeric predictors
+  const completeCases = data.filter(row => {
+    const depVal = parseFloat(String(row[dependent] ?? ''))
+    if (isNaN(depVal)) return false
+    for (const v of numericIndeps) {
+      const val = parseFloat(String(row[v] ?? ''))
+      if (isNaN(val)) return false
+    }
+    for (const dg of dummyGroups) {
+      if (row[dg.baseName] === null || row[dg.baseName] === undefined || row[dg.baseName] === '') return false
+    }
+    return true
+  })
   const n = completeCases.length
   const k = allPredictorNames.length
 
@@ -138,13 +142,12 @@ export function runMultipleRegression(data: DataRow[], config: MultipleRegressio
   // Build X matrix (n × (k+1) with intercept)
   const X: number[][] = completeCases.map(row => {
     const rowX: number[] = [1] // intercept
+    const originalIdx = data.indexOf(row)
     for (const v of numericIndeps) {
       rowX.push(parseFloat(String(row[v])))
     }
     for (const dg of dummyGroups) {
-      const { names } = encodeCategories([row], dg.baseName)
-      const enc = encodeCategories([row], dg.baseName)
-      rowX.push(...enc.matrix[0])
+      rowX.push(...dg.matrix[originalIdx])
     }
     return rowX
   })
@@ -742,20 +745,30 @@ export function runPoissonRegression(data: DataRow[], config: PoissonConfig): An
   const n = completeCases.length
   const y = completeCases.map(row => parseFloat(String(row[outcome])))
 
-  // Build X matrix
+  // Pre-compute categorical encodings using full dataset
+  const poissonCatEncodings = new Map<string, ReturnType<typeof encodeCategories>>()
   const allPredNames: string[] = []
+  for (const v of predictors) {
+    const numVals = getNumericValues(data, v).length
+    if (numVals > data.length * 0.5) {
+      allPredNames.push(v)
+    } else {
+      const enc = encodeCategories(data, v)
+      poissonCatEncodings.set(v, enc)
+      enc.names.forEach(nm => { if (!allPredNames.includes(nm)) allPredNames.push(nm) })
+    }
+  }
+
+  // Build X matrix
   const X: number[][] = completeCases.map(row => {
     const rowX: number[] = [1]
+    const originalIdx = data.indexOf(row)
     for (const v of predictors) {
       const numVals = getNumericValues(data, v).length
       if (numVals > data.length * 0.5) {
         rowX.push(parseFloat(String(row[v])))
-        if (!allPredNames.includes(v)) allPredNames.push(v)
       } else {
-        const enc = encodeCategories([row], v)
-        const names = encodeCategories(data, v).names
-        rowX.push(...enc.matrix[0])
-        names.forEach(nm => { if (!allPredNames.includes(nm)) allPredNames.push(nm) })
+        rowX.push(...poissonCatEncodings.get(v)!.matrix[originalIdx])
       }
     }
     return rowX

@@ -372,20 +372,30 @@ export function runCoxRegression(data: DataRow[], config: CoxConfig): AnalysisRe
     return { type: 'cox_regression', summary: { error: 'Insufficient data' }, tables: [], charts: [], interpretation: 'Error: insufficient data' }
   }
 
-  // Build covariate matrix
+  // Pre-compute categorical encodings using full dataset
+  const coxCatEncodings = new Map<string, ReturnType<typeof encodeCategories>>()
   const allPredNames: string[] = []
+  for (const v of predictors) {
+    const numVals = getNumericValues(data, v).length
+    if (numVals > data.length * 0.5) {
+      allPredNames.push(v)
+    } else {
+      const enc = encodeCategories(data, v)
+      coxCatEncodings.set(v, enc)
+      enc.names.forEach(nm => { if (!allPredNames.includes(nm)) allPredNames.push(nm) })
+    }
+  }
+
+  // Build covariate matrix
   const Z: number[][] = completeCases.map(row => {
     const rowZ: number[] = []
+    const originalIdx = data.indexOf(row)
     for (const v of predictors) {
       const numVals = getNumericValues(data, v).length
       if (numVals > data.length * 0.5) {
         rowZ.push(parseFloat(String(row[v])) || 0)
-        if (!allPredNames.includes(v)) allPredNames.push(v)
       } else {
-        const enc = encodeCategories([row], v)
-        const names = encodeCategories(data, v).names
-        rowZ.push(...enc.matrix[0])
-        names.forEach(nm => { if (!allPredNames.includes(nm)) allPredNames.push(nm) })
+        rowZ.push(...coxCatEncodings.get(v)!.matrix[originalIdx])
       }
     }
     return rowZ
