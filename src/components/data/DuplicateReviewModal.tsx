@@ -10,6 +10,10 @@ import {
   type DuplicateReport, type DuplicateAction, type DuplicateResolution,
 } from '@/lib/data/operations'
 import { saveCleanedVersion } from '@/lib/data/storage'
+import { createClient } from '@/lib/supabase/client'
+import { auditDuplicateResolution } from '@/lib/audit/auditHelpers'
+import { JustificationModal } from '@/components/dataset-hub/JustificationModal'
+import type { JustificationCategory } from '@/types/audit'
 import type { DataRow, ColumnSchema, DatasetVersion } from '@/types/database'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -230,6 +234,7 @@ export function DuplicateReviewModal({
   const [commitMessage, setCommitMessage]           = useState('Resolve duplicate records')
   const [saving, setSaving]                         = useState(false)
   const [saveError, setSaveError]                   = useState<string | null>(null)
+  const [showJustification, setShowJustification]   = useState(false)
 
   const report = useMemo(
     () => detectDuplicates(rows, idColumnOverride || undefined),
@@ -258,13 +263,24 @@ export function DuplicateReviewModal({
     return removed
   }, [report, resolutions, defaultAction])
 
-  const handleApply = async () => {
+  const handleApply = () => {
     if (!commitMessage.trim()) return
+    setShowJustification(true)
+  }
+
+  const handleJustificationConfirm = async ({
+    text,
+    category,
+  }: {
+    text: string
+    category: JustificationCategory
+  }) => {
+    setShowJustification(false)
     setSaving(true)
     setSaveError(null)
     try {
       const cleanedRows = applyDuplicateResolutions(rows, report, resolutions, defaultAction, renumberSuffix)
-      await saveCleanedVersion({
+      const { versionId } = await saveCleanedVersion({
         datasetId,
         projectId,
         parentVersionId: version.id,
@@ -275,7 +291,22 @@ export function DuplicateReviewModal({
         columns,
         operations: [{ type: 'remove_duplicates', columns: [report.idColumn] }],
         createdBy,
-      }).then(({ versionId }) => onVersionSaved(versionId))
+      })
+      const supabase = createClient()
+      await auditDuplicateResolution(
+        { supabaseClient: supabase, userId: createdBy, projectId },
+        {
+          versionId,
+          versionNumber: version.version_number + 1,
+          parentVersionNumber: version.version_number,
+          idColumn: report.idColumn,
+          rowsBefore: rows.length,
+          rowsAfter: cleanedRows.length,
+          rowsRemoved: rows.length - cleanedRows.length,
+          justification: text,
+        }
+      )
+      onVersionSaved(versionId)
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Save failed')
     } finally {
@@ -284,6 +315,16 @@ export function DuplicateReviewModal({
   }
 
   return (
+    <>
+    <JustificationModal
+      isOpen={showJustification}
+      onClose={() => setShowJustification(false)}
+      operation={{
+        type: 'Resolve duplicate records',
+        impact: `${previewCount} rows will be removed · ${rows.length - previewCount} rows retained`,
+      }}
+      onConfirm={handleJustificationConfirm}
+    />
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
 
@@ -536,5 +577,6 @@ export function DuplicateReviewModal({
 
       </div>
     </div>
+    </>
   )
 }
