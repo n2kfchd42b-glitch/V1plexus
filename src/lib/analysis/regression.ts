@@ -379,16 +379,26 @@ export function runLogisticRegression(data: DataRow[], config: LogisticRegressio
     return errorResult('logistic_regression', `Insufficient observations: ${n} complete case(s) for ${k} predictor(s). ${hint}`)
   }
 
+  // Pre-compute categorical encodings using full dataset so all categories are known
+  const catEncodings = new Map<string, ReturnType<typeof encodeCategories>>()
+  for (const v of predictors) {
+    const numVals = getNumericValues(data, v).length
+    if (numVals <= data.length * 0.5) {
+      catEncodings.set(v, encodeCategories(data, v))
+    }
+  }
+
   // Build X and y
   const X: number[][] = completeCases.map(row => {
     const rowX: number[] = [1]
+    const originalIdx = data.indexOf(row)
     for (const v of predictors) {
       const numVals = getNumericValues(data, v).length
       if (numVals > data.length * 0.5) {
         rowX.push(parseFloat(String(row[v])))
       } else {
-        const enc = encodeCategories([row], v)
-        rowX.push(...enc.matrix[0])
+        const enc = catEncodings.get(v)!
+        rowX.push(...enc.matrix[originalIdx])
       }
     }
     return rowX
