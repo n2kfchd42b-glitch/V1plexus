@@ -350,6 +350,170 @@ export function evalFormula(formula: string, row: DataRow): string | number | bo
   }
 }
 
+// ─── Duplicate Detection ──────────────────────────────────────────────────────
+
+export interface DuplicateGroup {
+  idValue: string
+  rows: { originalIndex: number; data: DataRow }[]
+  diffColumns: string[]    // columns that differ between the rows in this group
+}
+
+export interface NearDuplicateGroup {
+  ids: [string, string]
+  rows: { originalIndex: number; data: DataRow; idValue: string }[]
+  editDistance: number
+  similarity: number
+}
+
+export interface DuplicateReport {
+  idColumn: string
+  duplicateGroups: DuplicateGroup[]
+  nearDuplicateGroups: NearDuplicateGroup[]
+  totalDuplicateRows: number    // extra rows that keep-first would remove
+  totalAffectedRows: number     // all rows inside a duplicate group
+  percentAffected: number
+}
+
+const ID_COLUMN_PRIORITY = [
+  'id', 'patient_id', 'subject_id', 'record_id', 'participant_id',
+  'study_id', 'sample_id', 'case_id', 'respondent_id', 'pid', 'sid',
+]
+
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length
+  const dp: number[][] = Array.from({ length: m + 1 }, (_, i) =>
+    Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+  )
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j - 1], dp[i - 1][j], dp[i][j - 1])
+  return dp[m][n]
+}
+
+export function detectDuplicates(rows: DataRow[], idColumnHint?: string): DuplicateReport {
+  const empty: DuplicateReport = {
+    idColumn: '', duplicateGroups: [], nearDuplicateGroups: [],
+    totalDuplicateRows: 0, totalAffectedRows: 0, percentAffected: 0,
+  }
+  if (rows.length === 0) return empty
+
+  const cols = Object.keys(rows[0])
+
+  // Auto-detect ID column
+  let idColumn = idColumnHint ?? ''
+  if (!idColumn) {
+    for (const name of ID_COLUMN_PRIORITY) {
+      const match = cols.find(c => c.toLowerCase() === name)
+      if (match) { idColumn = match; break }
+    }
+  }
+  if (!idColumn) {
+    idColumn = cols.find(c => c.toLowerCase().includes('id')) ?? cols[0]
+  }
+  if (!idColumn) return empty
+
+  // Group rows by ID
+  const groups = new Map<string, { originalIndex: number; data: DataRow }[]>()
+  rows.forEach((row, i) => {
+    const key = String(row[idColumn] ?? '')
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push({ originalIndex: i, data: row })
+  })
+
+  // Exact duplicate groups (>1 row per ID)
+  const duplicateGroups: DuplicateGroup[] = []
+  for (const [idValue, groupRows] of groups) {
+    if (groupRows.length <= 1) continue
+    const diffColumns: string[] = []
+    for (const col of cols) {
+      if (col === idColumn) continue
+      const vals = new Set(groupRows.map(r => String(r.data[col] ?? '')))
+      if (vals.size > 1) diffColumns.push(col)
+    }
+    duplicateGroups.push({ idValue, rows: groupRows, diffColumns })
+  }
+
+  // Near-duplicate detection — only for reasonably sized datasets
+  const nearDuplicateGroups: NearDuplicateGroup[] = []
+  const uniqueIds = Array.from(groups.keys()).filter(id => id.length >= 3)
+  if (rows.length <= 5000) {
+    const seen = new Set<string>()
+    for (let i = 0; i < uniqueIds.length; i++) {
+      for (let j = i + 1; j < uniqueIds.length; j++) {
+        const a = uniqueIds[i], b = uniqueIds[j]
+        const dist = levenshtein(a, b)
+        const maxLen = Math.max(a.length, b.length)
+        const similarity = 1 - dist / maxLen
+        if (dist <= 2 && similarity >= 0.7) {
+          const key = [a, b].sort().join('\x00')
+          if (!seen.has(key)) {
+            seen.add(key)
+            nearDuplicateGroups.push({
+              ids: [a, b],
+              rows: [
+                ...(groups.get(a) ?? []).map(r => ({ ...r, idValue: a })),
+                ...(groups.get(b) ?? []).map(r => ({ ...r, idValue: b })),
+              ],
+              editDistance: dist,
+              similarity,
+            })
+          }
+        }
+      }
+    }
+  }
+
+  const totalAffectedRows = duplicateGroups.reduce((s, g) => s + g.rows.length, 0)
+  const totalDuplicateRows = duplicateGroups.reduce((s, g) => s + g.rows.length - 1, 0)
+
+  return {
+    idColumn,
+    duplicateGroups,
+    nearDuplicateGroups,
+    totalDuplicateRows,
+    totalAffectedRows,
+    percentAffected: rows.length > 0 ? (totalAffectedRows / rows.length) * 100 : 0,
+  }
+}
+
+export type DuplicateAction = 'keep_first' | 'keep_last' | 'renumber' | 'keep_all'
+
+export interface DuplicateResolution {
+  action: DuplicateAction
+  reason?: string
+}
+
+export function applyDuplicateResolutions(
+  rows: DataRow[],
+  report: DuplicateReport,
+  resolutions: Map<string, DuplicateResolution>,
+  defaultAction: DuplicateAction,
+  renumberSuffix: string   // e.g. '_visit', '_dup', '_'
+): DataRow[] {
+  const removeIndices = new Set<number>()
+  const renumberMap = new Map<number, string>()
+
+  for (const group of report.duplicateGroups) {
+    const action = resolutions.get(group.idValue)?.action ?? defaultAction
+    if (action === 'keep_first') {
+      group.rows.slice(1).forEach(r => removeIndices.add(r.originalIndex))
+    } else if (action === 'keep_last') {
+      group.rows.slice(0, -1).forEach(r => removeIndices.add(r.originalIndex))
+    } else if (action === 'renumber') {
+      group.rows.forEach((r, i) =>
+        renumberMap.set(r.originalIndex, `${group.idValue}${renumberSuffix}${i + 1}`)
+      )
+    }
+    // keep_all: do nothing
+  }
+
+  return rows
+    .map((row, i): DataRow => renumberMap.has(i) ? { ...row, [report.idColumn]: renumberMap.get(i) as string } : row)
+    .filter((_, i) => !removeIndices.has(i))
+}
+
 // ─── Smart chart suggestions ──────────────────────────────────────────────────
 
 export function suggestChartType(selectedColumns: ColumnSchema[]): {

@@ -7,13 +7,15 @@ import {
   ArrowLeft, Wand2, BarChart2, GitMerge, GitCommit, Loader2, RefreshCw,
   BarChart, LineChart, ScatterChart, TrendingUp, PieChart, Box, Grid3x3,
   Trash2, ExternalLink, Search, Filter, Plus, ChevronDown, ChevronRight,
-  Hash, Type, Calendar, ToggleLeft, Tag, MapPin, Fingerprint,
+  Hash, Type, Calendar, ToggleLeft, Tag, MapPin, Fingerprint, Copy,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DatasetTable } from '@/components/data/DatasetTable'
 import { VersionSelector } from '@/components/data/VersionSelector'
 import { BranchSelector } from '@/components/data/BranchSelector'
+import { DuplicateReviewModal } from '@/components/data/DuplicateReviewModal'
 import { loadVersionData } from '@/lib/data/storage'
+import { detectDuplicates } from '@/lib/data/operations'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
 import type {
@@ -253,6 +255,8 @@ export default function DatasetViewerPage() {
   const [chartsLoading, setChartsLoading] = useState(false)
   const [deletingId,    setDeletingId]    = useState<string | null>(null)
 
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false)
+
   const supabase = createClient()
 
   useEffect(() => {
@@ -356,6 +360,14 @@ export default function DatasetViewerPage() {
   const filteredColumns = columns.filter(c =>
     c.name.toLowerCase().includes(schemaSearch.toLowerCase())
   )
+
+  // Duplicate detection — run when parsed data is available
+  const duplicateReport = useMemo(() => {
+    const rows = parsedData?.rows
+    if (!rows || rows.length === 0) return null
+    const report = detectDuplicates(rows)
+    return report.duplicateGroups.length > 0 ? report : null
+  }, [parsedData])
 
   // IMPROVEMENT 1: type breakdown counts
   const typeCounts = useMemo(() => {
@@ -779,6 +791,39 @@ export default function DatasetViewerPage() {
                 </Link>
               </div>
 
+              {/* ── Duplicate Records card ── */}
+              {duplicateReport && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 shadow-[0_2px_8px_rgba(217,119,6,0.08)]">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-amber-100 rounded-lg shrink-0 mt-0.5">
+                      <Copy className="h-4 w-4 text-amber-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-manrope font-bold text-sm text-amber-900">Duplicate Records</h3>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-800">
+                          {duplicateReport.duplicateGroups.length}
+                        </span>
+                      </div>
+                      <p className="text-xs text-amber-700 leading-relaxed">
+                        <span className="font-semibold">{duplicateReport.totalAffectedRows} records</span> share a duplicate{' '}
+                        <span className="font-mono font-semibold">{duplicateReport.idColumn}</span>{' '}
+                        ({duplicateReport.percentAffected.toFixed(1)}% of dataset).
+                        {duplicateReport.nearDuplicateGroups.length > 0 && (
+                          <> Also found <span className="font-semibold">{duplicateReport.nearDuplicateGroups.length} near-duplicate</span> ID pairs.</>
+                        )}
+                      </p>
+                      <button
+                        onClick={() => setShowDuplicateModal(true)}
+                        className="mt-3 w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors"
+                      >
+                        Review &amp; Resolve
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Saved Explorations — FIX 2: loaded on mount, IMPROVEMENT 4: rich empty state */}
               <div className="space-y-3">
                 <div className="flex justify-between items-center px-1">
@@ -978,6 +1023,32 @@ export default function DatasetViewerPage() {
           </div>
         )}
       </div>
+
+      {/* ── Duplicate Review Modal ── */}
+      {showDuplicateModal && duplicateReport && parsedData && activeVersion && user && (
+        <DuplicateReviewModal
+          rows={parsedData.rows}
+          columns={columns}
+          datasetId={datasetId}
+          projectId={projectId}
+          version={activeVersion}
+          branchName={branches.find(b => b.id === activeBranchId)?.name ?? 'main'}
+          createdBy={user.id}
+          onClose={() => setShowDuplicateModal(false)}
+          onVersionSaved={(newVersionId) => {
+            setShowDuplicateModal(false)
+            const supabaseRefresh = createClient()
+            supabaseRefresh.from('dataset_versions').select('*').eq('dataset_id', datasetId)
+              .order('version_number', { ascending: false })
+              .then(({ data }) => {
+                if (data) {
+                  setVersions(data)
+                  setActiveVersionId(newVersionId)
+                }
+              })
+          }}
+        />
+      )}
     </div>
   )
 }
