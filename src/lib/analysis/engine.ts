@@ -10,8 +10,21 @@ import { runSimpleRegression, runMultipleRegression, runLogisticRegression, runP
 import { runKaplanMeier, runCoxRegression } from './survival'
 import { runTimeSeries, runPCA, runClusterAnalysis } from './multivariate'
 import { runMetaAnalysis, runOutbreakInvestigation, runSampleSize } from './special'
+import {
+  classifyVariables,
+  autoEncodeDataset,
+  encodeBinary,
+  encodeNominal,
+  createEncodingConfig,
+  type VariableType,
+  type VariableClassification,
+  type EncodedVariable,
+  type AutoEncodeResult
+} from './encoding'
 
 export type { DataRow, AnalysisResult } from './types'
+export type { VariableType, VariableClassification, EncodedVariable, AutoEncodeResult } from './encoding'
+export { classifyVariables, autoEncodeDataset, encodeBinary, encodeNominal, createEncodingConfig } from './encoding'
 
 export async function runAnalysis(
   analysisType: AnalysisType,
