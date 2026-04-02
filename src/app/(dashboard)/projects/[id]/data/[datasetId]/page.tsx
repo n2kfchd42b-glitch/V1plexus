@@ -881,6 +881,21 @@ export default function DatasetViewerPage() {
                 />
               )}
 
+              {/* ── Quality Intelligence link ── */}
+              <Link href={`/projects/${projectId}/data/${datasetId}/quality`}>
+                <div className="bg-white rounded-xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_24px_rgba(0,0,0,0.08)] transition-shadow cursor-pointer border border-transparent hover:border-blue-100">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-50 rounded-lg shrink-0">
+                      <ExternalLink className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-[#191c1e]">Data Quality Intelligence</p>
+                      <p className="text-xs text-slate-400 mt-0.5">DQI score, dimension breakdown & enumerator metrics</p>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+
               {/* ── Duplicate Records card ── */}
               {duplicateReport && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 shadow-[0_2px_8px_rgba(217,119,6,0.08)]">
