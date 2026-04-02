@@ -7,7 +7,7 @@ import {
   LayoutDashboard, FolderOpen, ClipboardList, Bell,
   FlaskConical, LogOut, ChevronLeft, ChevronRight, Command,
   Database, Settings, Shield, ClipboardCheck, Users, GraduationCap,
-  BarChart3, DollarSign, BookOpen
+  BarChart3, DollarSign, BookOpen, PackageOpen
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -166,7 +166,7 @@ export function Sidebar({ profile, onSignOut, onCommandPalette }: SidebarProps) 
           )}
         </button>
 
-        {/* Contextual data link when inside a project */}
+        {/* Contextual data + output links when inside a project */}
         {dataHref && (
           <>
             <div className="pt-3 pb-1">
@@ -181,6 +181,21 @@ export function Sidebar({ profile, onSignOut, onCommandPalette }: SidebarProps) 
                 Data
               </Button>
             </Link>
+            {(() => {
+              const outputHref = `/projects/${projectId}/output`
+              const outputActive = pathname.startsWith(outputHref)
+              return (
+                <Link href={outputHref} title={collapsed ? 'Output' : undefined}>
+                  <Button
+                    variant={outputActive ? 'secondary' : 'ghost'}
+                    className={cn('w-full justify-start gap-3', outputActive && 'font-medium')}
+                  >
+                    <PackageOpen className="h-4 w-4" />
+                    {!collapsed && 'Output'}
+                  </Button>
+                </Link>
+              )
+            })()}
           </>
         )}
 
