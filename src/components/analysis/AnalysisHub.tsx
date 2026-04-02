@@ -190,7 +190,7 @@ export function AnalysisHub({ projectId }: Props) {
       .update({ deleted_at: new Date().toISOString() }).eq('id', id)
     if (error) { toast.error('Failed to delete analysis'); return }
     setRuns(prev => prev.filter(r => r.id !== id))
-    logAudit('delete', 'analysis', id, {}, projectId)
+    await logAudit('delete', 'analysis', id, {}, projectId)
     toast.success('Analysis deleted')
   }
 
@@ -281,7 +281,7 @@ export function AnalysisHub({ projectId }: Props) {
       interpretation: result.interpretation, status: 'completed', created_by: profile.id,
     }).select().single()
     if (run) {
-      logAudit('create', 'analysis', run.id, { type: selectedType, title: run.title, dataset_id: datasetId ?? null }, projectId)
+      await logAudit('create', 'analysis', run.id, { type: selectedType, title: run.title, dataset_id: datasetId ?? null }, projectId)
       setSavedRunId(run.id); closeDrawer(); router.push(`/projects/${projectId}/analysis/${run.id}`)
     }
   }
