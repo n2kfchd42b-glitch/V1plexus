@@ -17,6 +17,7 @@ import { THESIS_ENABLED, INSTITUTIONAL_INTELLIGENCE_ENABLED } from '@/lib/flags'
 const navItems = [
   { href: '/dashboard',     label: 'Dashboard', icon: LayoutDashboard, shortcut: 'G D' },
   { href: '/reviews',       label: 'Reviews',   icon: ClipboardList,   shortcut: 'G R' },
+  { href: '/approvals',     label: 'Approvals', icon: Shield,          shortcut: 'G A' },
   { href: '/notifications', label: 'Inbox',     icon: Bell,            shortcut: 'G N' },
   { href: '/settings/sso',  label: 'SSO Settings', icon: Settings, adminOnly: true },
 ]

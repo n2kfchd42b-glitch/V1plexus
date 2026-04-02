@@ -14,6 +14,7 @@ import { DatasetTable } from '@/components/data/DatasetTable'
 import { VersionSelector } from '@/components/data/VersionSelector'
 import { BranchSelector } from '@/components/data/BranchSelector'
 import { DuplicateReviewModal } from '@/components/data/DuplicateReviewModal'
+import { ApprovalStatusCard } from '@/components/dataset-hub/ApprovalStatusCard'
 import { loadVersionData } from '@/lib/data/storage'
 import { detectDuplicates } from '@/lib/data/operations'
 import { useAuth } from '@/hooks/useAuth'
@@ -868,6 +869,17 @@ export default function DatasetViewerPage() {
                   </button>
                 </Link>
               </div>
+
+              {/* ── Approval Status card ── */}
+              {activeVersion && (
+                <ApprovalStatusCard
+                  datasetId={datasetId}
+                  datasetName={dataset?.name ?? datasetId}
+                  versionId={activeVersion.id}
+                  versionNumber={activeVersion.version_number}
+                  projectId={projectId}
+                />
+              )}
 
               {/* ── Duplicate Records card ── */}
               {duplicateReport && (
