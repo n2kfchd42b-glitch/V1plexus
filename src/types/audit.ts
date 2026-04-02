@@ -17,6 +17,7 @@ export type AuditAction =
   | 'dataset.approved'
   | 'dataset.approval.requested'
   | 'dataset.approval.rejected'
+  | 'dataset.approval.revision_requested'
   // Analysis operations
   | 'analysis.run.started'
   | 'analysis.run.completed'

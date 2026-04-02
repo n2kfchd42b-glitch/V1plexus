@@ -150,6 +150,13 @@ export function AnalysisHub({ projectId }: Props) {
   // Hub table generator
   const [hubTableModalOpen, setHubTableModalOpen] = useState(false)
 
+  // Approval gate
+  const [approvalBlock, setApprovalBlock] = useState<{
+    status: string
+    reason: string
+    requestId?: string
+  } | null>(null)
+
   useEffect(() => {
     supabase.from('analysis_runs')
       .select('*, dataset:datasets(id, name)')
@@ -181,9 +188,29 @@ export function AnalysisHub({ projectId }: Props) {
     toast.success('Analysis deleted')
   }
 
-  const handleData = (rows: DataRow[], cols: DatasetColumn[], name: string, dsId?: string, vsId?: string) => {
+  const handleData = async (rows: DataRow[], cols: DatasetColumn[], name: string, dsId?: string, vsId?: string) => {
     setData(rows); setColumns(cols); setFileName(name)
     setDatasetId(dsId); setVersionId(vsId); setResult(null)
+    setApprovalBlock(null)
+
+    // Check approval gate when a dataset version is selected
+    if (dsId && vsId) {
+      try {
+        const res = await fetch(`/api/datasets/${dsId}/approval/status?version_id=${vsId}`)
+        if (res.ok) {
+          const json = await res.json()
+          if (!json.can_analyze && json.status !== 'not_required') {
+            setApprovalBlock({
+              status: json.status,
+              reason: json.reason ?? 'Supervisor approval required.',
+              requestId: json.request?.id,
+            })
+          }
+        }
+      } catch {
+        // non-blocking — don't gate if check fails
+      }
+    }
   }
 
   const handleTypeSelect = (type: AnalysisType) => {
@@ -192,6 +219,7 @@ export function AnalysisHub({ projectId }: Props) {
 
   const handleRun = async () => {
     if (!selectedType) return
+    if (approvalBlock) return // hard gate — UI should not reach here but belt-and-suspenders
     setRunning(true); setResult(null)
     try {
       setResult(await runAnalysis(selectedType, data, config))
@@ -204,6 +232,7 @@ export function AnalysisHub({ projectId }: Props) {
 
   const handleSave = async () => {
     if (!result || !profile || !selectedType) return
+    if (approvalBlock) return
     const typeInfo = ANALYSIS_TYPES.find(t => t.type === selectedType)
     const { data: run } = await supabase.from('analysis_runs').insert({
       project_id: projectId, dataset_id: datasetId ?? null, version_id: versionId ?? null,
@@ -759,9 +788,53 @@ export function AnalysisHub({ projectId }: Props) {
                 </div>
               ) : null}
 
+              {/* Approval gate blocked state */}
+              {approvalBlock && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <svg className="h-6 w-6 text-amber-500 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                    </svg>
+                    <p className="text-[14px] font-bold text-amber-800" style={{ fontFamily: 'Manrope, sans-serif' }}>
+                      {approvalBlock.status === 'pending' ? 'Awaiting Supervisor Approval'
+                        : approvalBlock.status === 'in_review' ? 'Under Supervisor Review'
+                        : approvalBlock.status === 'not_requested' ? 'Approval Required'
+                        : approvalBlock.status === 'rejected' ? 'Approval Declined'
+                        : 'Revisions Requested'}
+                    </p>
+                  </div>
+                  <p className="text-[13px] text-amber-700 leading-relaxed">{approvalBlock.reason}</p>
+                  {approvalBlock.status === 'not_requested' && datasetId && versionId && (
+                    <a
+                      href={`/projects/${projectId}/data`}
+                      className="inline-block mt-1 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-[#0052cc] to-purple-600 hover:opacity-90 transition-opacity"
+                    >
+                      Submit for Approval →
+                    </a>
+                  )}
+                  {(approvalBlock.status === 'pending' || approvalBlock.status === 'in_review') && (
+                    <a
+                      href={`/projects/${projectId}/data`}
+                      className="inline-block mt-1 text-sm font-semibold text-[#0052cc] hover:underline"
+                    >
+                      View Approval Status →
+                    </a>
+                  )}
+                  {approvalBlock.status === 'revision_requested' && (
+                    <a
+                      href={`/projects/${projectId}/data`}
+                      className="inline-block mt-1 px-4 py-2 rounded-xl text-sm font-semibold text-amber-700 border border-amber-300 bg-amber-100 hover:bg-amber-200 transition-colors"
+                    >
+                      Review Feedback →
+                    </a>
+                  )}
+                </div>
+              )}
+
               <div className="bg-[#f7f9fb] rounded-2xl p-5">
                 <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#A1A1AA] font-manrope mb-4">Configuration</p>
-                <ConfigComponent type={selectedType} config={config} onChange={setConfig} onRun={handleRun}
+                <ConfigComponent type={selectedType} config={config} onChange={setConfig}
+                  onRun={approvalBlock ? () => {} : handleRun}
                   loading={running} columns={needsData ? (dataLoaded ? columns : []) : []} />
               </div>
 
