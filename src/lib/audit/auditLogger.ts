@@ -60,7 +60,24 @@ export async function writeAuditEntry(
   error?: string
 }> {
   try {
-    // 1. Get the most recent entry for this resource to chain from
+    // When called from browser-side code, route through the server API so the
+    // server Supabase client (service role) performs the insert — this bypasses
+    // the RLS policy that only allows service_role direct inserts.
+    const isBrowser = typeof window !== 'undefined'
+    if (isBrowser) {
+      const res = await fetch('/api/audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? `HTTP ${res.status}`)
+      }
+      return await res.json()
+    }
+
+    // Server-side path: insert directly with the provided client (already service role)
     const { data: lastEntry, error: fetchError } = await supabaseClient
       .from('audit_logs')
       .select('entry_hash')
@@ -73,11 +90,8 @@ export async function writeAuditEntry(
     if (fetchError) throw fetchError
 
     const prevHash = lastEntry?.entry_hash ?? null
-
-    // 2. Build timestamp
     const timestamp = new Date().toISOString()
 
-    // 3. Compute canonical string and hash
     const canonical = buildCanonicalString(
       timestamp,
       input.actor_id,
@@ -91,7 +105,6 @@ export async function writeAuditEntry(
 
     const entryHash = await computeHash(canonical)
 
-    // 4. Write to audit_logs
     const { data, error: insertError } = await supabaseClient
       .from('audit_logs')
       .insert({
@@ -112,18 +125,11 @@ export async function writeAuditEntry(
 
     if (insertError) throw insertError
 
-    return {
-      success: true,
-      entry_id: data.id,
-    }
+    return { success: true, entry_id: data.id }
   } catch (err) {
     // Audit failures must NEVER crash the calling operation
-    // Log to console for debugging, return error, but do not throw
     console.error('Audit write failed:', err, 'Input:', input)
-    return {
-      success: false,
-      error: String(err),
-    }
+    return { success: false, error: String(err) }
   }
 }
 
