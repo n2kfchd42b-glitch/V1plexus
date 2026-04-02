@@ -9,6 +9,8 @@ import {
   ArrowLeft, ArrowRight, Download, FileText, Table2,
 } from 'lucide-react'
 import { HubTableGeneratorModal } from './HubTableGeneratorModal'
+import { AssumptionCheckModal } from './AssumptionCheckModal'
+import type { AssumptionCheckResult } from '@/types/analysisIntegrity'
 import { AnalysisTypePicker, ANALYSIS_TYPES } from './AnalysisTypePicker'
 import { KeyFindingCard } from './KeyFindingCard'
 import { ProjectDatasetSelector } from './ProjectDatasetSelector'
@@ -150,6 +152,10 @@ export function AnalysisHub({ projectId }: Props) {
   // Hub table generator
   const [hubTableModalOpen, setHubTableModalOpen] = useState(false)
 
+  // Assumption checks
+  const [assumptionCheckResult, setAssumptionCheckResult] = useState<AssumptionCheckResult | null>(null)
+  const [showAssumptionModal, setShowAssumptionModal] = useState(false)
+
   // Approval gate
   const [approvalBlock, setApprovalBlock] = useState<{
     status: string
@@ -217,9 +223,8 @@ export function AnalysisHub({ projectId }: Props) {
     setSelectedType(type); setConfig({}); setResult(null); setDrawerStep('config')
   }
 
-  const handleRun = async () => {
+  const executeAnalysis = async () => {
     if (!selectedType) return
-    if (approvalBlock) return // hard gate — UI should not reach here but belt-and-suspenders
     setRunning(true); setResult(null)
     try {
       setResult(await runAnalysis(selectedType, data, config))
@@ -228,6 +233,40 @@ export function AnalysisHub({ projectId }: Props) {
     } finally {
       setRunning(false)
     }
+  }
+
+  const handleRun = async () => {
+    if (!selectedType) return
+    if (approvalBlock) return
+
+    // Run assumption checks when a versioned dataset is loaded
+    if (datasetId && versionId) {
+      try {
+        const res = await fetch('/api/analysis/assumption-checks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            dataset_id: datasetId,
+            version_id: versionId,
+            project_id: projectId,
+            analysis_type: selectedType,
+            analysis_config: config,
+          }),
+        })
+        if (res.ok) {
+          const checkResult: AssumptionCheckResult = await res.json()
+          if (!checkResult.all_passed || checkResult.requires_acknowledgement) {
+            setAssumptionCheckResult(checkResult)
+            setShowAssumptionModal(true)
+            return
+          }
+        }
+      } catch {
+        // Non-blocking — if assumption check service is unavailable, allow analysis to proceed
+      }
+    }
+
+    await executeAnalysis()
   }
 
   const handleSave = async () => {
@@ -879,6 +918,32 @@ export function AnalysisHub({ projectId }: Props) {
         <HubTableGeneratorModal
           projectId={projectId}
           onClose={() => setHubTableModalOpen(false)}
+        />
+      )}
+
+      {showAssumptionModal && assumptionCheckResult && selectedType && (
+        <AssumptionCheckModal
+          isOpen={showAssumptionModal}
+          onClose={() => setShowAssumptionModal(false)}
+          checkResult={assumptionCheckResult}
+          analysisType={selectedType}
+          onProceed={async (notes) => {
+            setShowAssumptionModal(false)
+            // Acknowledge via API if required
+            if (assumptionCheckResult.requires_acknowledgement) {
+              try {
+                await fetch(`/api/analysis/assumption-checks/${assumptionCheckResult.check_id}/acknowledge`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ acknowledgement_notes: notes }),
+                })
+              } catch {
+                // Non-blocking
+              }
+            }
+            await executeAnalysis()
+          }}
+          onCancel={() => setShowAssumptionModal(false)}
         />
       )}
     </div>
