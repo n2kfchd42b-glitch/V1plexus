@@ -6,24 +6,22 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { ActivitySection } from '@/components/portfolio/ActivitySection'
 import { ShareSection } from '@/components/portfolio/ShareSection'
 import type { PortfolioData } from '@/types/portfolio'
 
-interface ProfilePageProps {
-  params: { username: string }
-}
-
-export default function ProfilePage({ params }: ProfilePageProps) {
+export default function ProfilePage() {
+  const { username } = useParams<{ username: string }>()
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchPortfolio()
-  }, [params.username])
+  }, [username])
 
   async function fetchPortfolio() {
     try {
@@ -31,7 +29,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
       setError(null)
 
       const response = await fetch(
-        `/api/portfolio/${params.username.toLowerCase()}`
+        `/api/portfolio/${username.toLowerCase()}`
       )
 
       if (!response.ok) {

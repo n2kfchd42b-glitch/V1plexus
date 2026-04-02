@@ -7,10 +7,10 @@ import { createClient } from '@/lib/supabase/server'
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { checkId: string } }
+  { params }: { params: Promise<{ checkId: string }> }
 ) {
   try {
-    const checkId = params.checkId
+    const { checkId } = await params
     const body = await request.json()
     const { acknowledgement_notes } = body
 

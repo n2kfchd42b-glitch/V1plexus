@@ -11,13 +11,12 @@ import type { BadgeLevel } from '@/types/portfolio'
 
 export const runtime = 'nodejs'
 
-interface RouteParams {
-  params: { username: string; variant: string }
-}
-
-export async function GET(request: Request, { params }: RouteParams) {
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ username: string; variant: string }> }
+) {
   try {
-    const { username, variant } = params
+    const { username, variant } = await params
 
     // Validate variant
     if (!['compact', 'horizontal'].includes(variant)) {
