@@ -15,6 +15,7 @@ import { DatasetTable } from '@/components/data/DatasetTable'
 import { applyOperations } from '@/lib/data/operations'
 import { saveCleanedVersion } from '@/lib/data/storage'
 import { auditDatasetVersionCommit } from '@/lib/audit/auditHelpers'
+import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import type {
   DataRow, ColumnSchema, DatasetVersion, CleaningOperation,
