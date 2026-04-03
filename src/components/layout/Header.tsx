@@ -108,6 +108,18 @@ export function Header({ profile, title, onSearchClick }: HeaderProps) {
         </button>
 
         <div className="flex items-center gap-3">
+          {profile && (
+            <Link
+              href="/profile/me"
+              title="My Research Portfolio"
+              className="hidden md:flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#0052cc] transition-colors px-2 py-1 rounded-lg hover:bg-slate-50"
+            >
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              Portfolio
+            </Link>
+          )}
           {profile && <NotificationBell userId={profile.id} />}
           {profile && (
             <Link href="/settings" className="flex items-center gap-3">
