@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     // Use service role client for all audit_logs operations — bypasses RLS INSERT policy
     const serviceSupabase = createServiceClient()
 
-    // Fetch previous hash for chain integrity
+    // Fetch previous resource-scoped chain hash
     const { data: lastEntry } = await serviceSupabase
       .from('audit_logs')
       .select('entry_hash')
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     const prevHash = lastEntry?.entry_hash ?? null
     const timestamp = new Date().toISOString()
 
-    // Compute SHA-256 hash chain
+    // Compute resource-scoped SHA-256 hash chain
     const details = input.details ?? {}
     const detailsJson = JSON.stringify(details, Object.keys(details).sort())
     const canonical = [
@@ -55,11 +55,38 @@ export async function POST(request: NextRequest) {
       prevHash ?? 'GENESIS',
     ].join('|')
 
-    const hashBuffer = await crypto.subtle.digest(
-      'SHA-256', new TextEncoder().encode(canonical)
-    )
-    const entryHash = Array.from(new Uint8Array(hashBuffer))
-      .map((b) => b.toString(16).padStart(2, '0')).join('')
+    const sha256 = async (text: string) => {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+      return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('')
+    }
+
+    const entryHash = await sha256(canonical)
+
+    // Compute project-scoped chain hash (when project_id is provided)
+    let projectChainPrevHash: string | null = null
+    let projectChainEntryHash: string | null = null
+
+    if (input.project_id) {
+      const { data: lastProjectEntry } = await serviceSupabase
+        .from('audit_logs')
+        .select('project_chain_entry_hash')
+        .eq('project_id', input.project_id)
+        .not('project_chain_entry_hash', 'is', null)
+        .order('timestamp', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      projectChainPrevHash = lastProjectEntry?.project_chain_entry_hash ?? null
+
+      const projectCanonical = [
+        'PROJECT', timestamp, input.actor_id, input.action,
+        input.resource_type, input.resource_id,
+        detailsJson,
+        projectChainPrevHash ?? 'PROJECT_GENESIS',
+      ].join('|')
+
+      projectChainEntryHash = await sha256(projectCanonical)
+    }
 
     const { data, error: insertError } = await serviceSupabase
       .from('audit_logs')
@@ -75,6 +102,8 @@ export async function POST(request: NextRequest) {
         ip_address: null,
         prev_hash: prevHash,
         entry_hash: entryHash,
+        project_chain_prev_hash: projectChainPrevHash,
+        project_chain_entry_hash: projectChainEntryHash,
       })
       .select('id')
       .single()

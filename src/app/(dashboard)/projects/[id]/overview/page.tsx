@@ -54,6 +54,12 @@ const modules = (id: string) => [
     materialIcon: "approval_delegation",
     subKey: "approvals",
   },
+  {
+    href: `/projects/${id}/audit`,
+    title: "Audit Ledger",
+    materialIcon: "policy",
+    subKey: "audit",
+  },
 ];
 
 export default async function ProjectOverviewPage({
@@ -82,6 +88,7 @@ export default async function ProjectOverviewPage({
     { count: memberCount },
     { data: gates },
     { data: latestRuns },
+    { count: auditCount },
   ] = await Promise.all([
     supabase
       .from("documents")
@@ -113,6 +120,10 @@ export default async function ProjectOverviewPage({
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(1),
+    supabase
+      .from("audit_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("project_id", id),
   ]);
 
   const totalGates = gates?.length ?? 0;
@@ -167,6 +178,7 @@ export default async function ProjectOverviewPage({
     settings: "All Services Operational",
     ethics: (ethicsCount ?? 0) > 0 ? `${ethicsCount} Application${(ethicsCount ?? 0) !== 1 ? "s" : ""}` : "No Pending Reviews",
     approvals: totalGates > 0 ? `${approvedGates}/${totalGates} Gates Approved` : "No Gates Set",
+    audit: `${auditCount ?? 0} Audit ${(auditCount ?? 0) !== 1 ? "Entries" : "Entry"} · Immutable`,
   };
 
   return (

@@ -19,7 +19,7 @@ async function computeHash(canonicalString: string): Promise<string> {
 }
 
 /**
- * Build canonical string for hashing
+ * Build canonical string for hashing (resource-scoped chain)
  * Format: [timestamp]|[actor_id]|[action]|[resource_type]|[resource_id]|[project_id]|[details JSON sorted]|[prev_hash or GENESIS]
  */
 function buildCanonicalString(
@@ -43,6 +43,32 @@ function buildCanonicalString(
     projectId ?? '',
     detailsJson,
     prevHash ?? 'GENESIS',
+  ].join('|')
+}
+
+/**
+ * Build canonical string for the project-scoped chain
+ * Format: PROJECT|[timestamp]|[actor_id]|[action]|[resource_type]|[resource_id]|[details JSON sorted]|[project_prev_hash or PROJECT_GENESIS]
+ */
+function buildProjectChainCanonical(
+  timestamp: string,
+  actorId: string,
+  action: string,
+  resourceType: string,
+  resourceId: string,
+  details: Record<string, unknown>,
+  projectChainPrevHash: string | null
+): string {
+  const detailsJson = JSON.stringify(details, Object.keys(details).sort())
+  return [
+    'PROJECT',
+    timestamp,
+    actorId,
+    action,
+    resourceType,
+    resourceId,
+    detailsJson,
+    projectChainPrevHash ?? 'PROJECT_GENESIS',
   ].join('|')
 }
 
@@ -82,6 +108,7 @@ export async function writeAuditEntry(
     const { createServiceClient } = await import('@/lib/supabase/service')
     const serviceClient = createServiceClient()
 
+    // Fetch previous resource-scoped chain hash
     const { data: lastEntry, error: fetchError } = await serviceClient
       .from('audit_logs')
       .select('entry_hash')
@@ -109,6 +136,34 @@ export async function writeAuditEntry(
 
     const entryHash = await computeHash(canonical)
 
+    // Fetch previous project-scoped chain hash (when project_id is present)
+    let projectChainPrevHash: string | null = null
+    let projectChainEntryHash: string | null = null
+
+    if (input.project_id) {
+      const { data: lastProjectEntry } = await serviceClient
+        .from('audit_logs')
+        .select('project_chain_entry_hash')
+        .eq('project_id', input.project_id)
+        .not('project_chain_entry_hash', 'is', null)
+        .order('timestamp', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      projectChainPrevHash = lastProjectEntry?.project_chain_entry_hash ?? null
+
+      const projectCanonical = buildProjectChainCanonical(
+        timestamp,
+        input.actor_id,
+        input.action,
+        input.resource_type,
+        input.resource_id,
+        input.details,
+        projectChainPrevHash
+      )
+      projectChainEntryHash = await computeHash(projectCanonical)
+    }
+
     const { data, error: insertError } = await serviceClient
       .from('audit_logs')
       .insert({
@@ -123,6 +178,8 @@ export async function writeAuditEntry(
         ip_address: input.ip_address ?? null,
         prev_hash: prevHash,
         entry_hash: entryHash,
+        project_chain_prev_hash: projectChainPrevHash,
+        project_chain_entry_hash: projectChainEntryHash,
       })
       .select('id')
       .single()
