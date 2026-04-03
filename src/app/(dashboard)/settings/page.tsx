@@ -237,9 +237,21 @@ export default function ProfilePage() {
   const handleDeleteAccount = async () => {
     if (deleteConfirm !== 'DELETE') return
     setDeleting(true)
-    toast.error('Account deletion requires contacting support@plexus.research — your data will be removed within 30 days.')
-    setDeleting(false)
-    setDeleteConfirm('')
+    try {
+      const res = await fetch('/api/account/delete', { method: 'DELETE' })
+      if (!res.ok) {
+        const { error } = await res.json()
+        toast.error(error ?? 'Failed to delete account. Please try again.')
+        setDeleting(false)
+        return
+      }
+      // Sign out and redirect to home
+      await supabase.auth.signOut()
+      window.location.href = '/'
+    } catch {
+      toast.error('Something went wrong. Please try again.')
+      setDeleting(false)
+    }
   }
 
   /* ── loading skeleton ───────────────────────────────────────────────────── */

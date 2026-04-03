@@ -32,7 +32,7 @@ CREATE INDEX idx_reporting_checklists_created_by ON public.reporting_checklists(
 
 CREATE TRIGGER set_reporting_checklists_updated_at
   BEFORE UPDATE ON public.reporting_checklists
-  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 ALTER TABLE public.reporting_checklists ENABLE ROW LEVEL SECURITY;
 
@@ -79,7 +79,7 @@ CREATE TABLE public.output_packages (
                    CHECK (status IN ('generating','ready','failed')),
   generated_by   UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   generated_at   TIMESTAMPTZ DEFAULT now() NOT NULL,
-  expires_at     TIMESTAMPTZ GENERATED ALWAYS AS (generated_at + INTERVAL '30 days') STORED
+  expires_at     TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '30 days')
 );
 
 CREATE INDEX idx_output_packages_project ON public.output_packages(project_id);
@@ -161,3 +161,21 @@ CREATE POLICY "creator_update_token"
 CREATE POLICY "service_role_update_tokens"
   ON public.verification_tokens FOR UPDATE
   USING (auth.role() = 'service_role');
+
+-- ============================================================
+-- Add FK constraints from portfolio tables to verification_tokens
+-- (deferred here because verification_tokens didn't exist when
+--  the portfolio migration ran)
+-- ============================================================
+
+ALTER TABLE public.portfolio_publications
+  ADD CONSTRAINT fk_pub_verification_token
+  FOREIGN KEY (verification_token_id)
+  REFERENCES public.verification_tokens(id)
+  ON DELETE SET NULL;
+
+ALTER TABLE public.portfolio_certificates
+  ADD CONSTRAINT fk_cert_verification_token
+  FOREIGN KEY (verification_token_id)
+  REFERENCES public.verification_tokens(id)
+  ON DELETE SET NULL;

@@ -7,7 +7,7 @@
 
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS
-    username TEXT UNIQUE COLLATE NOCASE,
+    username TEXT,
   ADD COLUMN IF NOT EXISTS
     portfolio_public BOOLEAN NOT NULL DEFAULT true,
   ADD COLUMN IF NOT EXISTS
@@ -50,9 +50,9 @@ CREATE TABLE IF NOT EXISTS public.portfolio_publications (
   version_id UUID
     REFERENCES public.dataset_versions(id) ON DELETE SET NULL,
   
-  verification_token_id UUID
-    REFERENCES public.verification_tokens(id) ON DELETE SET NULL,
-  
+  verification_token_id UUID,
+  -- FK to verification_tokens added after that table is created
+
   -- Publication details
   title TEXT NOT NULL,
   journal TEXT,
@@ -89,7 +89,7 @@ CREATE INDEX IF NOT EXISTS idx_pub_doi
   ON public.portfolio_publications(doi)
   WHERE doi IS NOT NULL;
 
-CREATE TRIGGER IF NOT EXISTS set_portfolio_pub_updated_at
+CREATE OR REPLACE TRIGGER set_portfolio_pub_updated_at
   BEFORE UPDATE ON public.portfolio_publications
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
@@ -109,9 +109,9 @@ CREATE TABLE IF NOT EXISTS public.portfolio_certificates (
   version_id UUID NOT NULL
     REFERENCES public.dataset_versions(id) ON DELETE CASCADE,
   
-  verification_token_id UUID
-    REFERENCES public.verification_tokens(id) ON DELETE SET NULL,
-  
+  verification_token_id UUID,
+  -- FK to verification_tokens added after that table is created
+
   -- Display
   display_title TEXT,
   context_note TEXT,
@@ -144,7 +144,8 @@ ALTER TABLE public.portfolio_publications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.portfolio_certificates ENABLE ROW LEVEL SECURITY;
 
 -- Public can read public publications
-CREATE POLICY IF NOT EXISTS "Public can see public publications"
+DROP POLICY IF EXISTS "Public can see public publications" ON public.portfolio_publications;
+CREATE POLICY "Public can see public publications"
   ON public.portfolio_publications
   FOR SELECT
   USING (
@@ -156,30 +157,35 @@ CREATE POLICY IF NOT EXISTS "Public can see public publications"
   );
 
 -- Owners see all their publications
-CREATE POLICY IF NOT EXISTS "Owners see all publications"
+DROP POLICY IF EXISTS "Owners see all publications" ON public.portfolio_publications;
+CREATE POLICY "Owners see all publications"
   ON public.portfolio_publications
   FOR SELECT TO authenticated
   USING (profile_id = auth.uid());
 
 -- Owners manage publications
-CREATE POLICY IF NOT EXISTS "Owners manage publications"
+DROP POLICY IF EXISTS "Owners manage publications" ON public.portfolio_publications;
+CREATE POLICY "Owners manage publications"
   ON public.portfolio_publications
   FOR INSERT TO authenticated
   WITH CHECK (profile_id = auth.uid());
 
-CREATE POLICY IF NOT EXISTS "Owners update publications"
+DROP POLICY IF EXISTS "Owners update publications" ON public.portfolio_publications;
+CREATE POLICY "Owners update publications"
   ON public.portfolio_publications
   FOR UPDATE TO authenticated
   USING (profile_id = auth.uid())
   WITH CHECK (profile_id = auth.uid());
 
-CREATE POLICY IF NOT EXISTS "Owners delete publications"
+DROP POLICY IF EXISTS "Owners delete publications" ON public.portfolio_publications;
+CREATE POLICY "Owners delete publications"
   ON public.portfolio_publications
   FOR DELETE TO authenticated
   USING (profile_id = auth.uid());
 
 -- Public can see public certificates
-CREATE POLICY IF NOT EXISTS "Public can see public certificates"
+DROP POLICY IF EXISTS "Public can see public certificates" ON public.portfolio_certificates;
+CREATE POLICY "Public can see public certificates"
   ON public.portfolio_certificates
   FOR SELECT
   USING (
@@ -191,24 +197,28 @@ CREATE POLICY IF NOT EXISTS "Public can see public certificates"
   );
 
 -- Owners see all certificates
-CREATE POLICY IF NOT EXISTS "Owners see all certificates"
+DROP POLICY IF EXISTS "Owners see all certificates" ON public.portfolio_certificates;
+CREATE POLICY "Owners see all certificates"
   ON public.portfolio_certificates
   FOR SELECT TO authenticated
   USING (profile_id = auth.uid());
 
 -- Owners manage certificates
-CREATE POLICY IF NOT EXISTS "Owners manage certificates"
+DROP POLICY IF EXISTS "Owners manage certificates" ON public.portfolio_certificates;
+CREATE POLICY "Owners manage certificates"
   ON public.portfolio_certificates
   FOR INSERT TO authenticated
   WITH CHECK (profile_id = auth.uid());
 
-CREATE POLICY IF NOT EXISTS "Owners update certificates"
+DROP POLICY IF EXISTS "Owners update certificates" ON public.portfolio_certificates;
+CREATE POLICY "Owners update certificates"
   ON public.portfolio_certificates
   FOR UPDATE TO authenticated
   USING (profile_id = auth.uid())
   WITH CHECK (profile_id = auth.uid());
 
-CREATE POLICY IF NOT EXISTS "Owners delete certificates"
+DROP POLICY IF EXISTS "Owners delete certificates" ON public.portfolio_certificates;
+CREATE POLICY "Owners delete certificates"
   ON public.portfolio_certificates
   FOR DELETE TO authenticated
   USING (profile_id = auth.uid());
