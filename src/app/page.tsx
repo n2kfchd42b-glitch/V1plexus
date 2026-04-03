@@ -38,13 +38,13 @@ export default function LandingPage() {
           <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#dde1ff] text-[#001453] text-[10px] uppercase tracking-widest font-bold mb-8">
               <span className="material-symbols-outlined text-[14px]">verified</span>
-              Built for Global Health Institutions
+              Early Access · Built for Researchers and Institutions
             </div>
             <h1 className="font-serif text-6xl md:text-8xl tracking-tight leading-[0.9] text-[#191c1e] mb-8">
               The RESEARCH Platform <br />for Global Health
             </h1>
             <p className="max-w-2xl mx-auto text-xl text-[#444653] leading-relaxed mb-12">
-              PLEXUS connects your entire research lifecycle — from protocol design to publication — in one collaborative platform built for institutions.
+              Import from KoboToolbox or REDCap, run survival analysis and regression, generate manuscript-ready tables — every decision cryptographically logged to an immutable audit ledger.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
@@ -75,146 +75,291 @@ export default function LandingPage() {
                 <p className="text-[#444653] text-sm max-w-md">Monitor every study, data point, and ethical review across your entire institution in a single command center.</p>
               </div>
               <div className="mt-8 flex-grow relative overflow-hidden mx-8 rounded-t-xl border-x border-t border-[#c4c5d5]/20 bg-white">
-                {/* Kaplan-Meier Survival Chart */}
-                <svg viewBox="0 0 600 300" xmlns="http://www.w3.org/2000/svg" className="w-full h-full" aria-label="Kaplan-Meier survival curve">
+                {/* Institution Study Pipeline Dashboard */}
+                <svg viewBox="0 0 600 300" xmlns="http://www.w3.org/2000/svg" className="w-full h-full" aria-label="Institution study pipeline overview">
                   <rect width="600" height="300" fill="#fafafa" />
+
                   {/* Window chrome */}
                   <rect width="600" height="28" fill="#f1f3f6" />
                   <rect x="0" y="27" width="600" height="1" fill="#e5e7eb" />
                   <circle cx="12" cy="14" r="4" fill="#ff5f57" />
                   <circle cx="24" cy="14" r="4" fill="#febc2e" />
                   <circle cx="36" cy="14" r="4" fill="#28c840" />
-                  <text x="52" y="19" fontSize="8.5" fill="#6b7280" fontFamily="Inter,-apple-system,sans-serif">survival_analysis.R — Study KM-2024-017 · Overall Survival</text>
-                  {/* Legend strip */}
-                  <rect x="0" y="28" width="600" height="26" fill="white" />
-                  <rect x="0" y="53" width="600" height="1" fill="#f3f4f6" />
-                  <line x1="58" y1="41" x2="78" y2="41" stroke="#003D9B" strokeWidth="2.5" />
-                  <circle cx="68" cy="41" r="2.5" fill="#003D9B" />
-                  <text x="82" y="45" fontSize="8.5" fill="#191c1e" fontFamily="Inter,sans-serif">Treatment group (n=148)</text>
-                  <line x1="225" y1="41" x2="245" y2="41" stroke="#9ca3af" strokeWidth="2" strokeDasharray="4,2" />
-                  <text x="249" y="45" fontSize="8.5" fill="#444653" fontFamily="Inter,sans-serif">Control group (n=152)</text>
-                  <rect x="432" y="31" width="154" height="22" rx="11" fill="#eff6ff" />
-                  <text x="451" y="46" fontSize="8.5" fill="#1e40af" fontFamily="Inter,sans-serif" fontWeight="700">p &lt; 0.001 · HR = 0.52</text>
-                  {/* Y-axis label */}
-                  <text x="10" y="160" fontSize="8.5" fill="#6b7280" fontFamily="Inter,sans-serif" textAnchor="middle" transform="rotate(-90,10,160)">Survival Probability</text>
-                  {/* Horizontal grid */}
-                  <line x1="55" y1="58"  x2="560" y2="58"  stroke="#f0f0f0" strokeWidth="1" />
-                  <line x1="55" y1="106" x2="560" y2="106" stroke="#f0f0f0" strokeWidth="1" />
-                  <line x1="55" y1="154" x2="560" y2="154" stroke="#f0f0f0" strokeWidth="1" />
-                  <line x1="55" y1="202" x2="560" y2="202" stroke="#f0f0f0" strokeWidth="1" />
-                  <line x1="55" y1="250" x2="560" y2="250" stroke="#f0f0f0" strokeWidth="1" />
-                  {/* Vertical grid */}
-                  <line x1="156" y1="58" x2="156" y2="250" stroke="#f0f0f0" strokeWidth="1" />
-                  <line x1="257" y1="58" x2="257" y2="250" stroke="#f0f0f0" strokeWidth="1" />
-                  <line x1="358" y1="58" x2="358" y2="250" stroke="#f0f0f0" strokeWidth="1" />
-                  <line x1="459" y1="58" x2="459" y2="250" stroke="#f0f0f0" strokeWidth="1" />
-                  {/* Axes */}
-                  <line x1="55" y1="58" x2="55"  y2="252" stroke="#d1d5db" strokeWidth="1.5" />
-                  <line x1="53" y1="250" x2="562" y2="250" stroke="#d1d5db" strokeWidth="1.5" />
-                  {/* Y ticks + labels */}
-                  {([1.0, 0.75, 0.5, 0.25, 0.0] as number[]).map((p) => {
-                    const y = 250 - p * 192
-                    return (
-                      <g key={p}>
-                        <line x1="50" y1={y} x2="55" y2={y} stroke="#9ca3af" strokeWidth="1" />
-                        <text x="46" y={y + 3.5} fontSize="7.5" fill="#9ca3af" fontFamily="Inter,sans-serif" textAnchor="end">{p.toFixed(2)}</text>
-                      </g>
-                    )
-                  })}
-                  {/* X ticks + labels */}
-                  {([0, 12, 24, 36, 48, 60] as number[]).map((t) => {
-                    const x = 55 + (t / 60) * 505
-                    return (
-                      <g key={t}>
-                        <line x1={x} y1="250" x2={x} y2="255" stroke="#9ca3af" strokeWidth="1" />
-                        <text x={x} y="264" fontSize="7.5" fill="#9ca3af" fontFamily="Inter,sans-serif" textAnchor="middle">{t}</text>
-                      </g>
-                    )
-                  })}
-                  <text x="307" y="281" fontSize="8.5" fill="#6b7280" fontFamily="Inter,sans-serif" textAnchor="middle">Time (months)</text>
-                  {/* CI band — treatment ±0.08 */}
-                  <path
-                    d="M55,58 H106 V58 H156 V66 H207 V81 H257 V96 H308 V110 H358 V123 H409 V137 H459 V148 H510 V160 H560 V169 V200 H510 V191 H459 V179 H409 V167 H358 V154 H308 V141 H257 V127 H207 V112 H156 V83 H106 V73 H55 Z"
-                    fill="#003D9B"
-                    fillOpacity="0.07"
-                  />
-                  {/* Control curve (dashed gray) */}
-                  <path
-                    d="M55,58 H106 V87 H156 V116 H207 V139 H257 V158 H308 V173 H358 V189 H409 V200 H459 V212 H510 V219 H560 V227"
-                    fill="none" stroke="#9ca3af" strokeWidth="1.5" strokeDasharray="5,3" strokeLinejoin="miter"
-                  />
-                  {/* Treatment curve (solid blue) */}
-                  <path
-                    d="M55,58 H106 V68 H156 V81 H207 V96 H257 V112 H308 V125 H358 V139 H409 V152 H459 V164 H510 V175 H560 V185"
-                    fill="none" stroke="#003D9B" strokeWidth="2.5" strokeLinejoin="miter" strokeLinecap="round"
-                  />
-                  {/* Censoring marks — treatment */}
-                  <line x1="178" y1="84" x2="178" y2="92" stroke="#003D9B" strokeWidth="1.5" />
-                  <line x1="290" y1="117" x2="290" y2="125" stroke="#003D9B" strokeWidth="1.5" />
-                  <line x1="435" y1="154" x2="435" y2="162" stroke="#003D9B" strokeWidth="1.5" />
-                  {/* Censoring marks — control */}
-                  <line x1="145" y1="106" x2="145" y2="114" stroke="#9ca3af" strokeWidth="1.5" />
-                  <line x1="275" y1="159" x2="275" y2="167" stroke="#9ca3af" strokeWidth="1.5" />
-                  <line x1="440" y1="203" x2="440" y2="211" stroke="#9ca3af" strokeWidth="1.5" />
-                  {/* Median survival annotation — treatment */}
-                  <line x1="55" y1="154" x2="350" y2="154" stroke="#003D9B" strokeWidth="0.75" strokeDasharray="3,2" opacity="0.4" />
-                  <line x1="350" y1="154" x2="350" y2="250" stroke="#003D9B" strokeWidth="0.75" strokeDasharray="3,2" opacity="0.4" />
-                  <text x="354" y="247" fontSize="7" fill="#003D9B" fontFamily="Inter,sans-serif">m=35mo</text>
+                  <text x="52" y="19" fontSize="8.5" fill="#6b7280" fontFamily="Inter,-apple-system,sans-serif">plexus_dashboard — Institution Overview · Live</text>
+                  <circle cx="577" cy="14" r="3.5" fill="#28c840" />
+
+                  {/* Stats strip */}
+                  <rect x="0" y="28" width="600" height="38" fill="white" />
+                  <rect x="0" y="65" width="600" height="1" fill="#e5e7eb" />
+
+                  <rect x="14" y="36" width="108" height="22" rx="5" fill="#eff6ff" />
+                  <text x="24" y="51" fontSize="9" fill="#1e40af" fontFamily="Inter,sans-serif" fontWeight="700">8</text>
+                  <text x="34" y="51" fontSize="8.5" fill="#3b82f6" fontFamily="Inter,sans-serif"> Active Studies</text>
+
+                  <rect x="134" y="36" width="118" height="22" rx="5" fill="#f0fdf4" />
+                  <text x="144" y="51" fontSize="9" fill="#15803d" fontFamily="Inter,sans-serif" fontWeight="700">1,247</text>
+                  <text x="175" y="51" fontSize="8.5" fill="#16a34a" fontFamily="Inter,sans-serif"> Enrolled</text>
+
+                  <rect x="264" y="36" width="122" height="22" rx="5" fill="#fefce8" />
+                  <text x="274" y="51" fontSize="9" fill="#a16207" fontFamily="Inter,sans-serif" fontWeight="700">3</text>
+                  <text x="283" y="51" fontSize="8.5" fill="#ca8a04" fontFamily="Inter,sans-serif"> Ethics Pending</text>
+
+                  <rect x="398" y="36" width="108" height="22" rx="5" fill="#fdf4ff" />
+                  <text x="408" y="51" fontSize="9" fill="#7e22ce" fontFamily="Inter,sans-serif" fontWeight="700">2</text>
+                  <text x="417" y="51" fontSize="8.5" fill="#9333ea" fontFamily="Inter,sans-serif"> In Publication</text>
+
+                  {/* Column headers */}
+                  <rect x="0" y="66" width="600" height="22" fill="#f8f9fb" />
+                  <text x="14"  y="80" fontSize="7" fill="#9ca3af" fontFamily="Inter,sans-serif" fontWeight="700" letterSpacing="0.05em">STUDY ID</text>
+                  <text x="148" y="80" fontSize="7" fill="#9ca3af" fontFamily="Inter,sans-serif" fontWeight="700" letterSpacing="0.05em">STATUS</text>
+                  <text x="218" y="80" fontSize="7" fill="#9ca3af" fontFamily="Inter,sans-serif" fontWeight="700" letterSpacing="0.05em">PROTOCOL</text>
+                  <text x="296" y="80" fontSize="7" fill="#9ca3af" fontFamily="Inter,sans-serif" fontWeight="700" letterSpacing="0.05em">COLLECTION</text>
+                  <text x="390" y="80" fontSize="7" fill="#9ca3af" fontFamily="Inter,sans-serif" fontWeight="700" letterSpacing="0.05em">ANALYSIS</text>
+                  <text x="476" y="80" fontSize="7" fill="#9ca3af" fontFamily="Inter,sans-serif" fontWeight="700" letterSpacing="0.05em">PUBLICATION</text>
+                  <rect x="0" y="88" width="600" height="1" fill="#e5e7eb" />
+
+                  {/* Row 1 — KM-2024-017 */}
+                  <rect x="0" y="89" width="600" height="46" fill="white" />
+                  <text x="14" y="110" fontSize="9" fill="#111827" fontFamily="Inter,sans-serif" fontWeight="600">KM-2024-017</text>
+                  <text x="14" y="124" fontSize="7.5" fill="#6b7280" fontFamily="Inter,sans-serif">Oncology · n=300</text>
+                  <rect x="148" y="103" width="54" height="16" rx="8" fill="#dbeafe" />
+                  <text x="175" y="115" fontSize="7.5" fill="#1d4ed8" fontFamily="Inter,sans-serif" fontWeight="700" textAnchor="middle">Active</text>
+                  {/* Protocol bar 100% */}
+                  <rect x="218" y="108" width="64" height="6" rx="3" fill="#e5e7eb" />
+                  <rect x="218" y="108" width="64" height="6" rx="3" fill="#003D9B" />
+                  {/* Collection bar 100% */}
+                  <rect x="296" y="108" width="80" height="6" rx="3" fill="#e5e7eb" />
+                  <rect x="296" y="108" width="80" height="6" rx="3" fill="#003D9B" />
+                  {/* Analysis bar 55% */}
+                  <rect x="390" y="108" width="72" height="6" rx="3" fill="#e5e7eb" />
+                  <rect x="390" y="108" width="40" height="6" rx="3" fill="#3b82f6" />
+                  {/* Publication bar 0% */}
+                  <rect x="476" y="108" width="60" height="6" rx="3" fill="#e5e7eb" />
+                  <rect x="0" y="135" width="600" height="1" fill="#f3f4f6" />
+
+                  {/* Row 2 — MAL-2023-089 */}
+                  <rect x="0" y="136" width="600" height="46" fill="white" />
+                  <text x="14" y="157" fontSize="9" fill="#111827" fontFamily="Inter,sans-serif" fontWeight="600">MAL-2023-089</text>
+                  <text x="14" y="171" fontSize="7.5" fill="#6b7280" fontFamily="Inter,sans-serif">Malaria · n=512</text>
+                  <rect x="148" y="150" width="64" height="16" rx="8" fill="#d1fae5" />
+                  <text x="180" y="162" fontSize="7.5" fill="#065f46" fontFamily="Inter,sans-serif" fontWeight="700" textAnchor="middle">Publishing</text>
+                  {/* Protocol bar 100% */}
+                  <rect x="218" y="155" width="64" height="6" rx="3" fill="#003D9B" />
+                  {/* Collection bar 100% */}
+                  <rect x="296" y="155" width="80" height="6" rx="3" fill="#003D9B" />
+                  {/* Analysis bar 100% */}
+                  <rect x="390" y="155" width="72" height="6" rx="3" fill="#003D9B" />
+                  {/* Publication bar 38% */}
+                  <rect x="476" y="155" width="60" height="6" rx="3" fill="#e5e7eb" />
+                  <rect x="476" y="155" width="23" height="6" rx="3" fill="#8b5cf6" />
+                  <rect x="0" y="182" width="600" height="1" fill="#f3f4f6" />
+
+                  {/* Row 3 — TB-2024-003 */}
+                  <rect x="0" y="183" width="600" height="46" fill="white" />
+                  <text x="14" y="204" fontSize="9" fill="#111827" fontFamily="Inter,sans-serif" fontWeight="600">TB-2024-003</text>
+                  <text x="14" y="218" fontSize="7.5" fill="#6b7280" fontFamily="Inter,sans-serif">Tuberculosis · n=189</text>
+                  <rect x="148" y="197" width="54" height="16" rx="8" fill="#dbeafe" />
+                  <text x="175" y="209" fontSize="7.5" fill="#1d4ed8" fontFamily="Inter,sans-serif" fontWeight="700" textAnchor="middle">Active</text>
+                  {/* Protocol bar 100% */}
+                  <rect x="218" y="202" width="64" height="6" rx="3" fill="#003D9B" />
+                  {/* Collection bar 42% */}
+                  <rect x="296" y="202" width="80" height="6" rx="3" fill="#e5e7eb" />
+                  <rect x="296" y="202" width="34" height="6" rx="3" fill="#3b82f6" />
+                  {/* Analysis bar 0% */}
+                  <rect x="390" y="202" width="72" height="6" rx="3" fill="#e5e7eb" />
+                  {/* Publication bar 0% */}
+                  <rect x="476" y="202" width="60" height="6" rx="3" fill="#e5e7eb" />
+                  <rect x="0" y="229" width="600" height="1" fill="#f3f4f6" />
+
+                  {/* Row 4 — HIV-2024-022 */}
+                  <rect x="0" y="230" width="600" height="46" fill="white" />
+                  <text x="14" y="251" fontSize="9" fill="#111827" fontFamily="Inter,sans-serif" fontWeight="600">HIV-2024-022</text>
+                  <text x="14" y="265" fontSize="7.5" fill="#6b7280" fontFamily="Inter,sans-serif">Immunology · n=—</text>
+                  <rect x="148" y="244" width="46" height="16" rx="8" fill="#f3f4f6" />
+                  <text x="171" y="256" fontSize="7.5" fill="#6b7280" fontFamily="Inter,sans-serif" fontWeight="700" textAnchor="middle">Setup</text>
+                  {/* Protocol bar 62% */}
+                  <rect x="218" y="249" width="64" height="6" rx="3" fill="#e5e7eb" />
+                  <rect x="218" y="249" width="40" height="6" rx="3" fill="#93c5fd" />
+                  {/* Collection bar 0% */}
+                  <rect x="296" y="249" width="80" height="6" rx="3" fill="#e5e7eb" />
+                  {/* Analysis bar 0% */}
+                  <rect x="390" y="249" width="72" height="6" rx="3" fill="#e5e7eb" />
+                  {/* Publication bar 0% */}
+                  <rect x="476" y="249" width="60" height="6" rx="3" fill="#e5e7eb" />
+
+                  {/* Audit footer */}
+                  <rect x="0" y="276" width="600" height="24" fill="#f8f9fb" />
+                  <rect x="0" y="276" width="600" height="1" fill="#e5e7eb" />
+                  <text x="14" y="291" fontSize="7.5" fill="#9ca3af" fontFamily="Inter,sans-serif">🔒  Audit chain active · 48 blocks · Last entry 2 min ago</text>
+                  <text x="530" y="291" fontSize="7.5" fill="#003D9B" fontFamily="Inter,sans-serif" fontWeight="600">View Ledger →</text>
                 </svg>
               </div>
             </div>
 
-            {/* Global Map Peek */}
-            <div className="md:col-span-4 bg-[#2b3542] rounded-2xl overflow-hidden border border-[#c4c5d5]/10 shadow-sm relative group">
-              <div className="p-8 relative z-10">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#d9e3f4] mb-2 block">Global Reach</span>
-                <h3 className="text-2xl font-bold tracking-tight mb-2 text-white">Geospatial Distribution</h3>
-                <p className="text-[#b2bccd] text-sm">Track field sites and clinical trials globally with granular geographic precision.</p>
+            {/* Immutable Audit Ledger Peek */}
+            <div className="md:col-span-4 bg-[#2b3542] rounded-2xl overflow-hidden border border-[#c4c5d5]/10 shadow-sm flex flex-col">
+              <div className="p-7">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#d9e3f4] mb-2 block">Immutable Audit Ledger</span>
+                <h3 className="text-2xl font-bold tracking-tight mb-2 text-white">Every Decision Logged</h3>
+                <p className="text-[#b2bccd] text-sm leading-relaxed">SHA-256 hash-chained blocks. Journals verify integrity without trusting researcher claims.</p>
               </div>
-              <div className="absolute inset-0 z-0">
-                <div className="w-full h-full opacity-40 bg-slate-900">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    alt="World map showing research distribution"
-                    className="w-full h-full object-cover"
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuDHNkAhTuRtOT-KAFXT3uBiHzUzSIGzENk-VIFioNUo-y2508nOnV1oJA3Cm1vgJg8CQAZIOr5lQevKA9L-aSlfBz6HADBW7F7veyoCtaiJ5I8iBwAB-CYZSKsV_ADsXsCiswWkJfhoG14MNNXqHK67GkiF0IW2SUbUBS6FpRWuVIrifYBe84LGY4VLK65pXNudr5-I2n66payUIJVszA3fdKWRrBApi2dhZKX3fqqy0J2aabl0oq5eQHa1T2BiA3NIAbIP4VvA4Q"
-                  />
+              <div className="flex-1 px-5 pb-5 flex flex-col gap-2">
+                {/* Genesis block */}
+                <div className="rounded-lg bg-white/5 border border-white/10 px-4 py-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-blue-300">Genesis Block</span>
+                    <span className="text-[9px] text-slate-500 font-mono">#0</span>
+                  </div>
+                  <div className="font-mono text-[9px] text-slate-400 tracking-wide">a3f8d2e1b7c94f02…</div>
                 </div>
-              </div>
-              <div className="absolute bottom-6 left-6 right-6 p-4 glass-panel rounded-lg border border-white/10">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-                  <span className="text-[10px] font-medium text-slate-800">42 Live Active Nodes</span>
+                <div className="flex justify-center py-0.5">
+                  <div className="w-px h-4 bg-slate-600" />
+                </div>
+                {/* Block 1 — Data Import */}
+                <div className="rounded-lg bg-white/5 border border-blue-400/25 px-4 py-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-blue-200">Data Import</span>
+                    <span className="text-[9px] text-slate-500 font-mono">#47</span>
+                  </div>
+                  <div className="text-[9px] text-slate-300 mb-1.5">KoboToolbox · n=300 rows ingested</div>
+                  <div className="font-mono text-[9px] text-slate-400 tracking-wide">prev: a3f8… → b9e2c4a1f6d8…</div>
+                </div>
+                <div className="flex justify-center py-0.5">
+                  <div className="w-px h-4 bg-slate-600" />
+                </div>
+                {/* Block 2 — Analysis */}
+                <div className="rounded-lg bg-white/5 border border-blue-400/25 px-4 py-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-blue-200">Analysis Run</span>
+                    <span className="text-[9px] text-slate-500 font-mono">#48</span>
+                  </div>
+                  <div className="text-[9px] text-slate-300 mb-1.5">Kaplan-Meier · HR=0.52 · p&lt;0.001</div>
+                  <div className="font-mono text-[9px] text-slate-400 tracking-wide">prev: b9e2… → c7d3e5b2a8f1…</div>
+                </div>
+                {/* Verified pill */}
+                <div className="mt-auto pt-3">
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-400/20">
+                    <span className="material-symbols-outlined text-blue-300 text-[15px]">lock</span>
+                    <span className="text-[10px] font-medium text-blue-200">Chain verified · 0 mutations detected</span>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Analysis Engine Peek */}
-            <div className="md:col-span-4 bg-[#e7e8ea] rounded-2xl overflow-hidden border border-[#c4c5d5]/10 shadow-sm relative group">
-              <div className="p-8">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#003D9B] mb-2 block">Data Science</span>
+            <div className="md:col-span-4 bg-[#e7e8ea] rounded-2xl overflow-hidden border border-[#c4c5d5]/10 shadow-sm flex flex-col">
+              <div className="p-7">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#003D9B] mb-2 block">Statistical Engine</span>
                 <h3 className="text-2xl font-bold tracking-tight mb-2">Clinical-Grade Analysis</h3>
-                <p className="text-[#444653] text-sm">Automated statistical modeling compliant with international health standards.</p>
+                <p className="text-[#444653] text-sm leading-relaxed">Survival analysis, regression, ROC curves — every parameter logged to the audit ledger automatically.</p>
               </div>
-              <div className="absolute bottom-0 right-0 w-3/4 translate-x-1/4 translate-y-1/4">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  alt="Statistical analysis charts"
-                  className="rounded-xl shadow-2xl border border-white/20"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuCt7xJE2FR-tOF5aPHkp11a0kHuZHrQYc1IafhaQlGWkkb0UhVGsN8t0DKsCPQGPqe_Re-5P--5D7DApuIOUs41vIQTauLZs5mLF7m7yyjtlG55iNwh0OS9KQV4kvQAKT7NOYhrAJJ-okR324PsSWXlkSKk1osA5lo7AGHT4DAtprBp8HAoiiplJmFxnIJcywdVfQzCIYp2JlnPi6SmFPwAmeuRmbKl58NET9bA0ulbnDdymiIcDkPAr5_1HpzcJGxdS9yef-KJTg"
-                />
+              <div className="flex-1 flex items-end justify-center px-5 pb-5 overflow-hidden">
+                {/* ROC Curve SVG */}
+                <svg viewBox="0 0 240 190" xmlns="http://www.w3.org/2000/svg" className="w-full" aria-label="ROC curve — AUC 0.87">
+                  <rect width="240" height="190" fill="transparent" />
+                  {/* Axes */}
+                  <line x1="38" y1="20" x2="38" y2="165" stroke="#9ca3af" strokeWidth="1.2" />
+                  <line x1="38" y1="165" x2="220" y2="165" stroke="#9ca3af" strokeWidth="1.2" />
+                  {/* Grid lines */}
+                  {[0.25, 0.5, 0.75].map((v) => {
+                    const y = 165 - v * 145
+                    const x = 38 + v * 182
+                    return (
+                      <g key={v}>
+                        <line x1="38" y1={y} x2="220" y2={y} stroke="#d1d5db" strokeWidth="0.7" strokeDasharray="3,2" />
+                        <line x1={x} y1="20" x2={x} y2="165" stroke="#d1d5db" strokeWidth="0.7" strokeDasharray="3,2" />
+                      </g>
+                    )
+                  })}
+                  {/* Diagonal reference (chance line) */}
+                  <line x1="38" y1="165" x2="220" y2="20" stroke="#9ca3af" strokeWidth="1" strokeDasharray="4,3" opacity="0.6" />
+                  {/* AUC fill under curve */}
+                  <path
+                    d="M38,165 C38,140 44,100 60,72 C76,44 100,30 130,25 C160,20 190,20 220,20 L220,165 Z"
+                    fill="#003D9B"
+                    fillOpacity="0.08"
+                  />
+                  {/* ROC curve */}
+                  <path
+                    d="M38,165 C38,140 44,100 60,72 C76,44 100,30 130,25 C160,20 190,20 220,20"
+                    fill="none"
+                    stroke="#003D9B"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  {/* AUC badge */}
+                  <rect x="130" y="105" width="80" height="22" rx="11" fill="#003D9B" fillOpacity="0.9" />
+                  <text x="170" y="120" fontSize="8.5" fill="white" fontFamily="Inter,sans-serif" fontWeight="700" textAnchor="middle">AUC = 0.87</text>
+                  {/* Axis labels */}
+                  <text x="129" y="182" fontSize="8" fill="#6b7280" fontFamily="Inter,sans-serif" textAnchor="middle">False Positive Rate</text>
+                  <text x="13" y="95" fontSize="8" fill="#6b7280" fontFamily="Inter,sans-serif" textAnchor="middle" transform="rotate(-90,13,95)">True Positive Rate</text>
+                  {/* Y axis ticks */}
+                  {([0, 0.25, 0.5, 0.75, 1.0] as number[]).map((v) => {
+                    const y = 165 - v * 145
+                    return (
+                      <g key={v}>
+                        <line x1="34" y1={y} x2="38" y2={y} stroke="#9ca3af" strokeWidth="1" />
+                        <text x="30" y={y + 3} fontSize="7" fill="#9ca3af" fontFamily="Inter,sans-serif" textAnchor="end">{v.toFixed(2)}</text>
+                      </g>
+                    )
+                  })}
+                  {/* X axis ticks */}
+                  {([0, 0.25, 0.5, 0.75, 1.0] as number[]).map((v) => {
+                    const x = 38 + v * 182
+                    return (
+                      <g key={v}>
+                        <line x1={x} y1="165" x2={x} y2="169" stroke="#9ca3af" strokeWidth="1" />
+                        <text x={x} y="178" fontSize="7" fill="#9ca3af" fontFamily="Inter,sans-serif" textAnchor="middle">{v.toFixed(2)}</text>
+                      </g>
+                    )
+                  })}
+                  {/* Chart label */}
+                  <text x="129" y="14" fontSize="8" fill="#374151" fontFamily="Inter,sans-serif" textAnchor="middle" fontWeight="600">Diagnostic Performance · Study KM-2024-017</text>
+                </svg>
               </div>
             </div>
 
-            {/* Collaborative Section */}
+            {/* Supervisor Workflows Section */}
             <div className="md:col-span-8 bg-[#003D9B] rounded-2xl overflow-hidden shadow-xl flex flex-col md:flex-row">
               <div className="p-8 md:w-1/2 flex flex-col justify-center">
-                <h3 className="text-3xl font-bold tracking-tight text-white mb-4">The New Standard for Collaboration.</h3>
-                <p className="text-[#a8b8ff] text-sm leading-relaxed">Built for teams of any size, from local field offices to intercontinental research consortiums. PLEXUS synchronizes your work instantly.</p>
+                <h3 className="text-3xl font-bold tracking-tight text-white mb-7">Supervisor Workflows Built In.</h3>
+                <div className="flex flex-col gap-5">
+                  {([
+                    { icon: 'approval', text: 'Supervisors approve analysis parameters before runs execute' },
+                    { icon: 'manage_accounts', text: 'Role-based access for students, supervisors, and departments' },
+                    { icon: 'verified', text: 'Every sign-off appended to the immutable audit ledger' },
+                  ] as { icon: string; text: string }[]).map(({ icon, text }) => (
+                    <div key={text} className="flex items-start gap-3">
+                      <span className="material-symbols-outlined text-blue-200 text-[18px] mt-0.5 shrink-0">{icon}</span>
+                      <span className="text-[#d4dfff] text-sm leading-relaxed">{text}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="md:w-1/2 relative bg-[#1e40af]/30 min-h-[200px]">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-white/20 text-9xl">groups</span>
+              <div className="md:w-1/2 bg-[#1e40af]/30 flex items-center justify-center p-8 min-h-[220px]">
+                {/* Approval workflow visualization */}
+                <div className="w-full max-w-[240px] flex flex-col gap-2">
+                  {([
+                    { label: 'Data Import', sub: 'KoboToolbox · n=300', status: 'approved', by: 'Dr. Mensah' },
+                    { label: 'Analysis Parameters', sub: 'Kaplan-Meier · HR, CI', status: 'approved', by: 'Dr. Mensah' },
+                    { label: 'Manuscript Draft', sub: 'Tables & figures export', status: 'pending', by: 'Awaiting review' },
+                  ] as { label: string; sub: string; status: string; by: string }[]).map(({ label, sub, status, by }, i) => (
+                    <div key={label}>
+                      <div className={`rounded-lg px-4 py-3 border ${status === 'approved' ? 'bg-white/10 border-white/20' : 'bg-white/5 border-white/10'}`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-semibold text-white">{label}</span>
+                          <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide ${status === 'approved' ? 'bg-emerald-400/20 text-emerald-300' : 'bg-amber-400/20 text-amber-300'}`}>
+                            <span className="material-symbols-outlined text-[10px]">{status === 'approved' ? 'check_circle' : 'schedule'}</span>
+                            {status}
+                          </div>
+                        </div>
+                        <div className="text-[9px] text-blue-200 opacity-70">{sub}</div>
+                        <div className="text-[9px] text-blue-300 mt-0.5">{by}</div>
+                      </div>
+                      {i < 2 && <div className="flex justify-center"><div className="w-px h-2 bg-white/20" /></div>}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -260,10 +405,10 @@ export default function LandingPage() {
           <div className="max-w-7xl mx-auto px-6 relative z-10">
             <div className="text-center mb-16">
               <span className="inline-block px-4 py-1.5 rounded-full bg-white/10 border border-white/20 text-blue-100 text-xs font-bold uppercase tracking-[0.2em] mb-6 font-geist">
-                Global Health Operating System
+                Research Integrity Platform
               </span>
               <h2 className="text-4xl md:text-6xl font-bold tracking-tighter mb-4 font-geist text-white">The Global Research Plexus</h2>
-              <p className="text-blue-100 text-lg max-w-2xl mx-auto opacity-80">A unified orchestration layer connecting every stage of the institutional research lifecycle.</p>
+              <p className="text-blue-100 text-lg max-w-2xl mx-auto opacity-80">Protocol to publication — every step auditable, every decision verifiable.</p>
             </div>
             <div className="relative">
               <div className="hidden md:block absolute top-1/2 left-0 w-full h-[2px] flow-line -translate-y-1/2" />
@@ -273,7 +418,7 @@ export default function LandingPage() {
                     <span className="material-symbols-outlined text-blue-200 text-3xl">description</span>
                   </div>
                   <h4 className="text-xl font-bold font-geist tracking-tight mb-2 text-white">Protocol Design</h4>
-                  <p className="text-sm text-blue-100 leading-relaxed opacity-80">Integrated ethics submission and methodology validation at the point of creation.</p>
+                  <p className="text-sm text-blue-100 leading-relaxed opacity-80">Ethics submission built in. Every protocol version and amendment logged to the audit ledger from day one.</p>
                   <div className="mt-8 flex gap-2">
                     <div className="w-2 h-2 rounded-full bg-blue-300 animate-pulse" />
                     <div className="w-2 h-2 rounded-full bg-white/20" />
@@ -284,8 +429,8 @@ export default function LandingPage() {
                   <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center mb-6 shadow-lg shadow-blue-900/40">
                     <span className="material-symbols-outlined text-[#1E40AF] text-3xl">insights</span>
                   </div>
-                  <h4 className="text-xl font-bold font-geist tracking-tight mb-2 text-white">Real-time Analysis</h4>
-                  <p className="text-sm text-blue-100 leading-relaxed">Continuous data cleaning and automated statistical modeling as field data arrives.</p>
+                  <h4 className="text-xl font-bold font-geist tracking-tight mb-2 text-white">Analysis &amp; Audit</h4>
+                  <p className="text-sm text-blue-100 leading-relaxed">Survival analysis, regression, and encoding — every parameter automatically logged. No manual record-keeping.</p>
                   <div className="mt-8 w-full h-12 flex items-end gap-1 px-4">
                     <div className="flex-1 bg-white/20 rounded-t h-4 animate-bounce" />
                     <div className="flex-1 bg-white/80 rounded-t h-10 animate-bounce [animation-delay:150ms]" />
@@ -297,8 +442,8 @@ export default function LandingPage() {
                   <div className="w-16 h-16 rounded-full bg-blue-400/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                     <span className="material-symbols-outlined text-blue-200 text-3xl">auto_stories</span>
                   </div>
-                  <h4 className="text-xl font-bold font-geist tracking-tight mb-2 text-white">Dynamic Publication</h4>
-                  <p className="text-sm text-blue-100 leading-relaxed opacity-80">Automated manuscript prep and seamless export to major institutional registries.</p>
+                  <h4 className="text-xl font-bold font-geist tracking-tight mb-2 text-white">Audit-Certified Export</h4>
+                  <p className="text-sm text-blue-100 leading-relaxed opacity-80">Generate manuscript-ready tables with embedded provenance. Attach your audit chain record to submissions.</p>
                   <div className="mt-8 flex gap-2">
                     <div className="w-2 h-2 rounded-full bg-white/20" />
                     <div className="w-2 h-2 rounded-full bg-white/20" />
@@ -323,7 +468,7 @@ export default function LandingPage() {
         <section className="py-32 bg-[#f8f9fb] relative overflow-hidden">
           <div className="max-w-3xl mx-auto px-6 text-center">
             <h2 className="text-5xl font-bold tracking-tight mb-8">Ready to transform your research ecosystem?</h2>
-            <p className="text-xl text-[#444653] mb-12">Join over 150+ global institutions already using PLEXUS to accelerate health outcomes.</p>
+            <p className="text-xl text-[#444653] mb-12">Designed for global health researchers, supervisors, and institutions that need to publish with verifiable integrity.</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
               <Link
                 href="/register"
@@ -345,7 +490,7 @@ export default function LandingPage() {
           <div className="flex flex-col items-center md:items-start gap-4">
             <span className="text-lg font-bold text-slate-900">PLEXUS Research</span>
             <p className="text-sm leading-relaxed text-slate-500 text-center md:text-left max-w-xs">
-              © 2026 PLEXUS Research. All rights reserved. Global Health Data Registry.
+              © 2026 PLEXUS Research. All rights reserved. Global Health intelligence system.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-8">
