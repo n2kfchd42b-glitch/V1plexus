@@ -77,8 +77,12 @@ export async function writeAuditEntry(
       return await res.json()
     }
 
-    // Server-side path: insert directly with the provided client (already service role)
-    const { data: lastEntry, error: fetchError } = await supabaseClient
+    // Server-side path: always use service role client to bypass RLS INSERT policy.
+    // Dynamic import keeps service.ts out of the browser bundle.
+    const { createServiceClient } = await import('@/lib/supabase/service')
+    const serviceClient = createServiceClient()
+
+    const { data: lastEntry, error: fetchError } = await serviceClient
       .from('audit_logs')
       .select('entry_hash')
       .eq('resource_type', input.resource_type)
@@ -105,7 +109,7 @@ export async function writeAuditEntry(
 
     const entryHash = await computeHash(canonical)
 
-    const { data, error: insertError } = await supabaseClient
+    const { data, error: insertError } = await serviceClient
       .from('audit_logs')
       .insert({
         timestamp,

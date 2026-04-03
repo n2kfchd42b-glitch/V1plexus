@@ -19,14 +19,20 @@ interface AuditFiltersProps {
 }
 
 const ACTIONS = [
-  'project.create', 'project.update', 'project.member_add', 'project.member_remove',
-  'document.create', 'document.edit', 'document.version_save', 'document.export',
-  'review.submit', 'review.approve', 'review.reject', 'review.delegate',
-  'ethics.create', 'ethics.update', 'ethics.amendment',
-  'dataset.upload', 'dataset.delete', 'analysis.run', 'gate.approve', 'ai.assist',
+  'dataset.imported', 'dataset.deleted', 'dataset.archived', 'dataset.unarchived',
+  'dataset.version.committed', 'dataset.duplicates.resolved', 'dataset.reentry.validated',
+  'dataset.imputation.mice', 'dataset.approved',
+  'dataset.approval.requested', 'dataset.approval.rejected', 'dataset.approval.revision_requested',
+  'dataset.verification.token_created',
+  'analysis.run.saved', 'analysis.run.deleted', 'analysis.run.completed', 'analysis.run.failed',
+  'analysis.assumption.acknowledged',
+  'output.checklist.generated', 'output.methods.generated', 'output.package.generated',
+  'document.created', 'document.deleted', 'document.edited', 'document.generated', 'document.exported', 'document.submitted',
+  'project.created', 'project.updated', 'project.archived', 'project.deleted',
+  'project.member.added', 'project.member.removed',
 ]
 
-const RESOURCE_TYPES = ['project', 'document', 'review', 'ethics', 'dataset', 'analysis', 'approval_gate']
+const RESOURCE_TYPES = ['dataset', 'dataset_version', 'analysis_run', 'document', 'project', 'profile']
 
 export function AuditFilters({ filters, onChange }: AuditFiltersProps) {
   const update = (patch: Partial<AuditFilterValues>) => onChange({ ...filters, ...patch })

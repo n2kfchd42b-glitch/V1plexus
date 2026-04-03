@@ -9,6 +9,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { getActorInfo } from '@/lib/audit/auditLogger'
 import type { AuditEntry, AuditEntryInput } from '@/types/audit'
 import { NextRequest, NextResponse } from 'next/server'
@@ -28,8 +29,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    // Use service role client for all audit_logs operations — bypasses RLS INSERT policy
+    const serviceSupabase = createServiceClient()
+
     // Fetch previous hash for chain integrity
-    const { data: lastEntry } = await supabase
+    const { data: lastEntry } = await serviceSupabase
       .from('audit_logs')
       .select('entry_hash')
       .eq('resource_type', input.resource_type)
@@ -57,7 +61,7 @@ export async function POST(request: NextRequest) {
     const entryHash = Array.from(new Uint8Array(hashBuffer))
       .map((b) => b.toString(16).padStart(2, '0')).join('')
 
-    const { data, error: insertError } = await supabase
+    const { data, error: insertError } = await serviceSupabase
       .from('audit_logs')
       .insert({
         timestamp,
