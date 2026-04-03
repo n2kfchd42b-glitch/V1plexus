@@ -186,7 +186,7 @@ export async function uploadDataset(params: {
   description?: string
   uploadedBy: string
   parsedData: ParsedDataset
-}): Promise<{ datasetId: string; versionId: string }> {
+}): Promise<{ datasetId: string; versionId: string; fileHash: string }> {
   const { file, projectId, name, description, uploadedBy, parsedData } = params
 
   // 1. Create dataset record
@@ -228,7 +228,7 @@ export async function uploadDataset(params: {
     createdBy: uploadedBy,
   })
 
-  return { datasetId, versionId }
+  return { datasetId, versionId, fileHash: hash }
 }
 
 // ─── Save a cleaned version ───────────────────────────────────────────────────

@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Users, UserPlus, Crown, Trash2, Search, X, Mail, Clock } from 'lucide-react'
 import { toast } from 'sonner'
+import { logAudit } from '@/lib/audit'
 import type { ProjectMember, Profile } from '@/types/database'
 
 
@@ -104,11 +105,18 @@ export default function ProjectTeamPage() {
   const handleAdd = async () => {
     if (!selectedUser) return
     setAdding(true)
-    await supabase.from('project_members').insert({
+    const { error } = await supabase.from('project_members').insert({
       project_id: projectId,
       user_id: selectedUser.id,
       role: newMemberRole,
     })
+    if (!error) {
+      logAudit('project.member.added', 'project', projectId, {
+        added_user_id: selectedUser.id,
+        added_user_name: selectedUser.full_name ?? selectedUser.email,
+        role: newMemberRole,
+      }, projectId)
+    }
     resetDialog()
     setShowAdd(false)
     setAdding(false)
@@ -157,7 +165,15 @@ export default function ProjectTeamPage() {
   }
 
   const handleRemove = async (memberId: string) => {
-    await supabase.from('project_members').delete().eq('id', memberId)
+    const member = members.find(m => m.id === memberId)
+    const { error } = await supabase.from('project_members').delete().eq('id', memberId)
+    if (!error && member) {
+      logAudit('project.member.removed', 'project', projectId, {
+        removed_user_id: member.user_id,
+        removed_user_name: member.user?.full_name ?? member.user?.email,
+        role: member.role,
+      }, projectId)
+    }
     fetchMembers()
   }
 

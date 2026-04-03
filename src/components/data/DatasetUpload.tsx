@@ -71,7 +71,7 @@ export function DatasetUpload({ projectId, onSuccess, onCancel }: DatasetUploadP
     setUploading(true)
     setError(null)
     try {
-      const { datasetId } = await uploadDataset({
+      const { datasetId, fileHash } = await uploadDataset({
         file,
         projectId,
         name: name || file.name,
@@ -89,7 +89,7 @@ export function DatasetUpload({ projectId, onSuccess, onCancel }: DatasetUploadP
           rowCount: parsed.row_count,
           columnCount: parsed.column_count,
           fileSize: file.size,
-          fileHash: '',
+          fileHash,
         }
       )
       onSuccess(datasetId)
