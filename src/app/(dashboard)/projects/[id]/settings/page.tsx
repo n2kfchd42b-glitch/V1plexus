@@ -97,7 +97,7 @@ export default function ProjectSettingsPage() {
       .update({ status: 'archived' })
       .eq('id', projectId)
     if (error) { toast.error('Failed to archive project'); return }
-    logAudit('archive', 'project', projectId, { title: project?.title }, projectId)
+    logAudit('project.archived', 'project', projectId, { title: project?.title }, projectId)
     toast.success('Project archived')
     setStatus('archived')
   }
@@ -112,7 +112,7 @@ export default function ProjectSettingsPage() {
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', projectId)
     if (error) { toast.error('Failed to delete project'); return }
-    logAudit('delete', 'project', projectId, { title: project?.title }, projectId)
+    logAudit('project.deleted', 'project', projectId, { title: project?.title }, projectId)
     toast.success('Project deleted')
     router.push('/projects')
   }

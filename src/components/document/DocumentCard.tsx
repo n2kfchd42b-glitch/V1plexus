@@ -177,7 +177,7 @@ export function DocumentCard({
         toast.error('Failed to delete document')
         setDeleteState('idle')
       } else {
-        logAudit('delete', 'document', doc.id, { title: doc.title }, projectId)
+        logAudit('document.deleted', 'document', doc.id, { title: doc.title }, projectId)
         toast.success('Document deleted')
         router.refresh()
       }

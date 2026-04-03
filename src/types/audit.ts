@@ -5,6 +5,9 @@
 export type AuditAction =
   // Dataset operations
   | 'dataset.imported'
+  | 'dataset.deleted'
+  | 'dataset.archived'
+  | 'dataset.unarchived'
   | 'dataset.version.created'
   | 'dataset.version.committed'
   | 'dataset.branch.created'
@@ -19,13 +22,21 @@ export type AuditAction =
   | 'dataset.approval.requested'
   | 'dataset.approval.rejected'
   | 'dataset.approval.revision_requested'
+  | 'dataset.verification.token_created'
   // Analysis operations
+  | 'analysis.run.saved'
+  | 'analysis.run.deleted'
   | 'analysis.run.started'
   | 'analysis.run.completed'
   | 'analysis.run.failed'
   | 'analysis.assumption.acknowledged'
+  // Output operations
+  | 'output.checklist.generated'
+  | 'output.methods.generated'
+  | 'output.package.generated'
   // Document operations
   | 'document.created'
+  | 'document.deleted'
   | 'document.edited'
   | 'document.generated'
   | 'document.exported'
@@ -33,6 +44,8 @@ export type AuditAction =
   // Project operations
   | 'project.created'
   | 'project.updated'
+  | 'project.archived'
+  | 'project.deleted'
   | 'project.member.added'
   | 'project.member.removed'
   // Auth operations

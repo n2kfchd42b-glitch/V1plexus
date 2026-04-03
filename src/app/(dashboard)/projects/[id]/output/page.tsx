@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
+import { logAudit } from '@/lib/audit'
 import { toast } from 'sonner'
 import type {
   ReportingChecklist,
@@ -208,6 +209,12 @@ export default function OutputPage() {
       if (!res.ok) throw new Error(await res.text())
       const data = await res.json()
       setChecklist(data as ReportingChecklist)
+      logAudit('output.checklist.generated', 'dataset_version', selectedVersionId, {
+        summary: `${activeGuideline} checklist generated`,
+        guideline: activeGuideline,
+        auto_populated: data.auto_populated,
+        dataset_id: selectedDatasetId,
+      }, projectId)
       toast.success(`${activeGuideline} checklist generated — ${data.auto_populated} items auto-populated`)
     } catch (err) {
       console.error(err)
@@ -272,6 +279,11 @@ export default function OutputPage() {
       if (!res.ok) throw new Error(await res.text())
       const data = await res.json()
       setMethods(data as MethodsStatement)
+      logAudit('output.methods.generated', 'dataset_version', selectedVersionId, {
+        summary: 'Methods statement generated',
+        word_count: data.word_count,
+        dataset_id: selectedDatasetId,
+      }, projectId)
       toast.success(`Methods statement generated (${data.word_count} words)`)
     } catch (err) {
       console.error(err)
@@ -372,6 +384,13 @@ export default function OutputPage() {
       }
       setPackages(prev => [newPkg, ...prev])
       setPollingPackageId(data.package_id)
+      logAudit('output.package.generated', 'dataset_version', selectedVersionId, {
+        summary: 'Output package generation started',
+        package_id: data.package_id,
+        components: Array.from(selectedComponents),
+        guideline: activeGuideline,
+        dataset_id: selectedDatasetId,
+      }, projectId)
       toast.success('Package generation started...')
     } catch (err) {
       console.error(err)

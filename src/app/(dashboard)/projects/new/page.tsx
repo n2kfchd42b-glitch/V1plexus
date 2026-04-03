@@ -46,7 +46,7 @@ export default function NewProjectPage() {
       setError(error.message);
       setLoading(false);
     } else {
-      logAudit('create', 'project', data.id, { title, status }, data.id)
+      logAudit('project.created', 'project', data.id, { title, status }, data.id)
       router.push(`/projects/${data.id}/overview`);
       setLoading(false);
     }

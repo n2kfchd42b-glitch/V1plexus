@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateVerificationToken } from '@/lib/verification/tokenService'
+import { writeAuditEntry } from '@/lib/audit/auditLogger'
 
 /**
  * POST /api/verify/token
@@ -75,23 +76,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create token' }, { status: 500 })
     }
 
-    // Write audit entry
-    await supabase.from('audit_logs').insert({
-      actor_id: user.id,
-      action: 'dataset.verification.token_created',
-      resource_type: 'dataset',
-      resource_id: dataset_id,
-      project_id,
-      details: {
-        summary: `Verification token created: ${token}`,
-        operation: {
-          token,
-          access_level,
-          expires_at: expiresAt.toISOString(),
-          version_id,
+    // Write audit entry with hash chain
+    await writeAuditEntry(
+      {
+        actor_id: user.id,
+        action: 'dataset.verification.token_created',
+        resource_type: 'dataset',
+        resource_id: dataset_id,
+        project_id,
+        details: {
+          summary: `Verification token created: ${token}`,
+          operation: {
+            token,
+            access_level,
+            expires_at: expiresAt.toISOString(),
+            version_id,
+          },
         },
       },
-    })
+      supabase
+    )
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const verify_url = `${baseUrl}/verify?token=${token}`

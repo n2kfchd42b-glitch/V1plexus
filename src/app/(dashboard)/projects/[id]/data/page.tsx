@@ -155,7 +155,7 @@ export default function ProjectDataPage() {
       .from('datasets').update({ deleted_at: new Date().toISOString() }).eq('id', id)
     if (error) { toast.error('Failed to delete dataset'); return }
     setDatasets(prev => prev.filter(d => d.id !== id))
-    logAudit('delete', 'dataset', id, {}, projectId)
+    logAudit('dataset.deleted', 'dataset', id, {}, projectId)
     toast.success('Dataset deleted')
   }
 
@@ -164,7 +164,7 @@ export default function ProjectDataPage() {
       .from('datasets').update({ archived_at: archive ? new Date().toISOString() : null }).eq('id', id)
     if (error) { toast.error(archive ? 'Failed to archive dataset' : 'Failed to unarchive dataset'); return }
     setDatasets(prev => prev.filter(d => d.id !== id))
-    logAudit(archive ? 'archive' : 'unarchive', 'dataset', id, {}, projectId)
+    logAudit(archive ? 'dataset.archived' : 'dataset.unarchived', 'dataset', id, {}, projectId)
     toast.success(archive ? 'Dataset archived' : 'Dataset unarchived')
   }
 
