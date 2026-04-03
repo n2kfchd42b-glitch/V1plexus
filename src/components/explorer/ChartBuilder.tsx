@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo, useContext, createContext } from 'react'
+import { useState, useMemo } from 'react'
+import { CHART_TOKENS, chartColor, chartColorMid, chartColorDim } from '@/lib/charts/design-tokens'
 import {
   BarChart2, TrendingUp, Circle, Activity, Box, PieChart as PieIcon,
   Grid3x3, AreaChart as AreaChartIcon, Hash, Tag, Calendar, ToggleLeft, ChevronDown,
@@ -149,16 +150,16 @@ function ColIcon({ type }: { type: ColumnType }) {
     case 'number':
     case 'integer':
     case 'decimal':
-      return <Hash size={12} className="text-blue-400" />
+      return <Hash size={12} style={{ color: chartColor(0) }} />
     case 'categorical':
     case 'text':
-      return <Tag size={12} className="text-purple-400" />
+      return <Tag size={12} style={{ color: chartColor(3) }} />
     case 'date':
-      return <Calendar size={12} className="text-green-400" />
+      return <Calendar size={12} style={{ color: chartColor(4) }} />
     case 'boolean':
-      return <ToggleLeft size={12} className="text-orange-400" />
+      return <ToggleLeft size={12} style={{ color: chartColor(5) }} />
     default:
-      return <Hash size={12} className="text-muted-foreground" />
+      return <Hash size={12} style={{ color: CHART_TOKENS.text.muted }} />
   }
 }
 
@@ -190,7 +191,10 @@ function RenderChart({
     case 'heatmap': return <Heatmap {...props} />
     default:
       return (
-        <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
+        <div
+          className="flex items-center justify-center h-64 text-sm rounded-xl"
+          style={{ color: CHART_TOKENS.text.muted, background: '#f0f0f0', border: `1px solid ${CHART_TOKENS.border}` }}
+        >
           Chart type &quot;{chartType}&quot; not yet supported in explorer
         </div>
       )
@@ -251,10 +255,11 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
     return (
       <div>
         <button
-          className="flex items-center gap-1 w-full text-left px-2 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+          className="flex items-center gap-1 w-full text-left px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors"
+          style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}
           onClick={() => toggleGroup(key)}
         >
-          <ChevronDown size={10} className={`transition-transform ${isOpen ? '' : '-rotate-90'}`} />
+          <ChevronDown size={9} className={`transition-transform ${isOpen ? '' : '-rotate-90'}`} />
           {label}
           <span className="ml-auto font-normal normal-case tracking-normal">{cols.length}</span>
         </button>
@@ -263,7 +268,8 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
             {cols.map(col => (
               <div
                 key={col.name}
-                className="flex items-center gap-1.5 py-0.5 px-1 rounded text-xs hover:bg-muted cursor-default select-none"
+                className="flex items-center gap-1.5 py-0.5 px-1 rounded-md text-[11px] cursor-default select-none transition-colors"
+                style={{ color: CHART_TOKENS.text.secondary, fontFamily: 'Manrope, sans-serif' }}
                 title={`${col.name} — ${col.type} (${col.unique_count} unique, ${col.null_count} nulls)`}
               >
                 <ColIcon type={col.type} />
@@ -317,49 +323,72 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
 
   // ─────────────────────────────────────────────────────────────────────────────
 
+  const panelBg = '#ffffff'
+  const panelBorder = CHART_TOKENS.border
+  const labelStyle = { color: CHART_TOKENS.text.secondary, fontFamily: 'Manrope, sans-serif' }
+  const sectionHeadStyle = {
+    color: CHART_TOKENS.text.muted,
+    fontFamily: 'Manrope, sans-serif',
+    fontSize: '9px',
+    letterSpacing: '0.16em',
+    fontWeight: 700,
+    textTransform: 'uppercase' as const,
+  }
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" style={{ background: '#f7f9fb' }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b">
+      <div
+        className="flex items-center justify-between px-4 py-3 flex-shrink-0"
+        style={{ background: '#ffffff', borderBottom: `1px solid ${panelBorder}` }}
+      >
         {onBack && (
-          <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5">
+          <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5" style={{ color: CHART_TOKENS.text.secondary }}>
             <ArrowLeft size={14} />
             Back
           </Button>
         )}
-        <span className="font-semibold text-sm">Dataset Explorer</span>
+        <span className="font-bold text-sm" style={{ color: CHART_TOKENS.text.primary, fontFamily: 'Manrope, sans-serif' }}>
+          Dataset Explorer
+        </span>
         <div className="flex items-center gap-2">
           {onInsertIntoDocument && (
             <Button
               variant="outline"
               size="sm"
-              className="gap-1.5"
+              className="gap-1.5 text-xs font-bold"
+              style={{
+                background: '#f0f0f0',
+                border: `1px solid ${panelBorder}`,
+                color: CHART_TOKENS.text.secondary,
+              }}
               onClick={() => onInsertIntoDocument(chartType, config)}
             >
-              <FileText size={14} />
+              <FileText size={13} />
               Insert into Document
             </Button>
           )}
           <button
             onClick={() => setEditorOpen(v => !v)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150"
+            style={
               editorOpen
-                ? 'text-[#003d9b] bg-[#dde1ff]'
-                : 'text-[#52525B] border border-[rgba(195,198,214,0.4)] bg-white hover:bg-[#f2f4f6]'
-            }`}
-            style={editorOpen ? {} : { boxShadow: '0 2px 8px rgba(0,24,72,0.06)' }}
+                ? { color: chartColor(0), background: chartColorDim(0), border: `1px solid ${chartColorMid(0)}` }
+                : { color: CHART_TOKENS.text.secondary, background: '#f0f0f0', border: `1px solid ${panelBorder}` }
+            }
             title={editorOpen ? 'Close style editor' : 'Edit chart style'}
           >
             <SlidersHorizontal size={13} />
-            {editorOpen ? 'Done' : 'Edit Style'}
+            <span style={{ fontFamily: 'Manrope, sans-serif' }}>{editorOpen ? 'Done' : 'Edit Style'}</span>
           </button>
           <Button
             size="sm"
-            className="gap-1.5"
+            className="gap-1.5 text-xs font-bold"
+            style={{ background: chartColor(0), color: '#ffffff' }}
             onClick={() => onSave?.(chartType, config)}
             disabled={!onSave}
           >
-            <Save size={14} />
+            <Save size={13} />
             Save Chart
           </Button>
         </div>
@@ -367,9 +396,9 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
 
       {/* Body: 3-column layout */}
       <div className="flex flex-1 overflow-hidden">
-        {/* ── Left: Variables ────────────────────────────────────────────── */}
-        <div className="w-48 border-r flex flex-col shrink-0">
-          <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b">
+        {/* ── Left: Variables ─────────────────────────────────────────── */}
+        <div className="w-48 flex flex-col shrink-0" style={{ background: '#ffffff', borderRight: `1px solid ${panelBorder}` }}>
+          <div className="px-3 py-2.5" style={{ ...sectionHeadStyle, borderBottom: `1px solid ${panelBorder}` }}>
             Variables
           </div>
           <ScrollArea className="flex-1">
@@ -382,10 +411,13 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
           </ScrollArea>
         </div>
 
-        {/* ── Center: Chart canvas ────────────────────────────────────────── */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        {/* ── Center: Chart canvas ─────────────────────────────────────── */}
+        <div className="flex-1 flex flex-col overflow-hidden" style={{ background: '#f7f9fb' }}>
           {/* Chart type pill bar */}
-          <div className="flex items-center gap-1 px-3 py-2 border-b overflow-x-auto shrink-0">
+          <div
+            className="flex items-center gap-1 px-3 py-2 overflow-x-auto shrink-0"
+            style={{ background: '#ffffff', borderBottom: `1px solid ${panelBorder}` }}
+          >
             {CHART_TYPES.map(ct => (
               <button
                 key={ct.id}
@@ -393,11 +425,12 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
                   setChartType(ct.id)
                   setEditorConfig(c => getDefaultConfig(ct.id, { height_px: c.height_px }))
                 }}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs whitespace-nowrap transition-colors ${
+                className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] whitespace-nowrap transition-all duration-150 font-medium"
+                style={
                   chartType === ct.id
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                }`}
+                    ? { background: chartColorDim(0), color: chartColor(0), border: `1px solid ${chartColorMid(0)}`, fontFamily: 'Manrope, sans-serif' }
+                    : { background: 'transparent', color: CHART_TOKENS.text.muted, border: '1px solid transparent', fontFamily: 'Manrope, sans-serif' }
+                }
               >
                 {ct.icon}
                 {ct.label}
@@ -407,22 +440,29 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
 
           {/* Suggestion banner */}
           {suggestion && suggestion.chartType !== chartType && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border-b border-amber-500/20 text-xs text-amber-700 dark:text-amber-400 shrink-0">
+            <div
+              className="flex items-center gap-2 px-3 py-2 text-xs shrink-0"
+              style={{
+                background: chartColorDim(1),
+                borderBottom: `1px solid ${chartColorMid(1)}`,
+                color: chartColor(1),
+                fontFamily: 'Manrope, sans-serif',
+              }}
+            >
               <Lightbulb size={12} />
               <span className="flex-1">{suggestion.reason}</span>
-              <button
-                onClick={handleSuggest}
-                className="underline underline-offset-2 hover:no-underline"
-              >
+              <button onClick={handleSuggest} className="underline underline-offset-2 font-bold hover:no-underline">
                 Switch
               </button>
             </div>
           )}
 
           {/* Chart */}
-          <div className="flex-1 overflow-auto p-4">
+          <div className="flex-1 overflow-auto p-5">
             {config.title && (
-              <div className="text-center text-sm font-medium mb-2 text-foreground">{config.title}</div>
+              <div className="text-center text-sm font-bold mb-3" style={{ color: CHART_TOKENS.text.primary, fontFamily: 'Manrope, sans-serif' }}>
+                {config.title}
+              </div>
             )}
             <RenderChart
               chartType={chartType}
@@ -434,14 +474,13 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
           </div>
         </div>
 
-        {/* ── Style Editor Panel (shown when editorOpen) ──────────────────── */}
+        {/* ── Style Editor Panel ───────────────────────────────────────── */}
         {editorOpen && (
           <div
-            className="w-[288px] flex-shrink-0 border-l flex flex-col overflow-hidden"
+            className="w-[272px] flex-shrink-0 flex flex-col overflow-hidden"
             style={{
               background: '#f3f4f6',
-              borderLeft: '1px solid rgba(195,198,214,0.2)',
-              boxShadow: 'inset 4px 0 16px rgba(0,24,72,0.02)',
+              borderLeft: `1px solid ${panelBorder}`,
             }}
           >
             <ChartEditor
@@ -458,17 +497,17 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
           </div>
         )}
 
-        {/* ── Right: Config ───────────────────────────────────────────────── */}
-        <div className="w-56 border-l flex flex-col shrink-0">
-          <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b">
+        {/* ── Right: Config ────────────────────────────────────────────── */}
+        <div className="w-56 flex flex-col shrink-0" style={{ background: '#ffffff', borderLeft: `1px solid ${panelBorder}` }}>
+          <div className="px-3 py-2.5" style={{ ...sectionHeadStyle, borderBottom: `1px solid ${panelBorder}` }}>
             Configuration
           </div>
           <ScrollArea className="flex-1">
-            <div className="p-3 space-y-4">
+            <div className="p-3 space-y-4" style={labelStyle}>
               {/* X Axis */}
               {currentChartDef.requiresX || chartType !== 'heatmap' ? (
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">X Axis</Label>
+                  <Label className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}>X Axis</Label>
                   <ColumnSelect
                     value={config.x_axis}
                     onChange={v => patchConfig({ x_axis: v })}
@@ -481,8 +520,8 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
               {/* Y Axis */}
               {chartType !== 'histogram' && chartType !== 'pie' && chartType !== 'donut' && chartType !== 'heatmap' && (
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">
-                    Y Axis {!currentChartDef.requiresY && <span className="opacity-50">(optional)</span>}
+                  <Label className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}>
+                    Y Axis {!currentChartDef.requiresY && <span style={{ opacity: 0.5 }}>(optional)</span>}
                   </Label>
                   <ColumnSelect
                     value={config.y_axis}
@@ -496,7 +535,7 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
               {/* Y Axis for pie/donut */}
               {(chartType === 'pie' || chartType === 'donut') && (
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Value (optional)</Label>
+                  <Label className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}>Value (optional)</Label>
                   <ColumnSelect
                     value={config.y_axis}
                     onChange={v => patchConfig({ y_axis: v })}
@@ -509,7 +548,7 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
               {/* Color */}
               {currentChartDef.supportsColor && (
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Color / Series</Label>
+                  <Label className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}>Color / Series</Label>
                   <ColumnSelect
                     value={config.color}
                     onChange={v => patchConfig({ color: v })}
@@ -524,7 +563,7 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
               {/* Aggregation */}
               {currentChartDef.supportsAgg && (
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Aggregation</Label>
+                  <Label className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}>Aggregation</Label>
                   <Select
                     value={config.aggregation ?? 'count'}
                     onValueChange={v => patchConfig({ aggregation: v as ChartConfig['aggregation'] })}
@@ -547,7 +586,7 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
               {/* Sort */}
               {(chartType === 'bar') && (
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Sort</Label>
+                  <Label className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}>Sort</Label>
                   <Select
                     value={config.sort ?? 'none'}
                     onValueChange={v => patchConfig({ sort: v as ChartConfig['sort'] })}
@@ -567,7 +606,7 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
               {/* Bin count for histogram */}
               {chartType === 'histogram' && (
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Bin Count</Label>
+                  <Label className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}>Bin Count</Label>
                   <Select
                     value={String(config.bin_count ?? 20)}
                     onValueChange={v => patchConfig({ bin_count: Number(v) })}
@@ -588,105 +627,38 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
 
               {/* Options */}
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Options</Label>
+                <Label className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}>Options</Label>
 
-                {/* Show values */}
-                {(chartType === 'bar') && (
-                  <label className="flex items-center gap-2 text-xs cursor-pointer">
+                {/* Checkbox helper */}
+                {[
+                  { show: chartType === 'bar', label: 'Show values', checked: config.show_values ?? false, onChange: (v: boolean) => patchConfig({ show_values: v }) },
+                  { show: chartType === 'scatter' || chartType === 'line', label: 'Trend line', checked: config.trend_line ?? false, onChange: (v: boolean) => patchConfig({ trend_line: v }) },
+                  { show: ['bar','line','area','scatter'].includes(chartType), label: 'Log scale Y', checked: config.log_scale_y ?? false, onChange: (v: boolean) => patchConfig({ log_scale_y: v }) },
+                  { show: chartType === 'scatter', label: 'Log scale X', checked: config.log_scale_x ?? false, onChange: (v: boolean) => patchConfig({ log_scale_x: v }) },
+                  { show: chartType === 'histogram', label: 'Distribution curve', checked: (config.chart_specific as Record<string,unknown> | undefined)?.show_density as boolean ?? false, onChange: (v: boolean) => patchConfig({ chart_specific: { ...(config.chart_specific as object), show_density: v } }) },
+                  { show: chartType === 'box', label: 'Show data points', checked: (config.chart_specific as Record<string,unknown> | undefined)?.show_points as boolean ?? false, onChange: (v: boolean) => patchConfig({ chart_specific: { ...(config.chart_specific as object), show_points: v } }) },
+                  { show: chartType === 'box', label: 'Show mean (◇)', checked: (config.chart_specific as Record<string,unknown> | undefined)?.show_mean as boolean ?? false, onChange: (v: boolean) => patchConfig({ chart_specific: { ...(config.chart_specific as object), show_mean: v } }) },
+                ].filter(o => o.show).map(({ label, checked, onChange: onCh }) => (
+                  <label key={label} className="flex items-center gap-2 text-[11px] cursor-pointer" style={{ color: CHART_TOKENS.text.secondary, fontFamily: 'Manrope, sans-serif' }}>
                     <input
                       type="checkbox"
-                      checked={config.show_values ?? false}
-                      onChange={e => patchConfig({ show_values: e.target.checked })}
+                      checked={checked}
+                      onChange={e => onCh(e.target.checked)}
                       className="rounded"
+                      style={{ accentColor: chartColor(0) }}
                     />
-                    Show values
+                    {label}
                   </label>
-                )}
-
-                {/* Trend line */}
-                {(chartType === 'scatter' || chartType === 'line') && (
-                  <label className="flex items-center gap-2 text-xs cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={config.trend_line ?? false}
-                      onChange={e => patchConfig({ trend_line: e.target.checked })}
-                      className="rounded"
-                    />
-                    Trend line
-                  </label>
-                )}
-
-                {/* Log Y */}
-                {['bar', 'line', 'area', 'scatter'].includes(chartType) && (
-                  <label className="flex items-center gap-2 text-xs cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={config.log_scale_y ?? false}
-                      onChange={e => patchConfig({ log_scale_y: e.target.checked })}
-                      className="rounded"
-                    />
-                    Log scale Y
-                  </label>
-                )}
-
-                  {/* Log X (scatter only) */}
-                {chartType === 'scatter' && (
-                  <label className="flex items-center gap-2 text-xs cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={config.log_scale_x ?? false}
-                      onChange={e => patchConfig({ log_scale_x: e.target.checked })}
-                      className="rounded"
-                    />
-                    Log scale X
-                  </label>
-                )}
-
-                {/* Histogram specific */}
-                {chartType === 'histogram' && (
-                  <label className="flex items-center gap-2 text-xs cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={(config.chart_specific as Record<string, unknown> | undefined)?.show_density as boolean ?? false}
-                      onChange={e => patchConfig({ chart_specific: { ...(config.chart_specific as object), show_density: e.target.checked } })}
-                      className="rounded"
-                    />
-                    Distribution curve
-                  </label>
-                )}
-
-                {/* Box plot specific */}
-                {chartType === 'box' && (
-                  <>
-                    <label className="flex items-center gap-2 text-xs cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={(config.chart_specific as Record<string, unknown> | undefined)?.show_points as boolean ?? false}
-                        onChange={e => patchConfig({ chart_specific: { ...(config.chart_specific as object), show_points: e.target.checked } })}
-                        className="rounded"
-                      />
-                      Show data points
-                    </label>
-                    <label className="flex items-center gap-2 text-xs cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={(config.chart_specific as Record<string, unknown> | undefined)?.show_mean as boolean ?? false}
-                        onChange={e => patchConfig({ chart_specific: { ...(config.chart_specific as object), show_mean: e.target.checked } })}
-                        className="rounded"
-                      />
-                      Show mean (◇)
-                    </label>
-                  </>
-                )}
+                ))}
               </div>
 
               <Separator />
 
               {/* Appearance */}
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Appearance</Label>
+                <Label className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}>Appearance</Label>
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground/70">Color palette</Label>
+                  <Label className="text-[10px]" style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif', opacity: 0.7 }}>Color palette</Label>
                   <Select
                     value={config.palette ?? 'default'}
                     onValueChange={v => patchConfig({ palette: v === 'default' ? undefined : v })}
@@ -708,29 +680,28 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
 
               {/* Labels */}
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Labels</Label>
-                <div className="space-y-1">
-                  <input
-                    type="text"
-                    placeholder="Chart title…"
-                    value={config.title ?? ''}
-                    onChange={e => patchConfig({ title: e.target.value || undefined })}
-                    className="w-full h-7 px-2 text-xs rounded border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-                  />
-                  <input
-                    type="text"
-                    placeholder="X axis label…"
-                    value={config.x_label ?? ''}
-                    onChange={e => patchConfig({ x_label: e.target.value || undefined })}
-                    className="w-full h-7 px-2 text-xs rounded border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Y axis label…"
-                    value={config.y_label ?? ''}
-                    onChange={e => patchConfig({ y_label: e.target.value || undefined })}
-                    className="w-full h-7 px-2 text-xs rounded border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-                  />
+                <Label className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}>Labels</Label>
+                <div className="space-y-1.5">
+                  {[
+                    { placeholder: 'Chart title…', value: config.title ?? '', key: 'title' as const },
+                    { placeholder: 'X axis label…', value: config.x_label ?? '', key: 'x_label' as const },
+                    { placeholder: 'Y axis label…', value: config.y_label ?? '', key: 'y_label' as const },
+                  ].map(({ placeholder, value, key }) => (
+                    <input
+                      key={key}
+                      type="text"
+                      placeholder={placeholder}
+                      value={value}
+                      onChange={e => patchConfig({ [key]: e.target.value || undefined })}
+                      className="w-full h-7 px-2.5 text-[11px] rounded-lg outline-none transition-all"
+                      style={{
+                        background: '#f0f0f0',
+                        border: `1px solid ${CHART_TOKENS.border}`,
+                        color: CHART_TOKENS.text.primary,
+                        fontFamily: 'Manrope, sans-serif',
+                      }}
+                    />
+                  ))}
                 </div>
               </div>
             </div>

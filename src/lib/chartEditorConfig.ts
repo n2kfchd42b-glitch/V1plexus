@@ -23,9 +23,9 @@ export interface ChartEditorConfig {
 export const DEFAULT_CHART_EDITOR_CONFIG: ChartEditorConfig = {
   width: 'full',
   custom_width_px: null,
-  height_px: 320,
-  dataset_colors: ['#003d9b', '#0052cc', '#16a34a', '#b45309', '#7c3aed', '#0891b2'],
-  background_opacity: 0.15,
+  height_px: 340,
+  dataset_colors: ['#3fb8b0', '#d4a853', '#e05c7a', '#8b7cf8', '#6cb68c', '#e8944a'],
+  background_opacity: 0.45,
   x_axis_label: '',
   y_axis_label: '',
   show_axis_labels: false,
@@ -40,13 +40,14 @@ export const DEFAULT_CHART_EDITOR_CONFIG: ChartEditorConfig = {
 }
 
 const COLOR_OVERRIDES: Record<string, string[]> = {
-  km_curve: ['#003d9b', '#16a34a'],
-  roc_curve: ['#003d9b', '#c3c6d6'],
-  forest_or: ['#003d9b', '#ba1a1a'],
-  forest_hr: ['#003d9b', '#ba1a1a'],
-  forest_irr: ['#003d9b', '#ba1a1a'],
-  forest_meta: ['#003d9b', '#ba1a1a'],
-  histogram: ['#003d9b'],
+  km_curve:    ['#3fb8b0', '#d4a853', '#e05c7a', '#8b7cf8'],
+  roc_curve:   ['#3fb8b0', '#8b949e'],
+  forest_or:   ['#3fb8b0', '#e05c7a'],
+  forest_hr:   ['#3fb8b0', '#e05c7a'],
+  forest_irr:  ['#3fb8b0', '#e05c7a'],
+  forest_meta: ['#3fb8b0', '#d4a853'],
+  histogram:   ['#3fb8b0'],
+  epi_curve:   ['#e05c7a', '#d4a853', '#8b7cf8'],
 }
 
 export function getDefaultConfig(chartType: string, saved?: Record<string, unknown>): ChartEditorConfig {

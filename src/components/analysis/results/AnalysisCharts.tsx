@@ -12,6 +12,7 @@ import { ChartEditor } from '@/components/analysis/ChartEditor'
 import { getDefaultConfig } from '@/lib/chartEditorConfig'
 import type { ChartEditorConfig } from '@/lib/chartEditorConfig'
 import type { AnalysisType } from '@/types/database'
+import { CHART_TOKENS, chartColor, chartColorMid, chartColorDim, AXIS_TICK_STYLE, GRID_STYLE } from '@/lib/charts/design-tokens'
 
 type ChartSpec = {
   type: string
@@ -19,17 +20,6 @@ type ChartSpec = {
   data: unknown[]
   config: Record<string, unknown>
 }
-
-// Premium color palette with gradients
-const COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#84cc16']
-const GRADIENT_COLORS = [
-  { start: '#3b82f6', end: '#1d4ed8' },
-  { start: '#8b5cf6', end: '#6d28d9' },
-  { start: '#06b6d4', end: '#0891b2' },
-  { start: '#10b981', end: '#059669' },
-]
-// suppress unused warning — kept for potential future use
-void GRADIENT_COLORS
 
 // ── Chart Render Context (drives live editor updates) ─────────
 type RenderCfg = {
@@ -45,40 +35,40 @@ type RenderCfg = {
 }
 
 const DEFAULT_RENDER_CFG: RenderCfg = {
-  colors: COLORS,
+  colors: CHART_TOKENS.solidSequence as unknown as string[],
   showGrid: true,
-  gridColor: 'rgba(0,24,72,0.06)',
+  gridColor: CHART_TOKENS.grid,
   showLegend: true,
   legendPos: 'bottom',
-  height: 320,
+  height: 340,
   showAxisLabels: false,
   xLabel: '',
   yLabel: '',
 }
 
 const ChartRenderContext = createContext<RenderCfg>(DEFAULT_RENDER_CFG)
-
-// Helpers used by chart components
 function useCfg() { return useContext(ChartRenderContext) }
 
 function legendAlign(pos: RenderCfg['legendPos']): {
   verticalAlign: 'top' | 'bottom' | 'middle'
   align: 'left' | 'center' | 'right'
 } {
-  if (pos === 'top') return { verticalAlign: 'top', align: 'center' }
-  if (pos === 'left') return { verticalAlign: 'middle', align: 'left' }
-  if (pos === 'right') return { verticalAlign: 'middle', align: 'right' }
-  return { verticalAlign: 'bottom', align: 'center' }
+  if (pos === 'top')   return { verticalAlign: 'top',    align: 'center' }
+  if (pos === 'left')  return { verticalAlign: 'middle', align: 'left'   }
+  if (pos === 'right') return { verticalAlign: 'middle', align: 'right'  }
+  return                        { verticalAlign: 'bottom', align: 'center' }
 }
+
+const axisLabel = { fontSize: 11, fill: CHART_TOKENS.text.secondary, fontFamily: 'Manrope, sans-serif' }
 
 function axisLabelX(cfg: RenderCfg, defaultVal?: string) {
   const val = cfg.showAxisLabels && cfg.xLabel ? cfg.xLabel : defaultVal
-  return val ? { label: { value: val, position: 'bottom' as const, ...axisLabel } } : {}
+  return val ? { label: { value: val, position: 'insideBottom' as const, offset: -4, ...axisLabel } } : {}
 }
 function axisLabelY(cfg: RenderCfg, defaultVal?: string) {
   const val = cfg.showAxisLabels && cfg.yLabel ? cfg.yLabel : defaultVal
   return val
-    ? { label: { value: val, angle: -90 as const, position: 'insideLeft' as const, ...axisLabel } }
+    ? { label: { value: val, angle: -90 as const, position: 'insideLeft' as const, offset: 8, ...axisLabel } }
     : {}
 }
 
@@ -127,21 +117,44 @@ export function AnalysisCharts({ charts, runId, datasetId, versionId, analysisTy
   )
 }
 
-// ── Custom Tooltip ──────────────────────────────────────────
-function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string }) {
+// ── Chart Tooltip — matches global light-mode surfaces ───────
+function DarkTooltip({ active, payload, label }: {
+  active?: boolean
+  payload?: Array<{ name: string; value: number; color: string }>
+  label?: string
+}) {
   if (!active || !payload || payload.length === 0) return null
   return (
-    <div className="bg-white/95 backdrop-blur-md rounded-xl border border-slate-200 shadow-xl p-3 min-w-[140px]">
-      {label && <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">{label}</p>}
+    <div
+      className="rounded-xl min-w-[148px]"
+      style={{
+        background: '#ffffff',
+        border: `1px solid ${CHART_TOKENS.border}`,
+        padding: '10px 14px',
+        boxShadow: '0 4px 16px rgba(0,24,72,0.08), 0 1px 4px rgba(0,24,72,0.06)',
+      }}
+    >
+      {label && (
+        <p
+          className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em]"
+          style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}
+        >
+          {label}
+        </p>
+      )}
       <div className="space-y-1.5">
         {payload.map((entry, i) => (
-          <div key={i} className="flex items-center justify-between gap-4">
+          <div key={i} className="flex items-center justify-between gap-5">
             <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
-              <span className="text-xs text-muted-foreground">{entry.name}</span>
+              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: entry.color }} />
+              <span className="text-[11px]" style={{ color: CHART_TOKENS.text.secondary, fontFamily: 'Manrope, sans-serif' }}>
+                {entry.name}
+              </span>
             </div>
-            <span className="text-xs font-bold text-foreground">
-              {typeof entry.value === 'number' ? entry.value.toLocaleString(undefined, { maximumFractionDigits: 4 }) : entry.value}
+            <span className="text-[12px] font-bold tabular-nums" style={{ color: CHART_TOKENS.text.primary, fontFamily: "'JetBrains Mono', monospace" }}>
+              {typeof entry.value === 'number'
+                ? entry.value.toLocaleString(undefined, { maximumFractionDigits: 4 })
+                : entry.value}
             </span>
           </div>
         ))}
@@ -150,7 +163,7 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
   )
 }
 
-// ── Chart Wrapper with expand ────────────────────────────────
+// ── Supported types ──────────────────────────────────────────
 const SUPPORTED_CHART_TYPES = new Set([
   'histogram', 'bar', 'grouped_bar', 'scatter_regression', 'residual_plot',
   'coefficient_plot', 'forest_or', 'forest_hr', 'forest_irr', 'forest_meta',
@@ -159,6 +172,7 @@ const SUPPORTED_CHART_TYPES = new Set([
   'biplot', 'boxplot_2group', 'boxplot_groups', 'mosaic',
 ])
 
+// ── Chart Wrapper ────────────────────────────────────────────
 function ChartRenderer({
   chart,
   index: _index,
@@ -211,7 +225,7 @@ function ChartRenderer({
     const img = new Image()
     img.onload = () => {
       ctx.scale(scale, scale)
-      ctx.fillStyle = 'white'
+      ctx.fillStyle = '#ffffff'
       ctx.fillRect(0, 0, w, h)
       ctx.drawImage(img, 0, 0)
       const link = document.createElement('a')
@@ -229,83 +243,103 @@ function ChartRenderer({
 
   return (
     <div
-      className={`bg-white rounded-2xl overflow-hidden transition-all duration-200 ${
-        !editorOpen && !expanded ? 'hover:-translate-y-0.5' : ''
-      }`}
-      style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}
+      className={`rounded-2xl overflow-hidden transition-all duration-200 ${!editorOpen && !expanded ? 'hover:-translate-y-0.5' : ''}`}
+      style={{
+        background: '#ffffff',
+        border: `1px solid ${CHART_TOKENS.border}`,
+        boxShadow: CHART_TOKENS.shadow.ambient,
+      }}
     >
       <div className={editorOpen ? 'flex flex-col lg:flex-row' : ''}>
         {/* ── Chart area ── */}
         <div className="flex-1 min-w-0">
-          {/* Chart Header */}
-          <div className="flex items-start justify-between px-7 pt-6 pb-2">
+          {/* Header */}
+          <div
+            className="flex items-start justify-between px-7 pt-6 pb-3"
+            style={{ borderBottom: `1px solid ${CHART_TOKENS.border}` }}
+          >
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope mb-1">
+              <p
+                className="text-[9px] font-bold uppercase tracking-[0.16em] mb-1"
+                style={{ color: chartColor(0), fontFamily: 'Manrope, sans-serif', letterSpacing: '0.16em' }}
+              >
                 Visualization
               </p>
-              <h4 className="font-manrope font-bold text-[1.0625rem] text-[#18181B]">{displayTitle}</h4>
-              <p className="text-[11px] text-[#A1A1AA] mt-0.5">Interactive chart · hover for details</p>
+              <h4
+                className="font-bold text-[1.0rem] leading-snug"
+                style={{ color: CHART_TOKENS.text.primary, fontFamily: 'Manrope, sans-serif' }}
+              >
+                {displayTitle}
+              </h4>
+              <p className="text-[10px] mt-0.5" style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}>
+                Interactive · hover for details
+              </p>
             </div>
-            <div className="flex items-center gap-1 mt-0.5">
-              {/* Edit Chart button */}
+
+            <div className="flex items-center gap-1 mt-0.5 flex-shrink-0">
+              {/* Edit button */}
               <button
                 type="button"
                 onClick={() => setEditorOpen(v => !v)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-150"
+                style={
                   editorOpen
-                    ? 'text-[#003d9b] bg-[#dde1ff]'
-                    : 'text-[#A1A1AA] hover:text-[#18181B] hover:bg-[#f2f4f6]'
-                }`}
+                    ? { color: chartColor(0), background: chartColorDim(0), border: `1px solid ${chartColorMid(0)}` }
+                    : { color: CHART_TOKENS.text.secondary, background: 'transparent', border: `1px solid transparent` }
+                }
                 title={editorOpen ? 'Close editor' : 'Edit chart'}
               >
                 {editorOpen ? (
-                  'Done'
+                  <span style={{ fontFamily: 'Manrope, sans-serif' }}>Done</span>
                 ) : (
                   <>
                     <SlidersHorizontal className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline text-[10px] tracking-wide">Edit</span>
+                    <span className="hidden sm:inline text-[10px] tracking-wide" style={{ fontFamily: 'Manrope, sans-serif' }}>Edit</span>
                   </>
                 )}
               </button>
-              {/* Expand button */}
+              {/* Expand */}
               <button
                 type="button"
                 onClick={() => setExpanded(v => !v)}
-                className="p-2 rounded-lg hover:bg-[#f2f4f6] text-[#A1A1AA] hover:text-[#18181B] transition-colors mt-0.5"
+                className="p-2 rounded-lg transition-all duration-150"
+                style={{ color: CHART_TOKENS.text.muted }}
                 title={expanded ? 'Collapse' : 'Expand'}
               >
-                {expanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                {expanded
+                  ? <Minimize2 className="h-3.5 w-3.5" />
+                  : <Maximize2 className="h-3.5 w-3.5" />}
               </button>
             </div>
           </div>
 
           {/* Chart Body */}
-          <div className={`px-7 pb-7 ${expanded ? 'min-h-[500px]' : ''}`} ref={chartAreaRef}>
+          <div className={`px-6 pb-6 pt-5 ${expanded ? 'min-h-[520px]' : ''}`} ref={chartAreaRef}>
             <ChartRenderContext.Provider value={renderCfg}>
-              {type === 'histogram' && <HistogramChart data={data as { x0: number; x1: number; count: number }[]} expanded={expanded} />}
-              {type === 'bar' && <FrequencyBarChart data={data as { value: string; count: number; percent: string | number }[]} expanded={expanded} />}
-              {type === 'grouped_bar' && <GroupedBarChart data={data as Record<string, unknown>[]} config={config} expanded={expanded} />}
-              {type === 'scatter_regression' && <ScatterRegressionChart data={data as Record<string, unknown>[]} config={config} expanded={expanded} />}
-              {type === 'residual_plot' && <ResidualChart data={data as Record<string, unknown>[]} expanded={expanded} />}
-              {type === 'coefficient_plot' && <CoefficientPlot data={data as CoefficientPlotData[]} isOR={false} expanded={expanded} />}
-              {type === 'forest_or' && <CoefficientPlot data={data as CoefficientPlotData[]} isOR label="OR" nullLine={1} expanded={expanded} />}
-              {type === 'forest_hr' && <CoefficientPlot data={data as CoefficientPlotData[]} isOR label="HR" nullLine={1} expanded={expanded} />}
-              {type === 'forest_irr' && <CoefficientPlot data={data as CoefficientPlotData[]} isOR label="IRR" nullLine={1} expanded={expanded} />}
-              {type === 'forest_meta' && <ForestPlot data={data as ForestPlotData[]} config={config} expanded={expanded} />}
-              {type === 'funnel_plot' && <FunnelPlot data={data as { es: number; se: number }[]} config={config} expanded={expanded} />}
-              {type === 'roc_curve' && <ROCCurve data={data as { fpr: number; tpr: number }[]} config={config} expanded={expanded} />}
-              {type === 'km_curve' && <KMCurve data={data as KMPoint[]} config={config} expanded={expanded} />}
-              {type === 'heatmap' && <CorrelationHeatmap data={data as HeatmapData[]} config={config} />}
-              {type === 'time_series' && <TimeSeriesChart data={data as Record<string, unknown>[]} config={config} expanded={expanded} />}
-              {type === 'scree_plot' && <ScreePlot data={data as { component: number; eigenvalue: number; varExplained: number }[]} expanded={expanded} />}
-              {type === 'cluster_scatter' && <ClusterScatter data={data as { pc1: number; pc2: number; cluster: number }[]} config={config} expanded={expanded} />}
-              {type === 'power_curve' && <PowerCurve data={data as { n: number; power: number }[]} config={config} expanded={expanded} />}
-              {type === 'epi_curve' && <EpiCurve data={data as Record<string, unknown>[]} config={config} expanded={expanded} />}
-              {type === 'acf_plot' && <ACFChart data={data as { lag: number; acf: number }[]} config={config} expanded={expanded} />}
-              {type === 'biplot' && <Biplot data={data as unknown as BiplotData} config={config} expanded={expanded} />}
-              {type === 'boxplot_2group' && <BoxPlot2Group data={data as unknown as Record<string, unknown>} expanded={expanded} />}
-              {type === 'boxplot_groups' && <BoxPlotGroups data={data as unknown as Record<string, unknown>} expanded={expanded} />}
-              {type === 'mosaic' && <MosaicPlot data={data as Record<string, unknown>[]} config={config} expanded={expanded} />}
+              {type === 'histogram'         && <HistogramChart      data={data as { x0: number; x1: number; count: number }[]} expanded={expanded} />}
+              {type === 'bar'               && <FrequencyBarChart   data={data as { value: string; count: number; percent: number | string }[]} expanded={expanded} />}
+              {type === 'grouped_bar'       && <GroupedBarChart     data={data as Record<string, unknown>[]} config={config} expanded={expanded} />}
+              {type === 'scatter_regression'&& <ScatterRegressionChart data={data as Record<string, unknown>[]} config={config} expanded={expanded} />}
+              {type === 'residual_plot'     && <ResidualChart       data={data as Record<string, unknown>[]} expanded={expanded} />}
+              {type === 'coefficient_plot'  && <CoefficientPlot     data={data as CoefficientPlotData[]} isOR={false} expanded={expanded} />}
+              {type === 'forest_or'         && <CoefficientPlot     data={data as CoefficientPlotData[]} isOR label="OR"  nullLine={1} expanded={expanded} />}
+              {type === 'forest_hr'         && <CoefficientPlot     data={data as CoefficientPlotData[]} isOR label="HR"  nullLine={1} expanded={expanded} />}
+              {type === 'forest_irr'        && <CoefficientPlot     data={data as CoefficientPlotData[]} isOR label="IRR" nullLine={1} expanded={expanded} />}
+              {type === 'forest_meta'       && <ForestPlot          data={data as ForestPlotData[]}      config={config} expanded={expanded} />}
+              {type === 'funnel_plot'       && <FunnelPlot          data={data as { es: number; se: number }[]} config={config} expanded={expanded} />}
+              {type === 'roc_curve'         && <ROCCurve            data={data as { fpr: number; tpr: number }[]} config={config} expanded={expanded} />}
+              {type === 'km_curve'          && <KMCurve             data={data as KMPoint[]} config={config} expanded={expanded} />}
+              {type === 'heatmap'           && <CorrelationHeatmap  data={data as HeatmapData[]} config={config} />}
+              {type === 'time_series'       && <TimeSeriesChart     data={data as Record<string, unknown>[]} config={config} expanded={expanded} />}
+              {type === 'scree_plot'        && <ScreePlot           data={data as { component: number; eigenvalue: number; varExplained: number }[]} expanded={expanded} />}
+              {type === 'cluster_scatter'   && <ClusterScatter      data={data as { pc1: number; pc2: number; cluster: number }[]} config={config} expanded={expanded} />}
+              {type === 'power_curve'       && <PowerCurve         data={data as { n: number; power: number }[]} config={config} expanded={expanded} />}
+              {type === 'epi_curve'         && <EpiCurve           data={data as Record<string, unknown>[]} config={config} expanded={expanded} />}
+              {type === 'acf_plot'          && <ACFChart           data={data as { lag: number; acf: number }[]} config={config} expanded={expanded} />}
+              {type === 'biplot'            && <Biplot             data={data as unknown as BiplotData} config={config} expanded={expanded} />}
+              {type === 'boxplot_2group'    && <BoxPlot2Group      data={data as unknown as Record<string, unknown>} expanded={expanded} />}
+              {type === 'boxplot_groups'    && <BoxPlotGroups      data={data as unknown as Record<string, unknown>} expanded={expanded} />}
+              {type === 'mosaic'            && <MosaicPlot         data={data as Record<string, unknown>[]} config={config} expanded={expanded} />}
             </ChartRenderContext.Provider>
           </div>
         </div>
@@ -313,11 +347,10 @@ function ChartRenderer({
         {/* ── Editor Panel ── */}
         {editorOpen && (
           <div
-            className="w-full lg:w-[288px] flex-shrink-0 flex flex-col overflow-hidden border-t lg:border-t-0 transition-all duration-200"
+            className="w-full lg:w-[280px] flex-shrink-0 flex flex-col overflow-hidden border-t lg:border-t-0"
             style={{
               background: '#f3f4f6',
-              borderLeft: '1px solid rgba(195,198,214,0.2)',
-              boxShadow: 'inset 4px 0 16px rgba(0,24,72,0.02)',
+              borderLeft: `1px solid ${CHART_TOKENS.border}`,
             }}
           >
             <ChartEditor
@@ -340,54 +373,78 @@ function ChartRenderer({
   )
 }
 
-// ── Shared axis tick style ──────────────────────────────────
-const axisTick = { fontSize: 11, fill: '#64748b' }
-const axisLabel = { fontSize: 12, fill: '#475569' }
-const gridStyle = { stroke: '#e2e8f0', strokeDasharray: '3 6' }
+// ── Shared helpers ───────────────────────────────────────────
+const axisTick = AXIS_TICK_STYLE
+const gridStyle = GRID_STYLE
 
-function chartHeight(expanded: boolean, base: number = 300) {
-  return expanded ? Math.max(base, 480) : base
+function chartHeight(expanded: boolean, base = 300) {
+  return expanded ? Math.max(base, 500) : base
 }
 
-// ── Gradient Definitions ────────────────────────────────────
+// ── SVG Gradients for area fills ─────────────────────────────
 function ChartGradients() {
   return (
     <defs>
-      <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.3} />
-        <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.02} />
-      </linearGradient>
-      <linearGradient id="purpleGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.3} />
-        <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.02} />
-      </linearGradient>
-      <linearGradient id="cyanGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="#06b6d4" stopOpacity={0.3} />
-        <stop offset="100%" stopColor="#06b6d4" stopOpacity={0.02} />
-      </linearGradient>
-      <linearGradient id="greenGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="#10b981" stopOpacity={0.3} />
-        <stop offset="100%" stopColor="#10b981" stopOpacity={0.02} />
-      </linearGradient>
+      {CHART_TOKENS.solidSequence.map((color, i) => (
+        <linearGradient key={i} id={`plexGrad${i}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor={color} stopOpacity={0.35} />
+          <stop offset="100%" stopColor={color} stopOpacity={0.03} />
+        </linearGradient>
+      ))}
     </defs>
   )
 }
+
+function legendStyle() {
+  return { fontSize: 11, color: CHART_TOKENS.text.secondary, fontFamily: 'Manrope, sans-serif', paddingTop: 14 }
+}
+
+// ── Stat badge ───────────────────────────────────────────────
+function StatBadge({ label, value, colorIdx = 0 }: { label: string; value: string | number; colorIdx?: number }) {
+  return (
+    <div
+      className="inline-flex items-center gap-3 rounded-xl px-5 py-2.5"
+      style={{
+        background: chartColorDim(colorIdx),
+        border: `1px solid ${chartColorMid(colorIdx)}`,
+      }}
+    >
+      <span
+        className="text-[9px] font-bold uppercase tracking-[0.14em]"
+        style={{ color: chartColor(colorIdx), fontFamily: 'Manrope, sans-serif' }}
+      >
+        {label}
+      </span>
+      <span
+        className="text-base font-extrabold tabular-nums"
+        style={{ color: CHART_TOKENS.text.primary, fontFamily: "'JetBrains Mono', monospace" }}
+      >
+        {value}
+      </span>
+    </div>
+  )
+}
+
+// ───────────────────────────────────────────────────────────────
+// CHART COMPONENTS
+// ───────────────────────────────────────────────────────────────
 
 // ── Histogram ────────────────────────────────────────────────
 function HistogramChart({ data, expanded }: { data: { x0: number; x1: number; count: number }[]; expanded: boolean }) {
   const cfg = useCfg()
   const C = cfg.colors
-  const d = data.map(b => ({ name: b.x0.toFixed(1), count: b.count }))
+  const d = data.map(b => ({ name: `${b.x0.toFixed(1)}`, count: b.count }))
   return (
     <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 280)}>
-      <BarChart data={d} barCategoryGap="4%">
-        {cfg.showGrid && <CartesianGrid stroke={cfg.gridColor} strokeDasharray="3 6" />}
+      <BarChart data={d} barCategoryGap="3%">
+        <ChartGradients />
+        {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="name" tick={axisTick} {...axisLabelX(cfg)} />
         <YAxis tick={axisTick} {...axisLabelY(cfg)} />
-        <Tooltip content={<CustomTooltip />} />
-        <Bar dataKey="count" fill={C[0] ?? COLORS[0]} radius={[4, 4, 0, 0]} animationDuration={800}>
+        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        <Bar dataKey="count" radius={[4, 4, 0, 0]} animationDuration={700}>
           {d.map((_, i) => (
-            <Cell key={i} fill={C[0] ?? COLORS[0]} fillOpacity={0.7 + (i / d.length) * 0.3} />
+            <Cell key={i} fill={C[0] ?? chartColor(0)} fillOpacity={0.55 + (i / d.length) * 0.35} />
           ))}
         </Bar>
       </BarChart>
@@ -401,14 +458,16 @@ function FrequencyBarChart({ data, expanded }: { data: { value: string; count: n
   const C = cfg.colors
   const top = data.slice(0, 20)
   return (
-    <ResponsiveContainer width="100%" height={Math.max(cfg.height ?? chartHeight(expanded, 200), top.length * 36)}>
-      <BarChart data={top} layout="vertical" margin={{ left: 8 }}>
-        {cfg.showGrid && <CartesianGrid stroke={cfg.gridColor} strokeDasharray="3 6" horizontal={false} />}
+    <ResponsiveContainer width="100%" height={Math.max(cfg.height ?? chartHeight(expanded, 200), top.length * 38)}>
+      <BarChart data={top} layout="vertical" margin={{ left: 8, right: 20 }}>
+        {cfg.showGrid && <CartesianGrid {...gridStyle} horizontal={false} />}
         <XAxis type="number" tick={axisTick} {...axisLabelX(cfg)} />
-        <YAxis type="category" dataKey="value" tick={axisTick} width={120} {...axisLabelY(cfg)} />
-        <Tooltip content={<CustomTooltip />} />
-        <Bar dataKey="count" radius={[0, 4, 4, 0]} animationDuration={800}>
-          {top.map((_, i) => <Cell key={i} fill={C[i % C.length] ?? COLORS[i % COLORS.length]} fillOpacity={0.85} />)}
+        <YAxis type="category" dataKey="value" tick={axisTick} width={130} {...axisLabelY(cfg)} />
+        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        <Bar dataKey="count" radius={[0, 5, 5, 0]} animationDuration={700}>
+          {top.map((_, i) => (
+            <Cell key={i} fill={C[i % C.length] ?? chartColor(i)} fillOpacity={0.8} />
+          ))}
         </Bar>
       </BarChart>
     </ResponsiveContainer>
@@ -421,7 +480,7 @@ function GroupedBarChart({ data, config, expanded }: { data: Record<string, unkn
   const C = cfg.colors
   const rows = (config.rowCats as string[]) ?? []
   const cols = (config.colCats as string[]) ?? []
-  if (!rows.length || !cols.length) return <p className="text-xs text-muted-foreground">No chart data</p>
+  if (!rows.length || !cols.length) return <p className="text-xs py-4 text-center" style={{ color: CHART_TOKENS.text.muted }}>No chart data</p>
   const pivoted = rows.map(row => {
     const entry: Record<string, unknown> = { row }
     cols.forEach(col => {
@@ -433,13 +492,15 @@ function GroupedBarChart({ data, config, expanded }: { data: Record<string, unkn
   const la = legendAlign(cfg.legendPos)
   return (
     <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 320)}>
-      <BarChart data={pivoted}>
-        {cfg.showGrid && <CartesianGrid stroke={cfg.gridColor} strokeDasharray="3 6" />}
+      <BarChart data={pivoted} barCategoryGap="20%" barGap={4}>
+        {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="row" tick={axisTick} {...axisLabelX(cfg)} />
         <YAxis tick={axisTick} {...axisLabelY(cfg)} />
-        <Tooltip content={<CustomTooltip />} />
-        {cfg.showLegend && <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} {...la} />}
-        {cols.map((col, i) => <Bar key={col} dataKey={col} fill={C[i % C.length] ?? COLORS[i % COLORS.length]} radius={[4, 4, 0, 0]} animationDuration={800} />)}
+        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        {cfg.showLegend && <Legend wrapperStyle={legendStyle()} {...la} />}
+        {cols.map((col, i) => (
+          <Bar key={col} dataKey={col} fill={C[i % C.length] ?? chartColor(i)} fillOpacity={0.8} radius={[4, 4, 0, 0]} animationDuration={700} />
+        ))}
       </BarChart>
     </ResponsiveContainer>
   )
@@ -455,13 +516,13 @@ function ScatterRegressionChart({ data, config, expanded }: { data: Record<strin
     <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 340)}>
       <ComposedChart>
         <ChartGradients />
-        {cfg.showGrid && <CartesianGrid stroke={cfg.gridColor} strokeDasharray="3 6" />}
+        {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="x" type="number" name="X" tick={axisTick} {...axisLabelX(cfg)} />
         <YAxis tick={axisTick} {...axisLabelY(cfg)} />
-        <Tooltip content={<CustomTooltip />} />
-        <Area data={lineData} type="monotone" dataKey="y" fill="url(#blueGrad)" stroke="none" />
-        <Scatter data={data as Record<string, unknown>[]} fill={C[0] ?? COLORS[0]} opacity={0.6} animationDuration={800} />
-        <Line data={lineData} type="monotone" dataKey="y" stroke={C[1] ?? COLORS[1]} dot={false} strokeWidth={2.5} animationDuration={800} />
+        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        <Area data={lineData} type="monotone" dataKey="y" fill={`url(#plexGrad2)`} stroke="none" />
+        <Scatter data={data as Record<string, unknown>[]} fill={C[0] ?? chartColor(0)} opacity={0.55} animationDuration={700} />
+        <Line data={lineData} type="monotone" dataKey="y" stroke={C[2] ?? chartColor(2)} dot={false} strokeWidth={2.5} strokeDasharray="6 3" animationDuration={700} />
       </ComposedChart>
     </ResponsiveContainer>
   )
@@ -474,34 +535,31 @@ function ResidualChart({ data, expanded }: { data: Record<string, unknown>[]; ex
   return (
     <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 280)}>
       <ScatterChart>
-        {cfg.showGrid && <CartesianGrid stroke={cfg.gridColor} strokeDasharray="3 6" />}
+        {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="fitted" name="Fitted" tick={axisTick} {...axisLabelX(cfg, 'Fitted Values')} />
         <YAxis dataKey="residual" name="Residual" tick={axisTick} {...axisLabelY(cfg, 'Residuals')} />
-        <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="6 4" />
-        <Tooltip content={<CustomTooltip />} />
-        <Scatter data={data} fill={C[0] ?? COLORS[0]} opacity={0.5} animationDuration={800} />
+        <ReferenceLine y={0} stroke={CHART_TOKENS.borderActive} strokeDasharray="6 4" />
+        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        <Scatter data={data} fill={C[0] ?? chartColor(0)} opacity={0.5} animationDuration={700} />
       </ScatterChart>
     </ResponsiveContainer>
   )
 }
 
-// ── Forest Plot (Table-based, responsive) ─────────────────────
+// ── Forest / Coefficient Plot (SVG table) ─────────────────────
 interface CoefficientPlotData { name: string; estimate?: number; or?: number; hr?: number; irr?: number; ciLow: number; ciHigh: number; p: string; sig?: string }
 interface ForestPlotData { label: string; es: number; ciLow: number; ciHigh: number; weight: number; isSummary: boolean }
 
 type ForestRow = { name: string; value: number; ciLow: number; ciHigh: number; p: string; isSummary?: boolean; weight?: number }
 
 const BAR_W = 220
-const BAR_H = 28
+const BAR_H = 30
 
 function computeForestDomain(rows: ForestRow[], nullLine: number) {
   const finite = (v: unknown): v is number => typeof v === 'number' && isFinite(v) && !isNaN(v)
   const rawVals = rows.flatMap(r => [r.value, r.ciLow, r.ciHigh]).filter(finite)
   rawVals.push(nullLine)
-
   if (rawVals.length === 0) return { domainMin: nullLine - 1, domainMax: nullLine + 1 }
-
-  // IQR-based fence to suppress extreme outliers (e.g. infinite CIs from perfect separation)
   const sorted = [...rawVals].sort((a, b) => a - b)
   const q1 = sorted[Math.floor(sorted.length * 0.25)]
   const q3 = sorted[Math.floor(sorted.length * 0.75)]
@@ -509,7 +567,6 @@ function computeForestDomain(rows: ForestRow[], nullLine: number) {
   const fence = Math.max(iqr * 3, Math.abs(nullLine) + 1, 1)
   const clampMin = Math.min(q1 - fence, nullLine)
   const clampMax = Math.max(q3 + fence, nullLine)
-
   const pad = Math.max((clampMax - clampMin) * 0.12, 0.2)
   return { domainMin: clampMin - pad, domainMax: clampMax + pad }
 }
@@ -521,7 +578,7 @@ function ForestPlotTable({ rows, nullLine = 0, effectLabel = 'Estimate', isRatio
   isRatio?: boolean
 }) {
   if (rows.length === 0) {
-    return <p className="text-xs text-[#94a3b8] py-4 text-center">No data to display</p>
+    return <p className="text-xs py-4 text-center" style={{ color: CHART_TOKENS.text.muted }}>No data to display</p>
   }
 
   const { domainMin, domainMax } = computeForestDomain(rows, nullLine)
@@ -536,20 +593,34 @@ function ForestPlotTable({ rows, nullLine = 0, effectLabel = 'Estimate', isRatio
   const safeNum = (n: number | null | undefined) =>
     n != null && typeof n === 'number' && isFinite(n) ? n.toFixed(2) : '—'
 
-  // Generate 5 axis tick values across the domain
   const ticks = Array.from({ length: 5 }, (_, i) => domainMin + (i / 4) * domainSpan)
+
+  // Map significance to design-token colors
+  const getSigColor = (isSig: boolean, isSummaryRow: boolean, val: number) => {
+    if (isSummaryRow) return chartColor(3) // violet
+    if (!isSig) return CHART_TOKENS.text.muted
+    if (isRatio) return val > nullLine ? chartColor(2) : chartColor(4) // rose / sage
+    return val > nullLine ? chartColor(0) : chartColor(3) // teal / violet
+  }
 
   return (
     <div className="w-full overflow-x-auto">
       <table className="w-full text-left border-collapse">
         <thead>
-          <tr className="border-b border-[#e2e8f0]">
-            <th className="pb-3 text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748b] font-manrope pr-4 whitespace-nowrap">Variable</th>
-            <th className="pb-3 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748b] font-manrope" style={{ width: BAR_W + 'px', minWidth: BAR_W + 'px' }}>
-              {effectLabel} Scale
-            </th>
-            <th className="pb-3 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748b] font-manrope pr-4 whitespace-nowrap">{effectLabel} [95% CI]</th>
-            <th className="pb-3 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748b] font-manrope whitespace-nowrap">P-Value</th>
+          <tr style={{ borderBottom: `1px solid ${CHART_TOKENS.border}` }}>
+            {['Variable', 'Effect Scale', `${effectLabel} [95% CI]`, 'P-Value'].map((h, i) => (
+              <th
+                key={i}
+                className={`pb-3 text-[10px] font-bold uppercase tracking-[0.1em] whitespace-nowrap ${i === 0 ? 'pr-4' : i === 1 ? 'text-center' : i === 2 ? 'text-right pr-4' : 'text-right'}`}
+                style={{
+                  color: CHART_TOKENS.text.secondary,
+                  fontFamily: 'Manrope, sans-serif',
+                  ...(i === 1 ? { width: BAR_W + 'px', minWidth: BAR_W + 'px' } : {}),
+                }}
+              >
+                {h}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody className="tabular-nums">
@@ -564,12 +635,7 @@ function ForestPlotTable({ rows, nullLine = 0, effectLabel = 'Estimate', isRatio
             const isClippedLow = ciLow < domainMin
             const isClippedHigh = ciHigh > domainMax
 
-            let color: string
-            if (row.isSummary) color = '#6d28d9'
-            else if (!isSig) color = '#94a3b8'
-            else if (isRatio) color = val > nullLine ? '#ef4444' : '#10b981'
-            else color = val > nullLine ? '#0040a2' : '#8b5cf6'
-
+            const color = getSigColor(isSig, !!row.isSummary, val)
             const xVal = toBarX(val)
             const xLow = toBarX(ciLow)
             const xHigh = toBarX(ciHigh)
@@ -581,59 +647,57 @@ function ForestPlotTable({ rows, nullLine = 0, effectLabel = 'Estimate', isRatio
               : isNaN(pNum) ? pStr : pNum.toFixed(3)
 
             const rowBg = row.isSummary
-              ? 'bg-[#f5f3ff]'
-              : i % 2 === 0 ? 'bg-white' : 'bg-[#fafbfc]'
+              ? chartColorDim(3)
+              : i % 2 === 0
+                ? '#ffffff'
+                : '#f7f9fb'
 
             return (
-              <tr key={i} className={rowBg}>
+              <tr key={i} style={{ background: rowBg }}>
                 {/* Variable label */}
                 <td className="py-3 pr-4">
-                  <span className={`text-sm leading-tight ${row.isSummary ? 'font-bold text-[#6d28d9]' : 'font-medium text-[#1e293b]'}`}>
+                  <span
+                    className={`text-[12px] leading-tight ${row.isSummary ? 'font-bold' : 'font-medium'}`}
+                    style={{ color: row.isSummary ? chartColor(3) : CHART_TOKENS.text.primary, fontFamily: 'Manrope, sans-serif' }}
+                  >
                     {row.name}
                   </span>
-                  {/* Meta-analysis weight bar */}
                   {row.weight != null && !row.isSummary && (
-                    <div className="mt-1 h-1 rounded-full bg-[#e2e8f0] overflow-hidden" style={{ width: '80px' }}>
-                      <div className="h-full rounded-full bg-[#cbd5e1]" style={{ width: `${Math.max(4, row.weight * 100)}%` }} />
+                    <div className="mt-1 h-1 rounded-full overflow-hidden" style={{ width: '80px', background: '#f0f0f0' }}>
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${Math.max(4, row.weight * 100)}%`, background: CHART_TOKENS.border }}
+                      />
                     </div>
                   )}
                 </td>
 
-                {/* Mini SVG bar */}
+                {/* SVG forest bar */}
                 <td className="py-3" style={{ width: BAR_W + 'px', minWidth: BAR_W + 'px' }}>
                   <svg width={BAR_W} height={BAR_H} viewBox={`0 0 ${BAR_W} ${BAR_H}`} style={{ display: 'block' }}>
                     {/* Null reference line */}
-                    <line x1={nullX} y1={2} x2={nullX} y2={BAR_H - 2}
-                      stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="4 3" />
+                    <line x1={nullX} y1={2} x2={nullX} y2={BAR_H - 2} stroke={CHART_TOKENS.borderActive} strokeWidth={1.5} strokeDasharray="4 3" />
 
                     {!row.isSummary ? (
                       <>
-                        {/* CI whisker */}
-                        <line x1={xLow} y1={cy} x2={xHigh} y2={cy}
-                          stroke={color} strokeWidth={2} strokeLinecap="round" />
-                        {/* Left cap or arrow when clipped */}
+                        <line x1={xLow} y1={cy} x2={xHigh} y2={cy} stroke={color} strokeWidth={2} strokeLinecap="round" />
                         {isClippedLow
                           ? <polygon points={`4,${cy} 12,${cy - 5} 12,${cy + 5}`} fill={color} />
                           : <line x1={xLow} y1={cy - 5} x2={xLow} y2={cy + 5} stroke={color} strokeWidth={1.5} strokeLinecap="round" />
                         }
-                        {/* Right cap or arrow when clipped */}
                         {isClippedHigh
                           ? <polygon points={`${BAR_W - 4},${cy} ${BAR_W - 12},${cy - 5} ${BAR_W - 12},${cy + 5}`} fill={color} />
                           : <line x1={xHigh} y1={cy - 5} x2={xHigh} y2={cy + 5} stroke={color} strokeWidth={1.5} strokeLinecap="round" />
                         }
-                        {/* Point estimate square */}
                         <rect x={xVal - 5} y={cy - 5} width={10} height={10} fill={color} rx={2} />
-                        <circle cx={xVal} cy={cy} r={2} fill="white" />
+                        <circle cx={xVal} cy={cy} r={2} fill="#ffffff" />
                       </>
                     ) : (
                       <>
-                        {/* Summary CI whisker */}
-                        <line x1={xLow} y1={cy} x2={xHigh} y2={cy}
-                          stroke={color} strokeWidth={1.5} strokeOpacity={0.4} strokeLinecap="round" />
-                        {/* Summary diamond */}
+                        <line x1={xLow} y1={cy} x2={xHigh} y2={cy} stroke={color} strokeWidth={1.5} strokeOpacity={0.4} strokeLinecap="round" />
                         <polygon
                           points={`${xVal},${cy - 9} ${xHigh},${cy} ${xVal},${cy + 9} ${xLow},${cy}`}
-                          fill={color} fillOpacity={0.18} stroke={color} strokeWidth={2}
+                          fill={color} fillOpacity={0.22} stroke={color} strokeWidth={2}
                         />
                       </>
                     )}
@@ -642,17 +706,29 @@ function ForestPlotTable({ rows, nullLine = 0, effectLabel = 'Estimate', isRatio
 
                 {/* Annotation */}
                 <td className="py-3 pr-4 text-right">
-                  <span className={`text-[11px] font-mono ${row.isSummary ? 'font-bold text-[#6d28d9]' : 'text-[#334155]'}`}>
+                  <span
+                    className={`text-[11px] ${row.isSummary ? 'font-bold' : 'font-normal'}`}
+                    style={{
+                      color: row.isSummary ? chartColor(3) : CHART_TOKENS.text.secondary,
+                      fontFamily: "'JetBrains Mono', monospace",
+                    }}
+                  >
                     {annotText}
                   </span>
                   {(isClippedLow || isClippedHigh) && (
-                    <span className="ml-1 text-[9px] text-[#f59e0b] font-bold">†</span>
+                    <span className="ml-1 text-[9px] font-bold" style={{ color: chartColor(5) }}>†</span>
                   )}
                 </td>
 
                 {/* P-value */}
                 <td className="py-3 text-right">
-                  <span className={`text-[11px] font-mono font-bold ${isSig ? 'text-[#0f766e]' : 'text-[#94a3b8]'}`}>
+                  <span
+                    className="text-[11px] font-bold"
+                    style={{
+                      color: isSig ? chartColor(4) : CHART_TOKENS.text.muted,
+                      fontFamily: "'JetBrains Mono', monospace",
+                    }}
+                  >
                     {pText || '—'}
                   </span>
                 </td>
@@ -662,46 +738,37 @@ function ForestPlotTable({ rows, nullLine = 0, effectLabel = 'Estimate', isRatio
         </tbody>
       </table>
 
-      {/* Axis ticks */}
-      <div className="mt-1 pl-0" style={{ paddingLeft: '0px' }}>
-        <svg width="100%" height="20" style={{ display: 'block', overflow: 'visible' }}>
-          {/* We render ticks relative to the bar column — approximate via absolute positioning trick below */}
-        </svg>
-      </div>
-
-      {/* Scale labels */}
-      <div className="flex justify-between text-[9px] font-bold uppercase tracking-widest text-[#94a3b8] mt-2 border-t border-[#f1f5f9] pt-2">
+      {/* Scale legend */}
+      <div
+        className="flex justify-between text-[9px] font-bold uppercase tracking-widest mt-3 pt-2"
+        style={{ borderTop: `1px solid ${CHART_TOKENS.border}`, color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}
+      >
         {isRatio ? (
           <>
-            <span className="text-[#0f766e]">Favors Treatment</span>
-            <span className="text-[#64748b]">1.0 (Null)</span>
-            <span className="text-[#ef4444]">Favors Control</span>
+            <span style={{ color: chartColor(4) }}>Favors Treatment</span>
+            <span>1.0 (Null)</span>
+            <span style={{ color: chartColor(2) }}>Favors Control</span>
           </>
         ) : (
-          ticks.map((v, i) => (
-            <span key={i}>{v.toFixed(2)}</span>
-          ))
+          ticks.map((v, i) => <span key={i}>{v.toFixed(2)}</span>)
         )}
       </div>
 
-      {/* Legend */}
       {isRatio && (
         <div className="flex flex-wrap items-center gap-4 mt-3">
-          <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-sm bg-[#10b981]" />
-            <span className="text-[10px] text-[#64748b]">Protective (p&lt;0.05)</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-sm bg-[#ef4444]" />
-            <span className="text-[10px] text-[#64748b]">Harmful (p&lt;0.05)</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-sm bg-[#94a3b8]" />
-            <span className="text-[10px] text-[#64748b]">Non-significant</span>
-          </div>
+          {[
+            { color: chartColor(4), label: 'Protective (p<0.05)' },
+            { color: chartColor(2), label: 'Harmful (p<0.05)' },
+            { color: CHART_TOKENS.text.muted, label: 'Non-significant' },
+          ].map(({ color, label }) => (
+            <div key={label} className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-sm" style={{ background: color }} />
+              <span className="text-[10px]" style={{ color: CHART_TOKENS.text.secondary, fontFamily: 'Manrope, sans-serif' }}>{label}</span>
+            </div>
+          ))}
           <div className="flex items-center gap-1.5 ml-auto">
-            <span className="text-[9px] text-[#f59e0b] font-bold">†</span>
-            <span className="text-[10px] text-[#94a3b8]">CI extends beyond axis</span>
+            <span className="text-[9px] font-bold" style={{ color: chartColor(5) }}>†</span>
+            <span className="text-[10px]" style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}>CI extends beyond axis</span>
           </div>
         </div>
       )}
@@ -741,12 +808,12 @@ function FunnelPlot({ data, config, expanded }: { data: { es: number; se: number
   return (
     <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 300)}>
       <ScatterChart>
-        {cfg.showGrid && <CartesianGrid stroke={cfg.gridColor} strokeDasharray="3 6" />}
+        {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="es" name="Effect Size" tick={axisTick} {...axisLabelX(cfg, 'Effect Size')} />
         <YAxis dataKey="se" name="SE" reversed tick={axisTick} {...axisLabelY(cfg, 'Standard Error')} />
-        <ReferenceLine x={summaryES} stroke={C[1] ?? COLORS[1]} strokeDasharray="6 4" />
-        <Tooltip content={<CustomTooltip />} />
-        <Scatter data={data} fill={C[0] ?? COLORS[0]} opacity={0.7} animationDuration={800} />
+        <ReferenceLine x={summaryES} stroke={C[1] ?? chartColor(1)} strokeDasharray="6 4" strokeWidth={1.5} />
+        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        <Scatter data={data} fill={C[0] ?? chartColor(0)} opacity={0.7} animationDuration={700} />
       </ScatterChart>
     </ResponsiveContainer>
   )
@@ -762,20 +829,31 @@ function ROCCurve({ data, config, expanded }: { data: { fpr: number; tpr: number
       <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 340)}>
         <AreaChart data={data}>
           <ChartGradients />
-          {cfg.showGrid && <CartesianGrid stroke={cfg.gridColor} strokeDasharray="3 6" />}
-          <XAxis dataKey="fpr" name="FPR" tick={axisTick} domain={[0, 1]} {...axisLabelX(cfg, '1 - Specificity (FPR)')} />
+          {cfg.showGrid && <CartesianGrid {...gridStyle} />}
+          <XAxis dataKey="fpr" name="FPR" tick={axisTick} domain={[0, 1]} {...axisLabelX(cfg, '1 − Specificity (FPR)')} />
           <YAxis dataKey="tpr" name="TPR" tick={axisTick} domain={[0, 1]} {...axisLabelY(cfg, 'Sensitivity (TPR)')} />
-          <ReferenceLine x={0} y={0} stroke="#cbd5e1" />
-          <Tooltip content={<CustomTooltip />} />
-          <Area type="monotone" dataKey="tpr" fill="url(#blueGrad)" stroke={C[0] ?? COLORS[0]} strokeWidth={2.5} dot={false} name={`AUC = ${auc}`} animationDuration={800} />
+          <ReferenceLine
+            segment={[{ x: 0, y: 0 }, { x: 1, y: 1 }]}
+            stroke={CHART_TOKENS.borderActive}
+            strokeDasharray="6 4"
+            strokeWidth={1.5}
+          />
+          <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+          <Area
+            type="monotone"
+            dataKey="tpr"
+            fill="url(#plexGrad0)"
+            stroke={C[0] ?? chartColor(0)}
+            strokeWidth={2.5}
+            dot={false}
+            name={`AUC = ${auc}`}
+            animationDuration={700}
+          />
         </AreaChart>
       </ResponsiveContainer>
       {auc && (
-        <div className="mt-3 flex justify-center">
-          <div className="bg-primary/5 border border-primary/10 rounded-xl px-4 py-2 inline-flex items-center gap-3">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-primary">AUC</span>
-            <span className="text-lg font-extrabold text-foreground">{auc}</span>
-          </div>
+        <div className="mt-4 flex justify-center">
+          <StatBadge label="AUC" value={auc} colorIdx={0} />
         </div>
       )}
     </div>
@@ -795,11 +873,11 @@ function KMCurve({ data, config, expanded }: { data: KMPoint[]; config: Record<s
     <div>
       <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 360)}>
         <LineChart>
-          {cfg.showGrid && <CartesianGrid stroke={cfg.gridColor} strokeDasharray="3 6" />}
+          {cfg.showGrid && <CartesianGrid {...gridStyle} />}
           <XAxis dataKey="time" type="number" tick={axisTick} {...axisLabelX(cfg, 'Time')} />
           <YAxis domain={[0, 1]} tick={axisTick} {...axisLabelY(cfg, 'Survival Probability')} />
-          <Tooltip content={<CustomTooltip />} />
-          {cfg.showLegend && <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} {...la} />}
+          <Tooltip content={<DarkTooltip />} cursor={{ stroke: CHART_TOKENS.borderActive, strokeWidth: 1 }} />
+          {cfg.showLegend && <Legend wrapperStyle={legendStyle()} {...la} />}
           {groups.map((group, i) => (
             <Line
               key={group}
@@ -807,20 +885,18 @@ function KMCurve({ data, config, expanded }: { data: KMPoint[]; config: Record<s
               type="stepAfter"
               dataKey="survival"
               name={group}
-              stroke={C[i % C.length] ?? COLORS[i % COLORS.length]}
+              stroke={C[i % C.length] ?? chartColor(i)}
               dot={false}
               strokeWidth={2.5}
-              animationDuration={800}
+              animationDuration={700}
+             
             />
           ))}
         </LineChart>
       </ResponsiveContainer>
       {!!logRankP && (
-        <div className="mt-3 flex justify-center">
-          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2 inline-flex items-center gap-3">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-amber-700">Log-rank p</span>
-            <span className="text-base font-bold text-foreground">{String(logRankP)}</span>
-          </div>
+        <div className="mt-4 flex justify-center">
+          <StatBadge label="Log-rank p" value={String(logRankP)} colorIdx={1} />
         </div>
       )}
     </div>
@@ -835,27 +911,53 @@ function CorrelationHeatmap({ data, config }: { data: HeatmapData[]; config: Rec
   const n = variables.length
   if (n === 0) return null
 
-  const cellSize = Math.min(64, Math.max(36, 360 / n))
+  const cellSize = Math.min(64, Math.max(38, 380 / n))
+
+  const heatBg = (i: number, j: number, r: number) => {
+    if (i === j) return '#f0f0f0'
+    const t = Math.abs(r)
+    if (r > 0) {
+      // teal → bright teal
+      const R = Math.round(13 + t * (63 - 13))
+      const G = Math.round(17 + t * (184 - 17))
+      const B = Math.round(23 + t * (176 - 23))
+      return `rgba(${R},${G},${B},${0.15 + t * 0.75})`
+    } else {
+      // rose
+      const R = Math.round(13 + t * (224 - 13))
+      const G = Math.round(17 + t * (92 - 17))
+      const B = Math.round(23 + t * (122 - 23))
+      return `rgba(${R},${G},${B},${0.15 + t * 0.75})`
+    }
+  }
 
   return (
     <div className="overflow-x-auto py-2">
       <div style={{ display: 'grid', gridTemplateColumns: `100px repeat(${n}, ${cellSize}px)`, gap: 3 }}>
         <div />
         {variables.map(v => (
-          <div key={v} className="text-[10px] font-semibold text-center text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap" title={v}>{v}</div>
+          <div
+            key={v}
+            className="text-[10px] font-semibold text-center overflow-hidden text-ellipsis whitespace-nowrap"
+            style={{ color: CHART_TOKENS.text.secondary, fontFamily: 'Manrope, sans-serif' }}
+            title={v}
+          >
+            {v}
+          </div>
         ))}
         {variables.map((v1, i) => (
           <Fragment key={v1}>
-            <div className="text-[10px] font-semibold text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap flex items-center">{v1}</div>
+            <div
+              className="text-[10px] font-semibold overflow-hidden text-ellipsis whitespace-nowrap flex items-center"
+              style={{ color: CHART_TOKENS.text.secondary, fontFamily: 'Manrope, sans-serif' }}
+            >
+              {v1}
+            </div>
             {variables.map((v2, j) => {
               const cell = data.find(d => d.x === v1 && d.y === v2)
               const r = cell?.r ?? (i === j ? 1 : 0)
-              const intensity = Math.abs(r)
-              const bg = i === j
-                ? '#f1f5f9'
-                : r > 0
-                  ? `rgba(59,130,246,${intensity * 0.8})`
-                  : `rgba(239,68,68,${intensity * 0.8})`
+              const bg = heatBg(i, j, r)
+              const textCol = i === j ? CHART_TOKENS.text.muted : Math.abs(r) > 0.45 ? '#ffffff' : CHART_TOKENS.text.primary
               return (
                 <div
                   key={`${v1}-${v2}`}
@@ -866,8 +968,10 @@ function CorrelationHeatmap({ data, config }: { data: HeatmapData[]; config: Rec
                     height: cellSize,
                     background: bg,
                     fontSize: 10,
-                    fontWeight: 600,
-                    color: i === j ? '#64748b' : intensity > 0.4 ? 'white' : '#334155',
+                    fontWeight: 700,
+                    color: textCol,
+                    fontFamily: "'JetBrains Mono', monospace",
+                    border: `1px solid ${CHART_TOKENS.border}`,
                   }}
                 >
                   {i === j ? '1' : r.toFixed(2)}
@@ -891,13 +995,13 @@ function TimeSeriesChart({ data, config, expanded }: { data: Record<string, unkn
     <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 320)}>
       <ComposedChart data={data}>
         <ChartGradients />
-        {cfg.showGrid && <CartesianGrid stroke={cfg.gridColor} strokeDasharray="3 6" />}
+        {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="date" tick={{ ...axisTick, fontSize: 10 }} interval="preserveStartEnd" {...axisLabelX(cfg)} />
         <YAxis tick={axisTick} {...axisLabelY(cfg)} />
-        <Tooltip content={<CustomTooltip />} />
-        {cfg.showLegend && <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} {...la} />}
-        <Area type="monotone" dataKey="observed" fill="url(#blueGrad)" stroke={C[0] ?? COLORS[0]} strokeWidth={2} dot={false} name="Observed" animationDuration={800} />
-        <Line type="monotone" dataKey="trend" stroke={C[1] ?? COLORS[1]} dot={false} strokeWidth={2.5} name="Trend" strokeDasharray="8 4" animationDuration={800} />
+        <Tooltip content={<DarkTooltip />} cursor={{ stroke: CHART_TOKENS.borderActive, strokeWidth: 1 }} />
+        {cfg.showLegend && <Legend wrapperStyle={legendStyle()} {...la} />}
+        <Area type="monotone" dataKey="observed" fill="url(#plexGrad0)" stroke={C[0] ?? chartColor(0)} strokeWidth={2} dot={false} name="Observed" animationDuration={700} />
+        <Line type="monotone" dataKey="trend" stroke={C[1] ?? chartColor(1)} dot={false} strokeWidth={2.5} name="Trend" strokeDasharray="8 4" animationDuration={700} />
       </ComposedChart>
     </ResponsiveContainer>
   )
@@ -911,13 +1015,13 @@ function ScreePlot({ data, expanded }: { data: { component: number; eigenvalue: 
   return (
     <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 280)}>
       <ComposedChart data={data}>
-        {cfg.showGrid && <CartesianGrid stroke={cfg.gridColor} strokeDasharray="3 6" />}
+        {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="component" tick={axisTick} {...axisLabelX(cfg, 'Component')} />
         <YAxis tick={axisTick} {...axisLabelY(cfg)} />
-        <Tooltip content={<CustomTooltip />} />
-        {cfg.showLegend && <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} {...la} />}
-        <Bar dataKey="eigenvalue" fill={C[0] ?? COLORS[0]} name="Eigenvalue" radius={[4, 4, 0, 0]} animationDuration={800} />
-        <Line type="monotone" dataKey="varExplained" stroke={C[1] ?? COLORS[1]} dot={{ r: 4, fill: C[1] ?? COLORS[1] }} name="% Variance" strokeWidth={2.5} animationDuration={800} />
+        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        {cfg.showLegend && <Legend wrapperStyle={legendStyle()} {...la} />}
+        <Bar dataKey="eigenvalue" fill={C[0] ?? chartColor(0)} fillOpacity={0.75} name="Eigenvalue" radius={[4, 4, 0, 0]} animationDuration={700} />
+        <Line type="monotone" dataKey="varExplained" stroke={C[1] ?? chartColor(1)} dot={{ r: 4, fill: C[1] ?? chartColor(1) }} name="% Variance" strokeWidth={2.5} animationDuration={700} />
       </ComposedChart>
     </ResponsiveContainer>
   )
@@ -930,19 +1034,19 @@ function ClusterScatter({ data, config, expanded }: { data: { pc1: number; pc2: 
   const nClusters = (config.nClusters as number) ?? 3
   const clusterData = Array.from({ length: nClusters }, (_, i) => ({
     name: `Cluster ${i + 1}`,
-    data: data.filter(d => d.cluster === i + 1)
+    data: data.filter(d => d.cluster === i + 1),
   }))
   const la = legendAlign(cfg.legendPos)
   return (
     <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 320)}>
       <ScatterChart>
-        {cfg.showGrid && <CartesianGrid stroke={cfg.gridColor} strokeDasharray="3 6" />}
+        {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis type="number" dataKey="pc1" name="PC1" tick={axisTick} {...axisLabelX(cfg, 'PC1')} />
         <YAxis type="number" dataKey="pc2" name="PC2" tick={axisTick} {...axisLabelY(cfg, 'PC2')} />
-        <Tooltip content={<CustomTooltip />} />
-        {cfg.showLegend && <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} {...la} />}
+        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        {cfg.showLegend && <Legend wrapperStyle={legendStyle()} {...la} />}
         {clusterData.map((c, i) => (
-          <Scatter key={c.name} name={c.name} data={c.data} fill={C[i % C.length] ?? COLORS[i % COLORS.length]} opacity={0.7} animationDuration={800} />
+          <Scatter key={c.name} name={c.name} data={c.data} fill={C[i % C.length] ?? chartColor(i)} opacity={0.65} animationDuration={700} />
         ))}
       </ScatterChart>
     </ResponsiveContainer>
@@ -960,25 +1064,27 @@ function PowerCurve({ data, config, expanded }: { data: { n: number; power: numb
       <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 280)}>
         <AreaChart data={data}>
           <ChartGradients />
-          {cfg.showGrid && <CartesianGrid stroke={cfg.gridColor} strokeDasharray="3 6" />}
+          {cfg.showGrid && <CartesianGrid {...gridStyle} />}
           <XAxis dataKey="n" tick={axisTick} {...axisLabelX(cfg, 'Sample Size (n)')} />
           <YAxis domain={[0, 1]} tick={axisTick} {...axisLabelY(cfg, 'Power')} />
-          <ReferenceLine y={targetPower} stroke={C[3] ?? COLORS[3]} strokeDasharray="6 4" label={{ value: `${targetPower * 100}%`, fontSize: 11, fill: C[3] ?? COLORS[3] }} />
-          {targetN && <ReferenceLine x={targetN} stroke={C[1] ?? COLORS[1]} strokeDasharray="6 4" />}
-          <Tooltip content={<CustomTooltip />} />
-          <Area type="monotone" dataKey="power" fill="url(#blueGrad)" stroke={C[0] ?? COLORS[0]} strokeWidth={2.5} dot={false} animationDuration={800} />
+          <ReferenceLine
+            y={targetPower}
+            stroke={C[1] ?? chartColor(1)}
+            strokeDasharray="6 4"
+            strokeWidth={1.5}
+            label={{ value: `${(targetPower * 100).toFixed(0)}%`, fontSize: 11, fill: C[1] ?? chartColor(1), fontFamily: 'Manrope, sans-serif' }}
+          />
+          {targetN && (
+            <ReferenceLine x={targetN} stroke={C[2] ?? chartColor(2)} strokeDasharray="6 4" strokeWidth={1.5} />
+          )}
+          <Tooltip content={<DarkTooltip />} cursor={{ stroke: CHART_TOKENS.borderActive, strokeWidth: 1 }} />
+          <Area type="monotone" dataKey="power" fill="url(#plexGrad0)" stroke={C[0] ?? chartColor(0)} strokeWidth={2.5} dot={false} animationDuration={700} />
         </AreaChart>
       </ResponsiveContainer>
       {targetN && (
-        <div className="mt-3 flex justify-center gap-4">
-          <div className="bg-primary/5 border border-primary/10 rounded-xl px-4 py-2 inline-flex items-center gap-3">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-primary">Required N</span>
-            <span className="text-lg font-extrabold text-foreground">{targetN}</span>
-          </div>
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2 inline-flex items-center gap-3">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">Target Power</span>
-            <span className="text-lg font-extrabold text-foreground">{(targetPower * 100).toFixed(0)}%</span>
-          </div>
+        <div className="mt-4 flex justify-center gap-3 flex-wrap">
+          <StatBadge label="Required N" value={targetN} colorIdx={0} />
+          <StatBadge label="Target Power" value={`${(targetPower * 100).toFixed(0)}%`} colorIdx={1} />
         </div>
       )}
     </div>
@@ -993,14 +1099,23 @@ function EpiCurve({ data, config, expanded }: { data: Record<string, unknown>[];
   const la = legendAlign(cfg.legendPos)
   return (
     <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 300)}>
-      <BarChart data={data}>
-        {cfg.showGrid && <CartesianGrid stroke={cfg.gridColor} strokeDasharray="3 6" />}
+      <BarChart data={data} barCategoryGap="8%">
+        {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="date" tick={{ ...axisTick, fontSize: 10 }} interval="preserveStartEnd" {...axisLabelX(cfg)} />
         <YAxis tick={axisTick} {...axisLabelY(cfg)} />
-        <Tooltip content={<CustomTooltip />} />
-        {cfg.showLegend && <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} {...la} />}
+        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        {cfg.showLegend && <Legend wrapperStyle={legendStyle()} {...la} />}
         {classifications.map((cls, i) => (
-          <Bar key={cls} dataKey={cls} stackId="a" fill={C[i % C.length] ?? COLORS[i % COLORS.length]} name={cls} radius={i === classifications.length - 1 ? [4, 4, 0, 0] : undefined} animationDuration={800} />
+          <Bar
+            key={cls}
+            dataKey={cls}
+            stackId="a"
+            fill={C[i % C.length] ?? chartColor(i)}
+            fillOpacity={0.8}
+            name={cls}
+            radius={i === classifications.length - 1 ? [4, 4, 0, 0] : undefined}
+            animationDuration={700}
+          />
         ))}
       </BarChart>
     </ResponsiveContainer>
@@ -1016,16 +1131,20 @@ function ACFChart({ data, config, expanded }: { data: { lag: number; acf: number
   return (
     <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 250)}>
       <BarChart data={data}>
-        {cfg.showGrid && <CartesianGrid stroke={cfg.gridColor} strokeDasharray="3 6" />}
+        {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="lag" tick={axisTick} {...axisLabelX(cfg, 'Lag')} />
         <YAxis domain={[-1, 1]} tick={axisTick} {...axisLabelY(cfg)} />
-        <ReferenceLine y={ci} stroke={C[1] ?? COLORS[1]} strokeDasharray="6 4" />
-        <ReferenceLine y={-ci} stroke={C[1] ?? COLORS[1]} strokeDasharray="6 4" />
-        <ReferenceLine y={0} stroke="#94a3b8" />
-        <Tooltip content={<CustomTooltip />} />
-        <Bar dataKey="acf" fill={C[0] ?? COLORS[0]} radius={[4, 4, 0, 0]} animationDuration={800}>
+        <ReferenceLine y={ci}  stroke={C[1] ?? chartColor(1)} strokeDasharray="6 4" strokeWidth={1.5} />
+        <ReferenceLine y={-ci} stroke={C[1] ?? chartColor(1)} strokeDasharray="6 4" strokeWidth={1.5} />
+        <ReferenceLine y={0}   stroke={CHART_TOKENS.borderActive} strokeWidth={1} />
+        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        <Bar dataKey="acf" radius={[4, 4, 0, 0]} animationDuration={700}>
           {data.map((d, i) => (
-            <Cell key={i} fill={Math.abs(d.acf) > ci ? (C[5] ?? COLORS[5]) : (C[0] ?? COLORS[0])} fillOpacity={0.8} />
+            <Cell
+              key={i}
+              fill={Math.abs(d.acf) > ci ? (C[2] ?? chartColor(2)) : (C[0] ?? chartColor(0))}
+              fillOpacity={0.8}
+            />
           ))}
         </Bar>
       </BarChart>
@@ -1050,7 +1169,6 @@ function Biplot({ data, config, expanded }: { data: BiplotData; config: Record<s
   const plotW = VW - PAD.l - PAD.r
   const plotH = VH - PAD.t - PAD.b
 
-  // Score axis ranges (symmetric around 0)
   const pc1s = sample.map(d => d.pc1)
   const pc2s = sample.map(d => d.pc2)
   const xRange = Math.max(Math.abs(Math.min(...pc1s)), Math.abs(Math.max(...pc1s))) * 1.25 || 1
@@ -1061,13 +1179,9 @@ function Biplot({ data, config, expanded }: { data: BiplotData; config: Record<s
   const oX = toSvgX(0)
   const oY = toSvgY(0)
 
-  // Scale loadings to fill ~72% of score range
   const maxL = Math.max(...loadings.flatMap(l => [Math.abs(l.pc1), Math.abs(l.pc2)]), 0.001)
   const lScale = (xRange * 0.72) / maxL
-
-  // Axis tick values
   const axisTicks = [-1, -0.5, 0, 0.5, 1].map(f => f * xRange)
-
   const pc1Label = varExp ? `PC1 (${(varExp[0] * 100).toFixed(1)}%)` : 'PC1'
   const pc2Label = varExp ? `PC2 (${(varExp[1] * 100).toFixed(1)}%)` : 'PC2'
 
@@ -1076,33 +1190,30 @@ function Biplot({ data, config, expanded }: { data: BiplotData; config: Record<s
       <defs>
         {loadings.map((_, i) => (
           <marker key={i} id={`bp-arrow-${i}`} markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
-            <polygon points="0,0 7,3.5 0,7" fill={C[i % C.length] ?? COLORS[i % COLORS.length]} />
+            <polygon points="0,0 7,3.5 0,7" fill={C[i % C.length] ?? chartColor(i)} />
           </marker>
         ))}
       </defs>
 
-      {/* Subtle grid */}
       {cfg.showGrid && [-0.5, 0, 0.5].map(f => {
         const gx = toSvgX(f * xRange)
         const gy = toSvgY(f * yRange)
         return (
           <g key={f}>
-            <line x1={gx} y1={PAD.t} x2={gx} y2={PAD.t + plotH} stroke={f === 0 ? '#cbd5e1' : '#e2e8f0'} strokeWidth={f === 0 ? 1.5 : 1} strokeDasharray={f === 0 ? undefined : '3 5'} />
-            <line x1={PAD.l} y1={gy} x2={PAD.l + plotW} y2={gy} stroke={f === 0 ? '#cbd5e1' : '#e2e8f0'} strokeWidth={f === 0 ? 1.5 : 1} strokeDasharray={f === 0 ? undefined : '3 5'} />
+            <line x1={gx} y1={PAD.t} x2={gx} y2={PAD.t + plotH} stroke={f === 0 ? CHART_TOKENS.borderActive : CHART_TOKENS.grid} strokeWidth={f === 0 ? 1.5 : 1} strokeDasharray={f === 0 ? undefined : '3 5'} />
+            <line x1={PAD.l} y1={gy} x2={PAD.l + plotW} y2={gy} stroke={f === 0 ? CHART_TOKENS.borderActive : CHART_TOKENS.grid} strokeWidth={f === 0 ? 1.5 : 1} strokeDasharray={f === 0 ? undefined : '3 5'} />
           </g>
         )
       })}
 
-      {/* Score scatter points */}
       {sample.map((d, i) => (
-        <circle key={i} cx={toSvgX(d.pc1)} cy={toSvgY(d.pc2)} r={3.5} fill="#3b82f6" fillOpacity={0.35} stroke="#3b82f6" strokeOpacity={0.5} strokeWidth={0.5} />
+        <circle key={i} cx={toSvgX(d.pc1)} cy={toSvgY(d.pc2)} r={3.5} fill={chartColor(0)} fillOpacity={0.3} stroke={chartColor(0)} strokeOpacity={0.4} strokeWidth={0.5} />
       ))}
 
-      {/* Loading arrows + labels */}
       {loadings.map((l, i) => {
         const ex = toSvgX(l.pc1 * lScale)
         const ey = toSvgY(l.pc2 * lScale)
-        const color = C[i % C.length] ?? COLORS[i % COLORS.length]
+        const color = C[i % C.length] ?? chartColor(i)
         const dx = ex - oX, dy = ey - oY
         const len = Math.sqrt(dx * dx + dy * dy) || 1
         const ax = ex - (dx / len) * 8
@@ -1111,48 +1222,41 @@ function Biplot({ data, config, expanded }: { data: BiplotData; config: Record<s
         const ly = ey + (dy / len) * 13
         return (
           <g key={i}>
-            <line x1={oX} y1={oY} x2={ax} y2={ay} stroke={color} strokeWidth={1.8} strokeOpacity={0.85} markerEnd={`url(#bp-arrow-${i})`} />
-            <text x={lx} y={ly} fontSize={10} fill={color} fontWeight={700} textAnchor="middle" dominantBaseline="middle"
-              style={{ filter: 'drop-shadow(0 0 2px white)' }}>
+            <line x1={oX} y1={oY} x2={ax} y2={ay} stroke={color} strokeWidth={1.8} strokeOpacity={0.9} markerEnd={`url(#bp-arrow-${i})`} />
+            <text x={lx} y={ly} fontSize={10} fill={color} fontWeight={700} textAnchor="middle" dominantBaseline="middle" fontFamily="Manrope, sans-serif">
               {l.variable.length > 14 ? l.variable.slice(0, 12) + '…' : l.variable}
             </text>
           </g>
         )
       })}
 
-      {/* Axes border */}
-      <rect x={PAD.l} y={PAD.t} width={plotW} height={plotH} fill="none" stroke="#cbd5e1" strokeWidth={1} rx={2} />
+      <rect x={PAD.l} y={PAD.t} width={plotW} height={plotH} fill="none" stroke={CHART_TOKENS.border} strokeWidth={1} rx={2} />
 
-      {/* X-axis ticks */}
       {axisTicks.map((v, i) => {
         const tx = toSvgX(v)
         return (
           <g key={i}>
-            <line x1={tx} y1={PAD.t + plotH} x2={tx} y2={PAD.t + plotH + 4} stroke="#94a3b8" strokeWidth={1} />
-            <text x={tx} y={PAD.t + plotH + 14} fontSize={9} fill="#94a3b8" textAnchor="middle">{v.toFixed(1)}</text>
+            <line x1={tx} y1={PAD.t + plotH} x2={tx} y2={PAD.t + plotH + 4} stroke={CHART_TOKENS.text.muted} strokeWidth={1} />
+            <text x={tx} y={PAD.t + plotH + 14} fontSize={9} fill={CHART_TOKENS.text.muted} textAnchor="middle" fontFamily="Manrope, sans-serif">{v.toFixed(1)}</text>
           </g>
         )
       })}
 
-      {/* Y-axis ticks */}
       {axisTicks.map((v, i) => {
         const ty = toSvgY(v)
         return (
           <g key={i}>
-            <line x1={PAD.l - 4} y1={ty} x2={PAD.l} y2={ty} stroke="#94a3b8" strokeWidth={1} />
-            <text x={PAD.l - 6} y={ty + 4} fontSize={9} fill="#94a3b8" textAnchor="end">{v.toFixed(1)}</text>
+            <line x1={PAD.l - 4} y1={ty} x2={PAD.l} y2={ty} stroke={CHART_TOKENS.text.muted} strokeWidth={1} />
+            <text x={PAD.l - 6} y={ty + 4} fontSize={9} fill={CHART_TOKENS.text.muted} textAnchor="end" fontFamily="Manrope, sans-serif">{v.toFixed(1)}</text>
           </g>
         )
       })}
 
-      {/* Axis labels */}
-      <text x={PAD.l + plotW / 2} y={VH - 4} fontSize={11} fill="#64748b" textAnchor="middle" fontWeight={600}>{pc1Label}</text>
-      <text x={14} y={PAD.t + plotH / 2} fontSize={11} fill="#64748b" textAnchor="middle" fontWeight={600}
-        transform={`rotate(-90, 14, ${PAD.t + plotH / 2})`}>{pc2Label}</text>
+      <text x={PAD.l + plotW / 2} y={VH - 4} fontSize={11} fill={CHART_TOKENS.text.secondary} textAnchor="middle" fontWeight={600} fontFamily="Manrope, sans-serif">{pc1Label}</text>
+      <text x={14} y={PAD.t + plotH / 2} fontSize={11} fill={CHART_TOKENS.text.secondary} textAnchor="middle" fontWeight={600} fontFamily="Manrope, sans-serif" transform={`rotate(-90, 14, ${PAD.t + plotH / 2})`}>{pc2Label}</text>
 
-      {/* Sample size note */}
       {data.scores.length > 500 && (
-        <text x={PAD.l + plotW - 4} y={PAD.t + plotH - 6} fontSize={9} fill="#94a3b8" textAnchor="end">first 500 observations shown</text>
+        <text x={PAD.l + plotW - 4} y={PAD.t + plotH - 6} fontSize={9} fill={CHART_TOKENS.text.muted} textAnchor="end" fontFamily="Manrope, sans-serif">first 500 observations shown</text>
       )}
     </svg>
   )
@@ -1164,17 +1268,17 @@ function BoxPlot2Group({ data, expanded }: { data: Record<string, unknown>; expa
   const C = cfg.colors
   const groups = (Array.isArray(data) ? data : (data.groups as { group: string; mean: number; sd: number }[])) ?? []
   if (!groups.length) return null
-  const plotData = groups.map(g => ({ name: g.group, mean: g.mean, error: g.sd }))
+  const plotData = groups.map((g: { group: string; mean: number; sd: number }) => ({ name: g.group, mean: g.mean, error: g.sd }))
   return (
     <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 280)}>
-      <BarChart data={plotData}>
-        {cfg.showGrid && <CartesianGrid stroke={cfg.gridColor} strokeDasharray="3 6" />}
+      <BarChart data={plotData} barCategoryGap="30%">
+        {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="name" tick={axisTick} {...axisLabelX(cfg)} />
         <YAxis tick={axisTick} {...axisLabelY(cfg)} />
-        <Tooltip content={<CustomTooltip />} />
-        <Bar dataKey="mean" radius={[4, 4, 0, 0]} animationDuration={800}>
-          {plotData.map((_, i) => <Cell key={i} fill={C[i % C.length] ?? COLORS[i % COLORS.length]} fillOpacity={0.85} />)}
-          <ErrorBar dataKey="error" width={6} strokeWidth={2} stroke="#475569" />
+        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        <Bar dataKey="mean" radius={[5, 5, 0, 0]} animationDuration={700}>
+          {plotData.map((_, i) => <Cell key={i} fill={C[i % C.length] ?? chartColor(i)} fillOpacity={0.78} />)}
+          <ErrorBar dataKey="error" width={7} strokeWidth={2} stroke={CHART_TOKENS.borderActive} />
         </Bar>
       </BarChart>
     </ResponsiveContainer>
@@ -1189,14 +1293,14 @@ function BoxPlotGroups({ data, expanded }: { data: Record<string, unknown>; expa
   if (!groupData.length) return null
   return (
     <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 280)}>
-      <BarChart data={groupData}>
-        {cfg.showGrid && <CartesianGrid stroke={cfg.gridColor} strokeDasharray="3 6" />}
+      <BarChart data={groupData} barCategoryGap="20%">
+        {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="group" tick={axisTick} {...axisLabelX(cfg)} />
         <YAxis tick={axisTick} {...axisLabelY(cfg)} />
-        <Tooltip content={<CustomTooltip />} />
-        <Bar dataKey="mean" radius={[4, 4, 0, 0]} animationDuration={800}>
-          {groupData.map((_, i) => <Cell key={i} fill={C[i % C.length] ?? COLORS[i % COLORS.length]} fillOpacity={0.85} />)}
-          <ErrorBar dataKey="sd" width={6} strokeWidth={2} stroke="#475569" />
+        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        <Bar dataKey="mean" radius={[5, 5, 0, 0]} animationDuration={700}>
+          {groupData.map((_: unknown, i: number) => <Cell key={i} fill={C[i % C.length] ?? chartColor(i)} fillOpacity={0.78} />)}
+          <ErrorBar dataKey="sd" width={7} strokeWidth={2} stroke={CHART_TOKENS.borderActive} />
         </Bar>
       </BarChart>
     </ResponsiveContainer>
@@ -1209,4 +1313,3 @@ function MosaicPlot({ data, config, expanded }: { data: Record<string, unknown>[
   const cats2 = (config.cats2 as string[]) ?? []
   return <GroupedBarChart data={data} config={{ rowCats: cats1, colCats: cats2 }} expanded={expanded} />
 }
-
