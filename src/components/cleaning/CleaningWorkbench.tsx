@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { DatasetTable } from '@/components/data/DatasetTable'
 import { applyOperations } from '@/lib/data/operations'
 import { saveCleanedVersion } from '@/lib/data/storage'
+import { auditDatasetVersionCommit } from '@/lib/audit/auditHelpers'
 import { useAuth } from '@/hooks/useAuth'
 import type {
   DataRow, ColumnSchema, DatasetVersion, CleaningOperation,
@@ -127,6 +128,21 @@ export function CleaningWorkbench({
         operations,
         createdBy: user.id,
       })
+      const supabase = createClient()
+      await auditDatasetVersionCommit(
+        { supabaseClient: supabase, userId: user.id, projectId },
+        {
+          versionId,
+          versionNumber: version.version_number + 1,
+          parentVersionNumber: version.version_number,
+          rowsBefore: initialRows.length,
+          rowsAfter: currentRows.length,
+          commitMessage: commitMessage.trim(),
+          fileHash: '',
+          justification: commitMessage.trim(),
+          operations,
+        }
+      )
       onVersionSaved(versionId)
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Save failed')

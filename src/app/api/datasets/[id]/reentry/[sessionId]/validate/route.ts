@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { writeAuditEntry } from '@/lib/audit/auditLogger'
 
 /**
  * POST /api/datasets/[id]/reentry/[sessionId]/validate
@@ -99,27 +100,29 @@ export async function POST(
       })
       .eq('id', sessionId)
 
-    // Write final audit entry
-    await supabase.from('audit_logs').insert({
-      actor_id: user.id,
-      action: 'dataset.reentry.validated',
-      resource_type: 'dataset',
-      resource_id: sessionId,
-      project_id: session.project_id,
-      details: {
-        summary: (
-          `Re-entry validation complete. ${overallAgreement}% agreement. ` +
-          `Verified version created.`
-        ),
-        operation: {
-          session_id: sessionId,
-          overall_agreement_pct: overallAgreement,
-          verified_version_id: verifiedVersion.id,
-          total_discrepancies: comparison.total_discrepancies,
-          total_resolved: comparison.total_discrepancies,
+    // Write final audit entry with hash chain
+    await writeAuditEntry(
+      {
+        actor_id: user.id,
+        action: 'dataset.reentry.validated',
+        resource_type: 'dataset',
+        resource_id: datasetId,
+        project_id: session.project_id ?? undefined,
+        details: {
+          summary:
+            `Re-entry validation complete. ${overallAgreement}% agreement. ` +
+            `Verified version created.`,
+          operation: {
+            session_id: sessionId,
+            overall_agreement_pct: overallAgreement,
+            verified_version_id: verifiedVersion.id,
+            total_discrepancies: comparison.total_discrepancies,
+            total_resolved: comparison.total_discrepancies,
+          },
         },
       },
-    })
+      supabase
+    )
 
     return NextResponse.json({
       success: true,

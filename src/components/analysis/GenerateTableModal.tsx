@@ -7,6 +7,8 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/useAuth'
+import { logAudit } from '@/lib/audit'
 import {
   parseDescriptiveResult,
   parseRegressionResult,
@@ -285,6 +287,7 @@ function VarCheckbox({
 
 export function GenerateTableModal({ result, projectId, runTitle, onClose }: Props) {
   const supabase = createClient()
+  const { user } = useAuth()
   const analysisType = result.type as AnalysisType
   const template = getTableTemplate(analysisType)
 
@@ -446,15 +449,18 @@ export function GenerateTableModal({ result, projectId, runTitle, onClose }: Pro
           type: 'doc',
           content: [{ type: 'tableBlock', attrs: { tableSpec: JSON.stringify(spec) } }],
         }
-        const { error } = await supabase.from('documents').insert({
+        const { data: newDoc, error } = await supabase.from('documents').insert({
           project_id: projectId,
           title: tableName,
           content: docContent,
           status: 'draft',
           word_count: 0,
           current_version: 1,
-        })
+        }).select('id').single()
         if (error) throw error
+        if (newDoc && user) {
+          logAudit('document.created', 'document', newDoc.id, { title: tableName, type: 'table' }, projectId)
+        }
         toast.success('Table saved to Documents', { description: `"${tableName}" is ready in your Documents hub.` })
       }
       onClose()

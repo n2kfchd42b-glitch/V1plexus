@@ -8,6 +8,8 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/useAuth'
+import { logAudit } from '@/lib/audit'
 import {
   parseDescriptiveResult,
   parseRegressionResult,
@@ -379,6 +381,7 @@ function Table3Preview({ spec }: { spec: Partial<Table3Spec> }) {
 
 export function HubTableGeneratorModal({ projectId, onClose }: Props) {
   const supabase = createClient()
+  const { user } = useAuth()
 
   // ── Navigation ────────────────────────────────────────────────────────────────
   const [step, setStep] = useState<1 | 2 | 3>(1)
@@ -627,15 +630,18 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
           type: 'doc',
           content: [{ type: 'tableBlock', attrs: { tableSpec: JSON.stringify(spec) } }],
         }
-        const { error } = await supabase.from('documents').insert({
+        const { data: newDoc, error } = await supabase.from('documents').insert({
           project_id: projectId,
           title: tableName,
           content: docContent,
           status: 'draft',
           word_count: 0,
           current_version: 1,
-        })
+        }).select('id').single()
         if (error) throw error
+        if (newDoc && user) {
+          logAudit('document.created', 'document', newDoc.id, { title: tableName, type: 'table' }, projectId)
+        }
         toast.success('Table saved', { description: `"${tableName}" is ready in Documents.` })
       }
       onClose()

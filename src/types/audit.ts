@@ -13,6 +13,7 @@ export type AuditAction =
   | 'dataset.column.recoded'
   | 'dataset.imputation.mice'
   | 'dataset.duplicates.resolved'
+  | 'dataset.reentry.validated'
   | 'dataset.exploration.created'
   | 'dataset.approved'
   | 'dataset.approval.requested'
@@ -31,6 +32,7 @@ export type AuditAction =
   | 'document.submitted'
   // Project operations
   | 'project.created'
+  | 'project.updated'
   | 'project.member.added'
   | 'project.member.removed'
   // Auth operations

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
+import { logAudit } from '@/lib/audit'
 import type { KnowledgeBaseEntry } from '@/types/database'
 
 interface UseAsTemplateButtonProps {
@@ -58,6 +59,7 @@ export function UseAsTemplateButton({ entry }: UseAsTemplateButtonProps) {
         return
       }
 
+      logAudit('document.created', 'document', newDoc.id, { title: `[Template] ${entry.title}`, source_entry_id: entry.id }, newDoc.project_id)
       toast.success('Document created from template. Opening editor…')
       router.push(`/projects/${newDoc.project_id}/documents/${newDoc.id}`)
     } catch {

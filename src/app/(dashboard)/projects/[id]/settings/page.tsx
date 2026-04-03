@@ -86,6 +86,7 @@ export default function ProjectSettingsPage() {
     } else {
       toast.success('Project settings saved')
       setProject(prev => prev ? { ...prev, title: title.trim(), description: description.trim() || null, status } : prev)
+      logAudit('project.updated', 'project', projectId, { title: title.trim(), status, phase: phase || null }, projectId)
     }
     setSaving(false)
   }
