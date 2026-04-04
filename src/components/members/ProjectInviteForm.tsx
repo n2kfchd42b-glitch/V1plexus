@@ -29,7 +29,7 @@ export function ProjectInviteForm({ projectId, projectTitle, onInvited }: Projec
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email.trim()) return
+    if (!email.trim() || !projectId || !projectTitle) return
     setLoading(true)
 
     const res = await fetch('/api/invitations/send', {

@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     const inviterName = inviterProfile?.full_name ?? inviterProfile?.email ?? 'A colleague'
 
     const token = crypto.randomUUID().replace(/-/g, '')
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://plexus.app'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://plexus.science'
     const inviteLink = `${appUrl}/invite/${token}`
     const normalizedEmail = email.trim().toLowerCase()
 
@@ -125,28 +125,37 @@ export async function POST(request: Request) {
     }
 
     // In-app notification if the invited person already has an account
-    // Look up by email in auth.users via service client (more reliable than profiles)
-    const { data: authUsers } = await serviceClient.auth.admin.listUsers()
-    const matchedUser = authUsers?.users?.find(
-      u => u.email?.toLowerCase() === normalizedEmail
-    )
+    // Use case-insensitive profiles lookup via service role — avoids pagination limits
+    const { data: existingProfile, error: profileLookupError } = await serviceClient
+      .from('profiles')
+      .select('id')
+      .ilike('email', normalizedEmail)
+      .maybeSingle()
 
-    if (matchedUser) {
+    if (profileLookupError) {
+      console.error('Profile lookup error:', profileLookupError)
+    }
+
+    if (existingProfile) {
       const notifTitle = type === 'workspace'
         ? `You've been invited to ${resourceName}`
         : `You've been invited to collaborate on ${resourceName}`
-      await sendNotification(
-        matchedUser.id,
-        'invitation_received',
-        notifTitle,
-        `${inviterName} invited you as ${roleLabel}`,
-        `/invite/${token}`,
-        {
-          resource_type: type,
-          resource_id: type === 'workspace' ? workspaceId : projectId,
-        },
-        serviceClient
-      )
+      try {
+        await sendNotification(
+          existingProfile.id,
+          'invitation_received',
+          notifTitle,
+          `${inviterName} invited you as ${roleLabel}`,
+          `/invite/${token}`,
+          {
+            resource_type: type,
+            resource_id: type === 'workspace' ? workspaceId : projectId,
+          },
+          serviceClient
+        )
+      } catch (notifError) {
+        console.error('Notification insert error:', notifError)
+      }
     }
 
     return NextResponse.json({ success: true })
