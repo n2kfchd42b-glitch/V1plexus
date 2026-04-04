@@ -121,16 +121,20 @@ export function InstitutionalSidebar({ collapsed, onCommandPalette }: Institutio
         </>
       )}
 
-      {/* Phase 12: Research Network */}
-      <div className="my-2 h-px bg-slate-100" />
-      {!collapsed && (
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-4 mb-1 pt-1">
-          Network
-        </p>
+      {/* Phase 12: Research Network — hidden for beta */}
+      {false && (
+        <>
+          <div className="my-2 h-px bg-slate-100" />
+          {!collapsed && (
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-4 mb-1 pt-1">
+              Network
+            </p>
+          )}
+          {networkNav.map(item => (
+            <NavItem key={item.href} {...item} soon={!NETWORK_COMPLIANCE_ENABLED} />
+          ))}
+        </>
       )}
-      {networkNav.map(item => (
-        <NavItem key={item.href} {...item} soon={!NETWORK_COMPLIANCE_ENABLED} />
-      ))}
 
       {/* Command palette */}
       <button

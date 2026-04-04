@@ -62,42 +62,46 @@ export function PersonalSidebar({ collapsed, onCommandPalette }: PersonalSidebar
         )
       })}
 
-      {/* Research Network section */}
-      <div className="my-2 h-px bg-slate-100" />
-      {!collapsed && (
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-4 mb-1 pt-1">
-          Network
-        </p>
-      )}
-      {networkNav.map(item => {
-        const Icon = item.icon
-        const active = pathname === item.href || pathname.startsWith(item.href + '/')
-        return (
-          <Link key={item.href} href={item.href} title={collapsed ? item.label : undefined}>
-            <div className={cn(
-              'flex items-center gap-3 py-2.5 transition-all duration-150 ease-out cursor-pointer select-none',
-              collapsed ? 'justify-center px-0 w-8 mx-auto rounded-md' : 'px-4',
-              active
-                ? 'text-[#0052CC] border-r-4 border-[#0052CC] bg-blue-50/50 font-semibold'
-                : 'text-slate-500 hover:text-[#0052CC] border-r-4 border-transparent'
-            )}>
-              <Icon className={cn('flex-shrink-0 h-[20px] w-[20px]', active ? 'text-[#0052CC]' : '')} />
-              {!collapsed && (
-                <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                  <span className="text-sm font-medium">
-                    {item.label}
-                  </span>
-                  {!NETWORK_COMPLIANCE_ENABLED && (
-                    <span className="text-[9px] font-semibold bg-amber-50 text-amber-600 border border-amber-200 rounded px-1 leading-4">
-                      Soon
-                    </span>
+      {/* Research Network section — hidden for beta */}
+      {false && (
+        <>
+          <div className="my-2 h-px bg-slate-100" />
+          {!collapsed && (
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-4 mb-1 pt-1">
+              Network
+            </p>
+          )}
+          {networkNav.map(item => {
+            const Icon = item.icon
+            const active = pathname === item.href || pathname.startsWith(item.href + '/')
+            return (
+              <Link key={item.href} href={item.href} title={collapsed ? item.label : undefined}>
+                <div className={cn(
+                  'flex items-center gap-3 py-2.5 transition-all duration-150 ease-out cursor-pointer select-none',
+                  collapsed ? 'justify-center px-0 w-8 mx-auto rounded-md' : 'px-4',
+                  active
+                    ? 'text-[#0052CC] border-r-4 border-[#0052CC] bg-blue-50/50 font-semibold'
+                    : 'text-slate-500 hover:text-[#0052CC] border-r-4 border-transparent'
+                )}>
+                  <Icon className={cn('flex-shrink-0 h-[20px] w-[20px]', active ? 'text-[#0052CC]' : '')} />
+                  {!collapsed && (
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      <span className="text-sm font-medium">
+                        {item.label}
+                      </span>
+                      {!NETWORK_COMPLIANCE_ENABLED && (
+                        <span className="text-[9px] font-semibold bg-amber-50 text-amber-600 border border-amber-200 rounded px-1 leading-4">
+                          Soon
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
-          </Link>
-        )
-      })}
+              </Link>
+            )
+          })}
+        </>
+      )}
 
       <div className="my-2 h-px bg-slate-100" />
 
