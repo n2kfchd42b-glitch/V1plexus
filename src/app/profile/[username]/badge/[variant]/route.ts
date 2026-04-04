@@ -6,7 +6,7 @@
 
 import { NextResponse } from 'next/server'
 import { generateBadgeSVG, generateHorizontalBadgeSVG } from '@/lib/portfolio/badgeSvg'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import type { BadgeLevel } from '@/types/portfolio'
 
 export const runtime = 'nodejs'
@@ -26,8 +26,8 @@ export async function GET(
       )
     }
 
-    // Fetch profile to get integrity level
-    const supabase = await createClient()
+    // Badge is a public endpoint — use service client to bypass RLS
+    const supabase = createServiceClient()
 
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
