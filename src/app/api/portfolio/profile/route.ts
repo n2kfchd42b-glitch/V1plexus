@@ -137,19 +137,24 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    // Write audit entry
-    await supabase.from('audit_logs').insert({
-      actor_id: user.id,
-      action: 'profile.updated',
-      resource_type: 'profile',
-      resource_id: user.id,
-      details: {
-        summary: 'Researcher portfolio profile updated',
-        operation: {
-          fields_updated: Object.keys(updateData),
+    // Write audit entry — non-blocking, must not fail the save
+    try {
+      await supabase.from('audit_logs').insert({
+        actor_id: user.id,
+        action: 'profile.updated',
+        resource_type: 'profile',
+        resource_id: user.id,
+        entry_hash: crypto.randomUUID(),
+        details: {
+          summary: 'Researcher portfolio profile updated',
+          operation: {
+            fields_updated: Object.keys(updateData),
+          },
         },
-      },
-    })
+      })
+    } catch {
+      // audit log failure must never block the save
+    }
 
     return NextResponse.json(updatedProfile)
   } catch (error) {

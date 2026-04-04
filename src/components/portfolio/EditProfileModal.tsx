@@ -5,7 +5,7 @@
 
 'use client'
 
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
 import type { ResearcherProfile } from '@/types/portfolio'
 
 function debounce<T extends (...args: any[]) => void>(fn: T, ms: number): T {
@@ -49,6 +49,13 @@ export function EditProfileModal({
   const [newArea, setNewArea] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (error && bodyRef.current) {
+      bodyRef.current.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [error])
 
   const checkUsername = useCallback(
     debounce(async (username: string) => {
@@ -116,7 +123,7 @@ export function EditProfileModal({
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div ref={bodyRef} className="flex-1 overflow-y-auto p-6 space-y-6">
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3">
               <p className="text-sm text-red-700">{error}</p>
