@@ -75,12 +75,18 @@ export default function DatasetQualityPage() {
     if (!versionId) return
     setRecomputing(true)
     try {
-      await fetch(`/api/datasets/${datasetId}/quality`, {
+      const res = await fetch(`/api/datasets/${datasetId}/quality`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ version_id: versionId }),
       })
-      await fetchReport(versionId)
+      if (res.ok) {
+        const data: QualityReport = await res.json()
+        setReport(data)
+      } else {
+        // Fall back to GET in case POST returned an error
+        await fetchReport(versionId)
+      }
     } finally {
       setRecomputing(false)
     }

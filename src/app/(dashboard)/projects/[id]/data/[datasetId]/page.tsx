@@ -7,7 +7,7 @@ import {
   ArrowLeft, Wand2, BarChart2, GitMerge, GitCommit, Loader2, RefreshCw,
   BarChart, LineChart, ScatterChart, TrendingUp, PieChart, Box, Grid3x3,
   Trash2, ExternalLink, Search, Filter, Plus, ChevronDown, ChevronRight,
-  Hash, Type, Calendar, ToggleLeft, Tag, MapPin, Fingerprint, Copy,
+  Hash, Type, Calendar, ToggleLeft, Tag, MapPin, Fingerprint, Copy, ShieldCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DatasetTable } from '@/components/data/DatasetTable'
@@ -883,15 +883,16 @@ export default function DatasetViewerPage() {
 
               {/* ── Quality Intelligence link ── */}
               <Link href={`/projects/${projectId}/data/${datasetId}/quality`}>
-                <div className="bg-white rounded-xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_24px_rgba(0,0,0,0.08)] transition-shadow cursor-pointer border border-transparent hover:border-blue-100">
+                <div className="bg-white rounded-xl px-5 py-4 shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_24px_rgba(0,0,0,0.08)] transition-shadow cursor-pointer border border-transparent hover:border-blue-100">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-50 rounded-lg shrink-0">
-                      <ExternalLink className="h-4 w-4 text-blue-600" />
+                    <div className="p-2.5 bg-blue-50 rounded-lg shrink-0">
+                      <ShieldCheck className="h-4 w-4 text-blue-600" />
                     </div>
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-[#191c1e]">Data Quality Intelligence</p>
-                      <p className="text-xs text-slate-400 mt-0.5">DQI score, dimension breakdown & enumerator metrics</p>
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">DQI score, dimension breakdown & enumerator metrics</p>
                     </div>
+                    <ChevronRight className="h-4 w-4 text-slate-300 shrink-0" />
                   </div>
                 </div>
               </Link>
