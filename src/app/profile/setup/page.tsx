@@ -50,7 +50,6 @@ export default function ProfileSetupPage() {
           .limit(10)
 
         setDatasets(datasetsData ?? [])
-        setShowModal(true)
       } catch (error) {
         console.error('Failed to load user:', error)
         router.push('/auth/signin')
@@ -62,19 +61,22 @@ export default function ProfileSetupPage() {
     load()
   }, [router])
 
-  const handleProfileSaved = async () => {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+  const handleProfileSaved = async (data: Record<string, any>) => {
+    const res = await fetch('/api/portfolio/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
 
-    const { data: updatedProfile } = await supabase
-      .from('profiles')
-      .select('username')
-      .eq('id', user.id)
-      .single()
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || 'Failed to save profile')
+    }
 
-    if (updatedProfile?.username) {
-      router.push(`/profile/${updatedProfile.username}`)
+    const saved = await res.json()
+    const username = saved.username || data.username
+    if (username) {
+      router.push(`/profile/${username}`)
     } else {
       router.push('/profile/me')
     }
