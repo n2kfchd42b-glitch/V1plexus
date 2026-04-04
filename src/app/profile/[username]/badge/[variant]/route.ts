@@ -39,13 +39,8 @@ export async function GET(
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
     }
 
-    // Check if portfolio is public
-    if (!profile.portfolio_public) {
-      return NextResponse.json(
-        { error: 'Portfolio is private' },
-        { status: 404 }
-      )
-    }
+    // Badge SVG contains no sensitive data — serve regardless of portfolio_public.
+    // The portfolio_public flag controls the portfolio page, not the badge image.
 
     // Fetch profile stats to compute integrity level
     const { data: datasets } = await supabase

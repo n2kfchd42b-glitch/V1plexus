@@ -434,7 +434,7 @@ export default function ProfilePage() {
         )}
 
         <ActivitySection activity={portfolio.activity} isOwner={portfolio.is_owner} />
-        <ShareSection username={username} badgeLevel={portfolio.integrity_record.badge.level} isOwner={portfolio.is_owner} />
+        <ShareSection username={username} badgeLevel={portfolio.integrity_record.badge.level} isOwner={portfolio.is_owner} isPublic={portfolio.profile.portfolio_public} />
       </main>
 
       {portfolio.is_owner && (

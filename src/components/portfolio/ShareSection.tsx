@@ -5,7 +5,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Copy, Check, Link2 } from 'lucide-react'
+import { Copy, Check, Link2, EyeOff } from 'lucide-react'
 import { generateBadgeEmbedCode } from '@/lib/portfolio/badgeSvg'
 import type { BadgeLevel } from '@/types/portfolio'
 
@@ -13,9 +13,10 @@ interface ShareSectionProps {
   username: string
   badgeLevel: BadgeLevel
   isOwner: boolean
+  isPublic: boolean
 }
 
-export function ShareSection({ username, badgeLevel, isOwner }: ShareSectionProps) {
+export function ShareSection({ username, badgeLevel, isOwner, isPublic }: ShareSectionProps) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://plexus.science'
   const profileUrl = `${baseUrl}/profile/${username}`
@@ -34,6 +35,17 @@ export function ShareSection({ username, badgeLevel, isOwner }: ShareSectionProp
       <h2 className="text-base font-bold text-slate-900 mb-4">Share & Verify</h2>
 
       <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-6">
+        {/* Private portfolio notice */}
+        {isOwner && !isPublic && (
+          <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <EyeOff className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-800 leading-relaxed">
+              Your portfolio is <strong>private</strong>. Badge embed links and your profile URL will
+              not be accessible to others until you make it public.
+            </p>
+          </div>
+        )}
+
         {/* Profile URL */}
         <div>
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
