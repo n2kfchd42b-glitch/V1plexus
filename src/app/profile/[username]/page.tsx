@@ -330,7 +330,7 @@ export default function ProfilePage() {
         <ActivitySection activity={portfolio.activity} isOwner={portfolio.is_owner} />
 
         <ShareSection
-          username={portfolio.profile.username ?? ''}
+          username={username}
           badgeLevel={portfolio.integrity_record.badge.level}
           isOwner={portfolio.is_owner}
         />

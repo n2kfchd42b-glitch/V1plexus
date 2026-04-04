@@ -52,7 +52,6 @@ export async function GET(
       .from('datasets')
       .select('id')
       .eq('uploaded_by', profile.id)
-      .eq('visibility', 'open')
 
     const { data: publications } = await supabase
       .from('portfolio_publications')
