@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import { BrandLogo } from '@/components/layout/BrandLogo'
