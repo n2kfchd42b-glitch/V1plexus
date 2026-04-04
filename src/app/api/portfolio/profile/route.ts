@@ -97,7 +97,8 @@ export async function PATCH(request: NextRequest) {
       updateData.institution = body.institution || null
     }
     if (body.role !== undefined) {
-      updateData.role = body.role || null
+      // profiles.role is a system enum (researcher/pi/etc) — store free-text role in position
+      updateData.position = body.role || null
     }
     if (body.research_areas !== undefined) {
       updateData.research_areas = body.research_areas || []

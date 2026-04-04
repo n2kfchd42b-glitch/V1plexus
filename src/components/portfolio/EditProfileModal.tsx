@@ -34,7 +34,7 @@ export function EditProfileModal({
     portfolio_headline: profile.portfolio_headline || '',
     bio: profile.bio || '',
     institution: profile.institution || '',
-    role: profile.role || '',
+    role: profile.position || profile.role || '',
     orcid_id: profile.orcid_id || '',
     google_scholar_url: profile.google_scholar_url || '',
     researchgate_url: profile.researchgate_url || '',

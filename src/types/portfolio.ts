@@ -24,6 +24,7 @@ export interface ResearcherProfile {
   bio: string | null
   institution: string | null
   role: string | null
+  position: string | null
   research_areas: string[]
   orcid_id: string | null
   google_scholar_url: string | null
