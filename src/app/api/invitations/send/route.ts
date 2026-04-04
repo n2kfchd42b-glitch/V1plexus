@@ -1,10 +1,18 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { sendNotification } from '@/lib/notifications/notificationService'
+import { checkRateLimit } from '@/lib/rateLimit'
 
-export async function POST(request: Request) {
+// RFC 5321/5322-compatible email regex
+const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/
+
+export async function POST(request: NextRequest) {
+  // 10 invitations per 15 minutes per IP
+  const rateLimitResponse = checkRateLimit(request, { limit: 10, windowMs: 15 * 60 * 1000 })
+  if (rateLimitResponse) return rateLimitResponse
+
   const resend = new Resend(process.env.RESEND_API_KEY)
   try {
     const supabase = await createClient()
@@ -18,6 +26,10 @@ export async function POST(request: Request) {
 
     if (!type || !email || !role) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+
+    if (!EMAIL_REGEX.test(email)) {
+      return NextResponse.json({ error: 'Invalid email address' }, { status: 400 })
     }
 
     // Service client to bypass RLS for cross-user operations (notifications)
@@ -121,7 +133,7 @@ export async function POST(request: Request) {
 
     if (emailError) {
       console.error('Resend error:', emailError)
-      return NextResponse.json({ error: `Email failed: ${emailError.message}` }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to send invitation email' }, { status: 500 })
     }
 
     // In-app notification if the invited person already has an account

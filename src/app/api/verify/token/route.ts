@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateVerificationToken } from '@/lib/verification/tokenService'
 import { writeAuditEntry } from '@/lib/audit/auditLogger'
+import { checkRateLimit } from '@/lib/rateLimit'
 
 /**
  * POST /api/verify/token
  * Authenticated. Creates a verification token via Supabase directly.
  */
 export async function POST(request: NextRequest) {
+  // 20 tokens per hour per IP
+  const rateLimitResponse = checkRateLimit(request, { limit: 20, windowMs: 60 * 60 * 1000 })
+  if (rateLimitResponse) return rateLimitResponse
+
   try {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -47,6 +52,10 @@ export async function POST(request: NextRequest) {
 
     const token = generateVerificationToken()
 
+    // Hash the token before storing in audit logs so plaintext never appears there
+    const tokenHashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))
+    const tokenHash = Array.from(new Uint8Array(tokenHashBuf)).map((b) => b.toString(16).padStart(2, '0')).join('')
+
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + (expires_days || 365))
 
@@ -85,9 +94,9 @@ export async function POST(request: NextRequest) {
         resource_id: dataset_id,
         project_id,
         details: {
-          summary: `Verification token created: ${token}`,
+          summary: `Verification token created (hash: ${tokenHash.slice(0, 12)}...)`,
           operation: {
-            token,
+            token_hash: tokenHash,
             access_level,
             expires_at: expiresAt.toISOString(),
             version_id,

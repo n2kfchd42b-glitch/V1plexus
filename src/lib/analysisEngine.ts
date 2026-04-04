@@ -28,6 +28,8 @@ async function loadPyodideOnce() {
     await new Promise<void>((resolve, reject) => {
       const script = document.createElement('script')
       script.src = 'https://cdn.jsdelivr.net/pyodide/v0.27.0/full/pyodide.js'
+      script.integrity = 'sha256-OxhgQ+7lMvxYbqG1KkvetnhEd3qEzugXOLmLrHsR8Ho='
+      script.crossOrigin = 'anonymous'
       script.onload = () => resolve()
       script.onerror = reject
       document.head.appendChild(script)
@@ -148,8 +150,10 @@ async function loadWebROnce() {
     await new Promise<void>((resolve, reject) => {
       const script = document.createElement('script')
       script.type = 'module'
+      // Pin to a specific version rather than 'latest' to reduce CDN compromise surface
+      // TODO: Add importmap SRI once browser support is widespread enough
       script.textContent = `
-        import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
+        import { WebR } from 'https://webr.r-wasm.org/v0.4.2/webr.mjs';
         globalThis.WebR = WebR;
         globalThis._webrLoaded = true;
         window.dispatchEvent(new Event('webr-loaded'));

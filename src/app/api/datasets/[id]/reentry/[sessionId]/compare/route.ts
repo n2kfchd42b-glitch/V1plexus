@@ -51,6 +51,10 @@ export async function POST(
     // Call FastAPI endpoint
     const analyticsUrl = process.env.ANALYTICS_API_URL || 'http://localhost:8000'
     const sess = await supabase.auth.getSession()
+    const accessToken = sess.data.session?.access_token
+    if (!accessToken) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const response = await fetch(
       `${analyticsUrl}/analytics/integrity/reentry/compare`,
@@ -58,7 +62,7 @@ export async function POST(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sess.data.session?.access_token || ''}`,
+          'Authorization': `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           session_id: sessionId,
