@@ -203,6 +203,45 @@ function computeReport(
   }
 }
 
+// ── Shared access check ──────────────────────────────────────────────────────
+// Returns the project_id if the user can access the dataset (owner OR member),
+// or null if not found, or 'forbidden' if access denied.
+
+async function resolveAccess(
+  datasetId: string,
+  userId: string
+): Promise<{ projectId: string } | 'not_found' | 'forbidden'> {
+  const service = createServiceClient()
+
+  const { data: dataset } = await service
+    .from('datasets')
+    .select('project_id')
+    .eq('id', datasetId)
+    .single()
+  if (!dataset) return 'not_found'
+
+  // Check ownership first (project owner is always allowed)
+  const { data: project } = await service
+    .from('projects')
+    .select('owner_id')
+    .eq('id', dataset.project_id)
+    .single()
+
+  if (project?.owner_id === userId) return { projectId: dataset.project_id }
+
+  // Fall back to project_members table
+  const { data: member } = await service
+    .from('project_members')
+    .select('id')
+    .eq('project_id', dataset.project_id)
+    .eq('user_id', userId)
+    .single()
+
+  if (member) return { projectId: dataset.project_id }
+
+  return 'forbidden'
+}
+
 // ── GET /api/datasets/[id]/quality ──────────────────────────────────────────
 
 export async function GET(
@@ -220,20 +259,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: dataset } = await supabase
-      .from('datasets')
-      .select('project_id')
-      .eq('id', datasetId)
-      .single()
-    if (!dataset) return NextResponse.json({ error: 'Dataset not found' }, { status: 404 })
-
-    const { data: member } = await supabase
-      .from('project_members')
-      .select('id')
-      .eq('project_id', dataset.project_id)
-      .eq('user_id', user.id)
-      .single()
-    if (!member) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const access = await resolveAccess(datasetId, user.id)
+    if (access === 'not_found') return NextResponse.json({ error: 'Dataset not found' }, { status: 404 })
+    if (access === 'forbidden') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     // Fetch from DB — no FastAPI dependency
     const service = createServiceClient()
@@ -278,20 +306,9 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: dataset } = await supabase
-      .from('datasets')
-      .select('project_id')
-      .eq('id', datasetId)
-      .single()
-    if (!dataset) return NextResponse.json({ error: 'Dataset not found' }, { status: 404 })
-
-    const { data: member } = await supabase
-      .from('project_members')
-      .select('id')
-      .eq('project_id', dataset.project_id)
-      .eq('user_id', user.id)
-      .single()
-    if (!member) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const access = await resolveAccess(datasetId, user.id)
+    if (access === 'not_found') return NextResponse.json({ error: 'Dataset not found' }, { status: 404 })
+    if (access === 'forbidden') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     // Resolve the version to compute for
     const service = createServiceClient()
