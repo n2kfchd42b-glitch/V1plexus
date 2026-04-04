@@ -11,6 +11,7 @@ import Link from 'next/link'
 import { ActivitySection } from '@/components/portfolio/ActivitySection'
 import { ShareSection } from '@/components/portfolio/ShareSection'
 import { EditProfileModal } from '@/components/portfolio/EditProfileModal'
+import { BrandLogo } from '@/components/layout/BrandLogo'
 import type { PortfolioData } from '@/types/portfolio'
 
 export default function ProfilePage() {
@@ -151,7 +152,7 @@ export default function ProfilePage() {
       {/* Minimal NavBar */}
       <nav className="border-b border-surface-container-low h-14 flex items-center px-6">
         <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
-          <div className="font-bold text-base">PLEXUS</div>
+          <BrandLogo variant="standalone" />
           <div className="flex gap-4 items-center">
             {portfolio.is_owner ? (
               <>

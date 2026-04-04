@@ -36,7 +36,7 @@ export default function RegisterPage() {
     <div className="bg-white rounded-2xl shadow-[0_4px_30px_rgba(0,24,72,0.06)] p-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900 font-headline">Create account</h1>
-        <p className="text-slate-500 mt-1 text-sm">Join PLEXUS Research Platform</p>
+        <p className="text-slate-500 mt-1 text-sm">Join PLEXUS Platform</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">

@@ -3,8 +3,8 @@
 export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'
-import { FlaskConical } from 'lucide-react'
 import Link from 'next/link'
+import { BrandLogo } from '@/components/layout/BrandLogo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -90,9 +90,8 @@ export default function LoginPage() {
   return (
     <div className="w-full">
       <div className="text-center mb-8">
-        <div className="flex items-center justify-center gap-2 mb-3">
-          <FlaskConical className="h-8 w-8 text-clinical-blue" />
-          <span className="text-2xl font-bold text-slate-900 font-manrope tracking-tight">PLEXUS</span>
+        <div className="flex justify-center mb-3">
+          <BrandLogo variant="standalone" href="/" />
         </div>
         <p className="text-slate-500 text-sm">Institution-grade Research Lab Platform</p>
       </div>

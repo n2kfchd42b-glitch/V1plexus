@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
+import { BrandLogo } from '@/components/layout/BrandLogo'
 import { cn, getInitials } from '@/lib/utils'
 import { WorkspaceSwitcher } from '@/components/workspace/WorkspaceSwitcher'
 import { PersonalSidebar } from '@/components/sidebar/PersonalSidebar'
@@ -54,16 +54,7 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
           collapsed ? 'justify-center' : '',
           !collapsed ? 'mb-4' : 'mb-2'
         )}>
-          <div className="relative flex items-center justify-center w-9 h-9 rounded-lg bg-clinical-deep flex-shrink-0 shadow-md shadow-clinical-deep/30 overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary-container to-clinical-deep" />
-            <span className="relative z-10 text-white font-black text-sm tracking-tight leading-none select-none">PR</span>
-            <div className="absolute bottom-0 right-0 w-3 h-3 bg-blue-300/20 rounded-tl-lg" />
-          </div>
-          {!collapsed && (
-            <span className="text-[15px] font-bold tracking-tight text-clinical-deep font-manrope">
-              PLEXUS <span className="text-slate-400 font-normal">Research</span>
-            </span>
-          )}
+          <BrandLogo variant="light" collapsed={collapsed} />
         </div>
 
         {/* Workspace switcher */}

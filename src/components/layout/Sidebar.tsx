@@ -5,10 +5,11 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderOpen, ClipboardList, Bell,
-  FlaskConical, LogOut, ChevronLeft, ChevronRight, Command,
+  LogOut, ChevronLeft, ChevronRight, Command,
   Database, Settings, Shield, ClipboardCheck, Users, GraduationCap,
   BarChart3, DollarSign, BookOpen, PackageOpen
 } from 'lucide-react'
+import { BrandLogo } from '@/components/layout/BrandLogo'
 import { cn, getInitials } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import type { Profile } from '@/types/database'
@@ -93,17 +94,7 @@ export function Sidebar({ profile, onSignOut, onCommandPalette }: SidebarProps) 
         'flex items-center border-b border-white/10 transition-all duration-200',
         collapsed ? 'h-12 justify-center px-0' : 'h-14 px-4 gap-2'
       )}>
-        <div className="flex items-center justify-center w-7 h-7 rounded-md bg-[#1B3A5C] flex-shrink-0">
-          <FlaskConical className="h-4 w-4 text-white" />
-        </div>
-        {!collapsed && (
-          <span
-            className="font-semibold text-base text-white tracking-tight transition-opacity duration-100"
-            style={{ fontFamily: 'var(--font-geist-sans, system-ui)' }}
-          >
-            PLEXUS
-          </span>
-        )}
+        <BrandLogo variant="dark" collapsed={collapsed} />
       </div>
 
       {/* Navigation */}

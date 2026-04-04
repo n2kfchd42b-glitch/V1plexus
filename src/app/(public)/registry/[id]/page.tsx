@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import { Shield, CheckCircle, Calendar, FlaskConical, Download, Quote, AlertCircle } from 'lucide-react'
+import { Shield, CheckCircle, Calendar, Download, Quote, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
@@ -78,10 +78,11 @@ export default async function RegistryPage({ params }: { params: Promise<{ id: s
       <header className="bg-white border-b border-slate-200">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-slate-900 hover:text-clinical-blue">
-            <div className="w-7 h-7 bg-accent-primary rounded-lg flex items-center justify-center">
-              <FlaskConical className="h-4 w-4 text-white" />
+            <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-[#003D9B] flex-shrink-0 shadow-md shadow-[#003D9B]/30 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-[#1e40af] to-[#003D9B]" />
+              <span className="relative z-10 text-white font-black text-[11px] tracking-tight leading-none">PX</span>
             </div>
-            <span className="font-bold text-sm">PLEXUS</span>
+            <span className="font-bold text-sm text-[#003D9B]">PLEXUS</span>
             <span className="text-slate-400 text-sm">/ Protocol Registry</span>
           </Link>
           <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-full">
@@ -213,7 +214,7 @@ export default async function RegistryPage({ params }: { params: Promise<{ id: s
       </main>
 
       <footer className="border-t border-slate-200 mt-16 py-8 text-center text-xs text-slate-400">
-        <p>PLEXUS Research Platform · Protocol Registry · <Link href="/" className="hover:text-clinical-blue">plexus.health</Link></p>
+        <p>PLEXUS · Protocol Registry · <Link href="/" className="hover:text-clinical-blue">plexus.health</Link></p>
       </footer>
     </div>
   )

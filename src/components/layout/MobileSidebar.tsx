@@ -5,8 +5,9 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderOpen, ClipboardList, Bell,
-  FlaskConical, LogOut, Menu, X, Settings
+  LogOut, Menu, X, Settings
 } from 'lucide-react'
+import { BrandLogo } from '@/components/layout/BrandLogo'
 import { cn, getInitials } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import type { Profile } from '@/types/database'
@@ -55,10 +56,7 @@ export function MobileSidebar({ profile, onSignOut }: MobileSidebarProps) {
         )}
       >
         <div className="p-4 border-b flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FlaskConical className="h-6 w-6 text-primary" />
-            <span className="font-bold text-lg">PLEXUS</span>
-          </div>
+          <BrandLogo variant="light" />
           <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
           </button>

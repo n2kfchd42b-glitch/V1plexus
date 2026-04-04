@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { BrandLogo } from '@/components/layout/BrandLogo'
 
 export default function LandingPage() {
   return (
@@ -7,16 +8,7 @@ export default function LandingPage() {
       <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 shadow-sm">
         <div className="flex justify-between items-center w-full px-6 py-4 max-w-screen-2xl mx-auto">
           {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="relative flex items-center justify-center w-9 h-9 rounded-lg bg-[#003D9B] shadow-md shadow-[#003D9B]/30 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-[#1e40af] to-[#003D9B]" />
-              <span className="relative z-10 text-white font-black text-sm tracking-tight leading-none select-none">PR</span>
-              <div className="absolute bottom-0 right-0 w-3 h-3 bg-blue-300/20 rounded-tl-lg" />
-            </div>
-            <span className="text-[15px] font-bold tracking-tight text-[#003D9B]">
-              PLEXUS <span className="text-slate-400 font-normal">Research</span>
-            </span>
-          </div>
+          <BrandLogo variant="light" href="/" />
           <div className="flex items-center gap-4">
             <Link href="/login" className="text-slate-600 hover:text-blue-800 transition-colors px-4 py-2 text-sm font-medium">
               Login

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { BrandLogo } from '@/components/layout/BrandLogo'
 import {
   CheckCircle2,
   XCircle,
@@ -64,17 +65,7 @@ function VerifyContent() {
     >
       {/* Top bar */}
       <div className="h-14 px-6 flex items-center border-b border-slate-100 bg-white/80 backdrop-blur-xl">
-        <span
-          className="font-extrabold text-lg tracking-tight"
-          style={{
-            fontFamily: 'Manrope, system-ui',
-            fontSize: '18px',
-            fontWeight: 800,
-            color: '#3730a3',
-          }}
-        >
-          PLEXUS
-        </span>
+        <BrandLogo variant="standalone" href="/" />
       </div>
 
       <div className="flex-1 flex items-start justify-center px-4 py-12">

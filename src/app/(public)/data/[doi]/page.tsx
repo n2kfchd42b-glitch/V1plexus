@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import { Database, Download, Calendar, Globe, Lock, FlaskConical, Quote, ExternalLink } from 'lucide-react'
+import { Database, Download, Calendar, Globe, Lock, Quote, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 
 export async function generateMetadata({ params }: { params: Promise<{ doi: string }> }) {
@@ -65,10 +65,11 @@ export default async function DatasetLandingPage({ params }: { params: Promise<{
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-gray-900 hover:text-blue-600">
-            <div className="w-7 h-7 bg-[#1B3A5C] rounded-lg flex items-center justify-center">
-              <FlaskConical className="h-4 w-4 text-white" />
+            <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-[#003D9B] flex-shrink-0 shadow-md shadow-[#003D9B]/30 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-[#1e40af] to-[#003D9B]" />
+              <span className="relative z-10 text-white font-black text-[11px] tracking-tight leading-none">PX</span>
             </div>
-            <span className="font-bold text-sm">PLEXUS</span>
+            <span className="font-bold text-sm text-[#003D9B]">PLEXUS</span>
             <span className="text-gray-400 text-sm">/ Data Repository</span>
           </Link>
           <div className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border ${
@@ -212,7 +213,7 @@ export default async function DatasetLandingPage({ params }: { params: Promise<{
       </main>
 
       <footer className="border-t border-gray-200 mt-16 py-8 text-center text-xs text-gray-400">
-        <p>PLEXUS Research Platform · Data Repository · <Link href="/" className="hover:text-blue-500">plexus.health</Link></p>
+        <p>PLEXUS · Data Repository · <Link href="/" className="hover:text-blue-500">plexus.health</Link></p>
       </footer>
     </div>
   )

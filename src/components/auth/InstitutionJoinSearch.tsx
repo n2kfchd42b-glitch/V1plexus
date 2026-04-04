@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { FlaskConical, Search, Building2 } from 'lucide-react'
+import { Search, Building2 } from 'lucide-react'
+import { BrandLogo } from '@/components/layout/BrandLogo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -38,9 +39,8 @@ export function InstitutionJoinSearch() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <FlaskConical className="h-8 w-8 text-blue-600" />
-            <span className="text-2xl font-bold text-gray-900">PLEXUS</span>
+          <div className="flex justify-center mb-3">
+            <BrandLogo variant="standalone" href="/dashboard" />
           </div>
           <h2 className="text-xl font-bold text-gray-900">Join or create an institution</h2>
         </div>

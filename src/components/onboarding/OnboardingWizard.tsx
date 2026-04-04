@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { FlaskConical, ArrowRight, ArrowLeft, CheckCircle, User, Building2, FolderPlus } from 'lucide-react'
+import { ArrowRight, ArrowLeft, CheckCircle, User, Building2, FolderPlus } from 'lucide-react'
+import { BrandLogo } from '@/components/layout/BrandLogo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -121,9 +122,8 @@ export function OnboardingWizard({ profile, onComplete }: OnboardingWizardProps)
           {/* Welcome */}
           {step === 'welcome' && (
             <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-6">
-                <FlaskConical className="h-8 w-8 text-blue-600" />
-                <span className="text-2xl font-bold">PLEXUS</span>
+              <div className="flex justify-center mb-6">
+                <BrandLogo variant="standalone" href="/dashboard" />
               </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-3">Welcome to PLEXUS!</h2>
               <p className="text-gray-600 mb-8">
