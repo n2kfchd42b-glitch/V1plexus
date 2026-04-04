@@ -85,7 +85,7 @@ export async function POST(request: Request) {
     const resourceName = type === 'workspace' ? workspaceName : projectTitle
     const roleLabel = (role as string).replace(/_/g, ' ')
 
-    await resend.emails.send({
+    const { error: emailError } = await resend.emails.send({
       from: 'Plexus <invitations@plexus.science>',
       to: normalizedEmail,
       subject: `${inviterName} invited you to ${resourceName} on Plexus`,
@@ -119,19 +119,24 @@ export async function POST(request: Request) {
       `,
     })
 
-    // In-app notification if the invited person already has an account
-    const { data: existingUser } = await serviceClient
-      .from('profiles')
-      .select('id')
-      .eq('email', normalizedEmail)
-      .maybeSingle()
+    if (emailError) {
+      console.error('Resend error:', emailError)
+      return NextResponse.json({ error: `Email failed: ${emailError.message}` }, { status: 500 })
+    }
 
-    if (existingUser) {
+    // In-app notification if the invited person already has an account
+    // Look up by email in auth.users via service client (more reliable than profiles)
+    const { data: authUsers } = await serviceClient.auth.admin.listUsers()
+    const matchedUser = authUsers?.users?.find(
+      u => u.email?.toLowerCase() === normalizedEmail
+    )
+
+    if (matchedUser) {
       const notifTitle = type === 'workspace'
         ? `You've been invited to ${resourceName}`
         : `You've been invited to collaborate on ${resourceName}`
       await sendNotification(
-        existingUser.id,
+        matchedUser.id,
         'invitation_received',
         notifTitle,
         `${inviterName} invited you as ${roleLabel}`,
