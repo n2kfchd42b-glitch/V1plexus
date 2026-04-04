@@ -18,7 +18,7 @@ export type DocumentType = 'general' | 'protocol' | 'consent_form' | 'ethics_app
 export type ReviewStatus = 'pending' | 'in_review' | 'feedback_given' | 'revision_submitted' | 'approved' | 'rejected'
 export type ReviewPriority = 'low' | 'normal' | 'high' | 'urgent'
 export type GateStatus = 'pending' | 'approved' | 'blocked'
-export type NotificationType = 'review_request' | 'review_complete' | 'ethics_expiry' | 'comment' | 'gate_approved'
+export type NotificationType = 'review_request' | 'review_complete' | 'ethics_expiry' | 'comment' | 'gate_approved' | 'invitation_received'
 
 export interface Institution {
   id: string

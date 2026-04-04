@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import type { ProjectInviteRole } from '@/types/database'
 
@@ -27,32 +26,29 @@ export function ProjectInviteForm({ projectId, projectTitle, onInvited }: Projec
   const [role, setRole] = useState<ProjectInviteRole>('collaborator')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
-  const supabase = createClient()
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email.trim()) return
     setLoading(true)
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setLoading(false); return }
-
-    const token = crypto.randomUUID().replace(/-/g, '')
-
-    const { error } = await supabase
-      .from('project_invitations')
-      .insert({
-        project_id: projectId,
+    const res = await fetch('/api/invitations/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'project',
         email: email.trim().toLowerCase(),
         role,
+        projectId,
+        projectTitle,
         message: message || null,
-        token,
-        invited_by: user.id,
-        status: 'pending',
-      })
+      }),
+    })
 
-    if (error) {
-      toast.error(error.message)
+    const data = await res.json()
+
+    if (!res.ok) {
+      toast.error(data.error ?? 'Failed to send invitation')
     } else {
       toast.success(`Invitation sent to ${email}`)
       setEmail('')

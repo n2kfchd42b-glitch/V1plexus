@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { useWorkspaceContext } from '@/components/workspace/WorkspaceProvider'
 import type { WorkspaceMemberRole, Department } from '@/types/database'
 
+
 const ROLES: { value: WorkspaceMemberRole; label: string }[] = [
   { value: 'admin', label: 'Admin' },
   { value: 'department_head', label: 'Department Head' },
@@ -44,24 +45,23 @@ export function WorkspaceInviteForm({ onInvited }: { onInvited?: () => void }) {
     if (!activeWorkspace) return
     setLoading(true)
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setLoading(false); return }
-
-    const token = crypto.randomUUID().replace(/-/g, '')
-    const { error } = await supabase
-      .from('workspace_invitations')
-      .insert({
-        workspace_id: activeWorkspace.id,
+    const res = await fetch('/api/invitations/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'workspace',
         email: email.trim().toLowerCase(),
         role,
-        department_id: departmentId || null,
-        token,
-        invited_by: user.id,
-        status: 'pending',
-      })
+        workspaceId: activeWorkspace.id,
+        workspaceName: activeWorkspace.name,
+        departmentId: departmentId || null,
+      }),
+    })
 
-    if (error) {
-      toast.error(error.message)
+    const data = await res.json()
+
+    if (!res.ok) {
+      toast.error(data.error ?? 'Failed to send invitation')
     } else {
       toast.success(`Invitation sent to ${email}`)
       setEmail('')
