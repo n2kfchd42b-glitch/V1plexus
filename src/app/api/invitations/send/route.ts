@@ -87,7 +87,7 @@ export async function POST(request: Request) {
     const roleLabel = (role as string).replace(/_/g, ' ')
 
     await resend.emails.send({
-      from: 'Plexus <invitations@plexus.app>',
+      from: 'Plexus <invitations@plexus.science>',
       to: normalizedEmail,
       subject: `${inviterName} invited you to ${resourceName} on Plexus`,
       html: `
