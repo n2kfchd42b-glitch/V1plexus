@@ -8,6 +8,7 @@
 import React, { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { Building2, Briefcase, ExternalLink, Shield, CheckCircle, Plus, X } from 'lucide-react'
 import { ActivitySection } from '@/components/portfolio/ActivitySection'
 import { ShareSection } from '@/components/portfolio/ShareSection'
 import { EditProfileModal } from '@/components/portfolio/EditProfileModal'
@@ -20,16 +21,11 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Edit profile modal
   const [showEditModal, setShowEditModal] = useState(false)
-
-  // Add publication panel
   const [showAddPub, setShowAddPub] = useState(false)
   const [pubForm, setPubForm] = useState({ title: '', doi: '', journal: '', year: '' })
   const [pubSaving, setPubSaving] = useState(false)
   const [pubError, setPubError] = useState<string | null>(null)
-
-  // Privacy toggle
   const [togglingPrivacy, setTogglingPrivacy] = useState(false)
 
   useEffect(() => {
@@ -53,7 +49,6 @@ export default function ProfilePage() {
     }
   }
 
-  // Save profile edits
   const handleProfileSaved = async (data: Record<string, any>) => {
     const res = await fetch('/api/portfolio/profile', {
       method: 'PATCH',
@@ -64,11 +59,9 @@ export default function ProfilePage() {
       const body = await res.json().catch(() => ({}))
       throw new Error(body.error || 'Failed to save profile')
     }
-    // Refresh portfolio data to reflect changes
     await fetchPortfolio()
   }
 
-  // Toggle portfolio_public
   const handleTogglePrivacy = async () => {
     if (!portfolio) return
     setTogglingPrivacy(true)
@@ -79,21 +72,15 @@ export default function ProfilePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ portfolio_public: newValue }),
       })
-      if (res.ok) {
-        await fetchPortfolio()
-      }
+      if (res.ok) await fetchPortfolio()
     } finally {
       setTogglingPrivacy(false)
     }
   }
 
-  // Add publication
   const handleAddPublication = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!pubForm.title.trim()) {
-      setPubError('Title is required')
-      return
-    }
+    if (!pubForm.title.trim()) { setPubError('Title is required'); return }
     setPubSaving(true)
     setPubError(null)
     try {
@@ -124,21 +111,19 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-primary-200 border-t-primary rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#f7f9fb] flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-slate-200 border-t-clinical-blue rounded-full animate-spin" />
       </div>
     )
   }
 
   if (error || !portfolio) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-[#f7f9fb] flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-on-surface mb-2">Portfolio not found</h1>
-          <p className="text-on-surface-variant mb-6">
-            The researcher profile you're looking for doesn't exist or is private.
-          </p>
-          <Link href="/" className="text-primary hover:text-primary-dark">Return to home</Link>
+          <h1 className="text-xl font-bold text-slate-900 mb-2">Portfolio not found</h1>
+          <p className="text-sm text-slate-500 mb-6">This profile doesn't exist or is private.</p>
+          <Link href="/" className="text-sm text-clinical-blue hover:underline">Return to home</Link>
         </div>
       </div>
     )
@@ -148,38 +133,38 @@ export default function ProfilePage() {
   const isPublic = portfolio.profile.portfolio_public
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Minimal NavBar */}
-      <nav className="border-b border-surface-container-low h-14 flex items-center px-6">
-        <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
+    <div className="min-h-screen bg-[#f7f9fb]">
+      {/* Nav */}
+      <nav className="bg-white border-b border-slate-200 h-14 flex items-center px-6 sticky top-0 z-10">
+        <div className="max-w-5xl mx-auto w-full flex items-center justify-between">
           <BrandLogo variant="standalone" />
-          <div className="flex gap-4 items-center">
+          <div className="flex items-center gap-3">
             {portfolio.is_owner ? (
               <>
                 <button
                   onClick={() => setShowEditModal(true)}
-                  className="text-sm text-on-surface-variant hover:text-on-surface"
+                  className="text-sm text-slate-500 hover:text-slate-800 transition-colors"
                 >
                   Edit Profile
                 </button>
                 <button
                   onClick={handleTogglePrivacy}
                   disabled={togglingPrivacy}
-                  className={`text-sm px-3 py-1 rounded-full border transition-colors disabled:opacity-50 ${
+                  className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50 ${
                     isPublic
-                      ? 'border-green-300 text-green-700 hover:bg-green-50'
-                      : 'border-amber-300 text-amber-700 hover:bg-amber-50'
+                      ? 'border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                      : 'border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100'
                   }`}
                 >
-                  {togglingPrivacy ? '…' : isPublic ? '● Public' : '○ Private'}
+                  {togglingPrivacy ? '…' : isPublic ? 'Public' : 'Private'}
                 </button>
               </>
             ) : (
               <>
-                <Link href="/auth/signin" className="text-sm text-on-surface-variant hover:text-on-surface">
+                <Link href="/login" className="text-sm text-slate-500 hover:text-slate-800 transition-colors">
                   Sign in
                 </Link>
-                <Link href="/auth/signup" className="text-sm text-primary hover:text-primary-dark">
+                <Link href="/register" className="text-sm font-semibold text-white bg-clinical-blue hover:bg-clinical-deep px-3 py-1.5 rounded-lg transition-colors">
                   Create portfolio
                 </Link>
               </>
@@ -188,155 +173,270 @@ export default function ProfilePage() {
         </div>
       </nav>
 
-      <main className="max-w-[900px] mx-auto px-6 py-12">
-        {/* Section 1: Profile Hero */}
-        <section className="pb-8">
-          <div className="flex gap-12">
-            {/* Left column */}
-            <div className="flex-1">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-current mb-4"
-                   style={{ color: badge.color }}>
-                <div className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-xs">⊕</div>
-                <span className="text-xs font-bold uppercase tracking-widest">{badge.label}</span>
-              </div>
+      <main className="max-w-5xl mx-auto px-6 py-10">
+        {/* Hero */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 mb-8">
+          {/* Left: Profile info */}
+          <div className="bg-white rounded-xl border border-slate-200 p-6">
+            {/* Badge pill */}
+            <div
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold mb-4"
+              style={{ color: badge.color, borderColor: badge.color, backgroundColor: `${badge.color}10` }}
+            >
+              <Shield className="w-3 h-3" />
+              {badge.label}
+            </div>
 
-              <h1 className="text-4xl font-black text-on-surface tracking-tight mt-2.5">
-                {portfolio.profile.full_name}
-              </h1>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              {portfolio.profile.full_name}
+            </h1>
 
-              {portfolio.profile.portfolio_headline && (
-                <p className="text-base text-on-surface-variant leading-relaxed mt-1.5">
-                  {portfolio.profile.portfolio_headline}
-                </p>
-              )}
+            {portfolio.profile.portfolio_headline && (
+              <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+                {portfolio.profile.portfolio_headline}
+              </p>
+            )}
 
-              <div className="flex flex-wrap gap-4 mt-3">
-                {portfolio.profile.institution && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-surface-variant">🏢</span>
-                    <span className="text-sm text-on-surface-variant">{portfolio.profile.institution}</span>
-                  </div>
-                )}
-                {portfolio.profile.role && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-surface-variant">💼</span>
-                    <span className="text-sm text-on-surface-variant">{portfolio.profile.role}</span>
-                  </div>
-                )}
-              </div>
-
-              {portfolio.profile.research_areas.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {portfolio.profile.research_areas.map((area) => (
-                    <span key={area} className="px-3 py-1 text-xs bg-surface-container-low text-on-surface-variant rounded-full">
-                      {area}
-                    </span>
-                  ))}
+            <div className="flex flex-wrap gap-4 mt-3">
+              {portfolio.profile.institution && (
+                <div className="flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="text-sm text-slate-600">{portfolio.profile.institution}</span>
                 </div>
               )}
+              {portfolio.profile.role && (
+                <div className="flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="text-sm text-slate-600">{portfolio.profile.role}</span>
+                </div>
+              )}
+            </div>
 
-              <div className="flex flex-wrap gap-3 mt-4">
+            {portfolio.profile.research_areas.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-4">
+                {portfolio.profile.research_areas.map((area) => (
+                  <span key={area} className="px-2.5 py-1 text-xs bg-slate-100 text-slate-600 rounded-md">
+                    {area}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {(portfolio.profile.orcid_id || portfolio.profile.google_scholar_url || portfolio.profile.personal_website) && (
+              <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-100">
                 {portfolio.profile.orcid_id && (
-                  <a href={`https://orcid.org/${portfolio.profile.orcid_id}`} target="_blank" rel="noopener noreferrer"
-                     className="px-3 py-2 text-xs font-semibold text-on-surface-variant bg-surface-container-low rounded-lg hover:bg-surface-container transition">
-                    ORCID
+                  <a
+                    href={`https://orcid.org/${portfolio.profile.orcid_id}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-md hover:bg-slate-100 transition-colors"
+                  >
+                    ORCID <ExternalLink className="w-3 h-3" />
                   </a>
                 )}
                 {portfolio.profile.google_scholar_url && (
-                  <a href={portfolio.profile.google_scholar_url} target="_blank" rel="noopener noreferrer"
-                     className="px-3 py-2 text-xs font-semibold text-on-surface-variant bg-surface-container-low rounded-lg hover:bg-surface-container transition">
-                    Scholar
+                  <a
+                    href={portfolio.profile.google_scholar_url}
+                    target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-md hover:bg-slate-100 transition-colors"
+                  >
+                    Scholar <ExternalLink className="w-3 h-3" />
                   </a>
                 )}
                 {portfolio.profile.personal_website && (
-                  <a href={portfolio.profile.personal_website} target="_blank" rel="noopener noreferrer"
-                     className="px-3 py-2 text-xs font-semibold text-on-surface-variant bg-surface-container-low rounded-lg hover:bg-surface-container transition">
-                    Website
+                  <a
+                    href={portfolio.profile.personal_website}
+                    target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-md hover:bg-slate-100 transition-colors"
+                  >
+                    Website <ExternalLink className="w-3 h-3" />
                   </a>
                 )}
               </div>
-            </div>
+            )}
 
-            {/* Right column - Integrity Score Card */}
-            <div className="w-80">
-              <div className="bg-surface-container-lowest rounded-3xl p-6 shadow-sm">
-                <div className="text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-4">
-                  Research Integrity Score
-                </div>
-                <div className="flex justify-center mb-6">
-                  <div className="relative w-24 h-24">
-                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                      <circle cx="50" cy="50" r="45" stroke="#e5e7eb" strokeWidth="3" fill="none" />
-                      <circle cx="50" cy="50" r="45" stroke={badge.color} strokeWidth="3" fill="none"
-                        strokeDasharray={`${(portfolio.integrity_record.integrity_score / 100) * 283} 283`}
-                        strokeLinecap="round" />
-                    </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="text-3xl font-black" style={{ color: badge.color }}>
-                          {portfolio.integrity_record.integrity_score}
-                        </div>
-                        <div className="text-xs text-on-surface-variant">/100</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-2.5">
-                  <BreakdownRow label="Avg DQI Score" value={`${portfolio.integrity_record.breakdown.avg_dqi}/100`} color={badge.color} />
-                  <BreakdownRow label="Supervision Rate" value={`${Math.round(portfolio.integrity_record.breakdown.supervision_rate)}%`} color={badge.color} />
-                  <BreakdownRow label="Assumption Checks" value={`${Math.round(portfolio.integrity_record.breakdown.assumption_check_rate)}%`} color={badge.color} />
-                  <BreakdownRow label="Chain Verified" value={`${Math.round(portfolio.integrity_record.breakdown.chain_verification_rate)}%`} color={badge.color} />
-                </div>
-                <div className="h-px bg-surface-container-low my-4" />
-                <div className="text-center">
-                  <div className="w-10 h-10 rounded-full mx-auto mb-2 flex items-center justify-center"
-                       style={{ backgroundColor: `${badge.color}15`, border: `1.5px solid ${badge.color}` }}>
-                    <span className="text-lg">⊕</span>
-                  </div>
-                  <div className="font-bold text-sm" style={{ color: badge.color }}>{badge.label}</div>
-                  <div className="text-xs text-on-surface-variant mt-1 leading-relaxed line-clamp-2">{badge.description}</div>
+            {portfolio.profile.bio && (
+              <p className="text-sm text-slate-600 leading-relaxed mt-4 pt-4 border-t border-slate-100">
+                {portfolio.profile.bio}
+              </p>
+            )}
+          </div>
+
+          {/* Right: Integrity score card */}
+          <div className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">
+              Research Integrity Score
+            </p>
+
+            <div className="flex justify-center mb-4">
+              <div className="relative w-20 h-20">
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="44" stroke="#f1f5f9" strokeWidth="6" fill="none" />
+                  <circle
+                    cx="50" cy="50" r="44"
+                    stroke={badge.color} strokeWidth="6" fill="none"
+                    strokeDasharray={`${(portfolio.integrity_record.integrity_score / 100) * 276} 276`}
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-2xl font-bold" style={{ color: badge.color }}>
+                    {portfolio.integrity_record.integrity_score}
+                  </span>
+                  <span className="text-xs text-slate-400">/100</span>
                 </div>
               </div>
             </div>
+
+            <div className="space-y-2 mb-4">
+              <ScoreRow label="Avg DQI" value={`${portfolio.integrity_record.breakdown.avg_dqi}/100`} color={badge.color} />
+              <ScoreRow label="Supervision" value={`${Math.round(portfolio.integrity_record.breakdown.supervision_rate)}%`} color={badge.color} />
+              <ScoreRow label="Assumption Checks" value={`${Math.round(portfolio.integrity_record.breakdown.assumption_check_rate)}%`} color={badge.color} />
+              <ScoreRow label="Chain Verified" value={`${Math.round(portfolio.integrity_record.breakdown.chain_verification_rate)}%`} color={badge.color} />
+            </div>
+
+            <div className="mt-auto pt-4 border-t border-slate-100 text-center">
+              <span className="text-xs font-semibold" style={{ color: badge.color }}>{badge.label}</span>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">{badge.description}</p>
+            </div>
           </div>
-        </section>
+        </div>
 
-        <StatsStrip portfolio={portfolio} />
+        {/* Stats strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
+          {[
+            { label: 'Datasets', value: portfolio.stats.total_datasets, sub: `${portfolio.stats.datasets_supervisor_approved} verified` },
+            { label: 'Analyses', value: portfolio.stats.total_analyses, sub: `${portfolio.stats.analyses_with_assumption_checks} with checks` },
+            { label: 'Participants', value: portfolio.stats.total_participants_studied.toLocaleString(), sub: 'studied' },
+            { label: 'Publications', value: portfolio.stats.total_publications, sub: `${portfolio.stats.total_certificates} certified` },
+            { label: 'Active Since', value: new Date(portfolio.stats.research_active_since).getFullYear(), sub: 'researcher' },
+          ].map((stat, i) => (
+            <div key={i} className="bg-white rounded-xl border border-slate-200 px-4 py-4 text-center">
+              <div className="text-2xl font-bold text-clinical-blue">{stat.value}</div>
+              <div className="text-xs font-semibold text-slate-700 mt-1">{stat.label}</div>
+              <div className="text-xs text-slate-400 mt-0.5">{stat.sub}</div>
+            </div>
+          ))}
+        </div>
 
-        {portfolio.profile.bio && (
-          <section className="my-8 max-w-2xl">
-            <p className="text-base text-on-surface leading-relaxed">{portfolio.profile.bio}</p>
+        {/* Publications */}
+        {(portfolio.is_owner || portfolio.publications.length > 0) && (
+          <section className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-slate-900">Publications</h2>
+                <span className="text-xs font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                  {portfolio.publications.length}
+                </span>
+              </div>
+              {portfolio.is_owner && !showAddPub && (
+                <button
+                  onClick={() => { setShowAddPub(true); setPubError(null) }}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-clinical-blue border border-clinical-blue/30 bg-clinical-blue/5 hover:bg-clinical-blue/10 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add
+                </button>
+              )}
+            </div>
+
+            {showAddPub && (
+              <form onSubmit={handleAddPublication} className="bg-white rounded-xl border border-slate-200 p-5 mb-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold text-slate-900">New Publication</h3>
+                  <button type="button" onClick={() => { setShowAddPub(false); setPubError(null) }}
+                    className="text-slate-400 hover:text-slate-600">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                {pubError && <p className="text-xs text-red-600 mb-3">{pubError}</p>}
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1">Title *</label>
+                    <input type="text" required value={pubForm.title}
+                      onChange={(e) => setPubForm(f => ({ ...f, title: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-clinical-blue/30 focus:border-clinical-blue"
+                      placeholder="Publication title" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1">DOI (optional)</label>
+                    <input type="text" value={pubForm.doi}
+                      onChange={(e) => setPubForm(f => ({ ...f, doi: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-clinical-blue/30 focus:border-clinical-blue"
+                      placeholder="10.xxxx/xxxxx" />
+                  </div>
+                  <div className="grid grid-cols-[1fr_120px] gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1">Journal</label>
+                      <input type="text" value={pubForm.journal}
+                        onChange={(e) => setPubForm(f => ({ ...f, journal: e.target.value }))}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-clinical-blue/30 focus:border-clinical-blue"
+                        placeholder="Journal name" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1">Year</label>
+                      <input type="number" value={pubForm.year} min={1900} max={2100}
+                        onChange={(e) => setPubForm(f => ({ ...f, year: e.target.value }))}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-clinical-blue/30 focus:border-clinical-blue"
+                        placeholder="2024" />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
+                  <button type="button" onClick={() => { setShowAddPub(false); setPubError(null) }}
+                    className="text-sm text-slate-500 hover:text-slate-800">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={pubSaving}
+                    className="px-4 py-2 bg-clinical-blue text-white text-sm font-semibold rounded-lg hover:bg-clinical-deep disabled:opacity-50 transition-colors">
+                    {pubSaving ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {portfolio.publications.length === 0 && portfolio.is_owner && !showAddPub ? (
+              <div className="bg-white rounded-xl border-2 border-dashed border-slate-200 p-8 text-center">
+                <p className="text-sm font-semibold text-slate-700 mb-1">No publications yet</p>
+                <p className="text-xs text-slate-400 mb-4">Link your PLEXUS research certificate to published work.</p>
+                <button onClick={() => { setShowAddPub(true); setPubError(null) }}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-clinical-blue border border-clinical-blue/30 bg-clinical-blue/5 hover:bg-clinical-blue/10 px-3 py-1.5 rounded-lg transition-colors">
+                  <Plus className="w-3.5 h-3.5" /> Add first publication
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {portfolio.publications.map((pub) => (
+                  <PublicationCard key={pub.id} publication={pub} />
+                ))}
+              </div>
+            )}
           </section>
         )}
 
-        {(portfolio.is_owner || portfolio.publications.length > 0) && (
-          <PublicationsSection
-            portfolio={portfolio}
-            showAddPub={showAddPub}
-            pubForm={pubForm}
-            pubSaving={pubSaving}
-            pubError={pubError}
-            onOpenAdd={() => { setShowAddPub(true); setPubError(null) }}
-            onPubFormChange={(f) => setPubForm(f)}
-            onAddSubmit={handleAddPublication}
-            onAddCancel={() => { setShowAddPub(false); setPubError(null) }}
-          />
-        )}
-
+        {/* Certificates */}
         {(portfolio.is_owner || portfolio.certificates.length > 0) && (
-          <CertificatesSection portfolio={portfolio} />
+          <section className="mb-8">
+            <h2 className="text-base font-bold text-slate-900 mb-1">Research Certificates</h2>
+            <p className="text-xs text-slate-400 mb-4">Verified data lineage records for datasets used in research.</p>
+            {portfolio.certificates.length === 0 && portfolio.is_owner ? (
+              <div className="bg-white rounded-xl border border-slate-200 p-6 text-center">
+                <p className="text-sm text-slate-500">
+                  Certificates are generated automatically from your datasets.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {portfolio.certificates.map((cert) => (
+                  <CertificateCard key={cert.id} certificate={cert} />
+                ))}
+              </div>
+            )}
+          </section>
         )}
 
         <ActivitySection activity={portfolio.activity} isOwner={portfolio.is_owner} />
-
-        <ShareSection
-          username={username}
-          badgeLevel={portfolio.integrity_record.badge.level}
-          isOwner={portfolio.is_owner}
-        />
+        <ShareSection username={username} badgeLevel={portfolio.integrity_record.badge.level} isOwner={portfolio.is_owner} />
       </main>
 
-      {/* Edit Profile Modal */}
       {portfolio.is_owner && (
         <EditProfileModal
           isOpen={showEditModal}
@@ -349,251 +449,102 @@ export default function ProfilePage() {
   )
 }
 
-function BreakdownRow({ label, value, color }: { label: string; value: string; color: string }) {
+function ScoreRow({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-xs text-on-surface-variant">{label}</span>
-      <span className="font-mono text-xs font-semibold" style={{ color }}>{value}</span>
+      <span className="text-xs text-slate-500">{label}</span>
+      <span className="text-xs font-mono font-semibold" style={{ color }}>{value}</span>
     </div>
-  )
-}
-
-function StatsStrip({ portfolio }: { portfolio: PortfolioData }) {
-  const stats = [
-    { label: 'Datasets Studied', value: portfolio.stats.total_datasets, sub: `${portfolio.stats.datasets_supervisor_approved} verified` },
-    { label: 'Analyses Conducted', value: portfolio.stats.total_analyses, sub: `${portfolio.stats.analyses_with_assumption_checks} with checks` },
-    { label: 'Participants Studied', value: portfolio.stats.total_participants_studied.toLocaleString(), sub: `across ${portfolio.stats.total_datasets} datasets` },
-    { label: 'Publications', value: portfolio.stats.total_publications, sub: `${portfolio.stats.total_certificates} verified` },
-    { label: 'Research Since', value: new Date(portfolio.stats.research_active_since).toLocaleDateString('en-US', { year: 'numeric', month: 'short' }), sub: 'Active researcher' },
-  ]
-  return (
-    <section className="bg-surface-container-low py-6 -mx-6 px-6 my-12">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex divide-x divide-surface-container">
-          {stats.map((stat, idx) => (
-            <div key={idx} className="flex-1 text-center px-8">
-              <div className="text-3xl font-black text-primary">{stat.value}</div>
-              <div className="text-xs font-bold uppercase tracking-wider text-on-surface-variant mt-2">{stat.label}</div>
-              <div className="text-xs text-on-surface-variant mt-1">{stat.sub}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-interface PubForm { title: string; doi: string; journal: string; year: string }
-
-function PublicationsSection({
-  portfolio, showAddPub, pubForm, pubSaving, pubError,
-  onOpenAdd, onPubFormChange, onAddSubmit, onAddCancel,
-}: {
-  portfolio: PortfolioData
-  showAddPub: boolean
-  pubForm: PubForm
-  pubSaving: boolean
-  pubError: string | null
-  onOpenAdd: () => void
-  onPubFormChange: (f: PubForm) => void
-  onAddSubmit: (e: React.FormEvent) => void
-  onAddCancel: () => void
-}) {
-  if (!portfolio.is_owner && portfolio.publications.length === 0) return null
-
-  return (
-    <section className="my-12">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-on-surface">Publications</h2>
-          <span className="inline-block mt-1 px-2 py-0.5 bg-surface-container-low text-xs font-mono text-on-surface-variant rounded">
-            {portfolio.publications.length} total
-          </span>
-        </div>
-        {portfolio.is_owner && !showAddPub && (
-          <button onClick={onOpenAdd}
-            className="px-3 py-2 bg-primary text-white text-xs font-bold rounded-lg hover:opacity-90">
-            + Add Publication
-          </button>
-        )}
-      </div>
-
-      {/* Inline add form */}
-      {showAddPub && (
-        <form onSubmit={onAddSubmit} className="bg-surface-container-lowest rounded-2xl p-6 border border-surface-container mb-6 space-y-4">
-          <h3 className="font-bold text-sm text-on-surface">New Publication</h3>
-          {pubError && <p className="text-xs text-red-600">{pubError}</p>}
-          <div>
-            <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1">Title *</label>
-            <input type="text" required value={pubForm.title}
-              onChange={(e) => onPubFormChange({ ...pubForm, title: e.target.value })}
-              className="w-full px-3 py-2 border border-surface-container rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              placeholder="Publication title" />
-          </div>
-          <div>
-            <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1">DOI (optional — auto-fills metadata)</label>
-            <input type="text" value={pubForm.doi}
-              onChange={(e) => onPubFormChange({ ...pubForm, doi: e.target.value })}
-              className="w-full px-3 py-2 border border-surface-container rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              placeholder="10.xxxx/xxxxx" />
-          </div>
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1">Journal</label>
-              <input type="text" value={pubForm.journal}
-                onChange={(e) => onPubFormChange({ ...pubForm, journal: e.target.value })}
-                className="w-full px-3 py-2 border border-surface-container rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="Journal name" />
-            </div>
-            <div className="w-28">
-              <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1">Year</label>
-              <input type="number" value={pubForm.year} min={1900} max={2100}
-                onChange={(e) => onPubFormChange({ ...pubForm, year: e.target.value })}
-                className="w-full px-3 py-2 border border-surface-container rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="2024" />
-            </div>
-          </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onAddCancel}
-              className="text-sm text-on-surface-variant hover:text-on-surface">
-              Cancel
-            </button>
-            <button type="submit" disabled={pubSaving}
-              className="px-4 py-2 bg-primary text-white text-sm font-bold rounded-lg hover:opacity-90 disabled:opacity-50">
-              {pubSaving ? 'Saving…' : 'Save Publication'}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {portfolio.publications.length === 0 && portfolio.is_owner && !showAddPub ? (
-        <div className="bg-surface-container-lowest rounded-2xl p-8 border-2 border-dashed border-primary border-opacity-20">
-          <h3 className="font-bold text-on-surface mb-2">No publications yet</h3>
-          <p className="text-sm text-on-surface-variant mb-4">
-            Add a publication to link your PLEXUS research certificate to your published work.
-          </p>
-          <button onClick={onOpenAdd}
-            className="px-3 py-2 bg-primary text-white text-xs font-bold rounded-lg">
-            + Add your first publication
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {portfolio.publications.map((pub) => (
-            <PublicationCard key={pub.id} publication={pub} />
-          ))}
-        </div>
-      )}
-    </section>
   )
 }
 
 function PublicationCard({ publication }: { publication: any }) {
   return (
-    <div className="bg-surface-container-lowest rounded-2xl p-7 shadow-sm">
-      <div className="flex items-start justify-between">
-        <div>
+    <div className="bg-white rounded-xl border border-slate-200 p-5 hover:border-slate-300 transition-colors">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
           {publication.study_type && (
-            <span className="inline-block px-2 py-1 text-xs font-semibold text-on-surface-variant bg-surface-container-low rounded-full">
+            <span className="inline-block px-2 py-0.5 text-xs font-medium text-slate-500 bg-slate-100 rounded mb-2">
               {publication.study_type}
             </span>
           )}
           {publication.year && (
-            <span className="ml-2 text-xs text-on-surface-variant font-mono">{publication.year}</span>
+            <span className="ml-2 text-xs text-slate-400 font-mono">{publication.year}</span>
+          )}
+          {publication.title && (
+            <h3 className="text-sm font-semibold text-slate-900 leading-snug mt-1">
+              {publication.doi ? (
+                <a href={`https://doi.org/${publication.doi}`} target="_blank" rel="noopener noreferrer"
+                   className="hover:text-clinical-blue transition-colors">
+                  {publication.title}
+                </a>
+              ) : publication.title}
+            </h3>
+          )}
+          {publication.journal && (
+            <p className="text-xs text-slate-400 italic mt-1">{publication.journal}</p>
+          )}
+          {publication.abstract && (
+            <p className="text-xs text-slate-500 leading-relaxed mt-2 line-clamp-2">{publication.abstract}</p>
           )}
         </div>
-        <div className="flex gap-1">
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
           {publication.supervisor_approved && (
-            <div className="w-6 h-6 rounded-full bg-green-50 flex items-center justify-center text-xs">✓</div>
-          )}
-          {publication.assumption_checks_conducted && (
-            <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center text-xs">✓</div>
+            <span title="Supervisor approved">
+              <CheckCircle className="w-4 h-4 text-emerald-500" />
+            </span>
           )}
           {publication.dqi_score && (
-            <div className="px-2 py-0.5 text-xs font-mono bg-surface-container-low rounded text-on-surface-variant">
+            <span className="text-xs font-mono text-slate-400 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded">
               {publication.dqi_score}/100
-            </div>
+            </span>
           )}
         </div>
       </div>
-      {publication.title && (
-        <h3 className="text-lg font-bold text-on-surface mt-2">
-          {publication.doi ? (
-            <a href={`https://doi.org/${publication.doi}`} target="_blank" rel="noopener noreferrer"
-               className="hover:text-primary">{publication.title}</a>
-          ) : publication.title}
-        </h3>
-      )}
-      {publication.journal && (
-        <p className="text-sm text-on-surface-variant italic mt-1">{publication.journal}</p>
-      )}
-      {publication.abstract && (
-        <p className="text-sm text-on-surface-variant leading-relaxed mt-3 line-clamp-3">{publication.abstract}</p>
-      )}
-      <div className="flex gap-2 mt-4 pt-4 border-t border-surface-container-low">
-        {publication.sample_size && (
-          <span className="px-2 py-1 text-xs font-mono bg-surface-container-low rounded">N = {publication.sample_size}</span>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function CertificatesSection({ portfolio }: { portfolio: PortfolioData }) {
-  if (!portfolio.is_owner && portfolio.certificates.length === 0) return null
-
-  return (
-    <section className="my-12">
-      <h2 className="text-2xl font-bold text-on-surface mb-2">Research Certificates</h2>
-      <p className="text-sm text-on-surface-variant mb-6">
-        Verified data lineage records for datasets used in research.
-      </p>
-      {portfolio.certificates.length === 0 && portfolio.is_owner ? (
-        <p className="text-sm text-on-surface-variant">
-          Certificates are generated automatically from your datasets. Upload and verify a dataset to earn one.
-        </p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {portfolio.certificates.map((cert) => (
-            <CertificateCard key={cert.id} certificate={cert} />
-          ))}
+      {publication.sample_size && (
+        <div className="mt-3 pt-3 border-t border-slate-100">
+          <span className="text-xs font-mono text-slate-400">N = {publication.sample_size}</span>
         </div>
       )}
-    </section>
+    </div>
   )
 }
 
 function CertificateCard({ certificate }: { certificate: any }) {
   return (
-    <div className="bg-surface-container-lowest rounded-2xl p-5 shadow-sm hover:shadow-md transition">
-      <div className="flex items-start justify-between">
-        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-white">K</div>
+    <div className="bg-white rounded-xl border border-slate-200 p-4 hover:border-slate-300 transition-colors">
+      <div className="flex items-center justify-between mb-3">
+        <div className="w-7 h-7 rounded-lg bg-clinical-blue flex items-center justify-center">
+          <Shield className="w-3.5 h-3.5 text-white" />
+        </div>
         {certificate.chain_verified && (
-          <span className="text-xs font-bold text-green-600">✓ Verified</span>
+          <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
+            <CheckCircle className="w-3 h-3" /> Verified
+          </span>
         )}
       </div>
-      <h3 className="font-bold text-sm text-on-surface mt-3">
+      <h3 className="text-sm font-semibold text-slate-900 leading-snug">
         {certificate.display_title || certificate.dataset_name}
       </h3>
       {certificate.context_note && (
-        <p className="text-xs text-on-surface-variant italic mt-2 line-clamp-2">{certificate.context_note}</p>
+        <p className="text-xs text-slate-400 italic mt-1 line-clamp-2">{certificate.context_note}</p>
       )}
-      <div className="space-y-1.5 mt-3">
+      <div className="mt-3 space-y-1">
         {certificate.dqi_score_snapshot && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-on-surface-variant">DQI:</span>
-            <span className="font-mono text-xs font-semibold">{certificate.dqi_score_snapshot}/100</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-400">DQI</span>
+            <span className="text-xs font-mono font-semibold text-slate-700">{certificate.dqi_score_snapshot}/100</span>
           </div>
         )}
         {certificate.supervisor_approved && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-green-600">✓</span>
-            <span className="text-xs text-on-surface-variant">Supervisor approved</span>
+          <div className="flex items-center gap-1">
+            <CheckCircle className="w-3 h-3 text-emerald-500" />
+            <span className="text-xs text-slate-500">Supervisor approved</span>
           </div>
         )}
       </div>
-      <button className="mt-4 w-full py-2 text-xs font-bold text-primary hover:bg-primary hover:text-white transition rounded">
-        View Certificate →
+      <button className="mt-3 w-full py-1.5 text-xs font-semibold text-clinical-blue border border-clinical-blue/20 rounded-lg hover:bg-clinical-blue/5 transition-colors">
+        View Certificate
       </button>
     </div>
   )
