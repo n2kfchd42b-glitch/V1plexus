@@ -150,22 +150,13 @@ export const ANALYSIS_TYPES: AnalysisTypeInfo[] = [
   },
 ]
 
-const categoryColors: Record<string, string> = {
-  Basic: 'bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800',
-  Regression: 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800',
-  Survival: 'bg-purple-50 border-purple-200 dark:bg-purple-950/30 dark:border-purple-800',
-  Advanced: 'bg-orange-50 border-orange-200 dark:bg-orange-950/30 dark:border-orange-800',
-  Epidemiology: 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800',
-  Design: 'bg-gray-50 border-gray-200 dark:bg-gray-900/50 dark:border-gray-700',
-}
-
 const categoryTextColors: Record<string, string> = {
-  Basic: 'text-blue-700 dark:text-blue-300',
-  Regression: 'text-green-700 dark:text-green-300',
-  Survival: 'text-purple-700 dark:text-purple-300',
-  Advanced: 'text-orange-700 dark:text-orange-300',
-  Epidemiology: 'text-red-700 dark:text-red-300',
-  Design: 'text-gray-700 dark:text-gray-300',
+  Basic: 'text-[#0040a2]',
+  Regression: 'text-[#0040a2]',
+  Survival: 'text-[#0040a2]',
+  Advanced: 'text-[#0040a2]',
+  Epidemiology: 'text-[#0040a2]',
+  Design: 'text-[#0040a2]',
 }
 
 interface Props {
@@ -190,35 +181,35 @@ export function AnalysisTypePicker({ selected, onSelect }: Props) {
                   onClick={() => !info.unavailable && onSelect(info.type)}
                   disabled={info.unavailable}
                   className={cn(
-                    'text-left rounded-lg border p-3 transition-all',
+                    'group text-left rounded-lg border p-3 transition-all duration-200',
+                    'bg-white border-[rgba(0,82,204,0.18)]',
                     info.unavailable
                       ? 'opacity-50 cursor-not-allowed'
-                      : 'hover:shadow-sm hover:border-opacity-80',
-                    categoryColors[category],
-                    selected === info.type ? 'ring-2 ring-primary shadow-sm' : ''
+                      : 'hover:bg-[#003d9b] hover:border-[#003d9b] hover:shadow-md',
+                    selected === info.type ? 'ring-2 ring-[#0052cc] shadow-sm' : ''
                   )}
                 >
                   <div className="flex items-start gap-2">
-                    <span className={cn('mt-0.5', categoryTextColors[category])}>{info.icon}</span>
+                    <span className={cn('mt-0.5 transition-colors duration-200', categoryTextColors[category], 'group-hover:text-white')}>{info.icon}</span>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <p className="text-sm font-medium leading-tight">{info.label}</p>
+                        <p className="text-sm font-medium leading-tight text-[#18181B] transition-colors duration-200 group-hover:text-white">{info.label}</p>
                         {info.approximation && (
-                          <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide px-1 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                          <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide px-1 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200 group-hover:bg-white/20 group-hover:text-white group-hover:border-white/30 transition-colors duration-200">
                             approx
                           </span>
                         )}
                         {info.unavailable && (
-                          <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide px-1 py-0.5 rounded bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+                          <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide px-1 py-0.5 rounded bg-gray-100 text-gray-500 border border-gray-200">
                             coming soon
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">{info.description}</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight transition-colors duration-200 group-hover:text-white/75">{info.description}</p>
                       {info.approximation && info.approximationNote && (
-                        <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5 leading-tight italic">{info.approximationNote}</p>
+                        <p className="text-[10px] text-amber-600 mt-0.5 leading-tight italic transition-colors duration-200 group-hover:text-white/70">{info.approximationNote}</p>
                       )}
-                      <p className={cn('text-[10px] mt-1 font-medium', categoryTextColors[category])}>{info.chartType}</p>
+                      <p className={cn('text-[10px] mt-1 font-medium transition-colors duration-200', categoryTextColors[category], 'group-hover:text-white/80')}>{info.chartType}</p>
                     </div>
                   </div>
                 </button>
