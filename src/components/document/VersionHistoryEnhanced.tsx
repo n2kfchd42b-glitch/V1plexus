@@ -99,17 +99,17 @@ export function VersionHistory({
   }
 
   return (
-    <div className="w-96 border-l border-border-default bg-surface-1 flex flex-col h-full">
+    <div className="w-96 border-l border-slate-200 bg-slate-50 flex flex-col h-full">
       {/* Header */}
-      <div className="shrink-0 flex items-center justify-between p-4 border-b border-border-default">
+      <div className="shrink-0 flex items-center justify-between p-6 border-b border-slate-200 bg-white">
         <div className="flex items-center gap-2">
-          <History className="h-4 w-4 text-text-tertiary" />
-          <h3 className="font-medium text-sm text-text-primary">Version History</h3>
+          <History className="h-4 w-4 text-slate-600" />
+          <h3 className="font-black text-[10px] uppercase tracking-[0.15em] text-slate-500">Version History</h3>
         </div>
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6"
+          className="h-6 w-6 text-slate-400 hover:text-slate-600"
           onClick={onClose}
         >
           <X className="h-4 w-4" />
@@ -117,7 +117,7 @@ export function VersionHistory({
       </div>
 
       {/* View mode tabs */}
-      <div className="shrink-0 px-4 py-2 border-b border-border-default flex gap-2">
+      <div className="shrink-0 px-4 py-2 border-b border-slate-200 flex gap-2 bg-white">
         <Button
           size="sm"
           variant={viewMode === 'list' ? 'default' : 'outline'}
@@ -125,7 +125,7 @@ export function VersionHistory({
             setViewMode('list')
             setSelectedVersionId(null)
           }}
-          className="text-xs h-7"
+          className="text-xs h-7 bg-white text-slate-700 border-slate-300 hover:border-slate-400"
         >
           Versions
         </Button>
@@ -134,7 +134,7 @@ export function VersionHistory({
           variant={viewMode === 'diff' ? 'default' : 'outline'}
           onClick={() => setViewMode('diff')}
           disabled={!selectedVersion}
-          className="text-xs h-7"
+          className="text-xs h-7 bg-white text-slate-700 border-slate-300 hover:border-slate-400"
         >
           Diff
         </Button>
@@ -184,8 +184,8 @@ function VersionList({
   if (versions.length === 0) {
     return (
       <div className="text-center p-6">
-        <p className="text-sm text-text-tertiary">No saved versions yet</p>
-        <p className="text-xs text-text-tertiary mt-1">
+        <p className="text-sm text-slate-500">No saved versions yet</p>
+        <p className="text-xs text-slate-400 mt-1">
           Click "Save Version" to create a manual snapshot
         </p>
       </div>
@@ -193,27 +193,27 @@ function VersionList({
   }
 
   return (
-    <ul className="divide-y divide-border-default">
+    <ul className="divide-y divide-slate-200">
       {versions.map((v) => (
         <li
           key={v.id}
-          className="p-4 hover:bg-surface-2 cursor-pointer transition-colors"
+          className="p-4 hover:bg-white cursor-pointer transition-colors"
           onClick={() => onSelectVersion(selectedVersionId === v.id ? null : v.id)}
         >
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
               {/* Version number + label */}
               <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold text-text-primary">
+                <p className="text-[13px] font-bold text-slate-900">
                   v{v.version_number}
                 </p>
                 {v.label && (
-                  <span className="text-xs bg-primary-light text-primary px-2 py-0.5 rounded">
+                  <span className="text-[9px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
                     {v.label}
                   </span>
                 )}
                 {v.version_number === currentVersion && (
-                  <span className="text-xs bg-success text-white px-2 py-0.5 rounded">
+                  <span className="text-[9px] bg-green-50 text-green-700 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
                     Current
                   </span>
                 )}
@@ -222,12 +222,12 @@ function VersionList({
               {/* Metadata */}
               <div className="space-y-1 mt-2">
                 {v.change_summary && (
-                  <p className="text-xs text-text-secondary line-clamp-2">
+                  <p className="text-xs text-slate-600 line-clamp-2">
                     {v.change_summary}
                   </p>
                 )}
 
-                <div className="flex items-center gap-3 text-xs text-text-tertiary">
+                <div className="flex items-center gap-3 text-xs text-slate-500">
                   <div className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
                     {formatDate(v.created_at)}
@@ -241,7 +241,7 @@ function VersionList({
                 </div>
 
                 {v.word_count && (
-                  <p className="text-xs text-text-tertiary">
+                  <p className="text-xs text-slate-500">
                     {v.word_count.toLocaleString()} words
                   </p>
                 )}
@@ -258,7 +258,7 @@ function VersionList({
                   onRestore(v)
                 }}
                 disabled={restoring === v.id}
-                className="text-xs h-7 shrink-0"
+                className="text-xs h-7 shrink-0 border-slate-300 text-slate-700 hover:bg-white"
               >
                 {restoring === v.id ? 'Restoring...' : 'Restore'}
               </Button>
@@ -290,7 +290,7 @@ function DiffView({
   if (!selectedVersion) {
     return (
       <div className="text-center p-6">
-        <p className="text-sm text-text-tertiary">
+        <p className="text-sm text-slate-500">
           Select a version to view differences
         </p>
       </div>
@@ -301,28 +301,28 @@ function DiffView({
     <div className="p-4 space-y-4">
       {/* Stats */}
       <div className="grid grid-cols-3 gap-2">
-        <div className="p-2 bg-success-light rounded text-center">
-          <p className="text-lg font-semibold text-success">+{diffStats.added}</p>
-          <p className="text-xs text-text-secondary">Added</p>
+        <div className="p-2 bg-green-50 rounded text-center border border-green-200">
+          <p className="text-lg font-bold text-green-700">+{diffStats.added}</p>
+          <p className="text-[10px] text-green-600 font-medium">Added</p>
         </div>
-        <div className="p-2 bg-destructive-light rounded text-center">
-          <p className="text-lg font-semibold text-destructive">
+        <div className="p-2 bg-red-50 rounded text-center border border-red-200">
+          <p className="text-lg font-bold text-red-700">
             -{diffStats.removed}
           </p>
-          <p className="text-xs text-text-secondary">Removed</p>
+          <p className="text-[10px] text-red-600 font-medium">Removed</p>
         </div>
-        <div className="p-2 bg-surface-2 rounded text-center">
-          <p className="text-lg font-semibold text-text-primary">
+        <div className="p-2 bg-slate-100 rounded text-center border border-slate-300">
+          <p className="text-lg font-bold text-slate-700">
             {diffStats.changedPct}%
           </p>
-          <p className="text-xs text-text-secondary">Changed</p>
+          <p className="text-[10px] text-slate-600 font-medium">Changed</p>
         </div>
       </div>
 
       {/* Diff blocks */}
       <div className="space-y-2">
         {diffBlocks.length === 0 ? (
-          <p className="text-sm text-text-tertiary text-center py-4">
+          <p className="text-sm text-slate-500 text-center py-4">
             No differences
           </p>
         ) : (
@@ -331,15 +331,17 @@ function DiffView({
               key={idx}
               className={`p-3 rounded text-xs font-mono text-sm border-l-4 ${
                 block.type === 'added'
-                  ? 'bg-success-light border-success text-text-primary'
+                  ? 'bg-green-50 border-green-500 text-slate-900'
                   : block.type === 'removed'
-                    ? 'bg-destructive-light border-destructive text-text-primary'
-                    : 'bg-surface-2 border-border-default text-text-tertiary'
+                    ? 'bg-red-50 border-red-500 text-slate-900'
+                    : 'bg-slate-50 border-slate-300 text-slate-500'
               }`}
             >
-              {block.type === 'added' && <span className="text-success">+ </span>}
+              {block.type === 'added' && (
+                <span className="text-green-700 font-bold">+ </span>
+              )}
               {block.type === 'removed' && (
-                <span className="text-destructive">- </span>
+                <span className="text-red-700 font-bold">- </span>
               )}
               <span className="break-words">{block.content}</span>
             </div>

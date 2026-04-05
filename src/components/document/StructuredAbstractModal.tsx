@@ -168,14 +168,14 @@ export function StructuredAbstractModal({
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-border-default shrink-0">
-            <h2 className="text-lg font-semibold text-text-primary">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 shrink-0">
+            <h2 className="font-black text-[13px] uppercase tracking-[0.15em] text-slate-900">
               Structured Abstract Builder
             </h2>
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6"
+              className="h-6 w-6 hover:text-blue-600 transition-colors"
               onClick={onClose}
             >
               <X className="h-4 w-4" />
@@ -186,7 +186,7 @@ export function StructuredAbstractModal({
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {/* Template selector */}
             <div>
-              <label className="text-xs font-medium text-text-secondary block mb-2">
+              <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-2">
                 Select Template
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -196,10 +196,10 @@ export function StructuredAbstractModal({
                     onClick={() =>
                       handleTemplateChange(key as TemplateKey)
                     }
-                    className={`p-2 text-xs font-medium border rounded transition-colors ${
+                    className={`p-3 text-xs font-medium border rounded transition-colors ${
                       selectedTemplate === key
-                        ? 'bg-primary text-white border-primary'
-                        : 'bg-surface-1 border-border-default text-text-primary hover:bg-surface-2'
+                        ? 'bg-blue-600 text-white border-blue-600 font-semibold'
+                        : 'bg-white border-slate-300 text-slate-900 hover:bg-slate-50'
                     }`}
                   >
                     {template.label}
@@ -209,23 +209,23 @@ export function StructuredAbstractModal({
             </div>
 
             {/* Word count indicator */}
-            <div className="p-3 bg-surface-1 rounded">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded">
               <div className="flex justify-between items-center mb-2">
-                <p className="text-xs font-medium text-text-secondary">
+                <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                   Word Count
                 </p>
                 <p
-                  className={`text-sm font-semibold ${
-                    isWithinLimit ? 'text-success' : 'text-destructive'
+                  className={`text-sm font-bold ${
+                    isWithinLimit ? 'text-green-700' : 'text-red-700'
                   }`}
                 >
                   {totalWords} / {totalLimit} words
                 </p>
               </div>
-              <div className="w-full bg-surface-2 rounded h-2">
+              <div className="w-full bg-slate-200 rounded h-2">
                 <div
                   className={`h-full rounded transition-colors ${
-                    isWithinLimit ? 'bg-success' : 'bg-destructive'
+                    isWithinLimit ? 'bg-green-600' : 'bg-red-600'
                   }`}
                   style={{ width: `${Math.min(100, (totalWords / totalLimit) * 100)}%` }}
                 />
@@ -237,7 +237,7 @@ export function StructuredAbstractModal({
               {sections.map((section, idx) => (
                 <div
                   key={section.id}
-                  className="border border-border-default rounded p-3 space-y-2"
+                  className="border border-slate-200 rounded p-4 space-y-2 bg-white hover:bg-slate-50 transition-colors"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <Input
@@ -252,16 +252,16 @@ export function StructuredAbstractModal({
                           )
                         )
                       }
-                      className="text-xs font-semibold h-8 flex-1"
+                      className="text-xs font-bold h-8 flex-1 border-slate-300 text-slate-900"
                     />
-                    <p className="text-xs text-text-tertiary whitespace-nowrap">
+                    <p className="text-xs text-slate-500 whitespace-nowrap font-medium">
                       {section.wordCount}/{section.wordLimit} words
                     </p>
                     {sections.length > 1 && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 text-destructive"
+                        className="h-6 w-6 text-red-600 hover:text-red-700 hover:bg-red-50"
                         onClick={() => handleDeleteSection(section.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -271,7 +271,7 @@ export function StructuredAbstractModal({
 
                   {/* Word limit warning */}
                   {section.wordCount > section.wordLimit && (
-                    <p className="text-xs text-destructive">
+                    <p className="text-xs text-orange-700 font-medium">
                       ⚠️ Exceeds limit by{' '}
                       {section.wordCount - section.wordLimit} words
                     </p>
@@ -284,7 +284,7 @@ export function StructuredAbstractModal({
                       handleSectionChange(section.id, e.target.value)
                     }
                     placeholder={`Write your ${section.title.toLowerCase()} (aim for ~${section.wordLimit} words)`}
-                    className="text-xs h-24 resize-none"
+                    className="text-xs h-24 resize-none border-slate-300 text-slate-900 placeholder:text-slate-400"
                   />
                 </div>
               ))}
@@ -294,7 +294,7 @@ export function StructuredAbstractModal({
                 size="sm"
                 variant="outline"
                 onClick={handleAddSection}
-                className="w-full text-xs h-8"
+                className="w-full text-xs h-8 border-slate-300 text-slate-700 hover:bg-white"
               >
                 <Plus className="h-3.5 w-3.5 mr-1" />
                 Add Section
@@ -303,18 +303,18 @@ export function StructuredAbstractModal({
           </div>
 
           {/* Footer */}
-          <div className="shrink-0 p-4 border-t border-border-default flex gap-2 justify-end">
+          <div className="shrink-0 px-6 py-4 border-t border-slate-200 flex gap-2 justify-end bg-slate-50">
             <Button
               variant="outline"
               onClick={onClose}
-              className="text-xs h-8"
+              className="text-xs h-8 border-slate-300 text-slate-700 hover:bg-white"
             >
               Cancel
             </Button>
             <Button
               onClick={handleInsert}
               disabled={sections.some((s) => !s.content.trim())}
-              className="text-xs h-8"
+              className="text-xs h-8 bg-blue-600 hover:bg-blue-700 text-white disabled:bg-slate-300 disabled:text-slate-500"
             >
               Insert Abstract
             </Button>

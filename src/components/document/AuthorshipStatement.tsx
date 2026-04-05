@@ -72,8 +72,8 @@ export function AuthorshipStatement({
 
   if (sortedAuthors.length === 0) {
     return (
-      <div className="p-4 border border-dashed border-border-default rounded bg-surface-2">
-        <p className="text-xs text-text-tertiary text-center">
+      <div className="p-4 border border-dashed border-slate-300 rounded bg-slate-50">
+        <p className="text-xs text-slate-500 text-center font-medium">
           No authors yet. Add authors to generate authorship statement.
         </p>
       </div>
@@ -81,24 +81,24 @@ export function AuthorshipStatement({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {documentTitle && (
         <div>
-          <p className="text-xs font-semibold text-text-secondary mb-1">
+          <p className="text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">
             Document: {documentTitle}
           </p>
         </div>
       )}
 
       <div className="relative">
-        <div className="p-4 bg-surface-1 border border-border-default rounded text-sm text-text-primary whitespace-pre-wrap break-words">
+        <div className="p-4 bg-white border border-slate-200 rounded text-sm text-slate-900 whitespace-pre-wrap break-words font-mono text-xs">
           {statement}
         </div>
 
         <Button
           size="icon"
           variant="ghost"
-          className="absolute top-2 right-2 h-7 w-7"
+          className="absolute top-2 right-2 h-7 w-7 hover:text-blue-600 transition-colors"
           onClick={handleCopy}
           title="Copy to clipboard"
         >
@@ -107,12 +107,12 @@ export function AuthorshipStatement({
       </div>
 
       {/* Format info */}
-      <p className="text-xs text-text-tertiary">
+      <p className="text-xs text-slate-500 font-medium">
         Format: CRediT Taxonomy • {sortedAuthors.length} author(s)
       </p>
 
       {/* Export instructions */}
-      <div className="p-3 bg-info-light border border-info rounded text-xs text-info-dark space-y-1">
+      <div className="p-3 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700 space-y-1">
         <p className="font-semibold">💡 How to use:</p>
         <ul className="list-disc list-inside space-y-0.5 text-xs">
           <li>Copy this statement into your manuscript's "Author Contributions" section</li>

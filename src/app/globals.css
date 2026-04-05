@@ -1,17 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    /*  Radix/shadcn compatibility vars (HSL)  */
-    --background: 0 0% 98%;
+    /* ════════════════════════════════════════
+       PLEXUS Design System Tokens
+       Scientific, institutional, accessible
+       ════════════════════════════════════════ */
+    
+    /* Brand Colors */
+    --primary: 221 100% 50%;
+    --primary-rgb: 0, 82, 204;
+    --on-primary: 0 0% 100%;
+    --primary-container: 221 100% 97%;
+    --on-primary-container: 221 100% 33%;
+    
+    /* Semantic Colors */
+    --secondary: 220 13% 28%;
+    --on-surface: 240 10% 11%;
+    --on-surface-variant: 220 13% 28%;
+    
+    /* Surfaces */
+    --background: 210 40% 98%;
+    --surface: 0 0% 100%;
+    --surface-container: 210 40% 95%;
+    --surface-container-low: 210 40% 98%;
+    --surface-container-high: 215 32% 88%;
+    --surface-container-highest: 214 32% 87%;
+    
+    /* UI Elements */
+    --outline: 216 33% 73%;
     --foreground: 240 10% 11%;
     --card: 0 0% 100%;
     --card-foreground: 240 10% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 11%;
-    --primary: 213 74% 53%;
     --primary-foreground: 0 0% 98%;
     --secondary: 240 5% 96%;
     --secondary-foreground: 240 6% 25%;
