@@ -73,7 +73,7 @@ export async function GET(
         is_auto_save,
         created_at,
         word_count,
-        created_by:profiles(id, display_name)
+        created_by:profiles(id, full_name)
       `
       )
       .eq('document_id', documentId)

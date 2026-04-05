@@ -3,7 +3,6 @@
  */
 
 import { useState, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import type { DocumentAuthorRole } from '@/types/document-editor-pillars'
 import type { DocumentVersion } from '@/types/document-editor-pillars'
@@ -12,19 +11,18 @@ import type { DocumentVersion } from '@/types/document-editor-pillars'
  * Hook for managing document authorship
  */
 export function useDocumentAuthors(documentId: string) {
-  const supabase = createClient()
   const [authors, setAuthors] = useState<DocumentAuthorRole[]>([])
   const [loading, setLoading] = useState(false)
 
   const fetchAuthors = useCallback(async () => {
     setLoading(true)
     try {
-      const { data, error } = await fetch(
+      const { authors, error } = await fetch(
         `/api/documents/${documentId}/authors`
       ).then((r) => r.json())
 
       if (error) throw new Error(error)
-      setAuthors(data.authors || [])
+      setAuthors(authors || [])
     } catch (err) {
       console.error('Failed to fetch authors:', err)
       toast.error('Failed to load authors')
@@ -130,12 +128,12 @@ export function useDocumentVersions(documentId: string) {
     async (includeAutoSave = false) => {
       setLoading(true)
       try {
-        const { data, error } = await fetch(
+        const { versions, error } = await fetch(
           `/api/documents/${documentId}/versions?includeAutoSave=${includeAutoSave}`
         ).then((r) => r.json())
 
         if (error) throw new Error(error)
-        setVersions(data.versions || [])
+        setVersions(versions || [])
       } catch (err) {
         console.error('Failed to fetch versions:', err)
         toast.error('Failed to load versions')

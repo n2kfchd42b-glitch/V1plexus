@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { X, History, ChevronDown, Clock, User } from 'lucide-react'
+import { X, History, Clock, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatDate } from '@/lib/utils'
 import {
@@ -18,7 +18,7 @@ interface DocumentVersion {
   version_number: number
   content: Record<string, unknown> | null
   change_summary?: string | null
-  created_by?: { id: string; display_name: string } | null
+  created_by?: { id: string; full_name: string | null } | null
   created_at: string
   word_count?: number
   label?: string | null
@@ -235,7 +235,7 @@ function VersionList({
                   {v.created_by && (
                     <div className="flex items-center gap-1">
                       <User className="h-3 w-3" />
-                      {v.created_by.display_name || 'Unknown'}
+                      {v.created_by.full_name || 'Unknown'}
                     </div>
                   )}
                 </div>

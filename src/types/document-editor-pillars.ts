@@ -18,7 +18,7 @@ export interface DocumentVersion {
   is_auto_save?: boolean
   created_by?: {
     id: string
-    display_name: string
+    full_name: string | null
   } | null
   created_at: string
   word_count?: number
