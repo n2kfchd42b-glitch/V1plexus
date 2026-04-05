@@ -16,6 +16,8 @@ import { createClient } from '@/lib/supabase/client'
 interface ExportDropdownProps {
   documentId: string
   documentTitle: string
+  projectId?: string
+  documentType?: string
 }
 
 type ExportFormat = 'docx' | 'pdf' | 'latex'
@@ -214,7 +216,7 @@ function downloadBlob(content: string, filename: string, mimeType: string) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function ExportDropdown({ documentId, documentTitle }: ExportDropdownProps) {
+export function ExportDropdown({ documentId, documentTitle, projectId, documentType }: ExportDropdownProps) {
   const [states, setStates] = useState<Record<ExportFormat, ExportState>>({
     docx: 'idle',
     pdf: 'idle',
@@ -227,7 +229,21 @@ export function ExportDropdown({ documentId, documentTitle }: ExportDropdownProp
   const handleExport = async (format: ExportFormat) => {
     setStates(prev => ({ ...prev, [format]: 'loading' }))
     try {
-      // Fetch document content from Supabase
+      // Ethics gate: for ethics_application doc type, require approved ethics
+      if (projectId && documentType === 'ethics_application') {
+        const { data: ethics } = await supabase
+          .from('ethics_applications')
+          .select('status')
+          .eq('project_id', projectId)
+          .in('status', ['approved', 'conditionally_approved'])
+          .limit(1)
+          .maybeSingle()
+        if (!ethics) {
+          throw new Error('Export requires an approved ethics application for this project.')
+        }
+      }
+
+      // Fetch document + authors for authorship footer
       const { data: doc, error } = await supabase
         .from('documents')
         .select('title, content')
@@ -237,7 +253,37 @@ export function ExportDropdown({ documentId, documentTitle }: ExportDropdownProp
       if (error || !doc) throw new Error('Could not load document content')
 
       const title = (doc.title as string) ?? documentTitle
-      const content = doc.content as Record<string, unknown> | null
+      let content = doc.content as Record<string, unknown> | null
+
+      // Append authorship statement if authors exist
+      const { data: authorRows } = await supabase
+        .from('document_author_roles')
+        .select('display_name, credit_roles, is_corresponding, orcid')
+        .eq('document_id', documentId)
+        .order('contribution_order', { ascending: true })
+
+      if (authorRows && authorRows.length > 0) {
+        const authorList = authorRows
+          .map((a: { display_name: string; credit_roles: string[]; is_corresponding: boolean; orcid?: string }) => {
+            const roles = Array.isArray(a.credit_roles) && a.credit_roles.length > 0
+              ? ` (${a.credit_roles.join(', ')})`
+              : ''
+            const corr = a.is_corresponding ? ' [Corresponding]' : ''
+            const orcid = a.orcid ? ` · ORCID: ${a.orcid}` : ''
+            return `${a.display_name}${roles}${corr}${orcid}`
+          })
+          .join('; ')
+        const authorshipNode: Record<string, unknown> = {
+          type: 'doc',
+          content: [
+            ...(content?.content as unknown[] ?? []),
+            { type: 'horizontalRule' },
+            { type: 'heading', attrs: { level: 3 }, content: [{ type: 'text', text: 'Author Contributions' }] },
+            { type: 'paragraph', content: [{ type: 'text', text: authorList }] },
+          ],
+        }
+        content = authorshipNode
+      }
 
       if (format === 'pdf') {
         const html = buildPrintHtml(title, content)

@@ -47,6 +47,7 @@ interface CollaborativeEditorProps {
   onSubmitForReview?: () => void
   onSaveStatusChange?: (status: { saving: boolean; lastSaved: Date | null }) => void
   triggerSaveRef?: { current: (() => Promise<void>) | null }
+  insertContentRef?: { current: ((html: string) => void) | null }
   readOnly?: boolean
   documentType?: string
 }
@@ -69,6 +70,7 @@ export function CollaborativeEditor({
   onSubmitForReview,
   onSaveStatusChange,
   triggerSaveRef,
+  insertContentRef,
   readOnly = false,
   documentType = 'general',
 }: CollaborativeEditorProps) {
@@ -152,6 +154,14 @@ export function CollaborativeEditor({
     if (triggerSaveRef) triggerSaveRef.current = handleManualSave
     return () => { if (triggerSaveRef) triggerSaveRef.current = null }
   }, [triggerSaveRef, handleManualSave])
+
+  useEffect(() => {
+    if (!insertContentRef) return
+    insertContentRef.current = (html: string) => {
+      editor?.chain().focus().insertContent(html).run()
+    }
+    return () => { insertContentRef.current = null }
+  }, [insertContentRef, editor])
 
   // Keyboard shortcuts
   useEffect(() => {
