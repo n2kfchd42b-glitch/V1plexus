@@ -149,26 +149,26 @@ export function ComplianceStatusBar({
       )}
 
       {/* Status bar */}
-      <div className="flex items-center gap-6 px-8 py-3 bg-white text-slate-500 text-[10px] border-t border-slate-200 font-bold uppercase tracking-widest">
+      <div className="flex items-center gap-6 px-6 py-2 bg-[#18181B] text-white/60 text-[10px] border-t border-white/10 font-bold uppercase tracking-widest">
         {/* Left: doc stats */}
-        <div className="flex items-center gap-6">
-          <span className="flex items-center gap-1.5 text-slate-600">
-            <FileText className="h-3.5 w-3.5 text-slate-400" />
+        <div className="flex items-center gap-5">
+          <span className="flex items-center gap-1.5 text-white/70">
+            <FileText className="h-3 w-3 opacity-60" />
             {wordCount.toLocaleString()} words
           </span>
-          <span className="flex items-center gap-1.5 text-slate-500">
-            <Clock className="h-3.5 w-3.5 text-slate-400" />
+          <span className="flex items-center gap-1.5">
+            <Clock className="h-3 w-3 opacity-40" />
             {readingTime(wordCount)}
           </span>
-          <span className="flex items-center gap-1.5 text-slate-500">
-            <Quote className="h-3.5 w-3.5 text-slate-400" />
+          <span className="flex items-center gap-1.5">
+            <Quote className="h-3 w-3 opacity-40" />
             {citationCount} {citationCount === 1 ? 'citation' : 'citations'}
           </span>
         </div>
 
         {/* Center: save status */}
         <div className="flex-1 flex justify-center">
-          <span className={cn('flex items-center gap-1', saving ? 'text-amber-600' : lastSaved ? 'text-green-600' : 'text-slate-400')}>
+          <span className={cn('flex items-center gap-1', saving ? 'text-yellow-400' : lastSaved ? 'text-green-400' : 'text-white/30')}>
             {saving && <Loader2 className="h-3 w-3 animate-spin" />}
             {saveLabel}
           </span>
@@ -176,11 +176,17 @@ export function ComplianceStatusBar({
 
         {/* Right: compliance + focus */}
         <div className="flex items-center gap-3">
+          {/* On-chain verified badge */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-950 border border-blue-800 text-blue-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse" />
+            On-Chain Verified
+          </div>
+
           <button
             onClick={() => setChecklistOpen(o => !o)}
             className={cn(
-              'flex items-center gap-1.5 px-3 py-1 rounded border transition-colors',
-              checklistOpen ? 'bg-[#E6F0FF] text-[#0052CC] border-blue-200' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900'
+              'flex items-center gap-1.5 px-2.5 py-1 rounded transition-colors',
+              checklistOpen ? 'bg-white/20 text-white' : 'hover:bg-white/10 text-white/60 hover:text-white'
             )}
             title={`${checklistDef.name} compliance checklist`}
           >
@@ -195,8 +201,8 @@ export function ComplianceStatusBar({
           <button
             onClick={onToggleFocus}
             className={cn(
-              'flex items-center gap-1.5 px-3 py-1 rounded border transition-colors',
-              focusMode ? 'bg-slate-900 text-white border-slate-900' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900'
+              'flex items-center gap-1.5 px-2.5 py-1 rounded transition-colors',
+              focusMode ? 'bg-white/20 text-white' : 'hover:bg-white/10 text-white/60 hover:text-white'
             )}
             title="Focus mode (hide panels)"
           >

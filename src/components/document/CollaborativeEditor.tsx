@@ -215,100 +215,100 @@ export function CollaborativeEditor({
   const showRight = !focusMode && rightPanel !== null
 
   return (
-    <div className="flex flex-col h-full bg-[var(--bg-app)]">
+    <div className="flex flex-col h-full bg-slate-100">
       {/* ── Toolbar ─────────────────────────────────────────────────────── */}
       {!readOnly && (
-        <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-2 flex items-center gap-1 shadow-sm">
+        <div className="shrink-0 border-b border-slate-200 bg-white px-3 py-1.5 flex items-center gap-1.5 shadow-sm">
           {/* Outline toggle */}
           <button
             onClick={() => setOutlineCollapsed(p => !p)}
-            className="h-7 w-7 flex items-center justify-center rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-app)] transition-colors shrink-0"
+            className="h-7 w-7 flex items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0"
             title="Toggle outline"
           >
             {outlineCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </button>
 
-          <div className="h-5 w-px bg-slate-200 mx-1.5" />
+          <div className="h-5 w-px bg-slate-200 mx-0.5" />
 
-          {/* Formatting toolbar */}
-          <EditorToolbar editor={editor} onInsertData={() => togglePanel('data')} />
+          {/* Formatting toolbar — wrapped in a grouped pill */}
+          <div className="flex items-center bg-slate-50 border border-slate-200 rounded-md px-1 py-0.5">
+            <EditorToolbar editor={editor} onInsertData={() => togglePanel('data')} />
+          </div>
 
           <div className="flex-1" />
 
-          {/* Right panel toggles */}
-          <div className="flex items-center gap-0.5 shrink-0">
+          {/* Right: AI + panel toggles — grouped pill */}
+          <div className="flex items-center gap-1 shrink-0">
             {editor && (
               <AIAssistPopover editor={editor} documentId={documentId} open={aiOpen} onOpenChange={setAiOpen} />
             )}
             <button
               onClick={() => setShowGenerateModal(true)}
-              className={cn('h-7 flex items-center gap-1.5 px-2.5 rounded border text-[11px] font-semibold transition-colors',
-                'border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100'
-              )}
+              className="h-7 flex items-center gap-1.5 px-3 rounded-md bg-purple-600 text-white text-[11px] font-bold hover:bg-purple-700 transition-colors shadow-sm"
               title="Generate section with AI (⌘J)"
             >
               <Sparkles className="h-3.5 w-3.5" />
               Generate
             </button>
 
-            <div className="h-5 w-px bg-slate-200 mx-1.5" />
+            <div className="h-5 w-px bg-slate-200 mx-0.5" />
 
-            <button
-              onClick={() => togglePanel('citations')}
-              className={cn('h-7 flex items-center gap-1.5 px-2.5 rounded border text-[11px] font-semibold transition-colors',
-                panelActive('citations')
-                  ? 'bg-[#E6F0FF] text-[#0052CC] border-blue-200'
-                  : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900'
-              )}
-              title="Citations panel"
-            >
-              <BookOpen className="h-3.5 w-3.5" />
-              Cite
-              {citations.length > 0 && (
-                <span className="px-1.5 py-px bg-[#0052CC] text-white rounded-full text-[9px] font-black leading-none">
-                  {citations.length}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => togglePanel('data')}
-              className={cn('h-7 flex items-center gap-1.5 px-2.5 rounded border text-[11px] font-semibold transition-colors',
-                panelActive('data')
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900'
-              )}
-              title="Data panel"
-            >
-              <BarChart2 className="h-3.5 w-3.5" />
-              Data
-            </button>
-
-            <button
-              onClick={() => togglePanel('grammar')}
-              className={cn('h-7 flex items-center gap-1.5 px-2.5 rounded border text-[11px] font-semibold transition-colors',
-                panelActive('grammar')
-                  ? 'bg-amber-50 text-amber-700 border-amber-200'
-                  : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900'
-              )}
-              title="Grammar check"
-            >
-              <SpellCheck className="h-3.5 w-3.5" />
-              Check
-            </button>
-
-            <button
-              onClick={() => togglePanel('comments')}
-              className={cn('h-7 flex items-center gap-1.5 px-2.5 rounded border text-[11px] font-semibold transition-colors',
-                panelActive('comments')
-                  ? 'bg-slate-100 text-slate-900 border-slate-300'
-                  : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900'
-              )}
-              title="Comments"
-            >
-              <MessageSquare className="h-3.5 w-3.5" />
-              Notes
-            </button>
+            {/* Panel toggles as a unified pill group */}
+            <div className="flex items-center bg-slate-50 border border-slate-200 rounded-md overflow-hidden">
+              <button
+                onClick={() => togglePanel('citations')}
+                className={cn('h-7 flex items-center gap-1.5 px-3 text-[11px] font-semibold transition-colors border-r border-slate-200',
+                  panelActive('citations')
+                    ? 'bg-[#0052CC] text-white'
+                    : 'text-slate-600 hover:bg-white hover:text-[#0052CC]'
+                )}
+                title="Citations panel"
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                Cite
+                {citations.length > 0 && (
+                  <span className={cn('px-1.5 py-px rounded-full text-[9px] font-black leading-none', panelActive('citations') ? 'bg-white text-[#0052CC]' : 'bg-[#0052CC] text-white')}>
+                    {citations.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => togglePanel('data')}
+                className={cn('h-7 flex items-center gap-1.5 px-3 text-[11px] font-semibold transition-colors border-r border-slate-200',
+                  panelActive('data')
+                    ? 'bg-emerald-600 text-white'
+                    : 'text-slate-600 hover:bg-white hover:text-emerald-700'
+                )}
+                title="Data panel"
+              >
+                <BarChart2 className="h-3.5 w-3.5" />
+                Data
+              </button>
+              <button
+                onClick={() => togglePanel('grammar')}
+                className={cn('h-7 flex items-center gap-1.5 px-3 text-[11px] font-semibold transition-colors border-r border-slate-200',
+                  panelActive('grammar')
+                    ? 'bg-amber-500 text-white'
+                    : 'text-slate-600 hover:bg-white hover:text-amber-700'
+                )}
+                title="Grammar check"
+              >
+                <SpellCheck className="h-3.5 w-3.5" />
+                Check
+              </button>
+              <button
+                onClick={() => togglePanel('comments')}
+                className={cn('h-7 flex items-center gap-1.5 px-3 text-[11px] font-semibold transition-colors',
+                  panelActive('comments')
+                    ? 'bg-slate-700 text-white'
+                    : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                )}
+                title="Comments"
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                Notes
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -325,8 +325,10 @@ export function CollaborativeEditor({
           />
         )}
 
-        {/* Center: Writing surface */}
-        <div className="flex-1 overflow-y-auto relative bg-white">
+        {/* Center: Writing surface — paper-on-canvas */}
+        <div className="flex-1 overflow-y-auto relative bg-slate-100">
+          {/* Paper card */}
+          <div className="max-w-[794px] mx-auto my-10 mb-20 bg-white rounded-sm shadow-[0_4px_32px_rgba(0,0,0,0.07),0_1px_4px_rgba(0,0,0,0.04)]">
           {/* Slash command menu — positioned relative to editor container */}
           <div className="relative">
             <EditorContent
@@ -334,14 +336,12 @@ export function CollaborativeEditor({
               className={cn(
                 'min-h-full',
                 '[&_.ProseMirror]:outline-none',
-                '[&_.ProseMirror]:min-h-[calc(100vh-200px)]',
-                '[&_.ProseMirror]:max-w-[860px]',
-                '[&_.ProseMirror]:mx-auto',
-                '[&_.ProseMirror]:px-16',
-                '[&_.ProseMirror]:py-20',
+                '[&_.ProseMirror]:min-h-[calc(100vh-180px)]',
+                '[&_.ProseMirror]:px-[96px]',
+                '[&_.ProseMirror]:py-[80px]',
                 '[&_.ProseMirror]:text-slate-800',
                 '[&_.ProseMirror]:text-[17px]',
-                '[&_.ProseMirror]:leading-[1.85]',
+                '[&_.ProseMirror]:leading-[1.9]',
                 // Placeholder
                 '[&_.ProseMirror_p.is-editor-empty:first-child::before]:text-[var(--text-tertiary)]',
                 '[&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]',
@@ -434,11 +434,12 @@ export function CollaborativeEditor({
               />
             )}
           </div>
+          </div>{/* end paper card */}
         </div>
 
         {/* Right: Context panel */}
         {showRight && (
-          <div className="w-[300px] shrink-0 border-l border-slate-200 bg-slate-50 flex flex-col overflow-hidden">
+          <div className="w-[260px] shrink-0 border-l border-slate-200 bg-white flex flex-col overflow-hidden shadow-[-4px_0_20px_rgba(0,0,0,0.04)]">
             {rightPanel === 'citations' && (
               <CitationPanel
                 citations={citations}

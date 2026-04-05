@@ -156,6 +156,7 @@ export function AuthorshipPanel({
   }
 
   return (
+    <TooltipProvider>
     <div className="w-80 bg-slate-50 border-l border-slate-200 flex flex-col h-full">
       {/* Header */}
       <div className="shrink-0 px-6 py-4 border-b border-slate-200">
@@ -456,5 +457,6 @@ export function AuthorshipPanel({
         )}
       </div>
     </div>
+    </TooltipProvider>
   )
 }
