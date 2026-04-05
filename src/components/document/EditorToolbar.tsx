@@ -25,7 +25,7 @@ function ToolbarButton({ onClick, isActive, disabled, children, title }: Toolbar
       type="button"
       variant="ghost"
       size="icon"
-      className={cn('h-7 w-7', isActive && 'bg-accent text-accent-foreground')}
+      className={cn('h-7 w-7 rounded transition-colors', isActive ? 'bg-[#E6F0FF] text-[#0052CC]' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100')}
       onClick={onClick}
       disabled={disabled}
       title={title}
@@ -190,7 +190,7 @@ export function EditorToolbar({ editor, onInsertData }: EditorToolbarProps) {
             type="button"
             variant="ghost"
             size="sm"
-            className="h-7 text-xs gap-1"
+            className="h-7 text-[11px] gap-1 font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 hover:border-slate-300"
             onClick={onInsertData}
             title="Insert dataset table or chart"
           >

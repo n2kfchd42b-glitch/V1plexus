@@ -149,26 +149,26 @@ export function ComplianceStatusBar({
       )}
 
       {/* Status bar */}
-      <div className="flex items-center gap-4 px-4 py-2 bg-[#18181B] text-white/70 text-[11px] border-t border-white/10">
+      <div className="flex items-center gap-6 px-8 py-3 bg-white text-slate-500 text-[10px] border-t border-slate-200 font-bold uppercase tracking-widest">
         {/* Left: doc stats */}
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1.5">
-            <FileText className="h-3.5 w-3.5 opacity-60" />
+        <div className="flex items-center gap-6">
+          <span className="flex items-center gap-1.5 text-slate-600">
+            <FileText className="h-3.5 w-3.5 text-slate-400" />
             {wordCount.toLocaleString()} words
           </span>
-          <span className="flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5 opacity-60" />
+          <span className="flex items-center gap-1.5 text-slate-500">
+            <Clock className="h-3.5 w-3.5 text-slate-400" />
             {readingTime(wordCount)}
           </span>
-          <span className="flex items-center gap-1.5">
-            <Quote className="h-3.5 w-3.5 opacity-60" />
+          <span className="flex items-center gap-1.5 text-slate-500">
+            <Quote className="h-3.5 w-3.5 text-slate-400" />
             {citationCount} {citationCount === 1 ? 'citation' : 'citations'}
           </span>
         </div>
 
         {/* Center: save status */}
         <div className="flex-1 flex justify-center">
-          <span className={cn('flex items-center gap-1', saving ? 'text-yellow-400' : lastSaved ? 'text-green-400' : 'text-white/40')}>
+          <span className={cn('flex items-center gap-1', saving ? 'text-amber-600' : lastSaved ? 'text-green-600' : 'text-slate-400')}>
             {saving && <Loader2 className="h-3 w-3 animate-spin" />}
             {saveLabel}
           </span>
@@ -179,14 +179,14 @@ export function ComplianceStatusBar({
           <button
             onClick={() => setChecklistOpen(o => !o)}
             className={cn(
-              'flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors',
-              checklistOpen ? 'bg-white/20 text-white' : 'hover:bg-white/10 text-white/70 hover:text-white'
+              'flex items-center gap-1.5 px-3 py-1 rounded border transition-colors',
+              checklistOpen ? 'bg-[#E6F0FF] text-[#0052CC] border-blue-200' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900'
             )}
             title={`${checklistDef.name} compliance checklist`}
           >
             <span className={cn(
               'h-2 w-2 rounded-full',
-              pct >= 80 ? 'bg-green-400' : pct >= 40 ? 'bg-yellow-400' : 'bg-red-400'
+              pct >= 80 ? 'bg-green-500' : pct >= 40 ? 'bg-amber-500' : 'bg-red-500'
             )} />
             {checklistDef.name} {pct}%
             <ChevronUp className={cn('h-3 w-3 transition-transform', !checklistOpen && 'rotate-180')} />
@@ -195,8 +195,8 @@ export function ComplianceStatusBar({
           <button
             onClick={onToggleFocus}
             className={cn(
-              'flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors',
-              focusMode ? 'bg-white/20 text-white' : 'hover:bg-white/10 text-white/70 hover:text-white'
+              'flex items-center gap-1.5 px-3 py-1 rounded border transition-colors',
+              focusMode ? 'bg-slate-900 text-white border-slate-900' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900'
             )}
             title="Focus mode (hide panels)"
           >

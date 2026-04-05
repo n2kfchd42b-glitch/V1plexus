@@ -138,17 +138,17 @@ export default function DocumentPage() {
   return (
     <div className="flex flex-col h-screen bg-white">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="shrink-0 h-12 border-b border-[var(--border-default)] bg-white px-4 flex items-center justify-between gap-3">
+      <header className="shrink-0 h-14 border-b border-slate-200 bg-white px-6 flex items-center justify-between gap-3 shadow-sm">
         {/* Left: back + title */}
         <div className="flex items-center gap-2 min-w-0">
           <Link href={`/projects/${projectId}/documents`}>
-            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]">
+            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-slate-400 hover:text-slate-700">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
           <div className="min-w-0">
-            <h1 className="text-sm font-semibold text-[var(--text-primary)] truncate leading-none">{document.title}</h1>
-            <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">v{document.current_version}</p>
+            <h1 className="text-sm font-bold text-slate-900 truncate leading-none tracking-tight">{document.title}</h1>
+            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 mt-0.5">v{document.current_version}</p>
           </div>
           <Badge className={cn('text-[10px] border px-1.5 py-0.5 shrink-0', statusColor(document.status))}>
             {statusLabel(document.status)}
@@ -168,7 +168,7 @@ export default function DocumentPage() {
           <Button
             size="sm"
             variant="outline"
-            className="h-7 text-xs gap-1"
+            className="h-7 text-[11px] gap-1 border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900 font-semibold"
             onClick={() => setShowAbstractModal(true)}
             title="Structured abstract builder"
           >
@@ -180,7 +180,7 @@ export default function DocumentPage() {
           <Button
             size="sm"
             variant="outline"
-            className="h-7 text-xs gap-1"
+            className="h-7 text-[11px] gap-1 border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900 font-semibold"
             onClick={() => setShowAnalysisModal(true)}
             title="Embed analysis run"
           >
@@ -188,11 +188,13 @@ export default function DocumentPage() {
             Analysis
           </Button>
 
+          <div className="h-5 w-px bg-slate-200 mx-1" />
+
           {/* Pillar 1: Versions */}
           <Button
             size="sm"
             variant={rightPanel === 'versions' ? 'default' : 'outline'}
-            className="h-7 text-xs gap-1"
+            className={cn('h-7 text-[11px] gap-1 font-semibold', rightPanel === 'versions' ? 'bg-[#0052CC] text-white border-[#0052CC]' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900')}
             onClick={() => togglePanel('versions')}
             title="Version history"
           >
@@ -204,7 +206,7 @@ export default function DocumentPage() {
           <Button
             size="sm"
             variant={rightPanel === 'authors' ? 'default' : 'outline'}
-            className="h-7 text-xs gap-1"
+            className={cn('h-7 text-[11px] gap-1 font-semibold', rightPanel === 'authors' ? 'bg-[#0052CC] text-white border-[#0052CC]' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900')}
             onClick={() => togglePanel('authors')}
             title="Author contributions"
           >
@@ -216,7 +218,7 @@ export default function DocumentPage() {
           <Button
             size="sm"
             variant={rightPanel === 'security' ? 'default' : 'outline'}
-            className="h-7 text-xs gap-1"
+            className={cn('h-7 text-[11px] gap-1 font-semibold', rightPanel === 'security' ? 'bg-[#0052CC] text-white border-[#0052CC]' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900')}
             onClick={() => togglePanel('security')}
             title="Security & ethics gate"
           >
@@ -227,7 +229,7 @@ export default function DocumentPage() {
           <Button
             size="sm"
             variant={rightPanel === 'translation' ? 'default' : 'outline'}
-            className="h-7 text-xs gap-1"
+            className={cn('h-7 text-[11px] gap-1 font-semibold', rightPanel === 'translation' ? 'bg-[#0052CC] text-white border-[#0052CC]' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900')}
             onClick={() => togglePanel('translation')}
             title="AI translation"
           >
@@ -235,14 +237,17 @@ export default function DocumentPage() {
           </Button>
 
           {canSubmit && (
-            <Button
-              size="sm"
-              className="h-7 text-xs gap-1.5 bg-[var(--color-clinical-blue)] hover:bg-[var(--color-clinical-deep)]"
-              onClick={() => setShowSubmitModal(true)}
-            >
-              <Send className="h-3.5 w-3.5" />
-              Submit
-            </Button>
+            <>
+              <div className="h-5 w-px bg-slate-200 mx-1" />
+              <Button
+                size="sm"
+                className="h-7 text-[11px] gap-1.5 bg-[#0052CC] hover:bg-[#003D9B] text-white font-bold shadow-sm"
+                onClick={() => setShowSubmitModal(true)}
+              >
+                <Send className="h-3.5 w-3.5" />
+                Submit
+              </Button>
+            </>
           )}
 
           {deleteState === 'idle' && (

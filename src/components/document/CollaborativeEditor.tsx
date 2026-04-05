@@ -218,7 +218,7 @@ export function CollaborativeEditor({
     <div className="flex flex-col h-full bg-[var(--bg-app)]">
       {/* ── Toolbar ─────────────────────────────────────────────────────── */}
       {!readOnly && (
-        <div className="shrink-0 border-b border-[var(--border-default)] bg-white px-3 py-1.5 flex items-center gap-1">
+        <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-2 flex items-center gap-1 shadow-sm">
           {/* Outline toggle */}
           <button
             onClick={() => setOutlineCollapsed(p => !p)}
@@ -228,7 +228,7 @@ export function CollaborativeEditor({
             {outlineCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </button>
 
-          <div className="h-5 w-px bg-[var(--border-default)] mx-1" />
+          <div className="h-5 w-px bg-slate-200 mx-1.5" />
 
           {/* Formatting toolbar */}
           <EditorToolbar editor={editor} onInsertData={() => togglePanel('data')} />
@@ -242,8 +242,8 @@ export function CollaborativeEditor({
             )}
             <button
               onClick={() => setShowGenerateModal(true)}
-              className={cn('h-7 flex items-center gap-1.5 px-2 rounded-md text-xs font-medium transition-colors',
-                'text-purple-600 hover:bg-purple-50 hover:text-purple-700'
+              className={cn('h-7 flex items-center gap-1.5 px-2.5 rounded border text-[11px] font-semibold transition-colors',
+                'border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100'
               )}
               title="Generate section with AI (⌘J)"
             >
@@ -251,21 +251,21 @@ export function CollaborativeEditor({
               Generate
             </button>
 
-            <div className="h-5 w-px bg-[var(--border-default)] mx-1" />
+            <div className="h-5 w-px bg-slate-200 mx-1.5" />
 
             <button
               onClick={() => togglePanel('citations')}
-              className={cn('h-7 flex items-center gap-1.5 px-2 rounded-md text-xs font-medium transition-colors',
+              className={cn('h-7 flex items-center gap-1.5 px-2.5 rounded border text-[11px] font-semibold transition-colors',
                 panelActive('citations')
-                  ? 'bg-blue-50 text-[var(--color-clinical-blue)]'
-                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-app)] hover:text-[var(--text-primary)]'
+                  ? 'bg-[#E6F0FF] text-[#0052CC] border-blue-200'
+                  : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900'
               )}
               title="Citations panel"
             >
               <BookOpen className="h-3.5 w-3.5" />
               Cite
               {citations.length > 0 && (
-                <span className="px-1.5 py-px bg-[var(--color-clinical-blue)] text-white rounded-full text-[10px] font-bold leading-none">
+                <span className="px-1.5 py-px bg-[#0052CC] text-white rounded-full text-[9px] font-black leading-none">
                   {citations.length}
                 </span>
               )}
@@ -273,10 +273,10 @@ export function CollaborativeEditor({
 
             <button
               onClick={() => togglePanel('data')}
-              className={cn('h-7 flex items-center gap-1.5 px-2 rounded-md text-xs font-medium transition-colors',
+              className={cn('h-7 flex items-center gap-1.5 px-2.5 rounded border text-[11px] font-semibold transition-colors',
                 panelActive('data')
-                  ? 'bg-emerald-50 text-emerald-700'
-                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-app)] hover:text-[var(--text-primary)]'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900'
               )}
               title="Data panel"
             >
@@ -286,10 +286,10 @@ export function CollaborativeEditor({
 
             <button
               onClick={() => togglePanel('grammar')}
-              className={cn('h-7 flex items-center gap-1.5 px-2 rounded-md text-xs font-medium transition-colors',
+              className={cn('h-7 flex items-center gap-1.5 px-2.5 rounded border text-[11px] font-semibold transition-colors',
                 panelActive('grammar')
-                  ? 'bg-amber-50 text-amber-700'
-                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-app)] hover:text-[var(--text-primary)]'
+                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                  : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900'
               )}
               title="Grammar check"
             >
@@ -299,10 +299,10 @@ export function CollaborativeEditor({
 
             <button
               onClick={() => togglePanel('comments')}
-              className={cn('h-7 flex items-center gap-1.5 px-2 rounded-md text-xs font-medium transition-colors',
+              className={cn('h-7 flex items-center gap-1.5 px-2.5 rounded border text-[11px] font-semibold transition-colors',
                 panelActive('comments')
-                  ? 'bg-slate-100 text-[var(--text-primary)]'
-                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-app)] hover:text-[var(--text-primary)]'
+                  ? 'bg-slate-100 text-slate-900 border-slate-300'
+                  : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900'
               )}
               title="Comments"
             >
@@ -335,13 +335,13 @@ export function CollaborativeEditor({
                 'min-h-full',
                 '[&_.ProseMirror]:outline-none',
                 '[&_.ProseMirror]:min-h-[calc(100vh-200px)]',
-                '[&_.ProseMirror]:max-w-[720px]',
+                '[&_.ProseMirror]:max-w-[860px]',
                 '[&_.ProseMirror]:mx-auto',
-                '[&_.ProseMirror]:px-12',
-                '[&_.ProseMirror]:py-12',
-                '[&_.ProseMirror]:text-[var(--text-primary)]',
-                '[&_.ProseMirror]:text-[15px]',
-                '[&_.ProseMirror]:leading-[1.8]',
+                '[&_.ProseMirror]:px-16',
+                '[&_.ProseMirror]:py-20',
+                '[&_.ProseMirror]:text-slate-800',
+                '[&_.ProseMirror]:text-[17px]',
+                '[&_.ProseMirror]:leading-[1.85]',
                 // Placeholder
                 '[&_.ProseMirror_p.is-editor-empty:first-child::before]:text-[var(--text-tertiary)]',
                 '[&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]',
@@ -349,22 +349,24 @@ export function CollaborativeEditor({
                 '[&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none',
                 '[&_.ProseMirror_p.is-editor-empty:first-child::before]:h-0',
                 // Headings
-                '[&_.ProseMirror_h1]:font-display',
-                '[&_.ProseMirror_h1]:text-3xl',
-                '[&_.ProseMirror_h1]:font-bold',
-                '[&_.ProseMirror_h1]:text-[var(--text-primary)]',
-                '[&_.ProseMirror_h1]:mt-10',
-                '[&_.ProseMirror_h1]:mb-4',
-                '[&_.ProseMirror_h2]:text-xl',
-                '[&_.ProseMirror_h2]:font-semibold',
-                '[&_.ProseMirror_h2]:text-[var(--text-primary)]',
-                '[&_.ProseMirror_h2]:mt-8',
-                '[&_.ProseMirror_h2]:mb-3',
-                '[&_.ProseMirror_h3]:text-base',
-                '[&_.ProseMirror_h3]:font-semibold',
-                '[&_.ProseMirror_h3]:text-[var(--text-secondary)]',
-                '[&_.ProseMirror_h3]:mt-6',
-                '[&_.ProseMirror_h3]:mb-2',
+                '[&_.ProseMirror_h1]:font-black',
+                '[&_.ProseMirror_h1]:text-4xl',
+                '[&_.ProseMirror_h1]:tracking-tight',
+                '[&_.ProseMirror_h1]:text-slate-900',
+                '[&_.ProseMirror_h1]:mt-12',
+                '[&_.ProseMirror_h1]:mb-6',
+                '[&_.ProseMirror_h1]:leading-[1.1]',
+                '[&_.ProseMirror_h2]:text-2xl',
+                '[&_.ProseMirror_h2]:font-bold',
+                '[&_.ProseMirror_h2]:text-slate-900',
+                '[&_.ProseMirror_h2]:tracking-tight',
+                '[&_.ProseMirror_h2]:mt-10',
+                '[&_.ProseMirror_h2]:mb-4',
+                '[&_.ProseMirror_h3]:text-lg',
+                '[&_.ProseMirror_h3]:font-bold',
+                '[&_.ProseMirror_h3]:text-slate-700',
+                '[&_.ProseMirror_h3]:mt-8',
+                '[&_.ProseMirror_h3]:mb-3',
                 // Paragraphs
                 '[&_.ProseMirror_p]:mb-4',
                 // Blockquote
@@ -436,7 +438,7 @@ export function CollaborativeEditor({
 
         {/* Right: Context panel */}
         {showRight && (
-          <div className="w-[300px] shrink-0 border-l border-[var(--border-default)] bg-white flex flex-col overflow-hidden">
+          <div className="w-[300px] shrink-0 border-l border-slate-200 bg-slate-50 flex flex-col overflow-hidden">
             {rightPanel === 'citations' && (
               <CitationPanel
                 citations={citations}
