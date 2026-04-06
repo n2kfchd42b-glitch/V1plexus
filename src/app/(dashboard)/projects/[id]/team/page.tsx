@@ -126,29 +126,38 @@ export default function ProjectTeamPage() {
   const handleInviteByEmail = async () => {
     if (!inviteEmail.trim()) return
     setInviting(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setInviting(false); return }
+    
+    try {
+      // Call the proper invitation API endpoint
+      const res = await fetch('/api/invitations/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'project',
+          email: inviteEmail.trim().toLowerCase(),
+          role: roleToInviteRole[newMemberRole] ?? 'researcher',
+          projectId,
+          projectTitle: project?.title || 'Project',
+          message: inviteMessage || null,
+        }),
+      })
 
-    const token = crypto.randomUUID().replace(/-/g, '')
-    const { error } = await supabase.from('project_invitations').insert({
-      project_id: projectId,
-      email: inviteEmail.trim().toLowerCase(),
-      role: roleToInviteRole[newMemberRole] ?? 'researcher',
-      message: inviteMessage || null,
-      token,
-      invited_by: user.id,
-      status: 'pending',
-    })
+      const data = await res.json()
 
-    if (error) {
-      toast.error(error.message)
-    } else {
-      toast.success(`Invitation sent to ${inviteEmail}`)
-      resetDialog()
-      setShowAdd(false)
-      fetchMembers()
+      if (!res.ok) {
+        toast.error(data.error ?? 'Failed to send invitation')
+      } else {
+        toast.success(`Invitation sent to ${inviteEmail}`)
+        resetDialog()
+        setShowAdd(false)
+        fetchMembers()
+      }
+    } catch (error) {
+      console.error('Error sending invitation:', error)
+      toast.error('Network error sending invitation')
+    } finally {
+      setInviting(false)
     }
-    setInviting(false)
   }
 
   const resetDialog = () => {
