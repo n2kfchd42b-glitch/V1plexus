@@ -29,34 +29,49 @@ export function ProjectInviteForm({ projectId, projectTitle, onInvited }: Projec
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email.trim() || !projectId || !projectTitle) return
+    console.log('[ProjectInviteForm] Submit clicked', { email, projectId, projectTitle, role })
+    
+    if (!email.trim() || !projectId || !projectTitle) {
+      console.log('[ProjectInviteForm] Missing required fields', { email: !email.trim(), projectId: !projectId, projectTitle: !projectTitle })
+      return
+    }
     setLoading(true)
 
-    const res = await fetch('/api/invitations/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'project',
-        email: email.trim().toLowerCase(),
-        role,
-        projectId,
-        projectTitle,
-        message: message || null,
-      }),
-    })
+    try {
+      console.log('[ProjectInviteForm] Sending invitation request...')
+      const res = await fetch('/api/invitations/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'project',
+          email: email.trim().toLowerCase(),
+          role,
+          projectId,
+          projectTitle,
+          message: message || null,
+        }),
+      })
 
-    const data = await res.json()
+      console.log('[ProjectInviteForm] Response status:', res.status)
+      const data = await res.json()
+      console.log('[ProjectInviteForm] Response data:', data)
 
-    if (!res.ok) {
-      toast.error(data.error ?? 'Failed to send invitation')
-    } else {
-      toast.success(`Invitation sent to ${email}`)
-      setEmail('')
-      setMessage('')
-      onInvited?.()
+      if (!res.ok) {
+        console.error('[ProjectInviteForm] Error response:', data)
+        toast.error(data.error ?? 'Failed to send invitation')
+      } else {
+        console.log('[ProjectInviteForm] Success!')
+        toast.success(`Invitation sent to ${email}`)
+        setEmail('')
+        setMessage('')
+        onInvited?.()
+      }
+    } catch (error) {
+      console.error('[ProjectInviteForm] Network or parsing error:', error)
+      toast.error('Network error sending invitation')
+    } finally {
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
   return (

@@ -42,33 +42,48 @@ export function WorkspaceInviteForm({ onInvited }: { onInvited?: () => void }) {
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!activeWorkspace) return
+    console.log('[WorkspaceInviteForm] Submit clicked', { email, role, activeWorkspace: activeWorkspace?.id })
+    
+    if (!activeWorkspace) {
+      console.log('[WorkspaceInviteForm] No active workspace')
+      return
+    }
     setLoading(true)
 
-    const res = await fetch('/api/invitations/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'workspace',
-        email: email.trim().toLowerCase(),
-        role,
-        workspaceId: activeWorkspace.id,
-        workspaceName: activeWorkspace.name,
-        departmentId: departmentId || null,
-      }),
-    })
+    try {
+      console.log('[WorkspaceInviteForm] Sending invitation request...')
+      const res = await fetch('/api/invitations/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'workspace',
+          email: email.trim().toLowerCase(),
+          role,
+          workspaceId: activeWorkspace.id,
+          workspaceName: activeWorkspace.name,
+          departmentId: departmentId || null,
+        }),
+      })
 
-    const data = await res.json()
+      console.log('[WorkspaceInviteForm] Response status:', res.status)
+      const data = await res.json()
+      console.log('[WorkspaceInviteForm] Response data:', data)
 
-    if (!res.ok) {
-      toast.error(data.error ?? 'Failed to send invitation')
-    } else {
-      toast.success(`Invitation sent to ${email}`)
-      setEmail('')
-      onInvited?.()
+      if (!res.ok) {
+        console.error('[WorkspaceInviteForm] Error response:', data)
+        toast.error(data.error ?? 'Failed to send invitation')
+      } else {
+        console.log('[WorkspaceInviteForm] Success!')
+        toast.success(`Invitation sent to ${email}`)
+        setEmail('')
+        onInvited?.()
+      }
+    } catch (error) {
+      console.error('[WorkspaceInviteForm] Network or parsing error:', error)
+      toast.error('Network error sending invitation')
+    } finally {
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
   return (
