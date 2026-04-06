@@ -350,6 +350,14 @@ export async function POST(
       return NextResponse.json({ error: 'Failed to parse dataset file' }, { status: 500 })
     }
 
+    // Guard against datasets too large for synchronous in-process computation
+    if (rows.length > 50_000) {
+      return NextResponse.json(
+        { error: `Dataset has ${rows.length.toLocaleString()} rows, which exceeds the 50,000-row limit for synchronous quality checks. Please reduce dataset size before running quality analysis.` },
+        { status: 422 }
+      )
+    }
+
     // Compute quality metrics in-process
     const metrics = computeReport(rows, columns)
 

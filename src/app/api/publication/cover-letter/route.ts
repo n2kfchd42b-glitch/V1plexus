@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { checkRateLimit } from '@/lib/rateLimit'
+
+const MAX_FIELD_LENGTH = 5000
 
 const SYSTEM_PROMPT = `You are an expert academic writing assistant specializing in cover letters for peer-reviewed journal submissions.
 
@@ -14,11 +17,26 @@ Guidelines:
 - Do NOT include date or postal address — start with "Dear Editor,"`
 
 export async function POST(req: NextRequest) {
+  const rateLimitResponse = checkRateLimit(req, { limit: 10, windowMs: 60 * 60 * 1000 })
+  if (rateLimitResponse) return rateLimitResponse
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return NextResponse.json({ error: 'AI service unavailable' }, { status: 503 })
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { manuscriptTitle, abstract, journalName, authorName, authorAffiliation, additionalContext } = await req.json()
+
+  if (
+    (manuscriptTitle?.length ?? 0) > MAX_FIELD_LENGTH ||
+    (abstract?.length ?? 0) > MAX_FIELD_LENGTH ||
+    (additionalContext?.length ?? 0) > MAX_FIELD_LENGTH
+  ) {
+    return NextResponse.json({ error: 'Input field exceeds maximum length of 5000 characters.' }, { status: 400 })
+  }
 
   const client = new Anthropic()
 

@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { checkRateLimit } from '@/lib/rateLimit'
 import type { AnalysisType } from '@/types/database'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+const MAX_FIELD_LENGTH = 5000
 
 export interface SuggestRequest {
   projectTitle: string
@@ -46,6 +49,9 @@ const ANALYSIS_CATALOGUE = [
 ]
 
 export async function POST(req: NextRequest) {
+  const rateLimitResponse = checkRateLimit(req, { limit: 20, windowMs: 60 * 60 * 1000 })
+  if (rateLimitResponse) return rateLimitResponse
+
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: 'AI suggestions require ANTHROPIC_API_KEY to be configured.' }, { status: 503 })
   }
@@ -58,6 +64,15 @@ export async function POST(req: NextRequest) {
   }
 
   const { projectTitle, projectDescription, methodology, researchObjectives, columns } = body
+
+  if (
+    (projectTitle?.length ?? 0) > MAX_FIELD_LENGTH ||
+    (projectDescription?.length ?? 0) > MAX_FIELD_LENGTH ||
+    (methodology?.length ?? 0) > MAX_FIELD_LENGTH ||
+    (researchObjectives?.length ?? 0) > MAX_FIELD_LENGTH
+  ) {
+    return NextResponse.json({ error: 'Input field exceeds maximum length of 5000 characters.' }, { status: 400 })
+  }
 
   const columnsSummary = columns && columns.length > 0
     ? columns.slice(0, 40).map(c =>

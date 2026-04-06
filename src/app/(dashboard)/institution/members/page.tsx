@@ -32,7 +32,7 @@ export default function InstitutionMembersPage() {
 
   const fetchMembers = useCallback(async () => {
     if (!profile) return
-    let query = supabase.from('profiles').select('*').order('full_name')
+    let query = supabase.from('profiles').select('*').order('full_name').limit(500)
 
     // Scope to same institution if available
     if (profile.institution_id) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/rateLimit'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -38,6 +39,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ documentId: string }> },
 ) {
+  const rateLimitResponse = checkRateLimit(req, { limit: 15, windowMs: 60 * 60 * 1000 })
+  if (rateLimitResponse) return rateLimitResponse
+
   const { documentId } = await params
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: 'Translation requires ANTHROPIC_API_KEY to be configured.' }, { status: 503 })

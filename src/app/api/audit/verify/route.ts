@@ -56,11 +56,14 @@ export async function GET(request: NextRequest) {
     const resourceId = searchParams.get('resource_id')
     const projectId = searchParams.get('project_id')
 
+    const ENTRY_LIMIT = 10_000
+
     // Build query based on scope
     let query = supabase
       .from('audit_logs')
       .select('*')
       .order('timestamp', { ascending: true })
+      .limit(ENTRY_LIMIT)
 
     if (projectId) {
       query = query.eq('project_id', projectId)
@@ -70,7 +73,7 @@ export async function GET(request: NextRequest) {
       query = query.eq('resource_type', resourceType).eq('resource_id', resourceId)
     }
 
-    // Fetch all entries in scope
+    // Fetch entries in scope (capped at ENTRY_LIMIT to prevent timeouts)
     const { data: entries, error } = await query
 
     if (error) {
@@ -155,11 +158,14 @@ export async function GET(request: NextRequest) {
       validCount++
     }
 
+    const truncated = entries.length === ENTRY_LIMIT
+
     const result: ChainVerificationResult = {
-      verified: violations.length === 0,
+      verified: violations.length === 0 && !truncated,
       total_entries: entries.length,
       valid_entries: validCount,
       chain_intact: violations.every((v) => v.issue !== 'chain_broken'),
+      ...(truncated && { truncated: true, truncated_at: ENTRY_LIMIT }),
       first_entry: entries[0]
         ? {
             id: entries[0].id,

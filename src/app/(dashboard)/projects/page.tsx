@@ -251,7 +251,7 @@ export default function ProjectsPage() {
     if (!profile) { setLoading(false); return }
     let query = supabase.from('projects').select('*').is('deleted_at', null)
     if (activeWorkspace) query = query.eq('workspace_id', activeWorkspace.id)
-    const { data } = await query.order('updated_at', { ascending: false })
+    const { data } = await query.order('updated_at', { ascending: false }).limit(200)
     if (data) setProjects(data)
     setLoading(false)
   }, [profile, authLoading, activeWorkspace]) // eslint-disable-line react-hooks/exhaustive-deps
