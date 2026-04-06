@@ -55,6 +55,7 @@ export default function ProjectTeamPage() {
   const [members, setMembers] = useState<MemberWithProfile[]>([])
   const [owner, setOwner] = useState<Profile | null>(null)
   const [pendingInvites, setPendingInvites] = useState<PendingInvitation[]>([])
+  const [projectTitle, setProjectTitle] = useState('')
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
 
@@ -74,11 +75,12 @@ export default function ProjectTeamPage() {
 
   const fetchMembers = useCallback(async () => {
     const [{ data: projectData }, { data: membersData }, { data: invitesData }] = await Promise.all([
-      supabase.from('projects').select('owner_id, owner:profiles!owner_id(*)').eq('id', projectId).single(),
+      supabase.from('projects').select('owner_id, title, owner:profiles!owner_id(*)').eq('id', projectId).single(),
       supabase.from('project_members').select('*, user:profiles!user_id(*)').eq('project_id', projectId).order('joined_at'),
       supabase.from('project_invitations').select('id, email, role, created_at, status').eq('project_id', projectId).eq('status', 'pending'),
     ])
     if (projectData?.owner) setOwner(projectData.owner as unknown as Profile)
+    if (projectData?.title) setProjectTitle(projectData.title)
     if (membersData) setMembers(membersData as MemberWithProfile[])
     if (invitesData) setPendingInvites(invitesData)
     setLoading(false)
@@ -137,7 +139,7 @@ export default function ProjectTeamPage() {
           email: inviteEmail.trim().toLowerCase(),
           role: roleToInviteRole[newMemberRole] ?? 'researcher',
           projectId,
-          projectTitle: project?.title || 'Project',
+          projectTitle: projectTitle || 'Project',
           message: inviteMessage || null,
         }),
       })
