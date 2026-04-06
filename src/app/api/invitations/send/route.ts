@@ -21,20 +21,34 @@ export async function POST(request: NextRequest) {
 
   const resend = new Resend(process.env.RESEND_API_KEY)
   try {
+    console.log('[INVITATIONS] Request received')
+    
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
+      console.log('[INVITATIONS] Auth failed:', authError)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await request.json()
+    console.log('[INVITATIONS] User authenticated:', user.id)
+
+    let body
+    try {
+      body = await request.json()
+    } catch (parseError) {
+      console.error('[INVITATIONS] Request body parsing error:', parseError)
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    }
+    
     const { type, email, role, workspaceId, projectId, departmentId, message, workspaceName, projectTitle } = body
 
     if (!type || !email || !role) {
+      console.log('[INVITATIONS] Missing required fields:', { type, email, role })
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
     if (!EMAIL_REGEX.test(email)) {
+      console.log('[INVITATIONS] Invalid email:', email)
       return NextResponse.json({ error: 'Invalid email address' }, { status: 400 })
     }
 
@@ -45,13 +59,19 @@ export async function POST(request: NextRequest) {
     )
 
     // Look up inviter's name for the email copy
-    const { data: inviterProfile } = await serviceClient
+    console.log('[INVITATIONS] Looking up inviter profile for user:', user.id)
+    const { data: inviterProfile, error: profileError } = await serviceClient
       .from('profiles')
       .select('full_name, email')
       .eq('id', user.id)
       .single()
 
+    if (profileError) {
+      console.error('[INVITATIONS] Profile lookup error:', profileError)
+    }
+
     const inviterName = inviterProfile?.full_name ?? inviterProfile?.email ?? 'A colleague'
+    console.log('[INVITATIONS] Inviter name:', inviterName)
 
     const token = crypto.randomUUID().replace(/-/g, '')
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://plexus.science'
@@ -61,8 +81,10 @@ export async function POST(request: NextRequest) {
     // Insert into the correct invitations table
     if (type === 'workspace') {
       if (!workspaceId) {
+        console.log('[INVITATIONS] Missing workspaceId for workspace invitation')
         return NextResponse.json({ error: 'workspaceId required' }, { status: 400 })
       }
+      console.log('[INVITATIONS] Inserting workspace invitation for workspace:', workspaceId)
       const { error: insertError } = await serviceClient
         .from('workspace_invitations')
         .insert({
@@ -75,12 +97,16 @@ export async function POST(request: NextRequest) {
           status: 'pending',
         })
       if (insertError) {
+        console.error('[INVITATIONS] Workspace invitation insert error:', insertError)
         return NextResponse.json({ error: insertError.message }, { status: 500 })
       }
+      console.log('[INVITATIONS] Workspace invitation created successfully')
     } else if (type === 'project') {
       if (!projectId) {
+        console.log('[INVITATIONS] Missing projectId for project invitation')
         return NextResponse.json({ error: 'projectId required' }, { status: 400 })
       }
+      console.log('[INVITATIONS] Inserting project invitation for project:', projectId)
       const { error: insertError } = await serviceClient
         .from('project_invitations')
         .insert({
@@ -93,9 +119,12 @@ export async function POST(request: NextRequest) {
           status: 'pending',
         })
       if (insertError) {
+        console.error('[INVITATIONS] Project invitation insert error:', insertError)
         return NextResponse.json({ error: insertError.message }, { status: 500 })
       }
+      console.log('[INVITATIONS] Project invitation created successfully')
     } else {
+      console.log('[INVITATIONS] Invalid invitation type:', type)
       return NextResponse.json({ error: 'Invalid invitation type' }, { status: 400 })
     }
 
