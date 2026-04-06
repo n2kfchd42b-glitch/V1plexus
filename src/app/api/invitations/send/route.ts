@@ -13,6 +13,12 @@ export async function POST(request: NextRequest) {
   const rateLimitResponse = checkRateLimit(request, { limit: 10, windowMs: 15 * 60 * 1000 })
   if (rateLimitResponse) return rateLimitResponse
 
+  // Debug: Check if API key is loaded
+  if (!process.env.RESEND_API_KEY) {
+    console.error('[INVITATIONS] RESEND_API_KEY is not set')
+    return NextResponse.json({ error: 'Email service not configured' }, { status: 500 })
+  }
+
   const resend = new Resend(process.env.RESEND_API_KEY)
   try {
     const supabase = await createClient()
@@ -97,7 +103,9 @@ export async function POST(request: NextRequest) {
     const resourceName = type === 'workspace' ? workspaceName : projectTitle
     const roleLabel = (role as string).replace(/_/g, ' ')
 
-    const { error: emailError } = await resend.emails.send({
+    console.log(`[INVITATIONS] Sending email to ${normalizedEmail} for ${type} "${resourceName}"`)
+
+    const emailResponse = await resend.emails.send({
       from: 'Plexus <invitations@plexus.science>',
       to: normalizedEmail,
       subject: `${inviterName} invited you to ${resourceName} on Plexus`,
@@ -131,10 +139,13 @@ export async function POST(request: NextRequest) {
       `,
     })
 
-    if (emailError) {
-      console.error('Resend error:', emailError)
-      return NextResponse.json({ error: 'Failed to send invitation email' }, { status: 500 })
+    if (emailResponse.error) {
+      console.error('[INVITATIONS] Resend error:', emailResponse.error)
+      return NextResponse.json({ error: `Failed to send invitation email: ${emailResponse.error.message}` }, { status: 500 })
     }
+
+    console.log(`[INVITATIONS] Email sent successfully. Message ID: ${emailResponse.data?.id}`)
+
 
     // In-app notification if the invited person already has an account
     // Use case-insensitive profiles lookup via service role — avoids pagination limits
@@ -172,7 +183,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Invitation send error:', error)
+    console.error('[INVITATIONS] Unhandled error:', error instanceof Error ? error.message : String(error))
+    if (error instanceof Error) {
+      console.error('[INVITATIONS] Stack trace:', error.stack)
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
