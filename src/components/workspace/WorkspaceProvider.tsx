@@ -59,15 +59,25 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const fetchWorkspaces = useCallback(async (userId: string) => {
     setLoading(true)
     try {
-      // Fetch workspaces + memberships
+      // Fetch workspaces + memberships — abort after 8 s so loading always clears
+      const controller = new AbortController()
+      const abortTimer = setTimeout(() => controller.abort(), 8_000)
+
       const { data: wsMemberships, error: wsMembershipError } = await supabase
         .from('workspace_memberships')
         .select('*, workspace:workspaces(*, institution:institutions(*))')
         .eq('user_id', userId)
         .eq('status', 'active')
-      if (wsMembershipError) console.error('[WorkspaceProvider] workspace_memberships error:', wsMembershipError)
+        .abortSignal(controller.signal)
 
-      if (!wsMemberships) return
+      clearTimeout(abortTimer)
+      if (wsMembershipError) {
+        console.error('[WorkspaceProvider] workspace_memberships error:', wsMembershipError)
+        // Don't early-return — fall through to finally so loading clears.
+        // activeWorkspace stays null, which is fine (dashboard handles it).
+      }
+
+      if (!wsMemberships?.length) return
 
       const workspaces = wsMemberships
         .map(m => m.workspace as Workspace)
@@ -119,6 +129,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
       setSupervisorAssignment((saResult.data as SupervisorAssignment | null) ?? null)
       setAssignedStudents(((studentsResult.data ?? []) as SupervisorAssignment[]))
+    } catch (err) {
+      console.error('[WorkspaceProvider] fetchWorkspaces error:', err)
+      // loading clears in finally — dashboard won't be stuck waiting
     } finally {
       setLoading(false)
     }

@@ -77,7 +77,7 @@ function phaseProgress(project: Project): number {
 
 export default function DashboardPage() {
   const { profile, loading: authLoading } = useAuth()
-  const { activeWorkspace } = useWorkspace()
+  const { activeWorkspace, loading: wsLoading } = useWorkspace()
   const [stats, setStats] = useState<DashboardStats>({ projects: 0, documents: 0, pendingReviews: 0, unreadNotifications: 0 })
   const [recentProjects, setRecentProjects] = useState<Project[]>([])
   const [recentReviews, setRecentReviews] = useState<ReviewRequest[]>([])
@@ -85,48 +85,66 @@ export default function DashboardPage() {
   const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
-    if (authLoading) return
+    // Wait for BOTH auth and workspace to finish loading before fetching.
+    // Without this, the effect fires twice: once with activeWorkspace=null
+    // (auth ready) and again when the workspace resolves, causing 12 queries
+    // and potential race conditions that leave skeletons stuck on screen.
+    if (authLoading || wsLoading) return
     if (!profile) { setLoading(false); return }
 
     const fetchData = async () => {
       try {
-        const wsFilter = activeWorkspace ? { workspace_id: activeWorkspace.id } : null
+        const wsId = activeWorkspace?.id
 
-        const [projectsRes, docsRes, reviewsRes, notifsRes, recentProjectsRes, recentReviewsRes] = await Promise.all([
-          wsFilter
-            ? supabase.from('projects').select('id', { count: 'exact', head: true }).eq('workspace_id', wsFilter.workspace_id).is('deleted_at', null)
-            : supabase.from('projects').select('id', { count: 'exact', head: true }).is('deleted_at', null),
-          supabase.from('documents').select('id', { count: 'exact' }).eq('created_by', profile.id),
-          supabase.from('review_requests').select('id', { count: 'exact' })
-            .or(`requested_by.eq.${profile.id},assigned_to.eq.${profile.id}`)
-            .in('status', ['pending', 'in_review']),
-          supabase.from('notifications').select('id', { count: 'exact' })
-            .eq('user_id', profile.id).eq('is_read', false),
-          wsFilter
-            ? supabase.from('projects').select('*').eq('workspace_id', wsFilter.workspace_id).is('deleted_at', null).order('updated_at', { ascending: false }).limit(6)
-            : supabase.from('projects').select('*').is('deleted_at', null).order('updated_at', { ascending: false }).limit(6),
-          supabase.from('review_requests')
-            .select(`*, document:documents(id, title), requester:profiles!requested_by(id, full_name)`)
-            .or(`requested_by.eq.${profile.id},assigned_to.eq.${profile.id}`)
-            .order('created_at', { ascending: false })
-            .limit(5),
-        ])
+        // 10 s hard timeout — if any query hangs (slow RLS, network blip),
+        // the finally block still runs and clears the loading state.
+        const timeout = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Dashboard load timed out after 10 s')), 10_000)
+        )
+
+        const [projectsRes, docsRes, reviewsRes, notifsRes, recentProjectsRes, recentReviewsRes] =
+          await Promise.race([
+            Promise.all([
+              // Project count — no workspace filter, RLS scopes to accessible projects
+              supabase.from('projects').select('id', { count: 'exact', head: true }).is('deleted_at', null),
+              // Document count — head:true avoids fetching row data
+              supabase.from('documents').select('id', { count: 'exact', head: true }).eq('created_by', profile.id),
+              supabase.from('review_requests').select('id', { count: 'exact', head: true })
+                .or(`requested_by.eq.${profile.id},assigned_to.eq.${profile.id}`)
+                .in('status', ['pending', 'in_review']),
+              supabase.from('notifications').select('id', { count: 'exact', head: true })
+                .eq('user_id', profile.id).eq('is_read', false),
+              // Recent projects — workspace-scoped if available, otherwise all accessible
+              wsId
+                ? supabase.from('projects').select('*').eq('workspace_id', wsId).is('deleted_at', null).order('updated_at', { ascending: false }).limit(6)
+                : supabase.from('projects').select('*').is('deleted_at', null).order('updated_at', { ascending: false }).limit(6),
+              supabase.from('review_requests')
+                .select('*, document:documents(id, title), requester:profiles!requested_by(id, full_name)')
+                .or(`requested_by.eq.${profile.id},assigned_to.eq.${profile.id}`)
+                .order('created_at', { ascending: false })
+                .limit(5),
+            ]),
+            timeout,
+          ])
 
         setStats({
-          projects:             projectsRes.count ?? 0,
-          documents:            docsRes.count ?? 0,
-          pendingReviews:       reviewsRes.count ?? 0,
-          unreadNotifications:  notifsRes.count ?? 0,
+          projects:            projectsRes.count ?? 0,
+          documents:           docsRes.count ?? 0,
+          pendingReviews:      reviewsRes.count ?? 0,
+          unreadNotifications: notifsRes.count ?? 0,
         })
         if (recentProjectsRes.data) setRecentProjects(recentProjectsRes.data)
         if (recentReviewsRes.data) setRecentReviews(recentReviewsRes.data as ReviewRequest[])
+      } catch (err) {
+        // Log but don't crash — user sees zeros rather than stuck skeletons
+        console.error('[Dashboard] fetchData error:', err)
       } finally {
         setLoading(false)
       }
     }
 
     fetchData()
-  }, [profile, authLoading, activeWorkspace]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profile, authLoading, wsLoading, activeWorkspace]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const firstName = profile?.full_name?.split(' ')[0] ?? 'Researcher'
   const hour     = new Date().getHours()
