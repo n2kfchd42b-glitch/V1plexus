@@ -107,22 +107,39 @@ export default function ProjectTeamPage() {
   const handleAdd = async () => {
     if (!selectedUser) return
     setAdding(true)
-    const { error } = await supabase.from('project_members').insert({
-      project_id: projectId,
-      user_id: selectedUser.id,
-      role: newMemberRole,
-    })
-    if (!error) {
-      logAudit('project.member.added', 'project', projectId, {
-        added_user_id: selectedUser.id,
-        added_user_name: selectedUser.full_name ?? selectedUser.email,
-        role: newMemberRole,
-      }, projectId)
+    try {
+      // Send invitation instead of direct insert — existing users must explicitly accept
+      const res = await fetch('/api/invitations/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'project',
+          email: selectedUser.email.trim().toLowerCase(),
+          role: roleToInviteRole[newMemberRole] ?? 'researcher',
+          projectId,
+          projectTitle: projectTitle || 'Project',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error ?? 'Failed to send invitation')
+      } else {
+        logAudit('project.member.invited', 'project', projectId, {
+          invited_user_id: selectedUser.id,
+          invited_user_name: selectedUser.full_name ?? selectedUser.email,
+          role: newMemberRole,
+        }, projectId)
+        toast.success(`Invitation sent to ${selectedUser.full_name ?? selectedUser.email}`)
+        resetDialog()
+        setShowAdd(false)
+        fetchMembers()
+      }
+    } catch (err) {
+      console.error('Error sending invitation:', err)
+      toast.error('Network error sending invitation')
+    } finally {
+      setAdding(false)
     }
-    resetDialog()
-    setShowAdd(false)
-    setAdding(false)
-    fetchMembers()
   }
 
   const handleInviteByEmail = async () => {
@@ -355,7 +372,7 @@ export default function ProjectTeamPage() {
       <Dialog open={showAdd} onOpenChange={v => { setShowAdd(v); if (!v) resetDialog() }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{inEmailInviteMode ? 'Invite by Email' : 'Add Team Member'}</DialogTitle>
+            <DialogTitle>{inEmailInviteMode ? 'Invite by Email' : selectedUser ? 'Invite Team Member' : 'Add Team Member'}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -513,7 +530,7 @@ export default function ProjectTeamPage() {
               </Button>
             ) : (
               <Button onClick={handleAdd} disabled={!selectedUser || adding}>
-                {adding ? 'Adding…' : 'Add to Project'}
+                {adding ? 'Sending…' : 'Send Invitation'}
               </Button>
             )}
           </DialogFooter>

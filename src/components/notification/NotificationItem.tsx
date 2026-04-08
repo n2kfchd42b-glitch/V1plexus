@@ -26,16 +26,20 @@ const typeColors = {
 interface NotificationItemProps {
   notification: Notification
   onMarkRead: (id: string) => void
+  onClose?: () => void
 }
 
-export function NotificationItem({ notification, onMarkRead }: NotificationItemProps) {
+export function NotificationItem({ notification, onMarkRead, onClose }: NotificationItemProps) {
   const router = useRouter()
   const Icon = typeIcons[notification.type as keyof typeof typeIcons] ?? Bell
   const iconColor = typeColors[notification.type as keyof typeof typeColors] ?? 'text-[var(--text-tertiary)] bg-[var(--bg-inset)]'
 
   const handleClick = () => {
     if (!notification.is_read) onMarkRead(notification.id)
-    if (notification.link) router.push(notification.link)
+    if (notification.link) {
+      onClose?.()
+      router.push(notification.link)
+    }
   }
 
   return (

@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from 'react'
 import { Bell, Check } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { NotificationItem } from './NotificationItem'
@@ -17,10 +18,11 @@ interface NotificationBellProps {
 
 export function NotificationBell({ userId }: NotificationBellProps) {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications(userId)
+  const [open, setOpen] = useState(false)
   const recent = notifications.slice(0, 8)
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <button className="relative h-8 w-8 flex items-center justify-center rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] transition-colors duration-100">
           <Bell className="h-4 w-4" />
@@ -58,6 +60,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
                   key={notification.id}
                   notification={notification}
                   onMarkRead={markAsRead}
+                  onClose={() => setOpen(false)}
                 />
               ))}
             </div>
