@@ -150,6 +150,14 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
         return
       }
 
+      // Mark workspace setup as completed so the middleware doesn't redirect
+      // new users to /setup when they land on the project page.
+      // Invited collaborators don't need their own workspace to get started.
+      await supabase
+        .from('profiles')
+        .update({ workspace_setup_completed: true })
+        .eq('id', user.id)
+
       const { error: updateErr } = await supabase
         .from('project_invitations')
         .update({ status: 'accepted' })
