@@ -1,23 +1,26 @@
 "use client"
 
-import { Bell, FileText, CheckCircle, MessageSquare, Shield } from 'lucide-react'
+import { Bell, FileText, CheckCircle, MessageSquare, Shield, UserPlus } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { cn, formatRelative } from '@/lib/utils'
 import type { Notification } from '@/types/database'
 
 const typeIcons = {
-  review_request:  FileText,
-  review_complete: CheckCircle,
-  ethics_expiry:   Shield,
-  comment:         MessageSquare,
-  gate_approved:   CheckCircle,
+  review_request:      FileText,
+  review_complete:     CheckCircle,
+  ethics_expiry:       Shield,
+  comment:             MessageSquare,
+  gate_approved:       CheckCircle,
+  invitation_received: UserPlus,
 }
 
 const typeColors = {
-  review_request:  'text-[var(--accent-blue)] bg-[var(--accent-blue-subtle)]',
-  review_complete: 'text-[var(--status-success-text)] bg-[var(--status-success-bg)]',
-  ethics_expiry:   'text-[var(--status-warning-text)] bg-[var(--status-warning-bg)]',
-  comment:         'text-purple-600 bg-purple-50',
-  gate_approved:   'text-[var(--status-success-text)] bg-[var(--status-success-bg)]',
+  review_request:      'text-[var(--accent-blue)] bg-[var(--accent-blue-subtle)]',
+  review_complete:     'text-[var(--status-success-text)] bg-[var(--status-success-bg)]',
+  ethics_expiry:       'text-[var(--status-warning-text)] bg-[var(--status-warning-bg)]',
+  comment:             'text-purple-600 bg-purple-50',
+  gate_approved:       'text-[var(--status-success-text)] bg-[var(--status-success-bg)]',
+  invitation_received: 'text-emerald-600 bg-emerald-50',
 }
 
 interface NotificationItemProps {
@@ -26,8 +29,14 @@ interface NotificationItemProps {
 }
 
 export function NotificationItem({ notification, onMarkRead }: NotificationItemProps) {
+  const router = useRouter()
   const Icon = typeIcons[notification.type as keyof typeof typeIcons] ?? Bell
   const iconColor = typeColors[notification.type as keyof typeof typeColors] ?? 'text-[var(--text-tertiary)] bg-[var(--bg-inset)]'
+
+  const handleClick = () => {
+    if (!notification.is_read) onMarkRead(notification.id)
+    if (notification.link) router.push(notification.link)
+  }
 
   return (
     <div
@@ -36,7 +45,7 @@ export function NotificationItem({ notification, onMarkRead }: NotificationItemP
         'hover:bg-[var(--bg-surface-hover)]',
         !notification.is_read && 'bg-[var(--accent-blue-subtle)]/50'
       )}
-      onClick={() => !notification.is_read && onMarkRead(notification.id)}
+      onClick={handleClick}
     >
       {/* Unread dot */}
       {!notification.is_read && (

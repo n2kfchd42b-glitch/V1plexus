@@ -2,8 +2,9 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { BrandLogo } from '@/components/layout/BrandLogo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,6 +19,9 @@ function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirect = searchParams.get('redirect') ?? '/dashboard'
+  const confirmationFailed = searchParams.get('error') === 'confirmation_failed'
   const supabase = createClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -26,7 +30,7 @@ function LoginForm() {
     setError('')
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) setError(error.message)
-    else router.push('/dashboard')
+    else router.push(redirect)
     setLoading(false)
   }
 
@@ -64,6 +68,11 @@ function LoginForm() {
               className="mt-1"
             />
           </div>
+          {confirmationFailed && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-700 text-sm">
+              The confirmation link has expired or is invalid. Please sign in if you already confirmed, or sign up again.
+            </div>
+          )}
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
               {error}
@@ -76,7 +85,7 @@ function LoginForm() {
           </Button>
           <p className="text-sm text-slate-500">
             Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-clinical-blue hover:underline font-medium">
+            <Link href={redirect !== '/dashboard' ? `/register?redirect=${encodeURIComponent(redirect)}` : '/register'} className="text-clinical-blue hover:underline font-medium">
               Sign up
             </Link>
           </p>
@@ -95,7 +104,9 @@ export default function LoginPage() {
         </div>
         <p className="text-slate-500 text-sm">Institution-grade Research Lab Platform</p>
       </div>
-      <LoginForm />
+      <Suspense fallback={<div className="h-64 rounded-xl bg-slate-100 animate-pulse" />}>
+        <LoginForm />
+      </Suspense>
     </div>
   )
 }

@@ -280,6 +280,7 @@ export interface Notification {
   type: NotificationType
   resource_type: string | null
   resource_id: string | null
+  link: string | null
   is_read: boolean
   created_at: string
 }

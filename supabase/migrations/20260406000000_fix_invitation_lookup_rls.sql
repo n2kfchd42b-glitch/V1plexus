@@ -16,6 +16,7 @@ CREATE POLICY "Project members see invitations" ON project_invitations
   );
 
 -- New policy: Allow any authenticated user to look up invitations by token
+DROP POLICY IF EXISTS "Authenticated users can read project invitations" ON project_invitations;
 CREATE POLICY "Authenticated users can read project invitations" ON project_invitations
   FOR SELECT TO authenticated USING (true);
 

@@ -27,7 +27,15 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
   useEffect(() => {
     const lookupToken = async () => {
       console.log('[InvitationAccept] Looking up token:', token)
-      
+
+      // RLS on invitation tables requires authentication — redirect to login first
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        console.log('[InvitationAccept] Not authenticated, redirecting to login')
+        router.push(`/login?redirect=/invite/${token}`)
+        return
+      }
+
       // Try workspace invitation first
       const { data: wsInvite, error: wsError } = await supabase
         .from('workspace_invitations')
@@ -72,7 +80,7 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
     }
 
     lookupToken()
-  }, [token, supabase])
+  }, [token, supabase, router])
 
   const handleAccept = async () => {
     setAccepting(true)
@@ -132,7 +140,7 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
         .upsert({
           project_id: projectInvite.project_id,
           user_id: user.id,
-          role: projectInvite.role === 'co_pi' ? 'pi' : projectInvite.role === 'viewer' ? 'viewer' : 'member',
+          role: projectInvite.role === 'co_pi' ? 'pi' : (projectInvite.role === 'viewer' || projectInvite.role === 'reviewer') ? 'viewer' : 'member',
         }, { onConflict: 'project_id,user_id' })
 
       if (memErr) {
@@ -152,13 +160,6 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
       }
 
       console.log('[InvitationAccept] Project invitation accepted successfully')
-      toast.success('You joined the project!')
-      router.push(`/projects/${projectInvite.project_id}`)
-    }
-
-    setAccepting(false)
-  }
-
       toast.success('You joined the project!')
       router.push(`/projects/${projectInvite.project_id}`)
     }

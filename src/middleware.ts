@@ -39,6 +39,10 @@ export async function middleware(request: NextRequest) {
 
   const isInvitePage = pathname.startsWith("/invite/");
 
+  // Auth callback must be public — unauthenticated users land here after clicking
+  // a confirmation email link; the route exchanges the PKCE code for a session.
+  const isAuthCallback = pathname.startsWith("/auth/");
+
   // Public pages — protocol registry, dataset landing pages, and public portfolio/badge pages
   const isPublicPage =
     pathname.startsWith("/registry/") ||
@@ -46,7 +50,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/profile/");
 
   const isProtected =
-    !isAuthPage && !isSetupPage && !isInvitePage && !isPublicPage && pathname !== "/";
+    !isAuthPage && !isSetupPage && !isInvitePage && !isAuthCallback && !isPublicPage && pathname !== "/";
 
   // Redirect unauthenticated users to login
   if (isProtected && !user) {
