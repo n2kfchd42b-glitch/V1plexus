@@ -26,7 +26,7 @@ function RegisterForm() {
     // and pass `next` so the invite redirect survives email confirmation.
     const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirect)}`
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -37,9 +37,13 @@ function RegisterForm() {
     if (error) {
       setError(error.message);
       setLoading(false);
+    } else if (data.session) {
+      // Email confirmation is disabled — user is logged in immediately.
+      router.push(redirect);
+      router.refresh();
     } else {
-      // If Supabase requires email confirmation, the user won't have a session yet.
-      // Show a "check your email" message instead of redirecting to a protected page.
+      // Email confirmation is enabled — session is null until they confirm.
+      // Show a "check your email" screen so they know what to do next.
       setConfirming(true);
       setLoading(false);
     }
