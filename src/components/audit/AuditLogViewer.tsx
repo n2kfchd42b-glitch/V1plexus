@@ -7,7 +7,6 @@ import { AuditEntry } from './AuditEntry'
 import { AuditFilters, type AuditFilterValues } from './AuditFilters'
 import { AuditExportButton } from './AuditExportButton'
 import { HashVerificationBadge } from './HashVerificationBadge'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { ChevronDown } from 'lucide-react'
 
@@ -99,18 +98,18 @@ export function AuditLogViewer({ projectId, institutionId, actorId, compact = fa
         </div>
       </div>
 
-      <div className="border rounded-lg divide-y">
+      <div className="border rounded-lg overflow-hidden">
         {loading && entries.length === 0 && (
           <p className="text-xs text-muted-foreground p-6 text-center">Loading audit log...</p>
         )}
         {entries.length === 0 && !loading && (
           <p className="text-xs text-muted-foreground p-6 text-center">No audit entries found.</p>
         )}
-        <ScrollArea className="max-h-[600px]">
+        <div className="overflow-y-auto max-h-[600px] divide-y">
           {entries.map(e => (
             <AuditEntry key={e.id} entry={e} showHash />
           ))}
-        </ScrollArea>
+        </div>
       </div>
 
       {hasMore && (
