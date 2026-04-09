@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .routers.analysis_integrity import router as integrity_router
 from .routers.research_output import router as output_router
 from .routers.causal import router as causal_router
+from .routers.causal_estimation import router as causal_estimation_router
 
 app = FastAPI(title="PLEXUS Analytics", version="1.0.0")
 
@@ -22,3 +23,4 @@ app.add_middleware(
 app.include_router(integrity_router)
 app.include_router(output_router)
 app.include_router(causal_router)
+app.include_router(causal_estimation_router)
