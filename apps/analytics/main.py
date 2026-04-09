@@ -10,6 +10,7 @@ from .routers.analysis_integrity import router as integrity_router
 from .routers.research_output import router as output_router
 from .routers.causal import router as causal_router
 from .routers.causal_estimation import router as causal_estimation_router
+from .routers.analytics_intelligence import router as intelligence_router
 
 app = FastAPI(title="PLEXUS Analytics", version="1.0.0")
 
@@ -30,6 +31,7 @@ app.include_router(integrity_router)
 app.include_router(output_router)
 app.include_router(causal_router)
 app.include_router(causal_estimation_router)
+app.include_router(intelligence_router)
 
 
 @app.get("/analytics/health")

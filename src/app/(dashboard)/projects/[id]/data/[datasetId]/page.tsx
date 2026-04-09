@@ -10,6 +10,10 @@ import {
   Hash, Type, Calendar, ToggleLeft, Tag, MapPin, Fingerprint, Copy, ShieldCheck,
 } from 'lucide-react'
 import { DAGBuilderPanel } from '@/components/analysis/causal/DAGBuilderPanel'
+import { DataPortraitPanel } from '@/components/analysis/DataPortraitPanel'
+import { EpidemiologicalFingerprint } from '@/components/analysis/EpidemiologicalFingerprint'
+import { AnalysisTimeline } from '@/components/analysis/AnalysisTimeline'
+import { useDataPortrait } from '@/hooks/useDataPortrait'
 import { Button } from '@/components/ui/button'
 import { DatasetTable } from '@/components/data/DatasetTable'
 import { VersionSelector } from '@/components/data/VersionSelector'
@@ -828,6 +832,15 @@ export default function DatasetViewerPage() {
             {/* ── Right column ── */}
             <div className="space-y-6">
 
+              {/* Data Portrait */}
+              {activeVersionId && (
+                <DataPortraitPanel
+                  datasetId={datasetId}
+                  projectId={projectId}
+                  versionId={activeVersionId}
+                />
+              )}
+
               {/* Version History — IMPROVEMENT 3: schema diff */}
               <div className="bg-white rounded-xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
                 <h3 className="font-manrope font-bold text-lg text-[#191c1e] mb-6">Version History</h3>
@@ -1006,6 +1019,11 @@ export default function DatasetViewerPage() {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* ── ANALYSIS TIMELINE — full-width ── */}
+          <div className="mt-8">
+            <AnalysisTimeline datasetId={datasetId} />
           </div>
 
           {/* ── COMPLETENESS PROFILE — full-width dark card ── */}
