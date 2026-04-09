@@ -1,6 +1,11 @@
 /**
  * API route for verifying audit chain integrity
  * GET /api/audit/verify
+ *
+ * Scoping:
+ *   ?project_id=X                   → verify project-scoped chain (project_chain_entry_hash)
+ *   ?resource_type=Y&resource_id=Z  → verify resource-scoped chain (entry_hash)
+ *   ?project_id=X&resource_type=Y&resource_id=Z → verify resource-scoped chain within project
  */
 
 import { createClient } from '@/lib/supabase/server'
@@ -12,7 +17,7 @@ function computeHash(canonicalString: string): string {
   return createHash('sha256').update(canonicalString).digest('hex')
 }
 
-function buildCanonicalString(
+function buildResourceCanonical(
   timestamp: string,
   actorId: string | null,
   action: string,
@@ -23,7 +28,6 @@ function buildCanonicalString(
   prevHash: string | null
 ): string {
   const detailsJson = JSON.stringify(details, Object.keys(details).sort())
-
   return [
     timestamp,
     actorId || '',
@@ -36,11 +40,32 @@ function buildCanonicalString(
   ].join('|')
 }
 
+function buildProjectChainCanonical(
+  timestamp: string,
+  actorId: string | null,
+  action: string,
+  resourceType: string,
+  resourceId: string,
+  details: Record<string, unknown>,
+  projectChainPrevHash: string | null
+): string {
+  const detailsJson = JSON.stringify(details, Object.keys(details).sort())
+  return [
+    'PROJECT',
+    timestamp,
+    actorId || '',
+    action,
+    resourceType,
+    resourceId,
+    detailsJson,
+    projectChainPrevHash || 'PROJECT_GENESIS',
+  ].join('|')
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
 
-    // Get current user for RLS
     const {
       data: { user },
       error: authError,
@@ -50,7 +75,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Parse query parameters
     const searchParams = request.nextUrl.searchParams
     const resourceType = searchParams.get('resource_type')
     const resourceId = searchParams.get('resource_id')
@@ -58,30 +82,34 @@ export async function GET(request: NextRequest) {
 
     const ENTRY_LIMIT = 10_000
 
-    // Build query based on scope
+    // When project_id is given without a specific resource, verify the project-scoped
+    // chain (project_chain_entry_hash). Resource chains are independent per resource,
+    // so sequential comparison across resources would always report false violations.
+    const useProjectChain = !!projectId && !(resourceType && resourceId)
+
     let query = supabase
       .from('audit_logs')
       .select('*')
       .order('timestamp', { ascending: true })
       .limit(ENTRY_LIMIT)
 
-    if (projectId) {
-      query = query.eq('project_id', projectId)
+    if (useProjectChain) {
+      // Only include entries that are part of the project chain
+      query = query
+        .eq('project_id', projectId)
+        .not('project_chain_entry_hash', 'is', null)
+    } else {
+      if (projectId) query = query.eq('project_id', projectId)
+      if (resourceType && resourceId) {
+        query = query.eq('resource_type', resourceType).eq('resource_id', resourceId)
+      }
     }
 
-    if (resourceType && resourceId) {
-      query = query.eq('resource_type', resourceType).eq('resource_id', resourceId)
-    }
-
-    // Fetch entries in scope (capped at ENTRY_LIMIT to prevent timeouts)
     const { data: entries, error } = await query
 
     if (error) {
       console.error('Verification query error:', error)
-      return NextResponse.json(
-        { error: 'Failed to verify chain' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Failed to verify chain' }, { status: 500 })
     }
 
     if (!entries || entries.length === 0) {
@@ -97,61 +125,102 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(result)
     }
 
-    // Verify chain
     const violations: ChainViolation[] = []
     let validCount = 0
 
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i]
 
-      // Recompute the canonical string
-      const canonical = buildCanonicalString(
-        entry.timestamp,
-        entry.actor_id,
-        entry.action,
-        entry.resource_type,
-        entry.resource_id,
-        entry.project_id,
-        entry.details || {},
-        i === 0 ? null : entries[i - 1].entry_hash
-      )
+      if (useProjectChain) {
+        // Verify project-scoped chain
+        const expectedPrevHash = i === 0 ? null : entries[i - 1].project_chain_entry_hash
+        const canonical = buildProjectChainCanonical(
+          entry.timestamp,
+          entry.actor_id,
+          entry.action,
+          entry.resource_type,
+          entry.resource_id,
+          entry.details || {},
+          expectedPrevHash
+        )
+        const expectedHash = computeHash(canonical)
 
-      // Recompute the expected hash
-      const expectedHash = computeHash(canonical)
-
-      // Check if hash matches
-      if (expectedHash !== entry.entry_hash) {
-        violations.push({
-          entry_id: entry.id,
-          timestamp: entry.timestamp,
-          issue: 'hash_mismatch',
-          detail: `Hash mismatch: expected ${expectedHash}, got ${entry.entry_hash}`,
-        })
-        continue
-      }
-
-      // Check if prev_hash matches previous entry
-      if (i === 0) {
-        // First entry should have null prev_hash
-        if (entry.prev_hash !== null) {
+        if (expectedHash !== entry.project_chain_entry_hash) {
           violations.push({
             entry_id: entry.id,
             timestamp: entry.timestamp,
-            issue: 'chain_broken',
-            detail: 'First entry should have null prev_hash',
+            issue: 'hash_mismatch',
+            detail: `Project chain hash mismatch at entry ${i + 1}`,
           })
           continue
         }
+
+        if (i === 0) {
+          if (entry.project_chain_prev_hash !== null) {
+            violations.push({
+              entry_id: entry.id,
+              timestamp: entry.timestamp,
+              issue: 'chain_broken',
+              detail: 'Genesis entry should have null project_chain_prev_hash',
+            })
+            continue
+          }
+        } else {
+          if (entry.project_chain_prev_hash !== entries[i - 1].project_chain_entry_hash) {
+            violations.push({
+              entry_id: entry.id,
+              timestamp: entry.timestamp,
+              issue: 'chain_broken',
+              detail: 'project_chain_prev_hash does not match previous entry',
+            })
+            continue
+          }
+        }
       } else {
-        // Later entries should have prev_hash matching previous entry's hash
-        if (entry.prev_hash !== entries[i - 1].entry_hash) {
+        // Verify resource-scoped chain (single resource — sequential comparison is valid)
+        const expectedPrevHash = i === 0 ? null : entries[i - 1].entry_hash
+        const canonical = buildResourceCanonical(
+          entry.timestamp,
+          entry.actor_id,
+          entry.action,
+          entry.resource_type,
+          entry.resource_id,
+          entry.project_id,
+          entry.details || {},
+          expectedPrevHash
+        )
+        const expectedHash = computeHash(canonical)
+
+        if (expectedHash !== entry.entry_hash) {
           violations.push({
             entry_id: entry.id,
             timestamp: entry.timestamp,
-            issue: 'chain_broken',
-            detail: `Chain broken: prev_hash does not match previous entry hash`,
+            issue: 'hash_mismatch',
+            detail: `Hash mismatch: expected ${expectedHash}, got ${entry.entry_hash}`,
           })
           continue
+        }
+
+        if (i === 0) {
+          if (entry.prev_hash !== null) {
+            violations.push({
+              entry_id: entry.id,
+              timestamp: entry.timestamp,
+              issue: 'chain_broken',
+              detail: 'First entry should have null prev_hash',
+            })
+            continue
+          }
+        } else {
+          if (entry.prev_hash !== entries[i - 1].entry_hash) {
+            violations.push({
+              entry_id: entry.id,
+              timestamp: entry.timestamp,
+              issue: 'chain_broken',
+              detail: 'Chain broken: prev_hash does not match previous entry hash',
+            })
+            continue
+          }
         }
       }
 
@@ -204,9 +273,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(result)
   } catch (error) {
     console.error('Verification error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

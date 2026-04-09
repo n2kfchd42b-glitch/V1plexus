@@ -46,7 +46,7 @@ class AuditService:
     ) -> str:
         """
         Compute SHA-256 hash using canonical string representation
-        
+
         Args:
             timestamp: ISO format timestamp
             actor_id: User ID
@@ -56,7 +56,7 @@ class AuditService:
             project_id: Optional project ID
             details: Details dict (will be sorted for determinism)
             prev_hash: Previous entry hash in chain
-            
+
         Returns:
             SHA-256 hex digest
         """
@@ -70,6 +70,34 @@ class AuditService:
             project_id or "",
             details_json,
             prev_hash or "GENESIS",
+        ])
+        return hashlib.sha256(canonical.encode()).hexdigest()
+
+    def _compute_project_chain_hash(
+        self,
+        timestamp: str,
+        actor_id: str,
+        action: str,
+        resource_type: str,
+        resource_id: str,
+        details: Dict[str, Any],
+        project_chain_prev_hash: Optional[str],
+    ) -> str:
+        """
+        Compute SHA-256 hash for the project-scoped chain.
+        Canonical format mirrors the TypeScript buildProjectChainCanonical:
+        PROJECT|timestamp|actor_id|action|resource_type|resource_id|details_json|prev_hash
+        """
+        details_json = json.dumps(details, sort_keys=True, default=str)
+        canonical = "|".join([
+            "PROJECT",
+            timestamp,
+            actor_id or "",
+            action,
+            resource_type,
+            resource_id,
+            details_json,
+            project_chain_prev_hash or "PROJECT_GENESIS",
         ])
         return hashlib.sha256(canonical.encode()).hexdigest()
 
@@ -118,7 +146,7 @@ class AuditService:
             # Build timestamp
             timestamp = datetime.now(timezone.utc).isoformat()
 
-            # Compute hash
+            # Compute resource-scoped hash
             entry_hash = self._compute_hash(
                 timestamp,
                 actor_id,
@@ -129,6 +157,33 @@ class AuditService:
                 details,
                 prev_hash or "GENESIS",
             )
+
+            # Compute project-scoped chain hash (when project_id is present)
+            project_chain_prev_hash = None
+            project_chain_entry_hash = None
+
+            if project_id:
+                proj_result = (
+                    self.supabase.table("audit_logs")
+                    .select("project_chain_entry_hash")
+                    .eq("project_id", project_id)
+                    .not_.is_("project_chain_entry_hash", "null")
+                    .order("timestamp", desc=True)
+                    .limit(1)
+                    .execute()
+                )
+                if proj_result.data:
+                    project_chain_prev_hash = proj_result.data[0]["project_chain_entry_hash"]
+
+                project_chain_entry_hash = self._compute_project_chain_hash(
+                    timestamp,
+                    actor_id,
+                    action,
+                    resource_type,
+                    resource_id,
+                    details,
+                    project_chain_prev_hash,
+                )
 
             # Insert audit entry
             insert_result = (
@@ -144,6 +199,8 @@ class AuditService:
                     "details": details,
                     "prev_hash": prev_hash,
                     "entry_hash": entry_hash,
+                    "project_chain_prev_hash": project_chain_prev_hash,
+                    "project_chain_entry_hash": project_chain_entry_hash,
                 })
                 .execute()
             )
