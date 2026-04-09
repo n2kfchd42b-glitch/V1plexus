@@ -133,9 +133,13 @@ export async function GET(request: NextRequest) {
 
       if (useProjectChain) {
         // Verify project-scoped chain
+        // Normalise timestamp: Postgres TIMESTAMPTZ returns "...+00:00" with
+        // microseconds, but the hash was computed from new Date().toISOString()
+        // which produces "...Z" with milliseconds. Re-parse to align the format.
+        const normalizedTimestamp = new Date(entry.timestamp).toISOString()
         const expectedPrevHash = i === 0 ? null : entries[i - 1].project_chain_entry_hash
         const canonical = buildProjectChainCanonical(
-          entry.timestamp,
+          normalizedTimestamp,
           entry.actor_id,
           entry.action,
           entry.resource_type,
@@ -178,9 +182,10 @@ export async function GET(request: NextRequest) {
         }
       } else {
         // Verify resource-scoped chain (single resource — sequential comparison is valid)
+        const normalizedTimestamp = new Date(entry.timestamp).toISOString()
         const expectedPrevHash = i === 0 ? null : entries[i - 1].entry_hash
         const canonical = buildResourceCanonical(
-          entry.timestamp,
+          normalizedTimestamp,
           entry.actor_id,
           entry.action,
           entry.resource_type,

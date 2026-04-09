@@ -113,10 +113,14 @@ export function ProjectAuditLedger({ projectId, projectTitle }: ProjectAuditLedg
         const details = (entry.details ?? {}) as Record<string, unknown>
         const detailsJson = JSON.stringify(details, Object.keys(details).sort())
         const expectedPrev = i === 0 ? null : (entries[i - 1] as typeof entry).project_chain_entry_hash
+        // Normalise timestamp: Postgres TIMESTAMPTZ returns "...+00:00" with
+        // microseconds, but the hash was computed from new Date().toISOString()
+        // which produces "...Z". Re-parse to align the format.
+        const normalizedTimestamp = new Date(entry.timestamp).toISOString()
 
         const canonical = [
           'PROJECT',
-          entry.timestamp,
+          normalizedTimestamp,
           entry.actor_id ?? '',
           entry.action,
           entry.resource_type,
