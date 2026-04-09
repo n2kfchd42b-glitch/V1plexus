@@ -1,0 +1,26 @@
+# PLEXUS Analytics Service — Python dependencies
+
+# Web framework
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+
+# Auth
+PyJWT>=2.8.0
+
+# Database
+supabase>=2.4.0
+
+# Data
+pandas>=2.2.0
+numpy>=1.26.0
+
+# Phase A — Causal Discovery
+causal-learn>=0.1.3.8
+networkx>=3.0
+
+# Phase B — Causal Estimation
+scikit-learn>=1.4.0
+statsmodels>=0.14.0
+econml>=0.15.0
+scipy>=1.11.0
+httpx>=0.27.0
