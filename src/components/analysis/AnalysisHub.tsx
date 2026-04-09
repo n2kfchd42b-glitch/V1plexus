@@ -16,6 +16,7 @@ import { KeyFindingCard } from './KeyFindingCard'
 import { ProjectDatasetSelector } from './ProjectDatasetSelector'
 import { AISuggestions } from './AISuggestions'
 import { AnalysisCharts } from './results/AnalysisCharts'
+import { ResultsPanel } from './results/ResultsPanel'
 import { createClient } from '@/lib/supabase/client'
 import { runAnalysis } from '@/lib/analysis/engine'
 import { useAuth } from '@/hooks/useAuth'
@@ -148,6 +149,7 @@ export function AnalysisHub({ projectId }: Props) {
   const [running, setRunning]         = useState(false)
   const [result, setResult]           = useState<AnalysisResult | null>(null)
   const [savedRunId, setSavedRunId]   = useState<string | null>(null)
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
 
   // Hub table generator
   const [hubTableModalOpen, setHubTableModalOpen] = useState(false)
@@ -168,7 +170,16 @@ export function AnalysisHub({ projectId }: Props) {
       .select('*, dataset:datasets(id, name)')
       .eq('project_id', projectId).is('deleted_at', null)
       .order('created_at', { ascending: false }).limit(50)
-      .then(({ data }) => { if (data) setRuns(data as AnalysisRun[]); setLoading(false) })
+      .then(({ data }) => {
+        if (data) {
+          const loaded = data as AnalysisRun[]
+          setRuns(loaded)
+          // Auto-select the most recent completed run
+          const first = loaded.find(r => r.status === 'completed')
+          if (first) setSelectedRunId(first.id)
+        }
+        setLoading(false)
+      })
   }, [projectId, supabase])
 
   useEffect(() => {
@@ -429,229 +440,61 @@ export function AnalysisHub({ projectId }: Props) {
         </div>
       </div>
 
-      {/* ── Main grid ────────────────────────────────── */}
+      {/* ── Main split-pane ─────────────────────────── */}
       <div className="max-w-7xl mx-auto px-6 pb-12">
 
         {runs.length === 0 ? (
           <EmptyState onNew={openDrawer} />
-        ) : (
-          <>
-            <div className="grid grid-cols-3 gap-5 mb-8">
+        ) : (() => {
+          const selectedRun   = runs.find(r => r.id === selectedRunId) ?? null
+          const selectedResult = selectedRun?.results as unknown as AnalysisResult | null | undefined
+          const selectedTypeInfo = selectedRun ? ANALYSIS_TYPES.find(t => t.type === selectedRun.analysis_type) : null
+          const selectedDataset  = selectedRun?.dataset as { name: string } | null | undefined
 
-              {/* ── Left: Latest analysis chart ──────── */}
-              <div className="col-span-2">
-                {latestCompleted ? (
-                  <div>
-                    {/* Card header */}
-                    <div className="flex items-start justify-between gap-4 mb-4">
-                      <div className="min-w-0">
-                        <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#0040a2] font-manrope block mb-1">
-                          Latest Analysis
-                        </span>
-                        <h2 className="font-manrope font-bold text-lg text-[#18181B] truncate">
-                          {latestCompleted.title ?? latestTypeInfo?.label ?? latestCompleted.analysis_type}
-                        </h2>
-                        <p className="text-xs text-[#A1A1AA] mt-0.5 flex items-center gap-2 flex-wrap">
-                          {latestTypeInfo?.label && <span>{latestTypeInfo.label}</span>}
-                          {latestDataset && (
-                            <>
-                              <span className="text-[#e0e3e5]">·</span>
-                              <span className="flex items-center gap-1">
-                                <Database className="h-3 w-3" />
-                                {latestDataset.name}
-                              </span>
-                            </>
-                          )}
-                          <span className="text-[#e0e3e5]">·</span>
-                          <span>{formatRelative(latestCompleted.created_at)}</span>
-                        </p>
-                      </div>
+          const statusMap: Record<string, { color: string; dot: string; label: string }> = {
+            completed: { color: 'bg-[#F0FDF4] text-[#166534]', dot: 'bg-[#22C55E]', label: 'Completed' },
+            failed:    { color: 'bg-[#FEF2F2] text-[#991B1B]', dot: 'bg-[#EF4444]', label: 'Failed' },
+            running:   { color: 'bg-[#EFF6FF] text-[#1E40AF]', dot: 'bg-[#3B82F6]', label: 'Running' },
+            pending:   { color: 'bg-[#F0F0F0] text-[#52525B]', dot: 'bg-[#A1A1AA]', label: 'Pending' },
+            cancelled: { color: 'bg-[#F0F0F0] text-[#52525B]', dot: 'bg-[#A1A1AA]', label: 'Cancelled' },
+          }
 
-                      {/* Action buttons */}
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <button
-                          onClick={() => exportToWord(latestCompleted)}
-                          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold uppercase tracking-[0.06em] text-[#52525B] bg-white border border-[rgba(195,198,214,0.4)] hover:bg-[#f2f4f6] transition-all"
-                          style={{ boxShadow: '0 4px 12px rgba(0,24,72,0.04)' }}
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                          Export
-                        </button>
-                        <Link href={`/projects/${projectId}/documents`}>
-                          <button
-                            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold uppercase tracking-[0.06em] text-white transition-all hover:scale-[1.02]"
-                            style={{ background: 'linear-gradient(135deg, #003d9b, #0052cc)', boxShadow: '0 4px 16px rgba(0,82,204,0.25)' }}
-                          >
-                            <FileText className="h-3.5 w-3.5" />
-                            Draft Manuscript
-                          </button>
-                        </Link>
-                      </div>
+          return (
+            <div className="flex gap-5" style={{ minHeight: 'calc(100vh - 220px)' }}>
+
+              {/* ── Left: Run list panel ─────────────── */}
+              <div
+                className="w-[360px] flex-shrink-0 flex flex-col bg-white rounded-2xl overflow-hidden"
+                style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)', maxHeight: 'calc(100vh - 220px)' }}
+              >
+                {/* Stats strip */}
+                <div className="px-5 py-4 border-b border-[#f2f4f6] flex items-center gap-6 flex-shrink-0">
+                  {[
+                    { label: 'Total',     value: stats.total,     color: 'text-[#18181B]' },
+                    { label: 'Completed', value: stats.completed, color: 'text-[#166534]' },
+                    { label: 'Failed',    value: stats.failed,    color: 'text-[#991B1B]' },
+                  ].map(({ label, value, color }) => (
+                    <div key={label}>
+                      <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#A1A1AA] font-manrope">{label}</p>
+                      <p className={`font-manrope font-extrabold text-xl leading-none mt-0.5 ${color}`}>{value}</p>
                     </div>
-
-                    {/* Chart */}
-                    {latestCharts.length > 0 ? (
-                      <AnalysisCharts charts={latestCharts as Parameters<typeof AnalysisCharts>[0]['charts']} />
-                    ) : (
-                      /* No chart: show summary stats */
-                      <div
-                        className="bg-white rounded-2xl p-8"
-                        style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}
-                      >
-                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope mb-4">Summary Statistics</p>
-                        {latestResult?.summary && Object.keys(latestResult.summary).filter(k => k !== 'error').length > 0 ? (
-                          <div className="grid grid-cols-3 gap-3">
-                            {Object.entries(latestResult.summary)
-                              .filter(([k]) => k !== 'error')
-                              .slice(0, 6)
-                              .map(([key, val]) => (
-                                <div key={key} className="bg-[#f7f9fb] rounded-xl px-4 py-3">
-                                  <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-[#A1A1AA] font-manrope truncate">{formatKey(key)}</p>
-                                  <p className="font-manrope font-bold text-lg text-[#18181B] mt-0.5">{String(val)}</p>
-                                </div>
-                              ))}
-                          </div>
-                        ) : (
-                          <p className="text-sm text-[#A1A1AA]">No summary data available.</p>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Key Findings */}
-                    {latestResult && latestCompleted && (() => {
-                      const findings = getKeyFindings(latestResult, latestCompleted.analysis_type)
-                      if (findings.length === 0) return null
-                      return (
-                        <div className="mt-4 bg-white rounded-2xl p-5" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}>
-                          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#0040a2] font-manrope mb-4">Key Findings</p>
-                          <div className="grid grid-cols-4 gap-3">
-                            {findings.map(({ label, value }) => (
-                              <div key={label} className="bg-[#f7f9fb] rounded-xl px-4 py-3">
-                                <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-[#A1A1AA] truncate font-manrope mb-1">{label}</p>
-                                <p className="font-manrope font-extrabold text-lg text-[#18181B] leading-none truncate">{value}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )
-                    })()}
-
-                    {/* View full results */}
-                    <div className="mt-3 flex justify-end">
-                      <Link href={`/projects/${projectId}/analysis/${latestCompleted.id}`}>
-                        <button className="flex items-center gap-1.5 text-xs font-bold text-[#0052cc] hover:text-[#003d9b] transition-colors">
-                          View Full Results
-                          <ArrowRight className="h-3.5 w-3.5" />
-                        </button>
-                      </Link>
-                    </div>
-                  </div>
-                ) : (
-                  <div
-                    className="bg-white rounded-2xl h-full min-h-[300px] flex items-center justify-center"
-                    style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}
-                  >
-                    <div className="text-center px-8">
-                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                        style={{ background: 'linear-gradient(135deg, #003d9b, #0052cc)' }}>
-                        <BarChart2 className="h-6 w-6 text-white" />
-                      </div>
-                      <p className="font-manrope font-bold text-[#18181B]">No completed analyses yet</p>
-                      <p className="text-sm text-[#A1A1AA] mt-1">Charts will appear here once you run an analysis.</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* ── Right: Stat cards ────────────────── */}
-              <div className="flex flex-col gap-3">
-                {/* Total — gradient hero */}
-                <div
-                  className="rounded-2xl p-6 relative overflow-hidden"
-                  style={{
-                    background: 'linear-gradient(135deg, #001a5c 0%, #003d9b 60%, #0052cc 100%)',
-                    boxShadow: '0 20px 50px rgba(0,24,72,0.12)',
-                  }}
-                >
-                  <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full opacity-[0.07]"
-                    style={{ background: 'radial-gradient(circle, #fff, transparent)' }} />
-                  <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/40 font-manrope">Total Analyses</p>
-                  <p className="font-manrope font-extrabold text-[2.25rem] leading-none tracking-tight text-white mt-2">
-                    {stats.total}
-                  </p>
-                  <div className="mt-3 pt-3 border-t border-white/10">
-                    <p className="text-[10px] text-white/40 font-medium">
-                      {stats.completed} completed · {stats.failed} failed
-                    </p>
-                  </div>
+                  ))}
                 </div>
 
-                {/* Completed */}
-                <div
-                  className="rounded-2xl px-5 py-4 bg-white"
-                  style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#A1A1AA] font-manrope">Completed</p>
-                    <div className="w-7 h-7 rounded-xl bg-[#F0FDF4] flex items-center justify-center">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-[#22C55E]" />
-                    </div>
-                  </div>
-                  <p className="font-manrope font-extrabold text-[1.5rem] leading-none tracking-tight text-[#166534] mt-2">{stats.completed}</p>
-                  <p className="text-[10px] text-[#A1A1AA] mt-1.5">
-                    {stats.total > 0
-                      ? `${Math.round((stats.completed / stats.total) * 100)}% success rate`
-                      : 'No runs yet'}
-                    {latestCompleted && ` · last ${formatRelative(latestCompleted.created_at)}`}
-                  </p>
-                </div>
-
-                {/* Failed */}
-                <div
-                  className="rounded-2xl px-5 py-4 bg-white"
-                  style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#A1A1AA] font-manrope">Failed</p>
-                    <div className="w-7 h-7 rounded-xl bg-[#FEF2F2] flex items-center justify-center">
-                      <AlertCircle className="h-3.5 w-3.5 text-[#EF4444]" />
-                    </div>
-                  </div>
-                  <p className="font-manrope font-extrabold text-[1.5rem] leading-none tracking-tight text-[#991B1B] mt-2">{stats.failed}</p>
-                  <p className="text-[10px] text-[#A1A1AA] mt-1.5">
-                    {stats.failed === 0 ? 'All analyses passed' : `${stats.failed} run${stats.failed > 1 ? 's' : ''} need review`}
-                  </p>
-                </div>
-
-                {/* Card 4 — Key Finding */}
-                {latestCompleted && latestResult && !latestResult.summary?.error && (
-                  <KeyFindingCard run={latestCompleted} result={latestResult} />
-                )}
-              </div>
-            </div>
-
-            {/* ── Analysis history ─────────────────────── */}
-            <div>
-              {/* Section header + search */}
-              <div className="flex items-center justify-between gap-4 mb-4">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope">Analysis History</span>
-                  <span className="w-1 h-1 bg-[#c3c6d6] rounded-full" />
-                  <span className="text-xs text-[#A1A1AA]">{runs.length} {runs.length === 1 ? 'run' : 'runs'} total</span>
-                </div>
-                <div className="flex items-center gap-3">
+                {/* Search + filter */}
+                <div className="px-4 pt-3 pb-2 border-b border-[#f2f4f6] flex-shrink-0 space-y-2">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#A1A1AA]" />
                     <input
                       type="text" placeholder="Search…" value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
-                      className="pl-9 pr-4 py-2 text-sm rounded-lg bg-[#f2f4f6] border border-[rgba(195,198,214,0.3)] text-[#18181B] placeholder:text-[#A1A1AA] outline-none focus:border-[rgba(0,82,204,0.4)] focus:shadow-[0_0_0_3px_rgba(0,82,204,0.08)] transition-all w-44"
+                      className="w-full pl-9 pr-4 py-2 text-sm rounded-lg bg-[#f2f4f6] border border-[rgba(195,198,214,0.3)] text-[#18181B] placeholder:text-[#A1A1AA] outline-none focus:border-[rgba(0,82,204,0.4)] focus:shadow-[0_0_0_3px_rgba(0,82,204,0.08)] transition-all"
                     />
                   </div>
-                  <div className="flex items-center gap-1 bg-[#f2f4f6] rounded-[10px] p-1">
+                  <div className="flex items-center gap-1 bg-[#f2f4f6] rounded-[10px] p-0.5">
                     {(['all', 'completed', 'running', 'failed'] as FilterStatus[]).map(s => (
                       <button key={s} onClick={() => setFilterStatus(s)}
-                        className={`px-3 py-1.5 text-[11px] font-bold rounded-lg uppercase tracking-[0.06em] transition-all ${
+                        className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg uppercase tracking-[0.05em] transition-all ${
                           filterStatus === s
                             ? 'bg-white text-[#003d9b] shadow-[0_2px_8px_rgba(0,24,72,0.08)]'
                             : 'text-[#52525B] hover:text-[#003d9b]'
@@ -662,85 +505,131 @@ export function AnalysisHub({ projectId }: Props) {
                     ))}
                   </div>
                 </div>
-              </div>
 
-              {/* Compact list */}
-              {filteredRuns.length === 0 ? (
-                <div className="text-center py-10">
-                  <p className="text-sm text-[#52525B]">No analyses match your filters</p>
-                  <button onClick={() => { setFilterStatus('all'); setSearchQuery('') }}
-                    className="text-[#0052CC] text-xs mt-2 hover:underline">Clear filters</button>
-                </div>
-              ) : (
-                <div
-                  className="bg-white rounded-2xl overflow-hidden"
-                  style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}
-                >
-                  {filteredRuns.map((run, i) => {
+                {/* Scrollable run list */}
+                <div className="overflow-y-auto flex-1">
+                  {filteredRuns.length === 0 ? (
+                    <div className="text-center py-10 px-4">
+                      <p className="text-sm text-[#52525B]">No analyses match your filters</p>
+                      <button onClick={() => { setFilterStatus('all'); setSearchQuery('') }}
+                        className="text-[#0052CC] text-xs mt-2 hover:underline">Clear filters</button>
+                    </div>
+                  ) : filteredRuns.map((run) => {
                     const info   = ANALYSIS_TYPES.find(t => t.type === run.analysis_type)
                     const ds     = run.dataset as { name: string } | null
-                    const isLast = i === filteredRuns.length - 1
-                    const statusMap: Record<string, { color: string; label: string }> = {
-                      completed: { color: 'bg-[#F0FDF4] text-[#166534]', label: 'Completed' },
-                      failed:    { color: 'bg-[#FEF2F2] text-[#991B1B]', label: 'Failed' },
-                      running:   { color: 'bg-[#EFF6FF] text-[#1E40AF]', label: 'Running' },
-                      pending:   { color: 'bg-[#F0F0F0] text-[#52525B]', label: 'Pending' },
-                      cancelled: { color: 'bg-[#F0F0F0] text-[#52525B]', label: 'Cancelled' },
-                    }
-                    const status = statusMap[run.status] ?? statusMap.pending
+                    const st     = statusMap[run.status] ?? statusMap.pending
+                    const isSelected = selectedRunId === run.id
                     return (
-                      <Link key={run.id} href={`/projects/${projectId}/analysis/${run.id}`}>
-                        <div
-                          className={`group flex items-center gap-4 px-6 py-4 cursor-pointer transition-all duration-150 hover:bg-[rgba(0,61,155,0.02)] ${!isLast ? 'border-b border-[#f2f4f6]' : ''}`}
-                        >
-                          {/* Status dot */}
-                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                            run.status === 'completed' ? 'bg-[#22C55E]' :
-                            run.status === 'failed'    ? 'bg-[#EF4444]' :
-                            run.status === 'running'   ? 'bg-[#3B82F6]' : 'bg-[#A1A1AA]'
-                          }`} />
-
-                          {/* Title + type */}
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-manrope font-semibold text-[#18181B] truncate group-hover:text-[#0052cc] transition-colors">
-                              {run.title ?? info?.label ?? run.analysis_type}
-                            </p>
-                            <p className="text-xs text-[#A1A1AA] mt-0.5">
-                              {info?.label ?? run.analysis_type.replace(/_/g, ' ')}
-                              {ds && <span className="ml-2">· {ds.name}</span>}
-                            </p>
-                          </div>
-
-                          {/* Date */}
-                          <span className="text-xs text-[#A1A1AA] flex-shrink-0 hidden sm:block">
-                            {formatRelative(run.created_at)}
-                          </span>
-
-                          {/* Status badge */}
-                          <span className={`text-[10px] font-bold uppercase tracking-[0.08em] px-2.5 py-1 rounded-lg flex-shrink-0 ${status.color}`}>
-                            {status.label}
-                          </span>
-
-                          {/* Delete (on hover) */}
-                          {run.id !== latestCompleted?.id && (
-                            <button
-                              onClick={e => { e.preventDefault(); e.stopPropagation(); handleDelete(run.id) }}
-                              className="opacity-0 group-hover:opacity-100 text-[#A1A1AA] hover:text-[#EF4444] transition-all p-1 rounded-lg hover:bg-[#FEF2F2]"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-
-                          <ArrowRight className="h-4 w-4 text-transparent group-hover:text-[#0052cc] transition-all flex-shrink-0" />
+                      <button
+                        key={run.id}
+                        onClick={() => setSelectedRunId(run.id)}
+                        className={`group w-full flex items-center gap-3 px-4 py-3.5 text-left transition-all border-b border-[#f2f4f6] last:border-0 ${
+                          isSelected
+                            ? 'bg-[rgba(0,64,162,0.05)] border-l-[3px] border-l-[#0052cc]'
+                            : 'hover:bg-[rgba(0,61,155,0.02)] border-l-[3px] border-l-transparent'
+                        }`}
+                      >
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${st.dot}`} />
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-sm font-manrope font-semibold truncate transition-colors ${isSelected ? 'text-[#0052cc]' : 'text-[#18181B] group-hover:text-[#0052cc]'}`}>
+                            {run.title ?? info?.label ?? run.analysis_type}
+                          </p>
+                          <p className="text-[11px] text-[#A1A1AA] mt-0.5 truncate">
+                            {info?.label ?? run.analysis_type.replace(/_/g, ' ')}
+                            {ds && <span> · {ds.name}</span>}
+                            <span> · {formatRelative(run.created_at)}</span>
+                          </p>
                         </div>
-                      </Link>
+                        <span className={`text-[9px] font-bold uppercase tracking-[0.06em] px-2 py-0.5 rounded flex-shrink-0 ${st.color}`}>
+                          {st.label}
+                        </span>
+                        <button
+                          onClick={e => { e.stopPropagation(); handleDelete(run.id) }}
+                          className="opacity-0 group-hover:opacity-100 text-[#A1A1AA] hover:text-[#EF4444] transition-all p-1 rounded-lg hover:bg-[#FEF2F2] flex-shrink-0"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </button>
                     )
                   })}
                 </div>
-              )}
+              </div>
+
+              {/* ── Right: Results panel ─────────────── */}
+              <div className="flex-1 overflow-y-auto min-w-0">
+                {selectedRun ? (
+                  <>
+                    {/* Results header */}
+                    <div className="flex items-start justify-between gap-4 mb-5">
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#0040a2] font-manrope block mb-1">
+                          {selectedTypeInfo?.label ?? selectedRun.analysis_type.replace(/_/g, ' ')}
+                        </span>
+                        <h2 className="font-manrope font-bold text-xl text-[#18181B] truncate">
+                          {selectedRun.title ?? selectedTypeInfo?.label}
+                        </h2>
+                        {selectedDataset && (
+                          <p className="text-xs text-[#A1A1AA] mt-0.5 flex items-center gap-1.5">
+                            <Database className="h-3 w-3" />
+                            {selectedDataset.name}
+                            <span className="text-[#c3c6d6]">·</span>
+                            {formatRelative(selectedRun.created_at)}
+                          </p>
+                        )}
+                      </div>
+                      <Link href={`/projects/${projectId}/analysis/${selectedRun.id}`} className="flex-shrink-0">
+                        <button className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-[0.06em] text-[#0052cc] bg-white border border-[rgba(0,82,204,0.2)] hover:bg-[rgba(0,64,162,0.04)] transition-all"
+                          style={{ boxShadow: '0 4px 12px rgba(0,24,72,0.05)' }}>
+                          Full Page
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </button>
+                      </Link>
+                    </div>
+
+                    {/* Results body */}
+                    {selectedRun.status === 'completed' && selectedResult ? (
+                      <ResultsPanel
+                        result={selectedResult}
+                        analysisType={selectedRun.analysis_type as AnalysisType}
+                        title={selectedRun.title ?? selectedTypeInfo?.label}
+                        datasetName={selectedDataset?.name}
+                        onSave={async () => {}}
+                        isSaved={true}
+                        runId={selectedRun.id}
+                        projectId={projectId}
+                        datasetId={selectedRun.dataset_id ?? null}
+                        versionId={selectedRun.version_id ?? null}
+                        savedChartConfig={(selectedRun.chart_config as Record<string, unknown> | null) ?? null}
+                      />
+                    ) : selectedRun.status === 'running' || selectedRun.status === 'pending' ? (
+                      <div className="bg-white rounded-2xl p-16 text-center" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}>
+                        <div className="w-10 h-10 rounded-full border-2 border-[#0052cc] border-t-transparent animate-spin mx-auto mb-4" />
+                        <p className="font-manrope font-bold text-[#18181B]">Analysis in progress</p>
+                        <p className="text-sm text-[#A1A1AA] mt-1">Results will appear here when complete.</p>
+                      </div>
+                    ) : (
+                      <div className="bg-white rounded-2xl p-14 text-center" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}>
+                        <p className="font-manrope font-bold text-[#991B1B]">Analysis Failed</p>
+                        <p className="text-sm text-[#A1A1AA] mt-1">{selectedRun.error_message ?? 'An unknown error occurred.'}</p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="bg-white rounded-2xl p-16 text-center h-full flex flex-col items-center justify-center"
+                    style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)', minHeight: '400px' }}>
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                      style={{ background: 'linear-gradient(135deg, #003d9b, #0052cc)' }}>
+                      <BarChart2 className="h-6 w-6 text-white" />
+                    </div>
+                    <p className="font-manrope font-bold text-[#18181B]">Select a run to view results</p>
+                    <p className="text-sm text-[#A1A1AA] mt-1 max-w-xs">Click any analysis in the list to see its results inline.</p>
+                  </div>
+                )}
+              </div>
+
             </div>
-          </>
-        )}
+          )
+        })()}
       </div>
 
       {/* ── New Analysis Drawer ─────────────────────── */}

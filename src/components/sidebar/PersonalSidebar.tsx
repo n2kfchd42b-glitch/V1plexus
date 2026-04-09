@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderOpen, ClipboardList, Bell, Command, Database, Activity, Download,
-  Network, ShieldCheck, FileSignature, FileText
+  Network, ShieldCheck, FileSignature, FileText, BarChart2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NETWORK_COMPLIANCE_ENABLED } from '@/lib/flags'
@@ -34,8 +34,10 @@ export function PersonalSidebar({ collapsed, onCommandPalette }: PersonalSidebar
 
   const projectMatch = pathname.match(/\/projects\/([^/]+)/)
   const projectId = projectMatch?.[1]
-  const dataHref = projectId ? `/projects/${projectId}/data` : null
-  const dataActive = dataHref ? pathname.startsWith(dataHref) : false
+  const dataHref     = projectId ? `/projects/${projectId}/data`     : null
+  const analysisHref = projectId ? `/projects/${projectId}/analysis` : null
+  const dataActive     = dataHref     ? pathname.startsWith(dataHref)     : false
+  const analysisActive = analysisHref ? pathname.startsWith(analysisHref) : false
 
   return (
     <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto">
@@ -144,6 +146,22 @@ export function PersonalSidebar({ collapsed, onCommandPalette }: PersonalSidebar
               {!collapsed && (
                 <span className={cn('text-sm font-medium', dataActive ? 'text-[#0052CC]' : '')}>
                   Data
+                </span>
+              )}
+            </div>
+          </Link>
+          <Link href={analysisHref!}>
+            <div className={cn(
+              'flex items-center gap-3 py-2.5 transition-all duration-150 ease-out cursor-pointer select-none',
+              collapsed ? 'justify-center px-0 w-8 mx-auto rounded-md' : 'px-4',
+              analysisActive
+                ? 'text-[#0052CC] border-r-4 border-[#0052CC] bg-blue-50/50 font-semibold'
+                : 'text-slate-500 hover:text-[#0052CC] border-r-4 border-transparent'
+            )}>
+              <BarChart2 className={cn('flex-shrink-0 h-[20px] w-[20px]', analysisActive ? 'text-[#0052CC]' : '')} />
+              {!collapsed && (
+                <span className={cn('text-sm font-medium', analysisActive ? 'text-[#0052CC]' : '')}>
+                  Analysis
                 </span>
               )}
             </div>

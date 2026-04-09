@@ -455,35 +455,42 @@ export default function DatasetViewerPage() {
     )
   }
 
-  // ── COMMAND BAR CONFIG with Lucide icons ──────────────────────────────────
-  const commandCards = [
+  // ── WORKFLOW PIPELINE steps ───────────────────────────────────────────────
+  const pipelineSteps = [
+    {
+      key: 'import',
+      label: 'Import',
+      desc: 'Data loaded',
+      href: null, // current page — no navigation
+      done: true,
+    },
     {
       key: 'clean',
-      icon: <Wand2 className="h-5 w-5" />,
-      title: 'Clean Data',
-      desc: 'Remove outliers & handle nulls',
-      action: () => router.push(`/projects/${projectId}/data/${datasetId}/clean`),
+      label: 'Clean',
+      desc: 'Remove outliers & nulls',
+      href: `/projects/${projectId}/data/${datasetId}/clean`,
+      done: false,
     },
     {
       key: 'explore',
-      icon: <BarChart2 className="h-5 w-5" />,
-      title: 'Explore Charts',
-      desc: 'Visual EDA and distribution',
-      action: () => router.push(`/projects/${projectId}/data/${datasetId}/explore`),
+      label: 'Explore',
+      desc: 'Visual EDA',
+      href: `/projects/${projectId}/data/${datasetId}/explore`,
+      done: false,
     },
     {
-      key: 'merge',
-      icon: <GitMerge className="h-5 w-5" />,
-      title: 'Merge Datasets',
-      desc: 'Join protocols and lab results',
-      action: () => router.push(`/projects/${projectId}/data/${datasetId}/merge`),
+      key: 'quality',
+      label: 'Quality',
+      desc: 'Assess completeness',
+      href: `/projects/${projectId}/data/${datasetId}/quality`,
+      done: false,
     },
     {
-      key: 'versions',
-      icon: <GitCommit className="h-5 w-5" />,
-      title: 'Version Control',
-      desc: 'Commit snapshots & rollback',
-      action: () => router.push(`/projects/${projectId}/data/${datasetId}/versions`),
+      key: 'analysis',
+      label: 'Analysis Ready',
+      desc: 'Run statistical tests',
+      href: `/projects/${projectId}/analysis`,
+      done: false,
     },
   ]
 
@@ -540,23 +547,73 @@ export default function DatasetViewerPage() {
           </div>
         </section>
 
-        {/* ── COMMAND BAR — FIX 3: Lucide icons, better contrast ── */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {commandCards.map(card => (
+        {/* ── WORKFLOW PIPELINE ─────────────────────────────────────────────── */}
+        <section className="mb-8">
+          {/* Pipeline track */}
+          <div className="flex items-stretch gap-0 bg-white rounded-2xl overflow-hidden border border-slate-200/60"
+            style={{ boxShadow: '0 4px 20px rgba(0,24,72,0.05)' }}>
+            {pipelineSteps.map((step, i) => {
+              const isFirst = i === 0
+              const isLast  = i === pipelineSteps.length - 1
+              const content = (
+                <div className={`
+                  group flex-1 flex items-center gap-3 px-5 py-4 relative
+                  ${step.href ? 'cursor-pointer hover:bg-[#f7f9fb] transition-colors' : 'cursor-default'}
+                  ${!isLast ? 'border-r border-slate-200/60' : ''}
+                `}>
+                  {/* Step number / check */}
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-bold transition-colors
+                    ${step.done
+                      ? 'bg-[#f0fdf4] text-[#166534]'
+                      : 'bg-[#f2f4f6] text-[#A1A1AA] group-hover:bg-[rgba(0,64,162,0.08)] group-hover:text-[#003d9b]'
+                    }`}>
+                    {step.done ? '✓' : i + 1}
+                  </div>
+                  {/* Label */}
+                  <div className="min-w-0">
+                    <p className={`text-sm font-semibold leading-none font-manrope
+                      ${step.done ? 'text-[#166534]' : 'text-[#18181B]'}`}>
+                      {step.label}
+                    </p>
+                    <p className="text-[11px] text-[#A1A1AA] mt-0.5 leading-none hidden sm:block">{step.desc}</p>
+                  </div>
+                  {/* Arrow connector */}
+                  {!isLast && (
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10
+                      w-4 h-4 bg-white border-r border-t border-slate-200/60 rotate-45" />
+                  )}
+                </div>
+              )
+              return step.href ? (
+                <Link key={step.key} href={step.href} className="flex-1 flex">
+                  {content}
+                </Link>
+              ) : (
+                <div key={step.key} className="flex-1 flex">{content}</div>
+              )
+            })}
+          </div>
+
+          {/* Secondary actions: Merge + Version Control */}
+          <div className="flex items-center gap-3 mt-3">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Actions:</span>
             <button
-              key={card.key}
-              onClick={card.action}
-              className="group bg-gradient-to-br from-[#003d9b] to-[#0052cc] p-5 rounded-xl text-white text-left
-                         hover:from-[#0046b5] hover:to-[#0060e6] active:scale-[0.98]
-                         transition-all duration-200 shadow-lg shadow-[#003d9b]/20"
+              onClick={() => router.push(`/projects/${projectId}/data/${datasetId}/merge`)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#52525B] bg-white border border-slate-200 hover:border-[#003d9b] hover:text-[#003d9b] transition-all"
+              style={{ boxShadow: '0 2px 8px rgba(0,24,72,0.04)' }}
             >
-              <div className="mb-3 text-white/90 group-hover:text-white transition-colors">
-                {card.icon}
-              </div>
-              <h3 className="font-manrope font-bold text-base text-white mb-0.5">{card.title}</h3>
-              <p className="text-xs text-white/65 group-hover:text-white/85 transition-colors leading-relaxed">{card.desc}</p>
+              <GitMerge className="h-3.5 w-3.5" />
+              Merge Datasets
             </button>
-          ))}
+            <button
+              onClick={() => router.push(`/projects/${projectId}/data/${datasetId}/versions`)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#52525B] bg-white border border-slate-200 hover:border-[#003d9b] hover:text-[#003d9b] transition-all"
+              style={{ boxShadow: '0 2px 8px rgba(0,24,72,0.04)' }}
+            >
+              <GitCommit className="h-3.5 w-3.5" />
+              Version Control
+            </button>
+          </div>
         </section>
 
         {/* ── TABS ── */}
