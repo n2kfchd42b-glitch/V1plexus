@@ -306,6 +306,13 @@ export function DuplicateReviewModal({
           justification: text,
         }
       )
+      // Re-trigger portrait for the new version (non-blocking)
+      fetch('/api/analytics/portrait/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ datasetId, projectId, versionId }),
+      }).catch(() => {})
+
       onVersionSaved(versionId)
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Save failed')

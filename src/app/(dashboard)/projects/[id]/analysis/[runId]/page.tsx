@@ -9,6 +9,7 @@ import {
   AlertCircle, Clock, Download, FileText, Table2,
 } from 'lucide-react'
 import { ResultsPanel } from '@/components/analysis/results/ResultsPanel'
+import { SensitivityPanel } from '@/components/analysis/SensitivityPanel'
 import { GenerateTableModal } from '@/components/analysis/GenerateTableModal'
 import { createClient } from '@/lib/supabase/client'
 import { formatDateTime } from '@/lib/utils'
@@ -267,19 +268,41 @@ export default function AnalysisRunPage() {
             <p className="text-sm text-[#52525B] mt-1">Results will appear here when complete.</p>
           </div>
         ) : (
-          <ResultsPanel
-            result={displayResult}
-            analysisType={run.analysis_type as AnalysisType}
-            title={run.title ?? typeInfo?.label}
-            datasetName={dataset?.name}
-            onSave={async () => {}}
-            isSaved={true}
-            activeTab={activeTab}
-            runId={run.id}
-            datasetId={run.dataset_id ?? null}
-            versionId={run.version_id ?? null}
-            savedChartConfig={run.chart_config ?? null}
-          />
+          <>
+            <ResultsPanel
+              result={displayResult}
+              analysisType={run.analysis_type as AnalysisType}
+              title={run.title ?? typeInfo?.label}
+              datasetName={dataset?.name}
+              onSave={async () => {}}
+              isSaved={true}
+              activeTab={activeTab}
+              runId={run.id}
+              datasetId={run.dataset_id ?? null}
+              versionId={run.version_id ?? null}
+              savedChartConfig={run.chart_config ?? null}
+            />
+
+            {/* Sensitivity panel — linear & logistic regression only */}
+            {run.dataset_id && run.version_id &&
+             ['linear_regression', 'multiple_linear_regression', 'logistic_regression'].includes(run.analysis_type) &&
+             !!(run.config as Record<string, unknown>)?.outcome_variable && (
+              <div className="mt-5">
+                <SensitivityPanel
+                  projectId={projectId}
+                  datasetId={run.dataset_id}
+                  versionId={run.version_id}
+                  analysisType={run.analysis_type}
+                  outcome={String((run.config as Record<string, unknown>).outcome_variable ?? '')}
+                  exposure={String(
+                    ((run.config as Record<string, unknown>).predictors as string[])?.[0] ??
+                    (run.config as Record<string, unknown>).exposure_variable ?? ''
+                  )}
+                  covariates={((run.config as Record<string, unknown>).predictors as string[] | undefined)?.slice(1) ?? []}
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

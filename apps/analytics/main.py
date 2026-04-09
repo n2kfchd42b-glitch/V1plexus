@@ -16,7 +16,7 @@ app = FastAPI(title="PLEXUS Analytics", version="1.0.0")
 
 _allowed_origins = os.getenv(
     "ALLOWED_ORIGINS",
-    "http://localhost:3000,http://localhost:3001"
+    "http://localhost:3000,http://localhost:3001,https://plexus.science"
 ).split(",")
 
 app.add_middleware(

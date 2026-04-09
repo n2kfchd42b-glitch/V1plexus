@@ -60,13 +60,12 @@ class NarrativeRequest(BaseModel):
     result: dict[str, Any]
     variables: dict[str, Any] = {}
     analysis_run_id: Optional[str] = None
-    request_ai: bool = False
 
 
 @router.post("/intelligence/narrative")
 async def generate_narrative(
     body: NarrativeRequest,
-    user=Depends(get_current_user),
+    user: str=Depends(get_current_user),
 ):
     text = generate_deterministic_narrative(body.analysis_type, body.result)
 
@@ -77,10 +76,9 @@ async def generate_narrative(
         "analysis_type": body.analysis_type,
         "variables": body.variables,
         "deterministic_text": text,
-        "ai_requested": body.request_ai,
         "active_version": "deterministic",
         "components": body.result,
-        "created_by": user["sub"],
+        "created_by": user,
     }
     if body.analysis_run_id:
         row["analysis_run_id"] = body.analysis_run_id
@@ -106,7 +104,7 @@ class SensitivityRequest(BaseModel):
 @router.post("/intelligence/sensitivity")
 async def run_sensitivity(
     body: SensitivityRequest,
-    user=Depends(get_current_user),
+    user: str=Depends(get_current_user),
 ):
     try:
         df = _load_df(body.dataset_id, body.version_id)
@@ -130,7 +128,7 @@ async def run_sensitivity(
         },
         "comparisons": result["comparisons"],
         "consistent": result.get("consistent"),
-        "created_by": user["sub"],
+        "created_by": user,
     }
     ins = sb.table("analysis_sensitivity_results").insert(row).execute()
     sensitivity_id = ins.data[0]["id"] if ins.data else None
@@ -176,7 +174,7 @@ def _run_portrait_bg(dataset_id: str, project_id: str, version_id: str,
 async def trigger_portrait(
     body: PortraitTriggerRequest,
     background_tasks: BackgroundTasks,
-    user=Depends(get_current_user),
+    user: str=Depends(get_current_user),
 ):
     sb = _supa()
 
@@ -205,7 +203,7 @@ async def trigger_portrait(
 @router.get("/portrait/{dataset_id}")
 async def get_portrait(
     dataset_id: str,
-    user=Depends(get_current_user),
+    user: str=Depends(get_current_user),
 ):
     sb = _supa()
     res = sb.table("dataset_portraits").select("*").eq("dataset_id", dataset_id).execute()
@@ -221,7 +219,7 @@ async def get_portrait(
 @router.get("/portrait/{dataset_id}/matrix")
 async def get_portrait_matrix(
     dataset_id: str,
-    user=Depends(get_current_user),
+    user: str=Depends(get_current_user),
 ):
     sb = _supa()
     res = (sb.table("dataset_portraits")
@@ -252,7 +250,7 @@ class TimelineEntryRequest(BaseModel):
 @router.post("/timeline/entry")
 async def create_timeline_entry(
     body: TimelineEntryRequest,
-    user=Depends(get_current_user),
+    user: str=Depends(get_current_user),
 ):
     sb = _supa()
     row = {
@@ -267,7 +265,7 @@ async def create_timeline_entry(
         "assumption_status": body.assumption_status,
         "assumption_check_id": body.assumption_check_id,
         "causal_dag_id": body.causal_dag_id,
-        "created_by": user["sub"],
+        "created_by": user,
     }
     ins = sb.table("analysis_timeline_entries").insert(row).execute()
     return {"entry_id": ins.data[0]["id"] if ins.data else None}
@@ -276,7 +274,7 @@ async def create_timeline_entry(
 @router.get("/timeline/{dataset_id}")
 async def get_timeline(
     dataset_id: str,
-    user=Depends(get_current_user),
+    user: str=Depends(get_current_user),
 ):
     sb = _supa()
     res = (sb.table("analysis_timeline_entries")

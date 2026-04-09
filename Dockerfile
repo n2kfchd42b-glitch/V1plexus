@@ -18,4 +18,4 @@ COPY apps/analytics/ apps/analytics/
 # Railway injects PORT; fall back to 8000 locally
 ENV PORT=8000
 
-CMD uvicorn apps.analytics.main:app --host 0.0.0.0 --port $PORT
+CMD uvicorn apps.analytics.main:app --host 0.0.0.0 --port $PORT --workers 1 --timeout-keep-alive 30
