@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 /**
  * POST /api/causal/discover
@@ -32,8 +33,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Dataset not found' }, { status: 404 })
     }
 
-    // Create DAG record
-    const { data: dag, error: dagError } = await supabase
+    // Create DAG record — use service client to bypass RLS on insert
+    // (access already verified above via the datasets query)
+    const serviceSupabase = createServiceClient()
+    const { data: dag, error: dagError } = await serviceSupabase
       .from('causal_dags')
       .insert({
         project_id: dataset.project_id,
