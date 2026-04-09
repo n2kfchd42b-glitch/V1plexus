@@ -841,6 +841,9 @@ export default function DatasetViewerPage() {
                 />
               )}
 
+              {/* Epidemiological Fingerprint — renders once portrait is complete */}
+              <PortraitFingerprint datasetId={datasetId} projectId={projectId} versionId={activeVersionId} />
+
               {/* Version History — IMPROVEMENT 3: schema diff */}
               <div className="bg-white rounded-xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
                 <h3 className="font-manrope font-bold text-lg text-[#191c1e] mb-6">Version History</h3>
@@ -1186,4 +1189,11 @@ export default function DatasetViewerPage() {
       )}
     </div>
   )
+}
+
+// ── Lazy fingerprint: only renders when portrait is complete ──────────────────
+function PortraitFingerprint({ datasetId, projectId, versionId }: { datasetId: string; projectId: string; versionId: string | null }) {
+  const { portrait } = useDataPortrait(datasetId, projectId, versionId)
+  if (!portrait || portrait.status !== 'complete') return null
+  return <EpidemiologicalFingerprint portrait={portrait} />
 }

@@ -282,6 +282,32 @@ export function AnalysisHub({ projectId }: Props) {
     }).select().single()
     if (run) {
       await logAudit('analysis.run.saved', 'analysis_run', run.id, { type: selectedType, title: run.title, dataset_id: datasetId ?? null }, projectId)
+
+      // Write analysis timeline entry (non-blocking)
+      if (datasetId) {
+        const s = result.summary ?? {}
+        const keyResult = {
+          estimate: (s.coefficient ?? s.odds_ratio ?? s.hazard_ratio ?? s.correlation ?? s.mean_difference ?? s.F_statistic ?? null) as number | null,
+          ci_lower: (s.ci_lower ?? null) as number | null,
+          ci_upper: (s.ci_upper ?? null) as number | null,
+          p_value: (s.p_value ?? null) as number | null,
+          metric_label: (s.coefficient !== undefined ? 'β' : s.odds_ratio !== undefined ? 'OR' : s.hazard_ratio !== undefined ? 'HR' : s.correlation !== undefined ? 'r' : 'est') as string,
+        }
+        fetch(`/api/analytics/timeline/${datasetId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project_id: projectId,
+            dataset_id: datasetId,
+            analysis_type: selectedType,
+            variables: config,
+            key_result: keyResult.estimate !== null ? keyResult : null,
+            label: run.title,
+            analysis_run_id: run.id,
+          }),
+        }).catch(() => {/* non-blocking */})
+      }
+
       setSavedRunId(run.id); closeDrawer(); router.push(`/projects/${projectId}/analysis/${run.id}`)
     }
   }

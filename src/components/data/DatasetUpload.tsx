@@ -71,7 +71,7 @@ export function DatasetUpload({ projectId, onSuccess, onCancel }: DatasetUploadP
     setUploading(true)
     setError(null)
     try {
-      const { datasetId, fileHash } = await uploadDataset({
+      const { datasetId, versionId, fileHash } = await uploadDataset({
         file,
         projectId,
         name: name || file.name,
@@ -92,6 +92,19 @@ export function DatasetUpload({ projectId, onSuccess, onCancel }: DatasetUploadP
           fileHash,
         }
       )
+
+      // Auto-trigger data portrait (non-blocking)
+      fetch('/api/analytics/portrait/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          datasetId,
+          projectId,
+          versionId,
+          fileSizeBytes: file.size,
+        }),
+      }).catch(() => {/* non-blocking */})
+
       onSuccess(datasetId)
     } catch (e) {
       setError(`Upload failed: ${e instanceof Error ? e.message : 'Unknown error'}`)

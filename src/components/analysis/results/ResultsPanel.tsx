@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from 'react'
-import { FileText } from 'lucide-react'
+import { FileText, Sparkles, Copy, Check } from 'lucide-react'
 import { SummaryBox } from './SummaryBox'
 import { CoefficientTable } from './CoefficientTable'
 import { InterpretationBox } from './InterpretationBox'
@@ -74,6 +74,39 @@ function exportToWord(result: AnalysisResult, title: string) {
 
 export function ResultsPanel({ result, analysisType, title, datasetName, onSave, isSaved, activeTab = 'charts', runId, datasetId, versionId, savedChartConfig }: Props) {
   const [tableSearch, setTableSearch] = useState('')
+  const [narrative, setNarrative] = useState<string | null>(null)
+  const [narrativeLoading, setNarrativeLoading] = useState(false)
+  const [narrativeCopied, setNarrativeCopied] = useState(false)
+
+  const generateNarrative = async () => {
+    setNarrativeLoading(true)
+    try {
+      const res = await fetch('/api/analytics/narrative', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          analysis_type: analysisType,
+          result: result.summary ?? {},
+          dataset_id: datasetId,
+          variables: {},
+          analysis_run_id: runId,
+        }),
+      })
+      if (res.ok) {
+        const json = await res.json()
+        setNarrative(json.deterministic_text ?? null)
+      }
+    } catch { /* non-blocking */ }
+    finally { setNarrativeLoading(false) }
+  }
+
+  const copyNarrative = () => {
+    if (!narrative) return
+    navigator.clipboard.writeText(narrative).then(() => {
+      setNarrativeCopied(true)
+      setTimeout(() => setNarrativeCopied(false), 2000)
+    })
+  }
 
   if (result.summary?.error) {
     return (
@@ -127,6 +160,25 @@ export function ResultsPanel({ result, analysisType, title, datasetName, onSave,
               text={result.interpretation}
             />
           )}
+
+          {/* Statistical Narrative */}
+          {narrative ? (
+            <div className="bg-white rounded-2xl p-6" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope">
+                  Statistical Narrative
+                </p>
+                <button
+                  onClick={copyNarrative}
+                  className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-700 transition-colors"
+                >
+                  {narrativeCopied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                  {narrativeCopied ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+              <p className="text-sm text-[#52525B] leading-relaxed">{narrative}</p>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -230,7 +282,7 @@ export function ResultsPanel({ result, analysisType, title, datasetName, onSave,
       )}
 
       {/* ── Persistent action footer (always visible) ────────────────── */}
-      <div className="flex items-center gap-3 mt-5 pt-5 border-t border-[#f2f4f6]">
+      <div className="flex items-center gap-3 mt-5 pt-5 border-t border-[#f2f4f6] flex-wrap">
         <ResultsActions onSave={onSave} saved={isSaved} />
         <button
           onClick={() => exportToWord(result, exportTitle)}
@@ -240,6 +292,17 @@ export function ResultsPanel({ result, analysisType, title, datasetName, onSave,
           <FileText className="h-3.5 w-3.5" />
           Export to Word
         </button>
+        {!narrative && (
+          <button
+            onClick={generateNarrative}
+            disabled={narrativeLoading}
+            className="inline-flex items-center gap-2 text-xs font-medium text-[#0040a2] hover:text-[#003080] border border-[rgba(0,64,162,0.25)] rounded-lg px-4 py-2 hover:bg-blue-50 transition-all bg-white disabled:opacity-50"
+            style={{ boxShadow: '0 8px 24px rgba(0,24,72,0.05)' }}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            {narrativeLoading ? 'Generating…' : 'Generate Narrative'}
+          </button>
+        )}
       </div>
     </div>
   )
