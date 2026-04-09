@@ -1,12 +1,13 @@
 "use client"
 
+import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import type { AnalysisType } from '@/types/database'
 import {
   BarChart2, PieChart, CheckSquare, Columns, TestTube2,
   TrendingUp, Network, Activity, GitBranch, Layers,
   Map, Microscope, Calculator, Sigma, Target, Shapes,
-  GitMerge, Box, Minus, ArrowRight
+  GitMerge, Box, Minus, ArrowRight, ChevronLeft,
 } from 'lucide-react'
 
 export interface AnalysisTypeInfo {
@@ -150,14 +151,76 @@ export const ANALYSIS_TYPES: AnalysisTypeInfo[] = [
   },
 ]
 
-const categoryTextColors: Record<string, string> = {
-  Basic: 'text-[#0040a2]',
-  Regression: 'text-[#0040a2]',
-  Survival: 'text-[#0040a2]',
-  Advanced: 'text-[#0040a2]',
-  Epidemiology: 'text-[#0040a2]',
-  Design: 'text-[#0040a2]',
+// ── Goal-to-methods mapping ───────────────────────────────────────────────────
+
+interface GoalGroup {
+  id: string
+  label: string
+  description: string
+  icon: React.ReactNode
+  types: AnalysisType[]
 }
+
+const GOAL_GROUPS: GoalGroup[] = [
+  {
+    id: 'describe',
+    label: 'Describe my data',
+    description: 'Summarise variables, distributions, and frequencies',
+    icon: <BarChart2 className="h-6 w-6" />,
+    types: ['descriptive', 'frequency'],
+  },
+  {
+    id: 'compare',
+    label: 'Compare groups',
+    description: 'Test for differences between two or more groups',
+    icon: <Columns className="h-6 w-6" />,
+    types: ['t_test', 'anova', 'chi_square'],
+  },
+  {
+    id: 'relate',
+    label: 'Find relationships',
+    description: 'Explore associations and correlations between variables',
+    icon: <Network className="h-6 w-6" />,
+    types: ['correlation', 'simple_regression'],
+  },
+  {
+    id: 'predict',
+    label: 'Predict an outcome',
+    description: 'Model a continuous, binary, or count outcome from predictors',
+    icon: <TrendingUp className="h-6 w-6" />,
+    types: ['multiple_regression', 'logistic_regression', 'multinomial_regression', 'ordinal_regression', 'poisson_regression', 'negbinomial_regression'],
+  },
+  {
+    id: 'survive',
+    label: 'Analyse time-to-event',
+    description: 'Survival curves, hazard ratios, and time series trends',
+    icon: <Activity className="h-6 w-6" />,
+    types: ['kaplan_meier', 'cox_regression', 'time_series'],
+  },
+  {
+    id: 'cluster',
+    label: 'Classify or reduce',
+    description: 'Find hidden groups or reduce dimensionality',
+    icon: <Shapes className="h-6 w-6" />,
+    types: ['pca', 'factor_analysis', 'cluster_analysis'],
+  },
+  {
+    id: 'epi',
+    label: 'Epidemiology & synthesis',
+    description: 'Outbreak analysis, disease mapping, or meta-analysis',
+    icon: <Microscope className="h-6 w-6" />,
+    types: ['outbreak_investigation', 'spatial_analysis', 'meta_analysis'],
+  },
+  {
+    id: 'design',
+    label: 'Plan my study',
+    description: 'Calculate required sample size and statistical power',
+    icon: <Calculator className="h-6 w-6" />,
+    types: ['sample_size'],
+  },
+]
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 interface Props {
   selected: AnalysisType | null
@@ -165,59 +228,117 @@ interface Props {
 }
 
 export function AnalysisTypePicker({ selected, onSelect }: Props) {
-  const categories = ['Basic', 'Regression', 'Survival', 'Advanced', 'Epidemiology', 'Design']
+  const [activeGoal, setActiveGoal] = useState<string | null>(() => {
+    if (!selected) return null
+    return GOAL_GROUPS.find(g => g.types.includes(selected))?.id ?? null
+  })
+
+  const filteredTypes = activeGoal
+    ? ANALYSIS_TYPES.filter(t => GOAL_GROUPS.find(g => g.id === activeGoal)?.types.includes(t.type))
+    : []
+
+  // ── Step 1: Goal selection ─────────────────────────────────────────
+  if (!activeGoal) {
+    return (
+      <div className="space-y-3">
+        <p className="text-xs text-[#52525B] mb-4">What is your research goal?</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {GOAL_GROUPS.map(goal => (
+            <button
+              key={goal.id}
+              onClick={() => setActiveGoal(goal.id)}
+              className="group text-left rounded-xl border border-[rgba(0,82,204,0.15)] bg-white p-4 hover:bg-[#003d9b] hover:border-[#003d9b] hover:shadow-md transition-all duration-200"
+            >
+              <div className="flex items-start gap-3">
+                <span className="text-[#0040a2] group-hover:text-white transition-colors duration-200 mt-0.5 flex-shrink-0">
+                  {goal.icon}
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-[#18181B] group-hover:text-white transition-colors duration-200 leading-tight">
+                    {goal.label}
+                  </p>
+                  <p className="text-[11px] text-[#71717A] group-hover:text-white/70 transition-colors duration-200 mt-0.5 leading-snug">
+                    {goal.description}
+                  </p>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Step 2: Method selection ───────────────────────────────────────
+  const goal = GOAL_GROUPS.find(g => g.id === activeGoal)!
 
   return (
-    <div className="space-y-6">
-      {categories.map(category => {
-        const types = ANALYSIS_TYPES.filter(t => t.category === category)
-        return (
-          <div key={category}>
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{category}</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              {types.map(info => (
-                <button
-                  key={info.type}
-                  onClick={() => !info.unavailable && onSelect(info.type)}
-                  disabled={info.unavailable}
-                  className={cn(
-                    'group text-left rounded-lg border p-3 transition-all duration-200',
-                    'bg-white border-[rgba(0,82,204,0.18)]',
-                    info.unavailable
-                      ? 'opacity-50 cursor-not-allowed'
-                      : 'hover:bg-[#003d9b] hover:border-[#003d9b] hover:shadow-md',
-                    selected === info.type ? 'ring-2 ring-[#0052cc] shadow-sm' : ''
+    <div className="space-y-4">
+      {/* Back + goal label */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setActiveGoal(null)}
+          className="flex items-center gap-1 text-xs font-medium text-[#52525B] hover:text-[#18181B] transition-colors"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+          All goals
+        </button>
+        <span className="text-[#c3c6d6]">·</span>
+        <span className="text-xs font-semibold text-[#0040a2]">{goal.label}</span>
+      </div>
+
+      {/* Methods grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {filteredTypes.map(info => (
+          <button
+            key={info.type}
+            onClick={() => !info.unavailable && onSelect(info.type)}
+            disabled={info.unavailable}
+            className={cn(
+              'group text-left rounded-lg border p-3 transition-all duration-200',
+              'bg-white border-[rgba(0,82,204,0.18)]',
+              info.unavailable
+                ? 'opacity-50 cursor-not-allowed'
+                : 'hover:bg-[#003d9b] hover:border-[#003d9b] hover:shadow-md',
+              selected === info.type ? 'ring-2 ring-[#0052cc] shadow-sm' : ''
+            )}
+          >
+            <div className="flex items-start gap-2">
+              <span className="mt-0.5 text-[#0040a2] group-hover:text-white transition-colors duration-200 flex-shrink-0">
+                {info.icon}
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-sm font-medium leading-tight text-[#18181B] group-hover:text-white transition-colors duration-200">
+                    {info.label}
+                  </p>
+                  {info.approximation && (
+                    <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide px-1 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200 group-hover:bg-white/20 group-hover:text-white group-hover:border-white/30 transition-colors duration-200">
+                      approx
+                    </span>
                   )}
-                >
-                  <div className="flex items-start gap-2">
-                    <span className={cn('mt-0.5 transition-colors duration-200', categoryTextColors[category], 'group-hover:text-white')}>{info.icon}</span>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <p className="text-sm font-medium leading-tight text-[#18181B] transition-colors duration-200 group-hover:text-white">{info.label}</p>
-                        {info.approximation && (
-                          <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide px-1 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200 group-hover:bg-white/20 group-hover:text-white group-hover:border-white/30 transition-colors duration-200">
-                            approx
-                          </span>
-                        )}
-                        {info.unavailable && (
-                          <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide px-1 py-0.5 rounded bg-gray-100 text-gray-500 border border-gray-200">
-                            coming soon
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight transition-colors duration-200 group-hover:text-white/75">{info.description}</p>
-                      {info.approximation && info.approximationNote && (
-                        <p className="text-[10px] text-amber-600 mt-0.5 leading-tight italic transition-colors duration-200 group-hover:text-white/70">{info.approximationNote}</p>
-                      )}
-                      <p className={cn('text-[10px] mt-1 font-medium transition-colors duration-200', categoryTextColors[category], 'group-hover:text-white/80')}>{info.chartType}</p>
-                    </div>
-                  </div>
-                </button>
-              ))}
+                  {info.unavailable && (
+                    <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide px-1 py-0.5 rounded bg-gray-100 text-gray-500 border border-gray-200">
+                      coming soon
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-[#71717A] mt-0.5 leading-tight group-hover:text-white/75 transition-colors duration-200">
+                  {info.description}
+                </p>
+                {info.approximation && info.approximationNote && (
+                  <p className="text-[10px] text-amber-600 mt-0.5 leading-tight italic group-hover:text-white/70 transition-colors duration-200">
+                    {info.approximationNote}
+                  </p>
+                )}
+                <p className="text-[10px] mt-1 font-medium text-[#0040a2] group-hover:text-white/80 transition-colors duration-200">
+                  {info.chartType}
+                </p>
+              </div>
             </div>
-          </div>
-        )
-      })}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

@@ -17,8 +17,6 @@ import type { AnalysisRun, AnalysisType } from '@/types/database'
 import type { AnalysisResult } from '@/lib/analysis/engine'
 import { ANALYSIS_TYPES } from '@/components/analysis/AnalysisTypePicker'
 
-export type ResultsTab = 'charts' | 'tables' | 'diagnostics'
-
 const statusConfig = {
   completed: { icon: CheckCircle2, label: 'Completed',  iconClass: 'text-[#22C55E]', badgeClass: 'bg-[#F0FDF4] text-[#166634]' },
   failed:    { icon: AlertCircle,  label: 'Failed',     iconClass: 'text-[#EF4444]', badgeClass: 'bg-[#FEF2F2] text-[#991B1B]' },
@@ -34,7 +32,6 @@ export default function AnalysisRunPage() {
 
   const [run, setRun] = useState<AnalysisRun | null>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<ResultsTab>('charts')
   const [tableModalOpen, setTableModalOpen] = useState(false)
   const supabase = createClient()
 
@@ -211,24 +208,6 @@ export default function AnalysisRunPage() {
             </div>
           </div>
 
-          {/* Tab switcher — completed runs only */}
-          {isCompleted && (
-            <div className="flex items-center gap-1 mt-6 bg-[#f2f4f6] rounded-[10px] p-1 w-fit">
-              {(['charts', 'tables', 'diagnostics'] as ResultsTab[]).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.06em] transition-all capitalize ${
-                    activeTab === tab
-                      ? 'bg-white text-[#003d9b] shadow-[0_2px_8px_rgba(0,24,72,0.08)]'
-                      : 'text-[#52525B] hover:text-[#003d9b]'
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 
@@ -276,7 +255,6 @@ export default function AnalysisRunPage() {
               datasetName={dataset?.name}
               onSave={async () => {}}
               isSaved={true}
-              activeTab={activeTab}
               runId={run.id}
               projectId={projectId}
               datasetId={run.dataset_id ?? null}

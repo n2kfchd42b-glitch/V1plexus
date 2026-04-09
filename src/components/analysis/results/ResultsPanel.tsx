@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from 'react'
-import { FileText, Sparkles, Copy, Check } from 'lucide-react'
+import { FileText, Sparkles, Copy, Check, ChevronDown } from 'lucide-react'
 import { SummaryBox } from './SummaryBox'
 import { CoefficientTable } from './CoefficientTable'
 import { InterpretationBox } from './InterpretationBox'
@@ -9,9 +9,8 @@ import { ResultsActions } from './ResultsActions'
 import { AnalysisCharts } from './AnalysisCharts'
 import type { AnalysisResult } from '@/lib/analysis/types'
 import type { AnalysisType } from '@/types/database'
-import type { ResultsTab } from '@/app/(dashboard)/projects/[id]/analysis/[runId]/page'
 
-// Chart types that belong in the Diagnostics tab
+// Chart types that belong in the Diagnostics section
 const DIAGNOSTIC_CHART_TYPES = new Set(['residual_plot', 'acf_plot', 'funnel_plot'])
 
 interface Props {
@@ -21,7 +20,6 @@ interface Props {
   datasetName?: string
   onSave: () => Promise<void>
   isSaved?: boolean
-  activeTab?: ResultsTab
   runId?: string
   projectId?: string
   datasetId?: string | null
@@ -73,11 +71,12 @@ function exportToWord(result: AnalysisResult, title: string) {
   URL.revokeObjectURL(url)
 }
 
-export function ResultsPanel({ result, analysisType, title, datasetName, onSave, isSaved, activeTab = 'charts', runId, projectId, datasetId, versionId, savedChartConfig }: Props) {
+export function ResultsPanel({ result, analysisType, title, datasetName, onSave, isSaved, runId, projectId, datasetId, versionId, savedChartConfig }: Props) {
   const [tableSearch, setTableSearch] = useState('')
   const [narrative, setNarrative] = useState<string | null>(null)
   const [narrativeLoading, setNarrativeLoading] = useState(false)
   const [narrativeCopied, setNarrativeCopied] = useState(false)
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
 
   const generateNarrative = async () => {
     setNarrativeLoading(true)
@@ -125,27 +124,41 @@ export function ResultsPanel({ result, analysisType, title, datasetName, onSave,
 
   const primaryTables = result.tables.filter(t => !t.advanced)
   const advancedTables = result.tables.filter(t => t.advanced)
-  const allTables = [...primaryTables, ...advancedTables]
 
-  const filteredTables = tableSearch
-    ? allTables.filter(t => t.title.toLowerCase().includes(tableSearch.toLowerCase()))
-    : allTables
+  const filteredPrimaryTables = tableSearch
+    ? primaryTables.filter(t => t.title.toLowerCase().includes(tableSearch.toLowerCase()))
+    : primaryTables
 
+  const hasDiagnostics = diagnosticCharts.length > 0 || advancedTables.length > 0
   const exportTitle = title ?? `${analysisType} results`
+  const hasChart = mainCharts.length > 0
+  const hasTable = filteredPrimaryTables.length > 0
 
   return (
-    <div>
-      {/* ── Charts Tab ───────────────────────────────────────────────── */}
-      {activeTab === 'charts' && (
-        <div className="space-y-5">
-          <SummaryBox
-            analysisType={analysisType}
-            summary={result.summary}
-            title={title}
-            datasetName={datasetName}
-          />
+    <div className="space-y-5">
 
-          {mainCharts.length > 0 && (
+      {/* ── 1. Key Stats ─────────────────────────────────────────────── */}
+      <SummaryBox
+        analysisType={analysisType}
+        summary={result.summary}
+        title={title}
+        datasetName={datasetName}
+      />
+
+      {/* ── 2. AI Insight — always visible ───────────────────────────── */}
+      {(result.plainLanguage || result.interpretation) && (
+        <InterpretationBox
+          plainLanguage={result.plainLanguage}
+          text={result.interpretation}
+        />
+      )}
+
+      {/* ── 3. Primary Results: chart + table side-by-side ───────────── */}
+      {(hasChart || hasTable) && (
+        <div className={`grid gap-5 ${hasChart && hasTable ? 'grid-cols-1 lg:grid-cols-[3fr_2fr]' : 'grid-cols-1'}`}>
+
+          {/* Chart column */}
+          {hasChart && (
             <AnalysisCharts
               charts={mainCharts as Parameters<typeof AnalysisCharts>[0]['charts']}
               runId={runId}
@@ -156,135 +169,117 @@ export function ResultsPanel({ result, analysisType, title, datasetName, onSave,
             />
           )}
 
-          {(result.plainLanguage || result.interpretation) && (
-            <InterpretationBox
-              plainLanguage={result.plainLanguage}
-              text={result.interpretation}
-            />
-          )}
-
-          {/* Statistical Narrative */}
-          {narrative ? (
-            <div className="bg-white rounded-2xl p-6" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}>
-              <div className="flex items-center justify-between mb-3">
+          {/* Tables column */}
+          {hasTable && (
+            <div
+              className="bg-white rounded-2xl overflow-hidden flex flex-col"
+              style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}
+            >
+              <div className="px-5 py-4 border-b border-[#f2f4f6] flex items-center justify-between gap-3 flex-shrink-0">
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope">
-                  Statistical Narrative
+                  Results Tables
                 </p>
-                <button
-                  onClick={copyNarrative}
-                  className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-700 transition-colors"
-                >
-                  {narrativeCopied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
-                  {narrativeCopied ? 'Copied' : 'Copy'}
-                </button>
+                {primaryTables.length > 1 && (
+                  <input
+                    value={tableSearch}
+                    onChange={e => setTableSearch(e.target.value)}
+                    placeholder="Filter…"
+                    className="bg-[#f2f4f6] border border-[rgba(195,198,214,0.3)] rounded-lg px-2.5 py-1.5 text-xs text-[#18181B] outline-none focus:border-[rgba(0,82,204,0.4)] focus:shadow-[0_0_0_3px_rgba(0,82,204,0.08)] transition-all w-28"
+                  />
+                )}
               </div>
-              <p className="text-sm text-[#52525B] leading-relaxed">{narrative}</p>
+              <div className="overflow-y-auto flex-1" style={{ maxHeight: hasChart ? '520px' : undefined }}>
+                {filteredPrimaryTables.length > 0 ? (
+                  filteredPrimaryTables.map(table => (
+                    <div key={table.id} className="px-5 py-5 border-b border-[#f2f4f6] last:border-0">
+                      <CoefficientTable table={table} />
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-[#A1A1AA] text-center py-10">No tables match.</p>
+                )}
+              </div>
             </div>
-          ) : null}
+          )}
         </div>
       )}
 
-      {/* ── Tables Tab ───────────────────────────────────────────────── */}
-      {activeTab === 'tables' && (
-        <div>
-          <div
-            className="bg-white rounded-2xl overflow-hidden"
-            style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}
-          >
-            {/* Table header */}
-            <div className="px-7 py-6 border-b border-[#f2f4f6] flex items-center justify-between gap-4 flex-wrap">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope mb-1">
-                  Results Output
-                </p>
-                <h2 className="font-manrope font-bold text-lg text-[#18181B]">
-                  {title ?? 'Results Tables'}
-                </h2>
-              </div>
-              <input
-                value={tableSearch}
-                onChange={e => setTableSearch(e.target.value)}
-                placeholder="Search tables..."
-                className="bg-[#f2f4f6] border border-[rgba(195,198,214,0.3)] rounded-lg px-3 py-2 text-sm text-[#18181B] outline-none focus:border-[rgba(0,82,204,0.4)] focus:shadow-[0_0_0_3px_rgba(0,82,204,0.08)] transition-all w-52"
-              />
-            </div>
-
-            {/* Tables */}
-            {filteredTables.length > 0 ? (
-              filteredTables.map(table => (
-                <div key={table.id} className="px-7 py-6 border-b border-[#f2f4f6] last:border-0">
-                  <CoefficientTable table={table} />
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-[#A1A1AA] text-center py-14">
-                No tables match your search.
-              </p>
-            )}
+      {/* ── 4. Statistical Narrative (generated on demand) ───────────── */}
+      {narrative && (
+        <div className="bg-white rounded-2xl p-6" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope">
+              Statistical Narrative
+            </p>
+            <button
+              onClick={copyNarrative}
+              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-700 transition-colors"
+            >
+              {narrativeCopied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+              {narrativeCopied ? 'Copied' : 'Copy'}
+            </button>
           </div>
-
+          <p className="text-sm text-[#52525B] leading-relaxed">{narrative}</p>
         </div>
       )}
 
-      {/* ── Diagnostics Tab ──────────────────────────────────────────── */}
-      {activeTab === 'diagnostics' && (
-        <div className="space-y-5">
-          {diagnosticCharts.length > 0 ? (
-            <AnalysisCharts
-              charts={diagnosticCharts as Parameters<typeof AnalysisCharts>[0]['charts']}
-              runId={runId}
-              datasetId={datasetId}
-              versionId={versionId}
-              analysisType={analysisType}
+      {/* ── 5. Diagnostics — collapsible ─────────────────────────────── */}
+      {hasDiagnostics && (
+        <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}>
+          <button
+            onClick={() => setDiagnosticsOpen(v => !v)}
+            className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-[#f7f9fb] transition-colors"
+          >
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#A1A1AA] font-manrope">
+                Advanced
+              </p>
+              <p className="text-sm font-semibold text-[#18181B] mt-0.5">Diagnostics</p>
+            </div>
+            <ChevronDown
+              className={`h-4 w-4 text-[#A1A1AA] transition-transform duration-200 ${diagnosticsOpen ? 'rotate-180' : ''}`}
             />
-          ) : (
-            <div
-              className="bg-white rounded-2xl p-14 text-center"
-              style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}
-            >
-              <p className="text-sm text-[#A1A1AA]">
-                No diagnostic plots available for this analysis type.
-              </p>
-            </div>
-          )}
+          </button>
 
-          {advancedTables.length > 0 && (
-            <div
-              className="bg-white rounded-2xl overflow-hidden"
-              style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}
-            >
-              <div className="px-7 py-5 border-b border-[#f2f4f6]">
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope mb-1">
-                  Advanced
-                </p>
-                <h2 className="font-manrope font-bold text-lg text-[#18181B]">
-                  Diagnostic Statistics
-                </h2>
-              </div>
-              {advancedTables.map(table => (
-                <div key={table.id} className="px-7 py-6 border-b border-[#f2f4f6] last:border-0">
-                  <CoefficientTable table={table} />
+          {diagnosticsOpen && (
+            <div className="border-t border-[#f2f4f6]">
+              {diagnosticCharts.length > 0 && (
+                <div className="p-6">
+                  <AnalysisCharts
+                    charts={diagnosticCharts as Parameters<typeof AnalysisCharts>[0]['charts']}
+                    runId={runId}
+                    datasetId={datasetId}
+                    versionId={versionId}
+                    analysisType={analysisType}
+                  />
                 </div>
-              ))}
-            </div>
-          )}
+              )}
 
-          {result.interpretation && (
-            <div
-              className="bg-white rounded-2xl p-7"
-              style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}
-            >
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope mb-4">
-                Statistical Summary
-              </p>
-              <p className="text-sm text-[#52525B] leading-relaxed">{result.interpretation}</p>
+              {advancedTables.length > 0 && (
+                <div className={diagnosticCharts.length > 0 ? 'border-t border-[#f2f4f6]' : ''}>
+                  {advancedTables.map(table => (
+                    <div key={table.id} className="px-6 py-5 border-b border-[#f2f4f6] last:border-0">
+                      <CoefficientTable table={table} />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {result.interpretation && (
+                <div className="px-6 py-5 border-t border-[#f2f4f6]">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope mb-3">
+                    Statistical Summary
+                  </p>
+                  <p className="text-sm text-[#52525B] leading-relaxed">{result.interpretation}</p>
+                </div>
+              )}
             </div>
           )}
         </div>
       )}
 
-      {/* ── Persistent action footer (always visible) ────────────────── */}
-      <div className="flex items-center gap-3 mt-5 pt-5 border-t border-[#f2f4f6] flex-wrap">
+      {/* ── Persistent action footer ──────────────────────────────────── */}
+      <div className="flex items-center gap-3 pt-5 border-t border-[#f2f4f6] flex-wrap">
         <ResultsActions onSave={onSave} saved={isSaved} />
         <button
           onClick={() => exportToWord(result, exportTitle)}
