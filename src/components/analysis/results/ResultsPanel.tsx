@@ -23,6 +23,7 @@ interface Props {
   isSaved?: boolean
   activeTab?: ResultsTab
   runId?: string
+  projectId?: string
   datasetId?: string | null
   versionId?: string | null
   savedChartConfig?: Record<string, unknown> | null
@@ -72,7 +73,7 @@ function exportToWord(result: AnalysisResult, title: string) {
   URL.revokeObjectURL(url)
 }
 
-export function ResultsPanel({ result, analysisType, title, datasetName, onSave, isSaved, activeTab = 'charts', runId, datasetId, versionId, savedChartConfig }: Props) {
+export function ResultsPanel({ result, analysisType, title, datasetName, onSave, isSaved, activeTab = 'charts', runId, projectId, datasetId, versionId, savedChartConfig }: Props) {
   const [tableSearch, setTableSearch] = useState('')
   const [narrative, setNarrative] = useState<string | null>(null)
   const [narrativeLoading, setNarrativeLoading] = useState(false)
@@ -85,9 +86,10 @@ export function ResultsPanel({ result, analysisType, title, datasetName, onSave,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          project_id: projectId ?? '',
           analysis_type: analysisType,
           result: result.summary ?? {},
-          dataset_id: datasetId,
+          dataset_id: datasetId ?? '',
           variables: {},
           analysis_run_id: runId,
         }),

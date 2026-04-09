@@ -278,6 +278,7 @@ export default function AnalysisRunPage() {
               isSaved={true}
               activeTab={activeTab}
               runId={run.id}
+              projectId={projectId}
               datasetId={run.dataset_id ?? null}
               versionId={run.version_id ?? null}
               savedChartConfig={run.chart_config ?? null}
