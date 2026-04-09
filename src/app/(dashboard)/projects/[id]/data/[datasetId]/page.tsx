@@ -9,6 +9,7 @@ import {
   Trash2, ExternalLink, Search, Filter, Plus, ChevronDown, ChevronRight,
   Hash, Type, Calendar, ToggleLeft, Tag, MapPin, Fingerprint, Copy, ShieldCheck,
 } from 'lucide-react'
+import { DAGBuilderPanel } from '@/components/analysis/causal/DAGBuilderPanel'
 import { Button } from '@/components/ui/button'
 import { DatasetTable } from '@/components/data/DatasetTable'
 import { VersionSelector } from '@/components/data/VersionSelector'
@@ -811,6 +812,16 @@ export default function DatasetViewerPage() {
                   </div>
                 )}
               </div>
+
+              {/* ── Causal Inference DAG Builder ── */}
+              {activeVersionId && columns.length > 0 && (
+                <DAGBuilderPanel
+                  projectId={projectId}
+                  datasetId={datasetId}
+                  versionId={activeVersionId}
+                  availableVariables={columns.map(c => c.name)}
+                />
+              )}
 
             </div>
 
