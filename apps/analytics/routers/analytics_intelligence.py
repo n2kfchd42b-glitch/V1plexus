@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import os
 import logging
-from typing import Any
+from typing import Any, Optional
 
 import pandas as pd
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends
@@ -59,7 +59,7 @@ class NarrativeRequest(BaseModel):
     analysis_type: str
     result: dict[str, Any]
     variables: dict[str, Any] = {}
-    analysis_run_id: str | None = None
+    analysis_run_id: Optional[str] = None
     request_ai: bool = False
 
 
@@ -240,13 +240,13 @@ class TimelineEntryRequest(BaseModel):
     dataset_id: str
     analysis_type: str
     variables: dict[str, Any]
-    key_result: dict[str, Any] | None = None
-    label: str | None = None
-    parent_id: str | None = None
+    key_result: Optional[dict] = None
+    label: Optional[str] = None
+    parent_id: Optional[str] = None
     branch_name: str = "main"
-    assumption_status: str | None = None
-    assumption_check_id: str | None = None
-    causal_dag_id: str | None = None
+    assumption_status: Optional[str] = None
+    assumption_check_id: Optional[str] = None
+    causal_dag_id: Optional[str] = None
 
 
 @router.post("/timeline/entry")
