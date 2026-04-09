@@ -909,7 +909,7 @@ export default function DatasetViewerPage() {
               )}
 
               {/* ── Quality Intelligence link ── */}
-              <Link href={`/projects/${projectId}/data/${datasetId}/quality`}>
+              <Link href={`/projects/${projectId}/data/${datasetId}/quality`} className="block">
                 <div className="bg-white rounded-xl px-5 py-4 shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_24px_rgba(0,0,0,0.08)] transition-shadow cursor-pointer border border-transparent hover:border-blue-100">
                   <div className="flex items-center gap-3">
                     <div className="p-2.5 bg-blue-50 rounded-lg shrink-0">
