@@ -21,23 +21,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Verify membership
-    const { data: member } = await supabase
-      .from('project_members')
-      .select('id')
-      .eq('project_id', projectId)
-      .eq('user_id', user.id)
+    // Verify access via the dataset (mirrors pattern used by existing analysis routes)
+    const { data: dataset } = await supabase
+      .from('datasets')
+      .select('project_id')
+      .eq('id', datasetId)
       .single()
 
-    if (!member) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!dataset) {
+      return NextResponse.json({ error: 'Dataset not found' }, { status: 404 })
     }
 
     // Create DAG record
     const { data: dag, error: dagError } = await supabase
       .from('causal_dags')
       .insert({
-        project_id: projectId,
+        project_id: dataset.project_id,
         dataset_id: datasetId,
         exposure_variable: exposure,
         outcome_variable: outcome,
