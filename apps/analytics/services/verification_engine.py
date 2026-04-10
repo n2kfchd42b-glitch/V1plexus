@@ -215,6 +215,7 @@ class ChainVerifier:
         ledger: list[dict],
         manifest: dict,
         online: bool = True,
+        revocation_service=None,
     ) -> ChainResult:
         if not ledger:
             return ChainResult(
@@ -315,26 +316,50 @@ class ChainVerifier:
         revoked_keys: list[str] = []
 
         if online:
-            unique_keys = {str(e.get("session_key_id", "")) for e in events}
-            revocation_status = "clean"
-            try:
-                with httpx.Client(timeout=min(_VERIFY_TIMEOUT, 10)) as client:
-                    for kid in unique_keys:
-                        if not kid:
-                            continue
-                        try:
-                            resp = client.get(f"{_REVOCATION_URL}/{kid}")
-                            if resp.status_code == 200:
-                                data = resp.json()
-                                if data.get("revoked"):
-                                    revoked_keys.append(kid)
-                                    revocation_status = "flagged"
-                        except Exception:
-                            # Individual key check failure is non-fatal
-                            revocation_status = "unchecked"
-                            break
-            except Exception:
-                revocation_status = "unchecked"
+            if revocation_service is not None:
+                # Use injected RevocationService (preferred path)
+                key_ids = [
+                    str(e["session_key_id"])
+                    for e in events
+                    if e.get("session_key_id")
+                ]
+                attestation_ids: list[str] = []
+                pvp_root_hash = manifest.get("root_hash")
+                try:
+                    bulk = revocation_service.check_all(
+                        key_ids, attestation_ids, pvp_root_hash
+                    )
+                    if bulk.any_revoked:
+                        revocation_status = "flagged"
+                        revoked_keys = [
+                            k for k, v in bulk.keys.items() if v.revoked
+                        ]
+                    else:
+                        revocation_status = "clean"
+                except Exception:
+                    revocation_status = "unchecked"
+            else:
+                # Fallback: HTTP revocation endpoint (existing behaviour)
+                unique_keys = {str(e.get("session_key_id", "")) for e in events}
+                revocation_status = "clean"
+                try:
+                    with httpx.Client(timeout=min(_VERIFY_TIMEOUT, 10)) as client:
+                        for kid in unique_keys:
+                            if not kid:
+                                continue
+                            try:
+                                resp = client.get(f"{_REVOCATION_URL}/{kid}")
+                                if resp.status_code == 200:
+                                    data = resp.json()
+                                    if data.get("revoked"):
+                                        revoked_keys.append(kid)
+                                        revocation_status = "flagged"
+                            except Exception:
+                                # Individual key check failure is non-fatal
+                                revocation_status = "unchecked"
+                                break
+                except Exception:
+                    revocation_status = "unchecked"
 
         return ChainResult(
             passed=True,
@@ -352,7 +377,14 @@ class TrustEngine:
     """
     Computes PTLS Trust Level from 0–3 using deterministic, rule-based logic.
     Pure function: same inputs always produce same output. No side effects.
+
+    identity_service (optional): when injected, R3.1 and R2.6 are resolved via
+    IdentityService.verify_identity() rather than manifest signature presence.
+    All other rules are unchanged.
     """
+
+    def __init__(self, identity_service=None) -> None:
+        self._identity_svc = identity_service
 
     def evaluate(
         self,
@@ -411,10 +443,28 @@ class TrustEngine:
         outlier_fl  = get("outlier_flagged")
         models      = get("model_selected")
 
+        # Actor-id extraction for identity-service checks (author events only)
+        _author_actor_ids = {
+            str(e.get("actor_id"))
+            for e in ledger
+            if e.get("actor_role") == "author" and e.get("actor_id")
+        }
+        _author_actor_id = next(iter(_author_actor_ids), None)
+
         # ── R3.x checks ───────────────────────────────────────────────────
 
-        # R3.1 — Institution signature present
-        r3["R3.1"] = inst_sig is not None
+        # R3.1 — Institution signature present / OFFICIALLY_REGISTERED identity
+        if self._identity_svc and _author_actor_id:
+            try:
+                _id_r3 = self._identity_svc.verify_identity(_author_actor_id)
+                r3["R3.1"] = (
+                    _id_r3.verified
+                    and _id_r3.verification_tier == "OFFICIALLY_REGISTERED"
+                )
+            except Exception:
+                r3["R3.1"] = inst_sig is not None   # graceful fallback
+        else:
+            r3["R3.1"] = inst_sig is not None
 
         # R3.2 — Time anchoring present
         r3["R3.2"] = bool(
@@ -496,12 +546,28 @@ class TrustEngine:
         # R2.5 — Model selection visible
         r2["R2.5"] = len(models) > 0
 
-        # R2.6 — Author identity institution-linked (public key + supervisor)
-        r2["R2.6"] = bool(
-            author_sig
-            and author_sig.get("public_key")
-            and sup_sig is not None
-        )
+        # R2.6 — Author identity institution-linked
+        if self._identity_svc and _author_actor_id:
+            try:
+                _id_r2 = self._identity_svc.verify_identity(_author_actor_id)
+                r2["R2.6"] = (
+                    _id_r2.verified
+                    and _id_r2.verification_tier in (
+                        "DOMAIN_VERIFIED", "OFFICIALLY_REGISTERED"
+                    )
+                )
+            except Exception:
+                r2["R2.6"] = bool(   # graceful fallback
+                    author_sig
+                    and author_sig.get("public_key")
+                    and sup_sig is not None
+                )
+        else:
+            r2["R2.6"] = bool(
+                author_sig
+                and author_sig.get("public_key")
+                and sup_sig is not None
+            )
 
         # R2.7 — DQI score at seal >= 0.7
         if checks:
@@ -785,7 +851,12 @@ class VerificationEngine:
     Stateless — accepts raw bytes, returns VerificationReport.
     """
 
-    def verify(self, pvp_bytes: bytes, online: bool = True) -> VerificationReport:
+    def verify(
+        self,
+        pvp_bytes: bytes,
+        online: bool = True,
+        revocation_service=None,
+    ) -> VerificationReport:
         verified_at = datetime.now(timezone.utc)
 
         # ── Layer 1 ────────────────────────────────────────────────────────
@@ -798,7 +869,9 @@ class VerificationEngine:
             return self._report(verified_at, manifest, integrity, chain, trust, aad)
 
         # ── Layer 2 ────────────────────────────────────────────────────────
-        chain = ChainVerifier().verify(ledger, manifest, online=online)
+        chain = ChainVerifier().verify(
+            ledger, manifest, online=online, revocation_service=revocation_service
+        )
 
         # ── Layer 3 ────────────────────────────────────────────────────────
         trust = TrustEngine().evaluate(ledger, manifest, integrity, chain)

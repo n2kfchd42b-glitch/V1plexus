@@ -11,6 +11,8 @@ from uuid import UUID
 from pydantic import BaseModel
 
 
+GENESIS_HASH: str = "0" * 64
+
 # ── Valid event types ─────────────────────────────────────────────────────────
 
 VALID_EVENT_TYPES: frozenset[str] = frozenset({

@@ -471,6 +471,209 @@ def test_manifest_version_fields_present():
 # 8. test_pvp_contains_full_ledger
 # ═════════════════════════════════════════════════════════════════════════════
 
+# ═════════════════════════════════════════════════════════════════════════════
+# 9. test_seal_happy_path
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_seal_happy_path():
+    """
+    Full flow: build → sign_author → seal
+    Confirms seal() completes successfully, sets status to 'sealed',
+    records sealed_at, and writes project_sealed event to ledger.
+
+    Two separate Supabase mocks are used:
+      - mock_sb_pvp  : backs PVPBuilder and its internal LedgerService.
+                       Provides the initial ledger (with a pre-existing
+                       project_sealed event so build() can proceed) plus
+                       all pvp_packages / storage state.
+      - mock_sb_ledger: backs the standalone LedgerService used for the
+                        final assertion. It only sees events that seal()
+                        wrote via write_event(), so len(seal_events) == 1.
+    """
+    # ── Keypair & IDs ─────────────────────────────────────────────────────────
+    signing_key = nacl.signing.SigningKey.generate()
+    test_private_key_bytes = bytes(signing_key)
+    test_public_key_hex = signing_key.verify_key.encode().hex()
+
+    test_project_id = str(uuid4())
+    test_author_id  = str(uuid4())
+    test_session_key_id = str(uuid4())
+    test_pvp_id     = str(uuid4())
+
+    # ── Initial ledger: 2 normal events + 1 project_sealed (no pvp_id) ───────
+    initial_events = _make_ledger_with_seal(test_project_id, n=2)
+    # initial_events[2] is project_sealed; its payload has no "pvp_id" key.
+
+    # ── Shared mutable state ──────────────────────────────────────────────────
+    zip_storage: dict[str, bytes] = {}
+    pvp_record_container: list = [None]   # updated by insert / update calls
+    captured_seal_events: list[dict] = []  # populated by write_event inside seal()
+
+    # ── mock_sb_pvp ───────────────────────────────────────────────────────────
+    mock_sb_pvp = MagicMock()
+
+    def _pvp_table(name: str):
+        tbl = MagicMock()
+
+        if name == "projects":
+            q = MagicMock()
+            q.execute.return_value = MagicMock(
+                data={"id": test_project_id, "title": "Test Project"}
+            )
+            q.eq.return_value = q
+            q.single.return_value = q
+            tbl.select.return_value = q
+
+        elif name == "ledger_events":
+            # select("*")  → used by get_project_ledger (inside build())
+            select_all_q = MagicMock()
+            select_all_q.execute.return_value = MagicMock(data=initial_events)
+            select_all_q.eq.return_value = select_all_q
+            select_all_q.order.return_value = select_all_q
+            select_all_q.limit.return_value = select_all_q
+
+            # select("sequence_number, event_hash") → used by write_event in seal()
+            last_event = initial_events[-1]
+            select_last_q = MagicMock()
+            select_last_q.execute.return_value = MagicMock(data=[{
+                "sequence_number": last_event["sequence_number"],
+                "event_hash":      last_event["event_hash"],
+            }])
+            select_last_q.eq.return_value = select_last_q
+            select_last_q.order.return_value = select_last_q
+            select_last_q.limit.return_value = select_last_q
+
+            def _le_select(columns):
+                return select_all_q if columns == "*" else select_last_q
+
+            tbl.select.side_effect = _le_select
+
+            def _le_insert(row):
+                full_row = {"id": str(uuid4()), **row}
+                captured_seal_events.append(full_row)
+                m = MagicMock()
+                m.execute.return_value = MagicMock(data=[full_row])
+                return m
+
+            tbl.insert.side_effect = _le_insert
+
+        elif name == "pvp_packages":
+            # _sealed_pvp_exists: select("id").eq(...).eq(...).limit(1)
+            sealed_q = MagicMock()
+            sealed_q.execute.return_value = MagicMock(data=[])
+            sealed_q.eq.return_value = sealed_q
+            sealed_q.limit.return_value = sealed_q
+
+            def _pvp_select(columns):
+                if columns == "id":
+                    return sealed_q
+                # _require_pvp: select("*").eq("id", pvp_id).single()
+                q = MagicMock()
+                q.execute.return_value = MagicMock(data=pvp_record_container[0])
+                q.eq.return_value = q
+                q.single.return_value = q
+                return q
+
+            tbl.select.side_effect = _pvp_select
+
+            def _pvp_insert(row):
+                pvp_record_container[0] = {"id": test_pvp_id, **row}
+                m = MagicMock()
+                m.execute.return_value = MagicMock(data=[pvp_record_container[0]])
+                return m
+
+            tbl.insert.side_effect = _pvp_insert
+
+            def _pvp_update(updates):
+                pvp_record_container[0] = {**pvp_record_container[0], **updates}
+                m = MagicMock()
+                m.execute.return_value = MagicMock(data=[pvp_record_container[0]])
+                m.eq.return_value = m
+                return m
+
+            tbl.update.side_effect = _pvp_update
+
+        elif name == "ledger_session_keys":
+            q = MagicMock()
+            q.execute.return_value = MagicMock(data={
+                "public_key": test_public_key_hex,
+                "revoked":    False,
+                "expires_at": (datetime.now(timezone.utc) + timedelta(hours=8)).isoformat(),
+            })
+            q.eq.return_value = q
+            q.single.return_value = q
+            tbl.select.return_value = q
+
+        elif name == "analysis_runs":
+            q = MagicMock()
+            q.execute.return_value = MagicMock(data=[])
+            q.eq.return_value = q
+            tbl.select.return_value = q
+
+        return tbl
+
+    mock_sb_pvp.table.side_effect = _pvp_table
+
+    bucket = MagicMock()
+    bucket.upload.side_effect  = lambda path, data, *a, **kw: zip_storage.__setitem__(path, data)
+    bucket.update.side_effect  = lambda path, data, *a, **kw: zip_storage.__setitem__(path, data)
+    bucket.download.side_effect = lambda path: zip_storage[path]
+    mock_sb_pvp.storage.from_.return_value = bucket
+
+    # ── mock_sb_ledger — only sees events written by seal() ───────────────────
+    mock_sb_ledger = MagicMock()
+
+    def _ledger_table(name: str):
+        tbl = MagicMock()
+        if name == "ledger_events":
+            q = MagicMock()
+            q.execute.side_effect = lambda: MagicMock(data=list(captured_seal_events))
+            q.eq.return_value = q
+            q.order.return_value = q
+            tbl.select.return_value = q
+        return tbl
+
+    mock_sb_ledger.table.side_effect = _ledger_table
+
+    # ── Services ──────────────────────────────────────────────────────────────
+    pvp_builder    = PVPBuilder(mock_sb_pvp)
+    ledger_service = LedgerService(mock_sb_ledger)
+
+    # ── Build ─────────────────────────────────────────────────────────────────
+    build_result = pvp_builder.build(
+        project_id=test_project_id,
+        actor_id=test_author_id,
+        deployment_mode="cloud",
+    )
+    assert build_result.status == "unsigned"
+
+    # ── Sign ──────────────────────────────────────────────────────────────────
+    sign_result = pvp_builder.sign_author(
+        pvp_id=str(build_result.pvp_id),
+        actor_id=test_author_id,
+        session_key_id=test_session_key_id,
+        private_key_bytes=test_private_key_bytes,
+    )
+    assert sign_result.status == "author_signed"
+
+    # ── Seal (pass key material so seal() writes the ledger event) ────────────
+    seal_result = pvp_builder.seal(
+        pvp_id=str(build_result.pvp_id),
+        actor_id=test_author_id,
+        session_key_id=test_session_key_id,
+        private_key_bytes=test_private_key_bytes,
+    )
+    assert seal_result.status == "sealed"
+    assert seal_result.sealed_at is not None
+    assert seal_result.root_hash == build_result.root_hash
+
+    # ── Confirm ledger recorded the seal event ────────────────────────────────
+    ledger = ledger_service.get_project_ledger(test_project_id)
+    seal_events = [e for e in ledger if e.event_type == "project_sealed"]
+    assert len(seal_events) == 1
+    assert seal_events[0].payload["pvp_id"] == str(build_result.pvp_id)
+
+
 def test_pvp_contains_full_ledger():
     """
     build() must embed all ledger events in ledger.json, in sequence order.

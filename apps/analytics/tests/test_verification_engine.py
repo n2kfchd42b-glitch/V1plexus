@@ -16,6 +16,7 @@ import json
 import zipfile
 from copy import deepcopy
 from datetime import datetime, timezone
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import nacl.signing
@@ -116,10 +117,15 @@ def build_test_pvp(
     root = _root_hash(ledger_json, artifact_hashes)
 
     # ── Tamper artifact AFTER root_hash computed (so root_hash doesn't match) ─
-    # This is done by NOT updating root_hash — integrity layer will catch it.
+    # Modify a field value so ledger.json stays valid JSON but its SHA-256
+    # no longer matches artifact_hashes["ledger.json"] in the manifest.
     tampered_ledger_bytes = ledger_bytes
     if tamper_artifact:
-        tampered_ledger_bytes = ledger_bytes + b"\n/* tampered */"
+        tampered_events = json.loads(ledger_json)
+        tampered_events[0]["event_type"] = "tampered_event"
+        tampered_ledger_bytes = json.dumps(
+            tampered_events, sort_keys=True, default=str
+        ).encode("utf-8")
 
     # ── Author signature over root_hash ──────────────────────────────────
     author_sig = signing_key.sign(root.encode("utf-8")).signature.hex()
@@ -531,3 +537,112 @@ def test_human_readable_output_format():
         assert report.summary.overall_status == "REVIEW"
     else:
         assert report.summary.overall_status == "PASS"
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 13. test_root_hash_mismatch_fails_integrity
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_root_hash_mismatch_fails_integrity():
+    """
+    A package whose manifest root_hash doesn't match the recomputed value
+    must be caught by Layer 1 even when the hash chain itself is valid.
+    """
+    pvp_bytes, *_ = build_test_pvp(_level2_events())
+
+    # Rewrite manifest.json with a corrupted root_hash
+    buf = io.BytesIO(pvp_bytes)
+    out = io.BytesIO()
+    with zipfile.ZipFile(buf, "r") as zin, zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            if item.filename == "manifest.json":
+                manifest = json.loads(data)
+                manifest["root_hash"] = "ff" * 32  # bogus hash
+                data = json.dumps(manifest, indent=2).encode("utf-8")
+            zout.writestr(item, data)
+
+    report = VerificationEngine().verify(out.getvalue(), online=False)
+
+    assert report.integrity.passed is False
+    reason = (report.integrity.reason or "").lower()
+    assert "mismatch" in reason or "tampered" in reason
+    assert report.summary.trust_level == 0
+    assert report.summary.overall_status == "FAIL"
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 14. test_revocation_check_online
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_revocation_check_online_key_revoked():
+    """
+    When online=True and the revocation endpoint returns {"revoked": true},
+    revocation_status must be "flagged".
+    """
+    pvp_bytes, _, session_key_id, *_ = build_test_pvp(_level1_events())
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"revoked": True}
+
+    mock_client = MagicMock()
+    mock_client.__enter__ = lambda s: s
+    mock_client.__exit__ = MagicMock(return_value=False)
+    mock_client.get.return_value = mock_resp
+
+    with patch("apps.analytics.services.verification_engine.httpx.Client", return_value=mock_client):
+        report = VerificationEngine().verify(pvp_bytes, online=True)
+
+    assert report.chain.revocation_status == "flagged"
+
+
+def test_revocation_check_online_network_error():
+    """
+    When online=True and the HTTP call raises an exception,
+    revocation_status must fall back to "unchecked" (non-fatal).
+    """
+    pvp_bytes, *_ = build_test_pvp(_level1_events())
+
+    mock_client = MagicMock()
+    mock_client.__enter__ = lambda s: s
+    mock_client.__exit__ = MagicMock(return_value=False)
+    mock_client.get.side_effect = Exception("network error")
+
+    with patch("apps.analytics.services.verification_engine.httpx.Client", return_value=mock_client):
+        report = VerificationEngine().verify(pvp_bytes, online=True)
+
+    assert report.chain.revocation_status == "unchecked"
+    assert report.chain.passed is True  # network failure is non-fatal
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 15. test_aad_outlier_removal_before_significant_run
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_aad_outlier_removal_before_significant_run():
+    """
+    An outlier_removed event immediately followed (within 2 sequence slots)
+    by an analysis_run_completed with p_value < 0.05 must raise AAD-02 HIGH.
+    """
+    events: list[dict] = [
+        {"event_type": "project_created",        "payload": {}},
+        {"event_type": "dataset_imported",        "payload": {"dataset_id": str(uuid4())}},
+        # Outlier removal at seq 3, then significant run at seq 4 (gap == 1)
+        {"event_type": "outlier_removed",         "payload": {"reason": "leverage point"}},
+        {"event_type": "analysis_run_completed",  "payload": {
+            "input_dataset_hash": "h1",
+            "parameters":         {"method": "ols"},
+            "p_value":            0.03,   # < 0.05 → threshold crossing
+        }},
+        {"event_type": "output_generated",        "payload": {}},
+        {"event_type": "project_sealed",          "payload": {}},
+    ]
+
+    pvp_bytes, *_ = build_test_pvp(events)
+    report = VerificationEngine().verify(pvp_bytes, online=False)
+
+    codes = [f.code for f in report.aad.flags]
+    assert "AAD-02" in codes
+    aad02 = next(f for f in report.aad.flags if f.code == "AAD-02")
+    assert aad02.risk == "HIGH"
