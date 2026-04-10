@@ -35,7 +35,7 @@ export function Sidebar({ profile, onSignOut, onCommandPalette }: SidebarProps) 
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  const projectsActive = pathname === '/dashboard' || pathname.startsWith('/projects')
+  const projectsActive = pathname === '/projects' || pathname.startsWith('/projects')
 
   return (
     <aside
@@ -57,7 +57,7 @@ export function Sidebar({ profile, onSignOut, onCommandPalette }: SidebarProps) 
       <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
 
         {/* Projects */}
-        <Link href="/dashboard" title={collapsed ? 'Projects' : undefined}>
+        <Link href="/projects" title={collapsed ? 'Projects' : undefined}>
           <div className={cn(
             'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
             collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
