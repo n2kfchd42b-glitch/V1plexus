@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { motion, type Variants } from 'framer-motion'
 import { useParams, useRouter } from 'next/navigation'
 import { Upload, Database } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -11,6 +12,15 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { logAudit } from '@/lib/audit'
 import type { Dataset, DatasetVersion } from '@/types/database'
+
+const datasetContainer: Variants = {
+  hidden:  {},
+  visible: { transition: { staggerChildren: 0.06 } },
+}
+const datasetItem: Variants = {
+  hidden:  { opacity: 0, y: 4 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.15, ease: 'easeOut' } },
+}
 
 export default function ProjectDataPage() {
   const params = useParams()
@@ -186,15 +196,25 @@ export default function ProjectDataPage() {
             <p className="section-label">
               {showArchived ? 'Archived' : 'Datasets'}
             </p>
-            {datasets.map(dataset => (
-              <DatasetCard
-                key={dataset.id}
-                dataset={dataset}
-                projectId={projectId}
-                onDelete={handleDelete}
-                onArchive={handleArchive}
-              />
-            ))}
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              variants={datasetContainer}
+            >
+              {datasets.map(dataset => (
+                <motion.div
+                  key={dataset.id}
+                  variants={datasetItem}
+                >
+                  <DatasetCard
+                    dataset={dataset}
+                    projectId={projectId}
+                    onDelete={handleDelete}
+                    onArchive={handleArchive}
+                  />
+                </motion.div>
+              ))}
+            </motion.div>
           </>
         )}
       </div>

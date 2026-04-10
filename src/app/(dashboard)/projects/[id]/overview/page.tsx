@@ -116,8 +116,13 @@ export default async function ProjectOverviewPage({
         {/* Section: Quick access */}
         <div className="pt-2">
           <p className="section-label">Workspace</p>
-          {tabs.map(({ href, label, icon: Icon, meta }) => (
-            <Link key={href} href={href} className="block">
+          {tabs.map(({ href, label, icon: Icon, meta }, i) => (
+            <Link
+              key={href}
+              href={href}
+              className="block animate-fade-up"
+              style={{ animationDelay: `${i * 50}ms` }}
+            >
               <div className="row-item group">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <Icon className="h-4 w-4 text-[var(--text-tertiary)] flex-shrink-0" />
@@ -152,10 +157,14 @@ export default async function ProjectOverviewPage({
               </p>
             </div>
           ) : (
-            recentActivity.map((entry) => {
+            recentActivity.map((entry, i) => {
               const actor = entry.actor as { full_name?: string } | null;
               return (
-                <div key={entry.id} className="row-item-sm pointer-events-none">
+                <div
+                  key={entry.id}
+                  className="row-item-sm pointer-events-none animate-fade-up"
+                  style={{ animationDelay: `${(tabs.length + i) * 50}ms` }}
+                >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <span className="status-dot status-dot--verified flex-shrink-0" />
                     <div className="min-w-0">

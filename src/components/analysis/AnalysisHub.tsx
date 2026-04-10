@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useMemo } from 'react'
+import { motion, type Variants } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -63,6 +64,15 @@ interface ProjectMeta {
 }
 
 const DIAGNOSTIC_TYPES = new Set(['residual_plot', 'acf_plot', 'funnel_plot'])
+
+const runListContainer: Variants = {
+  hidden:  {},
+  visible: { transition: { staggerChildren: 0.05 } },
+}
+const runListItem: Variants = {
+  hidden:  { opacity: 0, x: -4 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.15, ease: 'easeOut' } },
+}
 
 function ConfigComponent({ type, config, onChange, onRun, loading, columns }: {
   type: AnalysisType; config: Record<string, unknown>
@@ -502,38 +512,51 @@ export function AnalysisHub({ projectId }: Props) {
                       <button onClick={() => { setFilterStatus('all'); setSearchQuery('') }}
                         className="text-[var(--accent-blue)] text-xs mt-2 hover:underline">Clear filters</button>
                     </div>
-                  ) : filteredRuns.map((run) => {
-                    const info   = ANALYSIS_TYPES.find(t => t.type === run.analysis_type)
-                    const ds     = run.dataset as { name: string } | null
-                    const dotCls = statusDotClass[run.status] ?? 'status-dot--neutral'
-                    const isSelected = selectedRunId === run.id
-                    return (
-                      <button
-                        key={run.id}
-                        onClick={() => setSelectedRunId(run.id)}
-                        className={`group w-full text-left flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border-row)] last:border-0 transition-colors ${
-                          isSelected ? 'bg-[var(--bg-row-active)]' : 'hover:bg-[var(--bg-row-hover)]'
-                        }`}
-                      >
-                        <span className={`status-dot ${dotCls} flex-shrink-0`} />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm text-[var(--text-primary)] truncate leading-snug">
-                            {run.title ?? info?.label ?? run.analysis_type}
-                          </p>
-                          <p className="data-mono-xs text-[var(--text-tertiary)] mt-0.5 truncate">
-                            {ds?.name ?? info?.label ?? run.analysis_type.replace(/_/g, ' ')}
-                            {' · '}{formatRelative(run.created_at)}
-                          </p>
-                        </div>
-                        <button
-                          onClick={e => { e.stopPropagation(); handleDelete(run.id) }}
-                          className="row-action text-[var(--text-tertiary)] hover:text-[var(--timeline-flagged)] flex-shrink-0 p-0.5"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </button>
-                    )
-                  })}
+                  ) : (
+                    <motion.div
+                      key={filterStatus + searchQuery}
+                      initial="hidden"
+                      animate="visible"
+                      variants={runListContainer}
+                    >
+                      {filteredRuns.map((run) => {
+                        const info   = ANALYSIS_TYPES.find(t => t.type === run.analysis_type)
+                        const ds     = run.dataset as { name: string } | null
+                        const isRunning = run.status === 'running' || run.status === 'pending'
+                        const dotCls = isRunning
+                          ? 'status-dot--running'
+                          : (statusDotClass[run.status] ?? 'status-dot--neutral')
+                        const isSelected = selectedRunId === run.id
+                        return (
+                          <motion.button
+                            key={run.id}
+                            variants={runListItem}
+                            onClick={() => setSelectedRunId(run.id)}
+                            className={`group w-full text-left flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border-row)] last:border-0 transition-colors ${
+                              isSelected ? 'bg-[var(--bg-row-active)]' : 'hover:bg-[var(--bg-row-hover)]'
+                            }`}
+                          >
+                            <span className={`status-dot ${dotCls} flex-shrink-0`} />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm text-[var(--text-primary)] truncate leading-snug">
+                                {run.title ?? info?.label ?? run.analysis_type}
+                              </p>
+                              <p className="data-mono-xs text-[var(--text-tertiary)] mt-0.5 truncate">
+                                {ds?.name ?? info?.label ?? run.analysis_type.replace(/_/g, ' ')}
+                                {' · '}{formatRelative(run.created_at)}
+                              </p>
+                            </div>
+                            <button
+                              onClick={e => { e.stopPropagation(); handleDelete(run.id) }}
+                              className="row-action text-[var(--text-tertiary)] hover:text-[var(--timeline-flagged)] flex-shrink-0 p-0.5"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </motion.button>
+                        )
+                      })}
+                    </motion.div>
+                  )}
                 </div>
               </div>
 

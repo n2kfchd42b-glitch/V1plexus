@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from 'react'
-import { AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, type Variants } from 'framer-motion'
 import { Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { AuditLog } from '@/types/database'
@@ -13,6 +13,15 @@ import {
 import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 60
+
+const groupVariants: Variants = {
+  hidden:  {},
+  visible: { transition: { staggerChildren: 0.04 } },
+}
+const entryVariants: Variants = {
+  hidden:  { opacity: 0, y: 5 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.15, ease: 'easeOut' } },
+}
 
 interface Props {
   projectId: string
@@ -32,7 +41,8 @@ function EntryRow({
   const { typeLabel, title, subtitle } = describeEntry(entry)
 
   return (
-    <button
+    <motion.button
+      variants={entryVariants}
       onClick={onClick}
       className={cn(
         'row-item w-full text-left',
@@ -62,7 +72,7 @@ function EntryRow({
 
       {/* Verification dot */}
       <span className="status-dot status-dot--verified flex-shrink-0" />
-    </button>
+    </motion.button>
   )
 }
 
@@ -154,7 +164,12 @@ export function TimelineFeed({ projectId }: Props) {
 
         {/* Day groups */}
         {!loading && groups.map(group => (
-          <div key={group.isoDate}>
+          <motion.div
+            key={group.isoDate}
+            initial="hidden"
+            animate="visible"
+            variants={groupVariants}
+          >
             <p className="section-label">{group.label}</p>
             {group.entries.map(entry => (
               <EntryRow
@@ -164,7 +179,7 @@ export function TimelineFeed({ projectId }: Props) {
                 onClick={() => handleSelect(entry)}
               />
             ))}
-          </div>
+          </motion.div>
         ))}
 
         {/* Load more */}

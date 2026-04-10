@@ -622,6 +622,16 @@
 .status-dot--flagged  { background-color: var(--timeline-flagged);  }
 .status-dot--neutral  { background-color: var(--timeline-neutral);  }
 
+/* Pulsing dot for in-progress states (running / pending) */
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1;   transform: scale(1);    }
+  50%       { opacity: 0.4; transform: scale(0.75); }
+}
+.status-dot--running {
+  background-color: var(--timeline-warning);
+  animation: dot-pulse 1.4s var(--ease-default) infinite;
+}
+
 /* Larger dot variant for the verification bar */
 .status-dot-md {
   width: 8px;
