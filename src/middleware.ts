@@ -65,7 +65,7 @@ export async function middleware(request: NextRequest) {
   const isSigningOut = request.nextUrl.searchParams.get("signout") === "1";
   if (isAuthPage && user && !isSigningOut) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = "/projects";
     return NextResponse.redirect(url);
   }
 
