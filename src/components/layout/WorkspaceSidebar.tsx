@@ -3,13 +3,9 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
+import { FolderOpen, LogOut, ChevronLeft, ChevronRight, Command } from 'lucide-react'
 import { BrandLogo } from '@/components/layout/BrandLogo'
 import { cn, getInitials } from '@/lib/utils'
-import { WorkspaceSwitcher } from '@/components/workspace/WorkspaceSwitcher'
-import { PersonalSidebar } from '@/components/sidebar/PersonalSidebar'
-import { InstitutionalSidebar } from '@/components/sidebar/InstitutionalSidebar'
-import { useWorkspaceContext } from '@/components/workspace/WorkspaceProvider'
 import type { Profile } from '@/types/database'
 
 interface WorkspaceSidebarProps {
@@ -19,14 +15,15 @@ interface WorkspaceSidebarProps {
 }
 
 export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: WorkspaceSidebarProps) {
-  const [collapsed, setCollapsed] = useState(true)
-  const { isPersonal, isInstitutional, loading } = useWorkspaceContext()
   const pathname = usePathname()
+  const [collapsed, setCollapsed] = useState(true)
 
+  // Collapse on navigation
   useEffect(() => {
     setCollapsed(true)
   }, [pathname])
 
+  // Cmd+\ to toggle
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
@@ -38,116 +35,120 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
+  const projectsActive = pathname === '/projects' || pathname.startsWith('/projects')
+
   return (
     <aside className={cn(
       'flex flex-col h-screen sticky top-0 transition-all duration-200 ease-out flex-shrink-0',
-      'bg-white border-r border-slate-200',
-      collapsed ? 'w-12' : 'w-64'
+      'bg-[#18181B] border-r border-white/10',
+      collapsed ? 'w-12' : 'w-52'
     )}>
-      {/* Logo + workspace switcher area */}
+      {/* Logo */}
       <div className={cn(
-        'border-b border-slate-200 transition-all duration-200',
-        collapsed ? 'px-1.5 py-3' : 'p-6 pb-4'
+        'flex items-center border-b border-white/10 transition-all duration-200',
+        collapsed ? 'h-12 justify-center px-0' : 'h-14 px-4 gap-2'
       )}>
-        {/* Logo */}
-        <div className={cn(
-          'flex items-center gap-3',
-          collapsed ? 'justify-center' : '',
-          !collapsed ? 'mb-4' : 'mb-2'
-        )}>
-          <BrandLogo variant="light" collapsed={collapsed} />
-        </div>
-
-        {/* Workspace switcher */}
-        {!loading && (
-          <WorkspaceSwitcher collapsed={collapsed} />
-        )}
+        <BrandLogo variant="dark" collapsed={collapsed} />
       </div>
 
-      {/* Context label */}
-      {!collapsed && !loading && (
-        <div className="px-4 pt-3 pb-1">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-            Navigation
-          </p>
-        </div>
-      )}
+      {/* Navigation */}
+      <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
 
-      {/* Navigation — switches based on workspace type */}
-      {isPersonal ? (
-        <PersonalSidebar collapsed={collapsed} onCommandPalette={onCommandPalette} />
-      ) : isInstitutional ? (
-        <InstitutionalSidebar collapsed={collapsed} onCommandPalette={onCommandPalette} />
-      ) : (
-        <PersonalSidebar collapsed={collapsed} onCommandPalette={onCommandPalette} />
-      )}
-
-      {/* User + collapse controls */}
-      <div className="mt-auto border-t border-slate-100">
-        {/* Usage indicator */}
-        {!collapsed && (
-          <div className="px-4 pt-3 pb-2">
-            <div className="bg-slate-50 rounded-lg p-3">
-              <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase mb-2">
-                <span>Storage</span>
-              </div>
-              <div className="w-full bg-slate-200 h-1 rounded-full overflow-hidden">
-                <div className="bg-clinical-blue h-full rounded-full w-[32%] transition-all" />
-              </div>
-            </div>
+        {/* Projects */}
+        <Link href="/projects" title={collapsed ? 'Projects' : undefined}>
+          <div className={cn(
+            'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
+            collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
+            projectsActive
+              ? 'bg-[#3F3F46] text-white'
+              : 'text-[#A1A1AA] hover:bg-[#27272A] hover:text-white/80'
+          )}>
+            {projectsActive && (
+              <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[#3B82F6]" />
+            )}
+            <FolderOpen className={cn(
+              'flex-shrink-0 h-4 w-4 transition-colors duration-150',
+              projectsActive ? 'text-white' : 'text-[#71717A]'
+            )} />
+            {!collapsed && (
+              <span className={cn(
+                'text-sm font-medium transition-opacity duration-100',
+                projectsActive ? 'text-white' : 'text-[#A1A1AA]'
+              )}>
+                Projects
+              </span>
+            )}
           </div>
-        )}
+        </Link>
 
-        <Link
-          href="/settings"
-          title="Profile settings"
+        {/* Divider */}
+        <div className="my-2 h-px bg-white/10" />
+
+        {/* Command palette */}
+        <button
+          onClick={onCommandPalette}
+          title={collapsed ? 'Command Palette (⌘K)' : undefined}
           className={cn(
-            'flex items-center gap-2.5 transition-all duration-200 hover:bg-slate-50 group',
-            collapsed ? 'px-2 py-2 justify-center' : 'px-4 py-3'
+            'w-full flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none text-left',
+            collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
+            'text-[#A1A1AA] hover:bg-[#27272A] hover:text-white/80'
           )}
         >
-          <div className={cn(
-            'flex items-center justify-center rounded-lg bg-clinical-blue text-white text-xs font-bold flex-shrink-0 ring-2 ring-transparent group-hover:ring-clinical-blue/20 transition-all',
-            'h-8 w-8'
-          )}>
+          <Command className="h-4 w-4 text-[#71717A] flex-shrink-0" />
+          {!collapsed && (
+            <div className="flex items-center justify-between flex-1 min-w-0">
+              <span className="text-sm font-medium text-[#A1A1AA]">Command</span>
+              <kbd className="text-[10px] text-[#71717A] bg-white/5 border border-white/10 rounded px-1 py-0.5 font-mono">⌘K</kbd>
+            </div>
+          )}
+        </button>
+      </nav>
+
+      {/* User + collapse controls */}
+      <div className="border-t border-white/10">
+        <div className={cn(
+          'flex items-center gap-2.5 transition-all duration-200',
+          collapsed ? 'px-2 py-2 justify-center' : 'px-3 py-3'
+        )}>
+          <div className="flex items-center justify-center rounded-full bg-[#1B3A5C] text-white text-xs font-bold flex-shrink-0 h-7 w-7">
             {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="" className="h-8 w-8 rounded-lg object-cover" />
+              <img src={profile.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" />
             ) : (
               getInitials(profile?.full_name)
             )}
           </div>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-slate-900 truncate leading-none">
-                {profile?.full_name ?? 'User'}
+              <p className="text-sm font-medium text-white/90 truncate leading-tight">
+                {profile?.full_name ?? 'Researcher'}
               </p>
-              <p className="text-[10px] text-slate-500 font-medium capitalize truncate mt-0.5">
-                {profile?.role}
+              <p className="text-xs text-[#71717A] truncate">
+                {profile?.email ?? ''}
               </p>
             </div>
           )}
-        </Link>
+        </div>
 
         <div className={cn(
-          'flex items-center border-t border-slate-100 transition-all duration-200',
-          collapsed ? 'flex-col px-2 py-2 gap-1' : 'px-3 py-2 gap-1'
+          'flex items-center border-t border-white/5 transition-all duration-200',
+          collapsed ? 'flex-col px-2 py-2 gap-1' : 'px-2 py-2 gap-1'
         )}>
           <button
             onClick={onSignOut}
             title="Sign out"
             className={cn(
-              'flex items-center gap-2 h-7 rounded-md transition-colors duration-150 text-slate-500 hover:text-red-600',
+              'flex items-center gap-2 h-7 rounded-md transition-colors duration-150 text-[#71717A] hover:text-[#EF4444] hover:bg-red-950/30',
               collapsed ? 'w-8 justify-center px-0' : 'flex-1 px-2.5'
             )}
           >
             <LogOut className="h-3.5 w-3.5 flex-shrink-0" />
-            {!collapsed && <span className="text-xs font-medium">Sign out</span>}
+            {!collapsed && <span className="text-xs">Sign out</span>}
           </button>
 
           <button
             onClick={() => setCollapsed(c => !c)}
-            title={collapsed ? 'Expand sidebar (⌘\\)' : 'Collapse sidebar (⌘\\)'}
-            className="flex items-center justify-center h-7 w-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors duration-150 flex-shrink-0"
+            title={collapsed ? 'Expand (⌘\\)' : 'Collapse (⌘\\)'}
+            className="flex items-center justify-center h-7 w-7 rounded-md text-[#71717A] hover:text-white hover:bg-[#27272A] transition-colors duration-150 flex-shrink-0"
           >
             {collapsed
               ? <ChevronRight className="h-3.5 w-3.5" />
