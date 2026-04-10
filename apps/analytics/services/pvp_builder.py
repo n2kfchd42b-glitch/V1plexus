@@ -42,6 +42,10 @@ class PVPSealError(Exception):
     """Raised when a PVP cannot be sealed due to an integrity failure."""
 
 
+class PVPSignError(Exception):
+    """Raised when a PVP signing eligibility check fails."""
+
+
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 _PVP_FORMAT_VERSION  = os.getenv("PVP_FORMAT_VERSION",  "1.0")
@@ -61,10 +65,11 @@ _REQUIRE_SUPERVISOR  = os.getenv("REQUIRE_SUPERVISOR_SIGNATURE", "false").lower(
 class PVPBuilder:
     """Assembles, signs, and seals PLEXUS Verification Packages."""
 
-    def __init__(self, supabase_client) -> None:
-        self.supabase    = supabase_client
-        self.ledger_svc  = LedgerService(supabase_client)
-        self.key_svc     = KeyService(supabase_client)
+    def __init__(self, supabase_client, institutional_service=None) -> None:
+        self.supabase              = supabase_client
+        self.ledger_svc            = LedgerService(supabase_client)
+        self.key_svc               = KeyService(supabase_client)
+        self.institutional_service = institutional_service  # optional; None = Phase 1 compat
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -269,6 +274,17 @@ class PVPBuilder:
                 f"PVP must be 'author_signed' before supervisor can sign; "
                 f"current status: '{pvp['status']}'"
             )
+
+        # ── Eligibility check (injected InstitutionalService only) ────────
+        if self.institutional_service is not None:
+            project_id = pvp.get("project_id", "")
+            eligibility = self.institutional_service.validate_pvp_signing_eligibility(
+                pvp_id=pvp_id,
+                supervisor_id=supervisor_id,
+                project_id=project_id,
+            )
+            if not eligibility.eligible:
+                raise PVPSignError(eligibility.reason)
 
         zip_bytes = self.supabase.storage.from_(_STORAGE_BUCKET).download(
             pvp["storage_path"]

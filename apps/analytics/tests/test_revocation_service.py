@@ -801,3 +801,492 @@ def test_append_only_enforced():
 
     # identity_key_registry update IS expected (marking key revoked)
     assert "identity_key_registry" in update_calls
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Additional exception-path coverage
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_retract_package_pvp_packages_update_exception_is_non_fatal():
+    """
+    If pvp_packages.update() raises (e.g. table doesn't exist yet),
+    retract_package must still return PackageRetractionResult — the update
+    is best-effort (lines 376-377).
+    """
+    root_hash  = "g" * 64
+    project_id = str(uuid4())
+    sk         = _signing_key()
+    system_id  = str(uuid4())
+
+    # Standard mock but override pvp_packages.update() to raise
+    mock_sb = _make_mock(retracted_pkg_rows=[])
+
+    original_table = mock_sb.table
+
+    def table_with_raising_pvp_update(name: str):
+        tbl = original_table(name)
+        if name == "pvp_packages":
+            def _raise_update(data):
+                raise RuntimeError("relation pvp_packages does not exist")
+            tbl.update = _raise_update
+        return tbl
+
+    mock_sb.table = table_with_raising_pvp_update
+
+    svc = RevocationService(mock_sb)
+    with patch.dict(os.environ, {"PLEXUS_SYSTEM_ACCOUNT_ID": system_id}):
+        result = svc.retract_package(
+            pvp_root_hash=root_hash,
+            project_id=project_id,
+            retracted_by=system_id,
+            reason="misconduct",
+            note=None,
+            signing_private_key=bytes(sk),
+        )
+
+    assert isinstance(result, PackageRetractionResult)
+
+
+def test_revoke_attestation_system_account_authorized():
+    """
+    The PLEXUS system account must be able to revoke any attestation,
+    even when revoked_by != actor_id (line 540).
+    """
+    actor_id       = str(uuid4())
+    system_id      = str(uuid4())
+    attestation_id = str(uuid4())
+    sk             = _signing_key()
+
+    mock_sb = _make_mock(
+        revoked_att_rows=[],
+        attestation_rows=[{"id": attestation_id, "actor_id": actor_id, "institution_id": None}],
+        identity_key_rows=[],
+    )
+    svc = RevocationService(mock_sb)
+
+    with patch.dict(os.environ, {"PLEXUS_SYSTEM_ACCOUNT_ID": system_id}):
+        result = svc.revoke_attestation(
+            attestation_id=attestation_id,
+            actor_id=actor_id,
+            revoked_by=system_id,          # system account, not the subject
+            reason="policy_violation",
+            signing_private_key=bytes(sk),
+        )
+
+    assert isinstance(result, AttestationRevocationResult)
+    assert result.reason == "policy_violation"
+
+
+def test_retract_package_pvp_lookup_exception_falls_to_admin():
+    """
+    When pvp_packages.select() raises, _is_authorized_for_package must catch
+    the exception (lines 563-564) and fall through to _is_institution_admin,
+    which can still authorise an admin actor.
+    """
+    root_hash  = "h" * 64
+    project_id = str(uuid4())
+    admin_id   = str(uuid4())
+    sk         = _signing_key()
+
+    # pvp_packages raises on select; institution_members confirms admin
+    mock_sb = _make_mock(
+        retracted_pkg_rows=[],
+        institution_member_rows=[{"id": str(uuid4()), "user_id": admin_id, "role": "admin"}],
+    )
+
+    original_table = mock_sb.table
+
+    def table_with_raising_pvp_select(name: str):
+        tbl = original_table(name)
+        if name == "pvp_packages":
+            def _raise_select(*a, **kw):
+                raise RuntimeError("permission denied for table pvp_packages")
+            tbl.select = _raise_select
+        return tbl
+
+    mock_sb.table = table_with_raising_pvp_select
+
+    svc = RevocationService(mock_sb)
+    result = svc.retract_package(
+        pvp_root_hash=root_hash,
+        project_id=project_id,
+        retracted_by=admin_id,
+        reason="journal_request",
+        note=None,
+        signing_private_key=bytes(sk),
+    )
+
+    assert isinstance(result, PackageRetractionResult)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 19. test_revoke_key_invalid_key_type
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_revoke_key_invalid_key_type():
+    """Passing an unrecognised key_type must raise RevocationError immediately."""
+    sk = _signing_key()
+    svc = RevocationService(_make_mock())
+
+    with pytest.raises(RevocationError, match="Invalid key_type"):
+        svc.revoke_key(
+            key_id=str(uuid4()),
+            key_type="magic_key",          # not in valid set
+            public_key=sk.verify_key.encode().hex(),
+            revoked_by=str(uuid4()),
+            reason="compromised",
+            signing_private_key=bytes(sk),
+        )
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 20. test_revoke_key_invalid_reason
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_revoke_key_invalid_reason():
+    """Passing an unrecognised reason must raise RevocationError immediately."""
+    sk = _signing_key()
+    svc = RevocationService(_make_mock())
+
+    with pytest.raises(RevocationError, match="Invalid revocation_reason"):
+        svc.revoke_key(
+            key_id=str(uuid4()),
+            key_type="session",
+            public_key=sk.verify_key.encode().hex(),
+            revoked_by=str(uuid4()),
+            reason="i_felt_like_it",       # not in valid set
+            signing_private_key=bytes(sk),
+        )
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 21. test_revoke_attestation_invalid_reason
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_revoke_attestation_invalid_reason():
+    """Invalid reason in revoke_attestation must raise RevocationError."""
+    sk = _signing_key()
+    svc = RevocationService(_make_mock())
+
+    with pytest.raises(RevocationError, match="Invalid revocation_reason"):
+        svc.revoke_attestation(
+            attestation_id=str(uuid4()),
+            actor_id=str(uuid4()),
+            revoked_by=str(uuid4()),
+            reason="just_because",         # not in valid set
+            signing_private_key=bytes(sk),
+        )
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 22. test_revoke_attestation_not_found
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_revoke_attestation_not_found():
+    """Revoking a non-existent attestation must raise RevocationError."""
+    sk  = _signing_key()
+    att_id = str(uuid4())
+
+    # identity_attestations returns nothing
+    mock_sb = _make_mock(attestation_rows=[])
+    svc = RevocationService(mock_sb)
+
+    with pytest.raises(RevocationError, match="not found"):
+        svc.revoke_attestation(
+            attestation_id=att_id,
+            actor_id=str(uuid4()),
+            revoked_by=str(uuid4()),
+            reason="actor_request",
+            signing_private_key=bytes(sk),
+        )
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 23. test_revoke_attestation_unauthorised
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_revoke_attestation_unauthorised():
+    """
+    An actor who is not the attestation subject, not an institution admin,
+    and not the system account must receive RevocationError("Not authorised…").
+    """
+    actor_id       = str(uuid4())
+    other_actor    = str(uuid4())
+    attestation_id = str(uuid4())
+    sk             = _signing_key()
+
+    mock_sb = _make_mock(
+        revoked_att_rows=[],
+        attestation_rows=[{"id": attestation_id, "actor_id": actor_id, "institution_id": None}],
+        institution_member_rows=[],  # other_actor is not an admin
+    )
+    svc = RevocationService(mock_sb)
+
+    with pytest.raises(RevocationError, match="Not authorised"):
+        svc.revoke_attestation(
+            attestation_id=attestation_id,
+            actor_id=actor_id,
+            revoked_by=other_actor,        # different actor, no admin role
+            reason="affiliation_ended",
+            signing_private_key=bytes(sk),
+        )
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 24. test_revoke_attestation_with_institution_id_and_cascade_skip
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_revoke_attestation_with_institution_id_and_cascade_skip():
+    """
+    When an attestation has an institution_id, it must be included in the
+    revoked_attestations row.  If one linked key is already revoked, the
+    cascade skips it (no RevocationError propagated) and counts only the
+    newly revoked keys.
+    """
+    actor_id       = str(uuid4())
+    institution_id = str(uuid4())
+    attestation_id = str(uuid4())
+    key_id_fresh   = str(uuid4())
+    key_id_stale   = str(uuid4())    # already revoked
+    sk             = _signing_key()
+    pub_fresh      = sk.verify_key.encode().hex()
+    pub_stale      = _signing_key().verify_key.encode().hex()
+
+    mock_sb = _make_mock(
+        revoked_att_rows=[],
+        # key_id_stale is already in revoked_keys — cascade should skip it
+        revoked_keys_rows=[{"id": str(uuid4()), "key_id": key_id_stale}],
+        attestation_rows=[{
+            "id":             attestation_id,
+            "actor_id":       actor_id,
+            "institution_id": institution_id,
+        }],
+        identity_key_rows=[
+            {"id": key_id_fresh, "attestation_id": attestation_id,
+             "actor_id": actor_id, "public_key": pub_fresh,
+             "key_purpose": "signing", "revoked": False},
+            {"id": key_id_stale, "attestation_id": attestation_id,
+             "actor_id": actor_id, "public_key": pub_stale,
+             "key_purpose": "signing", "revoked": False},
+        ],
+    )
+    svc = RevocationService(mock_sb)
+    result = svc.revoke_attestation(
+        attestation_id=attestation_id,
+        actor_id=actor_id,
+        revoked_by=actor_id,
+        reason="affiliation_ended",
+        signing_private_key=bytes(sk),
+    )
+
+    assert isinstance(result, AttestationRevocationResult)
+    # institution_id must appear in the inserted row
+    inserted_att = mock_sb._inserted["revoked_attestations"][0]
+    assert inserted_att.get("institution_id") == institution_id
+    # Only the fresh key was actually revoked; stale was skipped
+    assert result.cascaded_key_revocations == 1
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 25. test_retract_package_invalid_reason
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_retract_package_invalid_reason():
+    """Invalid retraction_reason must raise RevocationError immediately."""
+    sk = _signing_key()
+    svc = RevocationService(_make_mock())
+
+    with pytest.raises(RevocationError, match="Invalid retraction_reason"):
+        svc.retract_package(
+            pvp_root_hash="a" * 64,
+            project_id=str(uuid4()),
+            retracted_by=str(uuid4()),
+            reason="oops",                  # not in valid set
+            note=None,
+            signing_private_key=bytes(sk),
+        )
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 26. test_retract_package_unauthorised
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_retract_package_unauthorised():
+    """
+    An actor who is not the project author and not an institution admin
+    must receive RevocationError("Not authorised…").
+    """
+    root_hash      = "e" * 64
+    project_id     = str(uuid4())
+    other_actor    = str(uuid4())
+    sk             = _signing_key()
+
+    mock_sb = _make_mock(
+        retracted_pkg_rows=[],
+        pvp_packages_rows=[{"created_by": str(uuid4())}],  # different owner
+        institution_member_rows=[],
+    )
+    svc = RevocationService(mock_sb)
+
+    with pytest.raises(RevocationError, match="Not authorised"):
+        svc.retract_package(
+            pvp_root_hash=root_hash,
+            project_id=project_id,
+            retracted_by=other_actor,
+            reason="author_request",
+            note=None,
+            signing_private_key=bytes(sk),
+        )
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 27. test_check_attestation_revoked
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_check_attestation_revoked():
+    """check_attestation on a revoked attestation must return revoked=True."""
+    att_id = str(uuid4())
+    # Include attestation_id in the row so the eq() filter keeps it
+    mock_sb = _make_mock(
+        revoked_att_rows=[{
+            "attestation_id":      att_id,
+            "revocation_reason":   "identity_fraud",
+            "revoked_at":          _now_iso(),
+            "revocation_signature": "dd" * 32,
+        }],
+    )
+    svc = RevocationService(mock_sb)
+
+    result = svc.check_attestation(att_id)
+
+    assert result.revoked is True
+    assert result.revocation_type == "attestation"
+    assert result.reason == "identity_fraud"
+    assert result.revocation_signature == "dd" * 32
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 28. test_revoke_key_system_account_authorized
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_revoke_key_system_account_authorized():
+    """The PLEXUS system account must be able to revoke any key."""
+    system_id = str(uuid4())
+    key_id    = str(uuid4())
+    sk        = _signing_key()
+    pub_hex   = sk.verify_key.encode().hex()
+
+    # identity_key_registry returns a row owned by a DIFFERENT actor —
+    # but system account should still be authorized
+    mock_sb = _make_mock(
+        revoked_keys_rows=[],
+        identity_key_rows=[{"id": key_id, "actor_id": str(uuid4()), "public_key": pub_hex, "key_purpose": "session"}],
+    )
+    svc = RevocationService(mock_sb)
+
+    with patch.dict(os.environ, {"PLEXUS_SYSTEM_ACCOUNT_ID": system_id}):
+        result = svc.revoke_key(
+            key_id=key_id,
+            key_type="session",
+            public_key=pub_hex,
+            revoked_by=system_id,
+            reason="policy_violation",
+            signing_private_key=bytes(sk),
+        )
+
+    assert isinstance(result, KeyRevocationResult)
+    assert result.reason == "policy_violation"
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 29. test_retract_package_project_author_authorized
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_retract_package_project_author_authorized():
+    """
+    The project author (created_by match in pvp_packages) must be able to
+    retract their own package without being an institution admin.
+    """
+    author_id  = str(uuid4())
+    root_hash  = "f" * 64
+    project_id = str(uuid4())
+    sk         = _signing_key()
+
+    mock_sb = _make_mock(
+        retracted_pkg_rows=[],
+        pvp_packages_rows=[{"project_id": project_id, "created_by": author_id}],
+        institution_member_rows=[],   # not an admin — auth via project ownership
+    )
+    svc = RevocationService(mock_sb)
+
+    result = svc.retract_package(
+        pvp_root_hash=root_hash,
+        project_id=project_id,
+        retracted_by=author_id,
+        reason="author_request",
+        note=None,
+        signing_private_key=bytes(sk),
+    )
+
+    assert isinstance(result, PackageRetractionResult)
+    assert result.pvp_root_hash == root_hash
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 30. test_auth_exception_falls_back_gracefully
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_auth_exception_falls_back_gracefully():
+    """
+    When both the identity_key_registry lookup AND the institution_members
+    query raise exceptions, _is_authorized_for_key must return False (not crash).
+    The subsequent revoke_key call must raise RevocationError("Not authorised").
+    """
+    actor_id  = str(uuid4())
+    key_id    = str(uuid4())
+    sk        = _signing_key()
+    pub_hex   = sk.verify_key.encode().hex()
+
+    # Build a mock where every .single().execute() and .execute() raises
+    raising_mock = MagicMock()
+
+    def table(name: str):
+        tbl = MagicMock()
+
+        def _select(*a, **kw):
+            chain = MagicMock()
+            chain.eq     = lambda *a, **kw: chain
+            chain.in_    = lambda *a, **kw: chain
+            chain.limit  = lambda *a, **kw: chain
+
+            if name == "revoked_keys":
+                # Must return empty so the "already revoked" check passes
+                chain.execute = lambda: MagicMock(data=[])
+            else:
+                # All other queries blow up
+                def _raise():
+                    raise RuntimeError("DB unavailable")
+                chain.execute = _raise
+
+                inner = MagicMock()
+                inner.execute = _raise
+                chain.single  = lambda: inner
+
+            return chain
+
+        tbl.select = _select
+        return tbl
+
+    raising_mock.table = table
+
+    svc = RevocationService(raising_mock)
+
+    with pytest.raises(RevocationError, match="Not authorised"):
+        svc.revoke_key(
+            key_id=key_id,
+            key_type="identity",
+            public_key=pub_hex,
+            revoked_by=actor_id,
+            reason="compromised",
+            signing_private_key=bytes(sk),
+        )

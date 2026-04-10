@@ -16,6 +16,7 @@ from .routers.ledger import router as ledger_router
 from .routers.revocation import router as revocation_router
 from .routers.pvp import router as pvp_router
 from .routers.verify import router as verify_router
+from .routers.institutional import router as institutional_router
 
 app = FastAPI(title="PLEXUS Analytics", version="1.0.0")
 
@@ -42,6 +43,7 @@ app.include_router(ledger_router)
 app.include_router(pvp_router)
 app.include_router(verify_router)
 app.include_router(revocation_router)
+app.include_router(institutional_router)
 
 
 @app.get("/analytics/health")
