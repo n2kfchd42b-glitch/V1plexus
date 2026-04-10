@@ -29,3 +29,6 @@ matplotlib>=3.8.0
 # Cryptographic Ledger
 pynacl==1.5.0
 python-dateutil>=2.8.2
+
+# Journal Verification Portal — rate limiting
+slowapi==0.1.9
