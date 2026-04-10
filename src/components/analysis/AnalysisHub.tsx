@@ -374,66 +374,55 @@ export function AnalysisHub({ projectId }: Props) {
   // ── Loading skeleton ──────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f7f9fb]">
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          <div className="h-3 w-20 bg-[#f2f4f6] rounded-full animate-pulse mb-6" />
-          <div className="h-10 w-64 bg-[#f2f4f6] rounded-xl animate-pulse mb-8" />
-          <div className="grid grid-cols-3 gap-5">
-            <div className="col-span-2 h-[480px] rounded-2xl bg-white animate-pulse" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }} />
-            <div className="flex flex-col gap-4">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-24 rounded-2xl bg-white animate-pulse" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }} />
-              ))}
-            </div>
+      <div className="flex flex-col flex-1 min-h-0">
+        <div className="px-6 pt-6 pb-4 flex-shrink-0 border-b border-[var(--border-row)]">
+          <div className="skeleton h-5 w-24 rounded" />
+        </div>
+        <div className="flex flex-1 min-h-0">
+          <div className="w-72 flex-shrink-0 border-r border-[var(--border-row)]">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="row-item pointer-events-none">
+                <div className="skeleton h-2 w-2 rounded-full flex-shrink-0" />
+                <div className="flex-1 space-y-1.5 min-w-0">
+                  <div className="skeleton h-3.5 w-40 rounded" />
+                  <div className="skeleton h-3 w-24 rounded" />
+                </div>
+              </div>
+            ))}
           </div>
+          <div className="flex-1" />
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f9fb]">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       {/* ── Page header ──────────────────────────────── */}
-      <div className="max-w-7xl mx-auto px-6 pt-8 pb-6">
-        <Link href={`/projects/${projectId}`}>
-          <button className="flex items-center gap-1.5 text-[#A1A1AA] hover:text-[#18181B] transition-colors mb-5 text-xs font-medium">
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back to Project
-          </button>
-        </Link>
-        <div className="flex items-end justify-between gap-4 flex-wrap">
+      <div className="px-6 pt-6 pb-4 flex-shrink-0">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#0040a2] font-manrope block mb-2">
-              Analysis Engine
-            </span>
-            <h1 className="font-manrope font-extrabold text-[2.25rem] leading-tight tracking-tight text-[#18181B]">
-              {project?.title
-                ? <>{project.title.split(' ').slice(0, 3).join(' ')} <span className="text-[#0052cc]">Analysis</span></>
-                : <>Analysis <span className="text-[#0052cc]">Hub</span></>
-              }
-            </h1>
-            <p className="text-xs text-[#A1A1AA] mt-1.5">
+            <h1 className="page-title">Analysis</h1>
+            <p className="text-xs text-[var(--text-tertiary)] mt-1">
               {project?.description
                 ? project.description.slice(0, 90) + (project.description.length > 90 ? '…' : '')
                 : 'Statistical analysis with AI-powered interpretations.'
               }
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button
               onClick={() => setHubTableModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:scale-[1.02] active:scale-[0.98] border"
-              style={{ color: '#003d9b', borderColor: 'rgba(0,82,204,0.25)', background: 'rgba(0,64,162,0.04)' }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-[var(--border-strong)] text-[var(--text-secondary)] hover:bg-[var(--bg-row-hover)] transition-colors"
             >
-              <Table2 className="h-4 w-4" />
+              <Table2 className="h-3.5 w-3.5" />
               Generate Table
             </button>
             <button
               onClick={openDrawer}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
-              style={{ background: 'linear-gradient(135deg, #003d9b, #0052cc)', boxShadow: '0 4px 20px rgba(0,82,204,0.28)' }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-[var(--accent-blue)] text-white hover:opacity-90 transition-opacity"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-3.5 w-3.5" />
               New Analysis
             </button>
           </div>
@@ -441,113 +430,108 @@ export function AnalysisHub({ projectId }: Props) {
       </div>
 
       {/* ── Main split-pane ─────────────────────────── */}
-      <div className="max-w-7xl mx-auto px-6 pb-12">
+      <div className="flex flex-1 min-h-0 overflow-hidden border-t border-[var(--border-row)]">
 
         {runs.length === 0 ? (
-          <EmptyState onNew={openDrawer} />
+          <div className="flex-1 flex items-center justify-center">
+            <EmptyState onNew={openDrawer} />
+          </div>
         ) : (() => {
-          const selectedRun   = runs.find(r => r.id === selectedRunId) ?? null
+          const selectedRun    = runs.find(r => r.id === selectedRunId) ?? null
           const selectedResult = selectedRun?.results as unknown as AnalysisResult | null | undefined
-          const selectedTypeInfo = selectedRun ? ANALYSIS_TYPES.find(t => t.type === selectedRun.analysis_type) : null
-          const selectedDataset  = selectedRun?.dataset as { name: string } | null | undefined
 
-          const statusMap: Record<string, { color: string; dot: string; label: string }> = {
-            completed: { color: 'bg-[#F0FDF4] text-[#166534]', dot: 'bg-[#22C55E]', label: 'Completed' },
-            failed:    { color: 'bg-[#FEF2F2] text-[#991B1B]', dot: 'bg-[#EF4444]', label: 'Failed' },
-            running:   { color: 'bg-[#EFF6FF] text-[#1E40AF]', dot: 'bg-[#3B82F6]', label: 'Running' },
-            pending:   { color: 'bg-[#F0F0F0] text-[#52525B]', dot: 'bg-[#A1A1AA]', label: 'Pending' },
-            cancelled: { color: 'bg-[#F0F0F0] text-[#52525B]', dot: 'bg-[#A1A1AA]', label: 'Cancelled' },
+          const statusDotClass: Record<string, string> = {
+            completed: 'status-dot--verified',
+            failed:    'status-dot--flagged',
+            running:   'status-dot--warning',
+            pending:   'status-dot--neutral',
+            cancelled: 'status-dot--neutral',
+          }
+          const statusLabel: Record<string, string> = {
+            completed: 'Done', failed: 'Failed', running: 'Running',
+            pending: 'Pending', cancelled: 'Cancelled',
           }
 
           return (
-            <div className="flex gap-5" style={{ minHeight: 'calc(100vh - 220px)' }}>
+            <div className="flex flex-1 min-h-0 overflow-hidden">
 
-              {/* ── Left: Run list panel ─────────────── */}
-              <div
-                className="w-[360px] flex-shrink-0 flex flex-col bg-white rounded-2xl overflow-hidden"
-                style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)', maxHeight: 'calc(100vh - 220px)' }}
-              >
+              {/* ── Left: Run list ─────────────── */}
+              <div className="w-72 flex-shrink-0 border-r border-[var(--border-row)] flex flex-col">
+
                 {/* Stats strip */}
-                <div className="px-5 py-3 border-b border-[#f2f4f6] flex items-center gap-5 flex-shrink-0">
-                  {[
-                    { label: 'Total',     value: stats.total,     color: 'text-[#18181B]' },
-                    { label: 'Completed', value: stats.completed, color: 'text-[#166534]' },
-                    { label: 'Failed',    value: stats.failed,    color: 'text-[#991B1B]' },
-                  ].map(({ label, value, color }) => (
-                    <div key={label} className="flex items-baseline gap-1.5">
-                      <p className={`font-manrope font-bold text-sm leading-none ${color}`}>{value}</p>
-                      <p className="text-[10px] text-[#A1A1AA]">{label.toLowerCase()}</p>
-                    </div>
-                  ))}
+                <div className="px-4 py-2.5 border-b border-[var(--border-row)] flex items-center gap-4 flex-shrink-0">
+                  <span className="data-mono-xs text-[var(--text-tertiary)]">
+                    <span className="text-[var(--text-primary)] font-medium">{stats.total}</span> total
+                  </span>
+                  <span className="data-mono-xs text-[var(--timeline-verified)]">{stats.completed} done</span>
+                  {stats.failed > 0 && (
+                    <span className="data-mono-xs text-[var(--timeline-flagged)]">{stats.failed} failed</span>
+                  )}
                 </div>
 
-                {/* Search + filter */}
-                <div className="px-4 pt-3 pb-2 border-b border-[#f2f4f6] flex-shrink-0 space-y-2">
+                {/* Search */}
+                <div className="px-3 py-2 border-b border-[var(--border-row)] flex-shrink-0">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#A1A1AA]" />
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-[var(--text-tertiary)]" />
                     <input
                       type="text" placeholder="Search…" value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2 text-sm rounded-lg bg-[#f2f4f6] border border-[rgba(195,198,214,0.3)] text-[#18181B] placeholder:text-[#A1A1AA] outline-none focus:border-[rgba(0,82,204,0.4)] focus:shadow-[0_0_0_3px_rgba(0,82,204,0.08)] transition-all"
+                      className="w-full pl-7 pr-3 py-1.5 text-xs rounded bg-[var(--bg-row-hover)] border-0 text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none focus:ring-1 focus:ring-[var(--accent-blue)]/30"
                     />
                   </div>
-                  <div className="flex items-center gap-1 bg-[#f2f4f6] rounded-[10px] p-0.5">
-                    {(['all', 'completed', 'running', 'failed'] as FilterStatus[]).map(s => (
-                      <button key={s} onClick={() => setFilterStatus(s)}
-                        className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg uppercase tracking-[0.05em] transition-all ${
-                          filterStatus === s
-                            ? 'bg-white text-[#003d9b] shadow-[0_2px_8px_rgba(0,24,72,0.08)]'
-                            : 'text-[#52525B] hover:text-[#003d9b]'
-                        }`}
-                      >
-                        {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
-                      </button>
-                    ))}
-                  </div>
+                </div>
+
+                {/* Filter tabs */}
+                <div className="flex border-b border-[var(--border-row)] flex-shrink-0">
+                  {(['all', 'completed', 'running', 'failed'] as FilterStatus[]).map(s => (
+                    <button key={s} onClick={() => setFilterStatus(s)}
+                      className={`flex-1 py-1.5 text-[10px] font-medium uppercase tracking-wide transition-colors ${
+                        filterStatus === s
+                          ? 'text-[var(--accent-blue)] border-b-2 border-[var(--accent-blue)] -mb-px'
+                          : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
+                      }`}
+                    >
+                      {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
+                    </button>
+                  ))}
                 </div>
 
                 {/* Scrollable run list */}
                 <div className="overflow-y-auto flex-1">
                   {filteredRuns.length === 0 ? (
-                    <div className="text-center py-10 px-4">
-                      <p className="text-sm text-[#52525B]">No analyses match your filters</p>
+                    <div className="text-center py-8 px-4">
+                      <p className="text-xs text-[var(--text-tertiary)]">No analyses match your filters</p>
                       <button onClick={() => { setFilterStatus('all'); setSearchQuery('') }}
-                        className="text-[#0052CC] text-xs mt-2 hover:underline">Clear filters</button>
+                        className="text-[var(--accent-blue)] text-xs mt-2 hover:underline">Clear filters</button>
                     </div>
                   ) : filteredRuns.map((run) => {
                     const info   = ANALYSIS_TYPES.find(t => t.type === run.analysis_type)
                     const ds     = run.dataset as { name: string } | null
-                    const st     = statusMap[run.status] ?? statusMap.pending
+                    const dotCls = statusDotClass[run.status] ?? 'status-dot--neutral'
                     const isSelected = selectedRunId === run.id
                     return (
                       <button
                         key={run.id}
                         onClick={() => setSelectedRunId(run.id)}
-                        className={`group w-full flex items-center gap-3 px-4 py-3.5 text-left transition-all border-b border-[#f2f4f6] last:border-0 ${
-                          isSelected
-                            ? 'bg-[rgba(0,64,162,0.05)] border-l-[3px] border-l-[#0052cc]'
-                            : 'hover:bg-[rgba(0,61,155,0.02)] border-l-[3px] border-l-transparent'
+                        className={`group w-full text-left flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border-row)] last:border-0 transition-colors ${
+                          isSelected ? 'bg-[var(--bg-row-active)]' : 'hover:bg-[var(--bg-row-hover)]'
                         }`}
                       >
-                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${st.dot}`} />
+                        <span className={`status-dot ${dotCls} flex-shrink-0`} />
                         <div className="min-w-0 flex-1">
-                          <p className={`text-sm font-manrope font-semibold truncate transition-colors ${isSelected ? 'text-[#0052cc]' : 'text-[#18181B] group-hover:text-[#0052cc]'}`}>
+                          <p className="text-sm text-[var(--text-primary)] truncate leading-snug">
                             {run.title ?? info?.label ?? run.analysis_type}
                           </p>
-                          <p className="text-[11px] text-[#A1A1AA] mt-0.5 truncate">
-                            {info?.label ?? run.analysis_type.replace(/_/g, ' ')}
-                            {ds && <span> · {ds.name}</span>}
-                            <span> · {formatRelative(run.created_at)}</span>
+                          <p className="data-mono-xs text-[var(--text-tertiary)] mt-0.5 truncate">
+                            {ds?.name ?? info?.label ?? run.analysis_type.replace(/_/g, ' ')}
+                            {' · '}{formatRelative(run.created_at)}
                           </p>
                         </div>
-                        <span className={`text-[9px] font-bold uppercase tracking-[0.06em] px-2 py-0.5 rounded flex-shrink-0 ${st.color}`}>
-                          {st.label}
-                        </span>
                         <button
                           onClick={e => { e.stopPropagation(); handleDelete(run.id) }}
-                          className="opacity-0 group-hover:opacity-100 text-[#A1A1AA] hover:text-[#EF4444] transition-all p-1 rounded-lg hover:bg-[#FEF2F2] flex-shrink-0"
+                          className="row-action text-[var(--text-tertiary)] hover:text-[var(--timeline-flagged)] flex-shrink-0 p-0.5"
                         >
-                          <X className="h-3.5 w-3.5" />
+                          <X className="h-3 w-3" />
                         </button>
                       </button>
                     )
@@ -555,7 +539,7 @@ export function AnalysisHub({ projectId }: Props) {
                 </div>
               </div>
 
-              {/* ── Right: Lightweight preview ───────── */}
+              {/* ── Right: Results preview ───────── */}
               <div className="flex-1 overflow-y-auto min-w-0">
                 {selectedRun?.status === 'completed' && selectedResult ? (
                   <HubResultsPreview
@@ -564,24 +548,22 @@ export function AnalysisHub({ projectId }: Props) {
                     projectId={projectId}
                   />
                 ) : selectedRun?.status === 'running' || selectedRun?.status === 'pending' ? (
-                  <div className="bg-white rounded-2xl p-16 text-center" style={{ boxShadow: '0 4px 24px rgba(0,24,72,0.06)' }}>
-                    <div className="w-8 h-8 rounded-full border-2 border-[#0052cc] border-t-transparent animate-spin mx-auto mb-4" />
-                    <p className="font-manrope font-semibold text-[#18181B] text-sm">Analysis in progress</p>
-                    <p className="text-xs text-[#A1A1AA] mt-1">Results will appear here when complete.</p>
+                  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+                    <div className="w-5 h-5 rounded-full border-2 border-[var(--accent-blue)] border-t-transparent animate-spin mb-3" />
+                    <p className="text-sm text-[var(--text-primary)]">Analysis in progress</p>
+                    <p className="text-xs text-[var(--text-tertiary)] mt-1">Results will appear here when complete.</p>
                   </div>
                 ) : selectedRun?.status === 'failed' ? (
-                  <div className="bg-white rounded-2xl px-7 py-10 text-center" style={{ boxShadow: '0 4px 24px rgba(0,24,72,0.06)' }}>
-                    <p className="font-manrope font-semibold text-[#991B1B] text-sm">Analysis failed</p>
-                    <p className="text-xs text-[#A1A1AA] mt-1">{selectedRun.error_message ?? 'An unknown error occurred.'}</p>
+                  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+                    <span className="status-dot status-dot--flagged mb-3" />
+                    <p className="text-sm text-[var(--text-primary)]">Analysis failed</p>
+                    <p className="text-xs text-[var(--text-tertiary)] mt-1">{selectedRun.error_message ?? 'An unknown error occurred.'}</p>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full min-h-[360px] text-center px-8">
-                    <div className="w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-3"
-                      style={{ background: 'linear-gradient(135deg, #003d9b, #0052cc)' }}>
-                      <BarChart2 className="h-5 w-5 text-white" />
-                    </div>
-                    <p className="font-manrope font-semibold text-[#18181B] text-sm">Select a run</p>
-                    <p className="text-xs text-[#A1A1AA] mt-1 max-w-[200px]">
+                  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+                    <BarChart2 className="h-6 w-6 text-[var(--text-tertiary)] mb-3" />
+                    <p className="text-sm text-[var(--text-primary)]">Select a run</p>
+                    <p className="text-xs text-[var(--text-tertiary)] mt-1 max-w-[200px]">
                       Click any analysis from the list to preview results here.
                     </p>
                   </div>
@@ -595,36 +577,34 @@ export function AnalysisHub({ projectId }: Props) {
 
       {/* ── New Analysis Drawer ─────────────────────── */}
       {drawerOpen && (
-        <div className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[2px]" onClick={closeDrawer} />
+        <div className="fixed inset-0 z-40 bg-black/20" onClick={closeDrawer} />
       )}
       <div
-        className={`fixed inset-y-0 right-0 z-50 flex flex-col w-full max-w-[620px] bg-white overflow-y-auto transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${drawerOpen ? 'translate-x-0' : 'translate-x-full'}`}
-        style={{ boxShadow: '-20px 0 80px rgba(0,24,72,0.14), -4px 0 20px rgba(0,24,72,0.07)' }}
+        className={`fixed inset-y-0 right-0 z-50 flex flex-col w-full max-w-[560px] bg-white border-l border-[var(--panel-border)] overflow-y-auto transition-transform duration-200 ease-[cubic-bezier(0,0,0.2,1)] ${drawerOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
         {/* Drawer header */}
-        <div className="flex-shrink-0 px-8 pt-7 pb-6 border-b border-[#f2f4f6]">
+        <div className="flex-shrink-0 px-6 pt-5 pb-4 border-b border-[var(--panel-border)]">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#0040a2] font-manrope">Analysis Engine</span>
-            <button onClick={closeDrawer} className="w-8 h-8 rounded-xl flex items-center justify-center text-[#A1A1AA] hover:bg-[#f2f4f6] hover:text-[#18181B] transition-all">
-              <X className="h-4 w-4" />
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">New Analysis</h2>
+            <button onClick={closeDrawer} className="h-7 w-7 flex items-center justify-center rounded-md text-[var(--text-tertiary)] hover:bg-[var(--bg-row-hover)] hover:text-[var(--text-primary)] transition-colors">
+              <X className="h-3.5 w-3.5" />
             </button>
           </div>
-          <h2 className="font-manrope font-extrabold text-[1.6rem] leading-tight tracking-tight text-[#18181B] mb-5">
-            New <span className="text-[#0052cc]">Analysis</span>
-          </h2>
-          <div className="flex items-center gap-1 bg-[#f2f4f6] rounded-[10px] p-1 w-fit">
+          <div className="flex items-center gap-1">
             {DRAWER_STEPS.map((step, i) => {
               const isPast = i < drawerStepIdx; const isCurrent = drawerStep === step.id
               return (
                 <button key={step.id} onClick={() => { if (isPast) setDrawerStep(step.id) }} disabled={!isPast && !isCurrent}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.06em] transition-all ${
-                    isCurrent ? 'bg-white text-[#003d9b] shadow-[0_2px_8px_rgba(0,24,72,0.08)]'
-                    : isPast ? 'text-[#166534] hover:text-[#003d9b] cursor-pointer'
-                    : 'text-[#A1A1AA] cursor-default'
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+                    isCurrent ? 'bg-[var(--bg-row-active)] text-[var(--text-primary)]'
+                    : isPast ? 'text-[var(--timeline-verified)] hover:text-[var(--text-primary)] cursor-pointer'
+                    : 'text-[var(--text-tertiary)] cursor-default'
                   }`}
                 >
                   <span className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-[8px] font-bold flex-shrink-0 ${
-                    isCurrent ? 'bg-[#003d9b] text-white' : isPast ? 'bg-[#22C55E] text-white' : 'bg-[#e0e3e5] text-[#A1A1AA]'
+                    isCurrent ? 'bg-[var(--accent-blue)] text-white'
+                    : isPast ? 'bg-[var(--timeline-verified)] text-white'
+                    : 'bg-[var(--border-strong)] text-[var(--text-tertiary)]'
                   }`}>{isPast ? '✓' : i + 1}</span>
                   {step.label}
                 </button>
@@ -634,19 +614,18 @@ export function AnalysisHub({ projectId }: Props) {
         </div>
 
         {/* Drawer body */}
-        <div className="flex-1 px-8 py-7 space-y-6">
+        <div className="flex-1 px-6 py-5 space-y-5">
 
           {drawerStep === 'dataset' && (
             <>
-              <p className="text-sm text-[#52525B] leading-relaxed">Select a dataset or upload a new file. Your data is processed locally.</p>
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">Select a dataset or upload a new file. Your data is processed locally.</p>
               <ProjectDatasetSelector projectId={projectId} onData={handleData} datasetId={datasetId} versionId={versionId} data={data} fileName={fileName} />
-              <div className="flex items-center gap-4 pt-1">
+              <div className="flex items-center gap-3 pt-1">
                 <button disabled={!dataLoaded} onClick={() => setDrawerStep('type')}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-[0.98]"
-                  style={{ background: 'linear-gradient(135deg, #003d9b, #0052cc)', boxShadow: dataLoaded ? '0 4px 16px rgba(0,82,204,0.28)' : 'none' }}>
-                  Continue to Analysis <ChevronRight className="h-4 w-4" />
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-medium text-white bg-[var(--accent-blue)] hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed">
+                  Continue <ChevronRight className="h-3.5 w-3.5" />
                 </button>
-                <button onClick={() => setDrawerStep('type')} className="text-sm text-[#A1A1AA] hover:text-[#18181B] transition-colors">
+                <button onClick={() => setDrawerStep('type')} className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors">
                   Skip (sample size only)
                 </button>
               </div>
@@ -656,18 +635,18 @@ export function AnalysisHub({ projectId }: Props) {
           {drawerStep === 'type' && (
             <>
               {dataLoaded ? (
-                <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-[#f2f4f6]">
+                <div className="flex items-center justify-between px-3 py-2 rounded bg-[var(--bg-row-hover)] border border-[var(--border-row)]">
                   <div className="flex items-center gap-2">
-                    <Database className="h-3.5 w-3.5 text-[#0052cc]" />
-                    <span className="text-sm font-medium text-[#18181B]">{fileName}</span>
-                    <span className="text-xs text-[#A1A1AA]">· {data.length.toLocaleString()} rows · {columns.length} cols</span>
+                    <Database className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
+                    <span className="text-xs font-medium text-[var(--text-primary)]">{fileName}</span>
+                    <span className="data-mono-xs text-[var(--text-tertiary)]">{data.length.toLocaleString()} rows · {columns.length} cols</span>
                   </div>
-                  <button onClick={() => setDrawerStep('dataset')} className="text-xs text-[#0052cc] hover:underline font-medium">Change</button>
+                  <button onClick={() => setDrawerStep('dataset')} className="text-xs text-[var(--accent-blue)] hover:underline">Change</button>
                 </div>
               ) : (
-                <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200">
+                <div className="flex items-center justify-between px-3 py-2 rounded bg-amber-50 border border-amber-200">
                   <span className="text-xs text-amber-700">No dataset — only sample size calculator available</span>
-                  <button onClick={() => setDrawerStep('dataset')} className="text-xs text-amber-700 font-bold underline ml-2">Add data</button>
+                  <button onClick={() => setDrawerStep('dataset')} className="text-xs text-amber-700 font-medium underline ml-2">Add data</button>
                 </div>
               )}
               {project && (
@@ -682,72 +661,46 @@ export function AnalysisHub({ projectId }: Props) {
           {drawerStep === 'config' && selectedType && (
             <>
               <div className="flex items-center gap-2">
-                <button onClick={() => setDrawerStep('type')} className="text-xs text-[#A1A1AA] hover:text-[#0052cc] transition-colors font-medium">← Change type</button>
-                <span className="text-[#e0e3e5]">|</span>
-                <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope">{typeInfo?.label}</span>
+                <button onClick={() => setDrawerStep('type')} className="text-xs text-[var(--text-tertiary)] hover:text-[var(--accent-blue)] transition-colors">← Change type</button>
+                <span className="text-[var(--border-strong)]">·</span>
+                <span className="text-xs text-[var(--text-secondary)]">{typeInfo?.label}</span>
               </div>
 
               {needsData && !dataLoaded ? (
                 <div>
-                  <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#A1A1AA] font-manrope mb-2">Dataset Required</p>
+                  <p className="subsection-label mb-2">Dataset Required</p>
                   <ProjectDatasetSelector projectId={projectId} onData={handleData} datasetId={datasetId} versionId={versionId} data={data} fileName={fileName} />
                 </div>
               ) : needsData && dataLoaded ? (
-                <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-[#f2f4f6]">
+                <div className="flex items-center justify-between px-3 py-2 rounded bg-[var(--bg-row-hover)] border border-[var(--border-row)]">
                   <div className="flex items-center gap-2">
-                    <Database className="h-3.5 w-3.5 text-[#0052cc]" />
-                    <span className="text-sm font-medium text-[#18181B]">{fileName}</span>
-                    <span className="text-xs text-[#A1A1AA]">{columns.length} columns</span>
+                    <Database className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
+                    <span className="text-xs font-medium text-[var(--text-primary)]">{fileName}</span>
+                    <span className="data-mono-xs text-[var(--text-tertiary)]">{columns.length} columns</span>
                   </div>
-                  <button onClick={() => setDrawerStep('dataset')} className="text-xs text-[#0052cc] hover:underline font-medium">Change</button>
+                  <button onClick={() => setDrawerStep('dataset')} className="text-xs text-[var(--accent-blue)] hover:underline">Change</button>
                 </div>
               ) : null}
 
               {/* Approval gate blocked state */}
               {approvalBlock && (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <svg className="h-6 w-6 text-amber-500 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-                    </svg>
-                    <p className="text-[14px] font-bold text-amber-800" style={{ fontFamily: 'Manrope, sans-serif' }}>
-                      {approvalBlock.status === 'pending' ? 'Awaiting Supervisor Approval'
-                        : approvalBlock.status === 'in_review' ? 'Under Supervisor Review'
-                        : approvalBlock.status === 'not_requested' ? 'Approval Required'
-                        : approvalBlock.status === 'rejected' ? 'Approval Declined'
-                        : 'Revisions Requested'}
-                    </p>
-                  </div>
-                  <p className="text-[13px] text-amber-700 leading-relaxed">{approvalBlock.reason}</p>
-                  {approvalBlock.status === 'not_requested' && datasetId && versionId && (
-                    <a
-                      href={`/projects/${projectId}/data`}
-                      className="inline-block mt-1 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-[#0052cc] to-purple-600 hover:opacity-90 transition-opacity"
-                    >
-                      Submit for Approval →
-                    </a>
-                  )}
-                  {(approvalBlock.status === 'pending' || approvalBlock.status === 'in_review') && (
-                    <a
-                      href={`/projects/${projectId}/data`}
-                      className="inline-block mt-1 text-sm font-semibold text-[#0052cc] hover:underline"
-                    >
-                      View Approval Status →
-                    </a>
-                  )}
-                  {approvalBlock.status === 'revision_requested' && (
-                    <a
-                      href={`/projects/${projectId}/data`}
-                      className="inline-block mt-1 px-4 py-2 rounded-xl text-sm font-semibold text-amber-700 border border-amber-300 bg-amber-100 hover:bg-amber-200 transition-colors"
-                    >
-                      Review Feedback →
-                    </a>
-                  )}
+                <div className="rounded border border-amber-200 bg-amber-50 px-4 py-3 space-y-1.5">
+                  <p className="text-xs font-medium text-amber-800">
+                    {approvalBlock.status === 'pending' ? 'Awaiting Supervisor Approval'
+                      : approvalBlock.status === 'in_review' ? 'Under Supervisor Review'
+                      : approvalBlock.status === 'not_requested' ? 'Approval Required'
+                      : approvalBlock.status === 'rejected' ? 'Approval Declined'
+                      : 'Revisions Requested'}
+                  </p>
+                  <p className="text-xs text-amber-700 leading-relaxed">{approvalBlock.reason}</p>
+                  <a href={`/projects/${projectId}/data`} className="text-xs text-amber-800 font-medium underline">
+                    {approvalBlock.status === 'not_requested' ? 'Submit for Approval →' : 'View Approval Status →'}
+                  </a>
                 </div>
               )}
 
-              <div className="bg-[#f7f9fb] rounded-2xl p-5">
-                <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#A1A1AA] font-manrope mb-4">Configuration</p>
+              <div className="surface-inset rounded">
+                <p className="subsection-label mb-3">Configuration</p>
                 <ConfigComponent type={selectedType} config={config} onChange={setConfig}
                   onRun={approvalBlock ? () => {} : handleRun}
                   loading={running} columns={needsData ? (dataLoaded ? columns : []) : []} />
@@ -755,24 +708,22 @@ export function AnalysisHub({ projectId }: Props) {
 
               {result && !result.summary?.error && (
                 <div>
-                  <div className="flex items-center gap-2.5 mb-3">
-                    <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope">Results Preview</span>
-                    <span className="w-1 h-1 bg-[#c3c6d6] rounded-full" />
-                    <span className="text-xs text-[#A1A1AA]">Save to view full analysis</span>
+                  <div className="flex items-center gap-2 mb-3">
+                    <p className="subsection-label">Results Preview</p>
+                    <span className="text-xs text-[var(--text-tertiary)]">· Save to view full analysis</span>
                   </div>
                   {result.summary && Object.keys(result.summary).filter(k => k !== 'error').length > 0 && (
-                    <div className="grid grid-cols-2 gap-2 mb-4">
+                    <div className="grid grid-cols-2 gap-2 mb-3">
                       {Object.entries(result.summary).filter(([k]) => k !== 'error').slice(0, 4).map(([key, val]) => (
-                        <div key={key} className="bg-white rounded-xl px-4 py-3" style={{ boxShadow: '0 4px 12px rgba(0,24,72,0.04)' }}>
-                          <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-[#A1A1AA] truncate font-manrope">{formatKey(key)}</p>
-                          <p className="text-sm font-manrope font-bold text-[#18181B] truncate mt-0.5">{String(val)}</p>
+                        <div key={key} className="px-3 py-2.5 rounded border border-[var(--border-row)] bg-white">
+                          <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider truncate">{formatKey(key)}</p>
+                          <p className="text-sm font-medium text-[var(--text-primary)] truncate mt-0.5">{String(val)}</p>
                         </div>
                       ))}
                     </div>
                   )}
                   <button onClick={handleSave} disabled={!!savedRunId}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
-                    style={{ background: 'linear-gradient(135deg, #003d9b, #0052cc)', boxShadow: '0 4px 20px rgba(0,82,204,0.3)' }}>
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium text-white bg-[var(--accent-blue)] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed">
                     <CheckCircle2 className="h-4 w-4" />
                     Save &amp; View Full Results
                   </button>
@@ -780,9 +731,9 @@ export function AnalysisHub({ projectId }: Props) {
               )}
 
               {result?.summary?.error && (
-                <div className="bg-[#FEF2F2] rounded-xl p-4">
-                  <p className="text-sm font-semibold text-[#991B1B]">Analysis Error</p>
-                  <p className="text-xs text-[#52525B] mt-1">{String(result.summary.error)}</p>
+                <div className="rounded border border-[var(--timeline-flagged)]/20 bg-red-50 px-4 py-3">
+                  <p className="text-xs font-medium text-[var(--timeline-flagged)]">Analysis Error</p>
+                  <p className="text-xs text-[var(--text-secondary)] mt-1">{String(result.summary.error)}</p>
                 </div>
               )}
             </>
@@ -829,20 +780,16 @@ export function AnalysisHub({ projectId }: Props) {
 // ── Empty State ─────────────────────────────────────────
 function EmptyState({ onNew }: { onNew: () => void }) {
   return (
-    <div className="text-center py-24 bg-white rounded-2xl" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}>
-      <div className="mx-auto w-14 h-14 rounded-2xl flex items-center justify-center mb-5"
-        style={{ background: 'linear-gradient(135deg, #003d9b, #0052cc)' }}>
-        <BarChart2 className="h-7 w-7 text-white" />
-      </div>
-      <h3 className="font-manrope font-bold text-lg text-[#18181B]">No analyses yet</h3>
-      <p className="text-sm text-[#52525B] mt-2 max-w-sm mx-auto leading-relaxed">
-        Run your first statistical analysis to unlock results, interactive visualizations, and AI-powered interpretations.
+    <div className="empty-state">
+      <BarChart2 className="empty-state-icon h-8 w-8" />
+      <p className="empty-state-title">No analyses yet</p>
+      <p className="empty-state-description">
+        Run your first statistical analysis to get results, charts, and AI-powered interpretations.
       </p>
       <button onClick={onNew}
-        className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
-        style={{ background: 'linear-gradient(135deg, #003d9b, #0052cc)', boxShadow: '0 4px 20px rgba(0,82,204,0.25)' }}>
-        <Plus className="h-4 w-4" />
-        Start Your First Analysis
+        className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white bg-[var(--accent-blue)] hover:opacity-90 transition-opacity">
+        <Plus className="h-3.5 w-3.5" />
+        New Analysis
       </button>
     </div>
   )
