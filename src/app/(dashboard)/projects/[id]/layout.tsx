@@ -1,7 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { THESIS_ENABLED } from "@/lib/flags";
+import { ProjectTabNav } from "@/components/layout/ProjectTabNav";
 
 export default async function ProjectWorkspaceLayout({
   children,
@@ -26,55 +26,26 @@ export default async function ProjectWorkspaceLayout({
 
   if (!project) notFound();
 
-  // Detect if this is a thesis project — only when the feature is enabled
-  let isThesis = false;
-  if (THESIS_ENABLED) {
-    try {
-      const { data: meta } = await supabase
-        .from("thesis_metadata")
-        .select("id")
-        .eq("project_id", id)
-        .maybeSingle();
-      isThesis = !!meta;
-    } catch {
-      isThesis = false;
-    }
-  }
-
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Project breadcrumb + back navigation */}
-      <div className="bg-white/80 backdrop-blur-xl border-b border-slate-100 px-8 py-3 shadow-[0_1px_0_rgba(0,24,72,0.04)] flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xs text-slate-400">
-          <Link href="/projects" className="hover:text-[#003d9b] transition-colors font-medium">
-            Projects
-          </Link>
-          <span>/</span>
-          <Link href={`/projects/${id}/overview`} className="text-slate-600 font-medium hover:text-[#003d9b] transition-colors">
-            {project.title}
-          </Link>
-          {isThesis && (
-            <>
-              <span>/</span>
-              <span className="text-[10px] font-bold text-[#003d9b] bg-blue-50 px-1.5 py-0.5 rounded uppercase tracking-wider">
-                Thesis
-              </span>
-            </>
-          )}
-        </div>
-        <Link
-          href={`/projects/${id}/overview`}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-[#003d9b] transition-colors group"
-        >
-          <svg className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to Overview
+      {/* Project breadcrumb */}
+      <div className="bg-[var(--bg-app)] border-b border-[var(--border-subtle)] px-6 py-2.5 flex items-center gap-2 text-xs text-[var(--text-tertiary)] flex-shrink-0">
+        <Link href="/dashboard" className="hover:text-[var(--text-secondary)] transition-colors duration-150">
+          Projects
         </Link>
+        <span>/</span>
+        <span className="text-[var(--text-secondary)] font-medium truncate max-w-xs">
+          {project.title}
+        </span>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 bg-[#f7f9fb]">{children}</div>
+      {/* Tab navigation */}
+      <ProjectTabNav projectId={id} />
+
+      {/* Page content */}
+      <div className="flex-1 min-h-0 bg-[var(--bg-app)]">
+        {children}
+      </div>
     </div>
   );
 }

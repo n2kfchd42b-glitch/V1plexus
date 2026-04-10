@@ -4,54 +4,26 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import {
-  LayoutDashboard, FileText, ShieldCheck, GitMerge, BarChart2,
-  Database, Users, Settings, Link2, BookOpen, UserCheck,
-  TrendingUp, Sword, FileCheck, Send,
-} from "lucide-react";
-import { PUBLICATION_ENABLED, FIELD_OPERATIONS_ENABLED } from "@/lib/flags";
+import { LayoutDashboard, Database, BarChart2, Clock, FileText, Settings } from "lucide-react";
 
 interface ProjectTabNavProps {
   projectId: string;
-  isThesis?: boolean;
 }
 
-export function ProjectTabNav({ projectId, isThesis }: ProjectTabNavProps) {
+export function ProjectTabNav({ projectId }: ProjectTabNavProps) {
   const pathname = usePathname();
   const router = useRouter();
 
-  const researchTabs = [
-    { href: `/projects/${projectId}/overview`,     label: "Overview",      icon: LayoutDashboard },
-    { href: `/projects/${projectId}/team`,         label: "Team",          icon: Users },
-    { href: `/projects/${projectId}/documents`,    label: "Documents",     icon: FileText },
-    { href: `/projects/${projectId}/ethics`,       label: "Ethics",        icon: ShieldCheck },
-    { href: `/projects/${projectId}/approvals`,    label: "Approvals",     icon: GitMerge },
-    { href: `/projects/${projectId}/data`,         label: "Data",          icon: Database },
-    { href: `/projects/${projectId}/analysis`,     label: "Analysis",      icon: BarChart2 },
-    { href: `/projects/${projectId}/integrations`, label: "Integrations",  icon: Link2,    soon: true },
-    ...(PUBLICATION_ENABLED ? [{ href: `/projects/${projectId}/publication`, label: "Publication", icon: Send, soon: false }] : []),
-    ...(FIELD_OPERATIONS_ENABLED ? [] : [{ href: `/projects/${projectId}/field`, label: "Field Ops", icon: Send, soon: true }]),
-    { href: `/projects/${projectId}/settings`,     label: "Settings",      icon: Settings },
+  const tabs = [
+    { href: `/projects/${projectId}/overview`,  label: "Overview",  icon: LayoutDashboard },
+    { href: `/projects/${projectId}/data`,      label: "Data",      icon: Database        },
+    { href: `/projects/${projectId}/analysis`,  label: "Analysis",  icon: BarChart2       },
+    { href: `/projects/${projectId}/timeline`,  label: "Timeline",  icon: Clock           },
+    { href: `/projects/${projectId}/report`,    label: "Report",    icon: FileText        },
+    { href: `/projects/${projectId}/settings`,  label: "Settings",  icon: Settings        },
   ];
 
-  const thesisTabs = [
-    { href: `/projects/${projectId}/chapters`,     label: "Chapters",      icon: BookOpen },
-    { href: `/projects/${projectId}/committee`,    label: "Committee",     icon: UserCheck },
-    { href: `/projects/${projectId}/progress`,     label: "Progress",      icon: TrendingUp },
-    { href: `/projects/${projectId}/ethics`,       label: "Ethics",        icon: ShieldCheck },
-    { href: `/projects/${projectId}/data`,         label: "Data",          icon: Database },
-    { href: `/projects/${projectId}/analysis`,     label: "Analysis",      icon: BarChart2 },
-    { href: `/projects/${projectId}/defense`,      label: "Defense",       icon: Sword },
-    { href: `/projects/${projectId}/format-check`, label: "Format Check",  icon: FileCheck },
-    ...(PUBLICATION_ENABLED ? [{ href: `/projects/${projectId}/publication`, label: "Publication", icon: Send, soon: false }] : []),
-    ...(FIELD_OPERATIONS_ENABLED ? [] : [{ href: `/projects/${projectId}/field`, label: "Field Ops", icon: Send, soon: true }]),
-    { href: `/projects/${projectId}/activity`,     label: "Activity",      icon: GitMerge },
-    { href: `/projects/${projectId}/settings`,     label: "Settings",      icon: Settings },
-  ];
-
-  const tabs = isThesis ? thesisTabs : researchTabs;
-
-  // Alt+1–9 to switch tabs
+  // Alt+1–6 to switch tabs
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!e.altKey) return;
@@ -66,9 +38,9 @@ export function ProjectTabNav({ projectId, isThesis }: ProjectTabNavProps) {
   }, [tabs, router]);
 
   return (
-    <div className="border-b border-[var(--border-default)] bg-[var(--bg-app)] px-6 overflow-x-auto">
-      <nav className="flex gap-0.5 -mb-px min-w-max">
-        {tabs.map(({ href, label, icon: Icon, soon }) => {
+    <div className="border-b border-[var(--border-default)] bg-[var(--bg-app)] px-6">
+      <nav className="flex gap-0.5 -mb-px">
+        {tabs.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (
             <Link
@@ -83,11 +55,6 @@ export function ProjectTabNav({ projectId, isThesis }: ProjectTabNavProps) {
             >
               <Icon className={cn("h-3.5 w-3.5", active ? "text-[var(--accent-blue)]" : "text-current")} />
               {label}
-              {soon && (
-                <span className="text-[9px] font-semibold bg-amber-500/20 text-amber-500 border border-amber-500/30 rounded px-1 leading-4">
-                  Soon
-                </span>
-              )}
             </Link>
           );
         })}

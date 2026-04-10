@@ -3,37 +3,10 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import {
-  LayoutDashboard, FolderOpen, ClipboardList, Bell,
-  LogOut, ChevronLeft, ChevronRight, Command,
-  Database, Settings, Shield, ClipboardCheck, Users, GraduationCap,
-  BarChart3, DollarSign, BookOpen, PackageOpen
-} from 'lucide-react'
+import { FolderOpen, LogOut, ChevronLeft, ChevronRight, Command } from 'lucide-react'
 import { BrandLogo } from '@/components/layout/BrandLogo'
 import { cn, getInitials } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
 import type { Profile } from '@/types/database'
-import { THESIS_ENABLED, INSTITUTIONAL_INTELLIGENCE_ENABLED } from '@/lib/flags'
-
-const navItems = [
-  { href: '/dashboard',     label: 'Dashboard', icon: LayoutDashboard, shortcut: 'G D' },
-  { href: '/reviews',       label: 'Reviews',   icon: ClipboardList,   shortcut: 'G R' },
-  { href: '/approvals',     label: 'Approvals', icon: Shield,          shortcut: 'G A' },
-  { href: '/notifications', label: 'Inbox',     icon: Bell,            shortcut: 'G N' },
-  { href: '/settings/sso',  label: 'SSO Settings', icon: Settings, adminOnly: true },
-]
-
-const institutionItems = [
-  { href: '/institution/members',    label: 'Members',        icon: Users },
-  { href: '/institution/compliance', label: 'Compliance',     icon: ClipboardCheck },
-  { href: '/institution/audit',      label: 'Audit Log',      icon: Shield },
-  ...(THESIS_ENABLED ? [{ href: '/graduate', label: 'Graduate Theses', icon: GraduationCap }] : []),
-  ...(INSTITUTIONAL_INTELLIGENCE_ENABLED ? [
-    { href: '/institution/impact',    label: 'Research Impact', icon: BarChart3 },
-    { href: '/institution/grants',    label: 'Grants',          icon: DollarSign },
-    { href: '/institution/knowledge', label: 'Knowledge Base',  icon: BookOpen },
-  ] : []),
-]
 
 interface SidebarProps {
   profile: Profile | null
@@ -44,26 +17,13 @@ interface SidebarProps {
 export function Sidebar({ profile, onSignOut, onCommandPalette }: SidebarProps) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(true)
-  const [activeIndex, setActiveIndex] = useState(0)
-  const [prevIndex, setPrevIndex] = useState(0)
 
-  // Collapse sidebar on navigation
+  // Collapse on navigation
   useEffect(() => {
     setCollapsed(true)
   }, [pathname])
 
-  // Track active item index for sliding indicator
-  useEffect(() => {
-    const idx = navItems.findIndex(item =>
-      pathname === item.href || pathname.startsWith(item.href + '/')
-    )
-    if (idx !== -1 && idx !== activeIndex) {
-      setPrevIndex(activeIndex)
-      setActiveIndex(idx)
-    }
-  }, [pathname]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Keyboard shortcut: Cmd+\ to toggle sidebar
+  // Cmd+\ to toggle
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
@@ -75,21 +35,17 @@ export function Sidebar({ profile, onSignOut, onCommandPalette }: SidebarProps) 
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  // Extract project ID if we're inside a project route
-  const projectMatch = pathname.match(/\/projects\/([^/]+)/)
-  const projectId = projectMatch?.[1]
-  const dataHref = projectId ? `/projects/${projectId}/data` : null
-  const dataActive = dataHref ? pathname.startsWith(dataHref) : false
+  const projectsActive = pathname === '/dashboard' || pathname.startsWith('/projects')
 
   return (
     <aside
       className={cn(
         'flex flex-col h-screen sticky top-0 transition-all duration-200 ease-out flex-shrink-0',
         'bg-[#18181B] border-r border-white/10',
-        collapsed ? 'w-12' : 'w-60'
+        collapsed ? 'w-12' : 'w-52'
       )}
     >
-      {/* Logo area */}
+      {/* Logo */}
       <div className={cn(
         'flex items-center border-b border-white/10 transition-all duration-200',
         collapsed ? 'h-12 justify-center px-0' : 'h-14 px-4 gap-2'
@@ -99,46 +55,38 @@ export function Sidebar({ profile, onSignOut, onCommandPalette }: SidebarProps) 
 
       {/* Navigation */}
       <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
-        {navItems.filter(item => !item.adminOnly || profile?.role === 'admin').map((item) => {
-          const Icon = item.icon
-          const active = pathname === item.href || pathname.startsWith(item.href + '/')
-          return (
-            <Link key={item.href} href={item.href} title={collapsed ? item.label : undefined}>
-              <div
-                className={cn(
-                  'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
-                  collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
-                  active
-                    ? 'bg-[#3F3F46] text-white'
-                    : 'text-[#A1A1AA] hover:bg-[#27272A] hover:text-white/80'
-                )}
-              >
-                {/* Active left border */}
-                {active && (
-                  <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[#3B82F6]" />
-                )}
-                <Icon className={cn(
-                  'flex-shrink-0 transition-colors duration-150',
-                  'h-4 w-4',
-                  active ? 'text-white' : 'text-[#71717A]'
-                )} />
-                {!collapsed && (
-                  <span className={cn(
-                    'text-sm font-medium transition-opacity duration-100',
-                    active ? 'text-white' : 'text-[#A1A1AA]'
-                  )}>
-                    {item.label}
-                  </span>
-                )}
-              </div>
-            </Link>
-          )
-        })}
+
+        {/* Projects */}
+        <Link href="/dashboard" title={collapsed ? 'Projects' : undefined}>
+          <div className={cn(
+            'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
+            collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
+            projectsActive
+              ? 'bg-[#3F3F46] text-white'
+              : 'text-[#A1A1AA] hover:bg-[#27272A] hover:text-white/80'
+          )}>
+            {projectsActive && (
+              <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[#3B82F6]" />
+            )}
+            <FolderOpen className={cn(
+              'flex-shrink-0 h-4 w-4 transition-colors duration-150',
+              projectsActive ? 'text-white' : 'text-[#71717A]'
+            )} />
+            {!collapsed && (
+              <span className={cn(
+                'text-sm font-medium transition-opacity duration-100',
+                projectsActive ? 'text-white' : 'text-[#A1A1AA]'
+              )}>
+                Projects
+              </span>
+            )}
+          </div>
+        </Link>
 
         {/* Divider */}
         <div className="my-2 h-px bg-white/10" />
 
-        {/* Command palette shortcut */}
+        {/* Command palette */}
         <button
           onClick={onCommandPalette}
           title={collapsed ? 'Command Palette (⌘K)' : undefined}
@@ -156,86 +104,29 @@ export function Sidebar({ profile, onSignOut, onCommandPalette }: SidebarProps) 
             </div>
           )}
         </button>
-
-        {/* Contextual data + output links when inside a project */}
-        {dataHref && (
-          <>
-            <div className="pt-3 pb-1">
-              <p className="text-xs font-medium text-muted-foreground px-3 uppercase tracking-wider">Current Project</p>
-            </div>
-            <Link href={dataHref}>
-              <Button
-                variant={dataActive ? 'secondary' : 'ghost'}
-                className={cn('w-full justify-start gap-3', dataActive && 'font-medium')}
-              >
-                <Database className="h-4 w-4" />
-                Data
-              </Button>
-            </Link>
-            {(() => {
-              const outputHref = `/projects/${projectId}/output`
-              const outputActive = pathname.startsWith(outputHref)
-              return (
-                <Link href={outputHref} title={collapsed ? 'Output' : undefined}>
-                  <Button
-                    variant={outputActive ? 'secondary' : 'ghost'}
-                    className={cn('w-full justify-start gap-3', outputActive && 'font-medium')}
-                  >
-                    <PackageOpen className="h-4 w-4" />
-                    {!collapsed && 'Output'}
-                  </Button>
-                </Link>
-              )
-            })()}
-          </>
-        )}
-
-        <div className="pt-3 pb-1">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-1">Institution</p>
-          {institutionItems.map(item => {
-            const Icon = item.icon
-            const active = pathname === item.href || pathname.startsWith(item.href + '/')
-            return (
-              <Link key={item.href} href={item.href}>
-                <Button
-                  variant={active ? 'secondary' : 'ghost'}
-                  className={cn('w-full justify-start gap-3', active && 'font-medium')}
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
-                </Button>
-              </Link>
-            )
-          })}
-        </div>
       </nav>
 
       {/* User + collapse controls */}
       <div className="border-t border-white/10">
-        {/* User info */}
         <div className={cn(
           'flex items-center gap-2.5 transition-all duration-200',
           collapsed ? 'px-2 py-2 justify-center' : 'px-3 py-3'
         )}>
-          <div className={cn(
-            'flex items-center justify-center rounded-full bg-[#1B3A5C] text-white text-xs font-bold flex-shrink-0',
-            'h-7 w-7'
-          )}>
+          <div className="flex items-center justify-center rounded-full bg-[#1B3A5C] text-white text-xs font-bold flex-shrink-0 h-7 w-7">
             {getInitials(profile?.full_name)}
           </div>
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white/90 truncate leading-tight">
-                {profile?.full_name ?? 'User'}
+                {profile?.full_name ?? 'Researcher'}
               </p>
-              <p className="text-xs text-[#71717A] capitalize truncate">
-                {profile?.role}
+              <p className="text-xs text-[#71717A] truncate">
+                {profile?.email ?? ''}
               </p>
             </div>
           )}
         </div>
 
-        {/* Sign out + collapse row */}
         <div className={cn(
           'flex items-center border-t border-white/5 transition-all duration-200',
           collapsed ? 'flex-col px-2 py-2 gap-1' : 'px-2 py-2 gap-1'
