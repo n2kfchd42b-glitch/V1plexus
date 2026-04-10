@@ -365,6 +365,7 @@ export interface AnalysisRun {
   status: AnalysisStatus
   error_message: string | null
   interpretation: string | null
+  user_reasoning: string | null
   created_by: string
   created_at: string
   updated_at: string

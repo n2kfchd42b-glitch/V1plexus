@@ -1,8 +1,11 @@
 "use client"
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowRight, Database } from 'lucide-react'
+import { AnimatePresence } from 'framer-motion'
 import { AnalysisCharts } from './results/AnalysisCharts'
+import { ReasoningPrompt } from './ReasoningPrompt'
 import { generatePlainLanguageSummary } from '@/lib/analysis/plainLanguage'
 import { formatRelative } from '@/lib/utils'
 import type { AnalysisResult } from '@/lib/analysis/types'
@@ -33,8 +36,11 @@ interface Props {
 }
 
 export function HubResultsPreview({ run, result, projectId }: Props) {
+  const [promptDismissed, setPromptDismissed] = useState(false)
+
   const typeInfo  = ANALYSIS_TYPES.find(t => t.type === run.analysis_type)
   const dataset   = run.dataset as { name: string } | null | undefined
+  const showPrompt = !promptDismissed && run.user_reasoning === null
 
   const statPills = Object.entries(result.summary ?? {})
     .filter(([k]) => k !== 'error')
@@ -78,6 +84,17 @@ export function HubResultsPreview({ run, result, projectId }: Props) {
           <ArrowRight className="h-3 w-3" />
         </Link>
       </div>
+
+      {/* Reasoning prompt — fades in if no note yet */}
+      <AnimatePresence>
+        {showPrompt && (
+          <ReasoningPrompt
+            runId={run.id}
+            projectId={projectId}
+            onDismiss={() => setPromptDismissed(true)}
+          />
+        )}
+      </AnimatePresence>
 
       <div className="px-6 py-5 space-y-5 flex-1">
 
