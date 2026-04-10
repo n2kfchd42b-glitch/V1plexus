@@ -775,5 +775,5 @@
   animation: slide-in-right var(--duration-normal) var(--ease-out) forwards;
 }
 .animate-fade-up {
-  animation: fade-up var(--duration-fast) var(--ease-out) forwards;
+  animation: fade-up var(--duration-fast) var(--ease-out) both;
 }
