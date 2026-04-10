@@ -102,12 +102,10 @@ export function HubResultsPreview({ run, result, projectId }: Props) {
 
         {/* Primary chart */}
         {primaryChart && (
-          <div style={{ maxHeight: '240px', overflow: 'hidden' }}>
-            <AnalysisCharts
-              charts={[primaryChart] as Parameters<typeof AnalysisCharts>[0]['charts']}
-              analysisType={run.analysis_type as AnalysisType}
-            />
-          </div>
+          <AnalysisCharts
+            charts={[primaryChart] as Parameters<typeof AnalysisCharts>[0]['charts']}
+            analysisType={run.analysis_type as AnalysisType}
+          />
         )}
 
         {/* Key finding */}
