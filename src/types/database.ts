@@ -158,6 +158,7 @@ export interface Project {
   department_id: string | null
   start_date: string | null
   end_date: string | null
+  share_token: string | null
   created_at: string
   updated_at: string
   deleted_at: string | null

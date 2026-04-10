@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { Trash2, Save, ChevronDown } from 'lucide-react'
+import { Trash2, Save, ChevronDown, Link2, Copy, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -45,6 +45,8 @@ export default function ProjectSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [shareLoading, setShareLoading] = useState(false)
+  const [shareCopied, setShareCopied] = useState(false)
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -66,6 +68,39 @@ export default function ProjectSettingsPage() {
     }
     fetchProject()
   }, [projectId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const shareUrl = project?.share_token
+    ? `${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')}/share/${project.share_token}`
+    : null
+
+  const handleGenerateShareLink = async () => {
+    setShareLoading(true)
+    const token = crypto.randomUUID()
+    const { error } = await supabase.from('projects').update({ share_token: token }).eq('id', projectId)
+    if (error) { toast.error('Failed to generate link'); setShareLoading(false); return }
+    setProject(prev => prev ? { ...prev, share_token: token } : prev)
+    logAudit('project.share_link.generated', 'project', projectId, {}, projectId)
+    toast.success('Share link generated')
+    setShareLoading(false)
+  }
+
+  const handleRevokeShareLink = async () => {
+    setShareLoading(true)
+    const { error } = await supabase.from('projects').update({ share_token: null }).eq('id', projectId)
+    if (error) { toast.error('Failed to revoke link'); setShareLoading(false); return }
+    setProject(prev => prev ? { ...prev, share_token: null } : prev)
+    logAudit('project.share_link.revoked', 'project', projectId, {}, projectId)
+    toast.success('Share link revoked')
+    setShareLoading(false)
+  }
+
+  const handleCopyShareLink = () => {
+    if (!shareUrl) return
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setShareCopied(true)
+      setTimeout(() => setShareCopied(false), 2000)
+    })
+  }
 
   const handleSave = async () => {
     if (!title.trim()) { toast.error('Project title is required'); return }
@@ -219,6 +254,56 @@ export default function ProjectSettingsPage() {
           <Save className="h-3.5 w-3.5" />
           {saving ? 'Saving…' : 'Save Changes'}
         </Button>
+      </section>
+
+      {/* Share link */}
+      <section className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-6 space-y-4">
+        <div>
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Share Timeline</h3>
+          <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
+            Generate a read-only public link to your research timeline. Anyone with the link can view it — no login required.
+            Revoking the link immediately deactivates it.
+          </p>
+        </div>
+
+        {shareUrl ? (
+          <div className="space-y-3">
+            {/* Link display */}
+            <div className="flex items-center gap-2 px-3 py-2 rounded border border-[var(--border-default)] bg-[var(--bg-app)]">
+              <Link2 className="h-3.5 w-3.5 text-[var(--text-tertiary)] flex-shrink-0" />
+              <span className="text-xs text-[var(--text-secondary)] flex-1 truncate font-mono">{shareUrl}</span>
+              <button
+                onClick={handleCopyShareLink}
+                className="flex items-center gap-1 text-xs font-medium text-[var(--accent-blue)] hover:opacity-80 flex-shrink-0"
+              >
+                {shareCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {shareCopied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+            {/* Revoke */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRevokeShareLink}
+              disabled={shareLoading}
+              className="text-red-600 border-red-200 hover:bg-red-50 gap-1.5"
+            >
+              <X className="h-3.5 w-3.5" />
+              Revoke Link
+            </Button>
+          </div>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleGenerateShareLink}
+            disabled={shareLoading}
+            className="gap-1.5"
+          >
+            <Link2 className="h-3.5 w-3.5" />
+            {shareLoading ? 'Generating…' : 'Generate Share Link'}
+          </Button>
+        )}
       </section>
 
       {/* Danger zone */}
