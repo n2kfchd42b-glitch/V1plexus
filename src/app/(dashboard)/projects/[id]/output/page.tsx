@@ -444,616 +444,367 @@ export default function OutputPage() {
   // ---------------------------------------------------------------------------
   if (authLoading || loadingDatasets) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+      <div className="page-shell">
+        <div className="px-6 pt-6 pb-4 flex-shrink-0 space-y-3">
+          <div className="skeleton h-5 w-20 rounded" />
+          <div className="skeleton h-3 w-48 rounded" />
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="p-8 min-h-screen" style={{ background: '#f7f9fb' }}>
-      {/* PAGE HEADER */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-1">
-          <div
-            className="h-9 w-9 rounded-lg flex items-center justify-center"
-            style={{ background: 'var(--bg-inset, #f1f5f9)' }}
-          >
-            <PackageOpen className="h-5 w-5" style={{ color: '#003d9b' }} />
-          </div>
+    <div className="page-shell">
+
+      {/* Page header */}
+      <div className="px-6 pt-6 pb-4 flex-shrink-0">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="font-manrope text-3xl font-extrabold text-[#191c1e] tracking-tight">
-              Research Output
-            </h1>
-            <p className="text-sm text-slate-500 mt-0.5">
-              Prepare your dataset for submission — checklists, methods text, and submission packages
+            <h1 className="page-title">Report</h1>
+            <p className="text-xs text-[var(--text-tertiary)] mt-1">
+              Reporting checklist, methods text, and submission package
             </p>
           </div>
-        </div>
-
-        {/* Dataset + Version selectors */}
-        <div className="mt-4 flex flex-wrap gap-3 items-center">
-          <select
-            value={selectedDatasetId}
-            onChange={e => setSelectedDatasetId(e.target.value)}
-            className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#003d9b]/20"
-          >
-            {datasets.length === 0 && <option value="">No datasets</option>}
-            {datasets.map(d => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
-          </select>
-
-          <select
-            value={selectedVersionId}
-            onChange={e => setSelectedVersionId(e.target.value)}
-            className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#003d9b]/20"
-          >
-            {versions.length === 0 && <option value="">No versions</option>}
-            {versions.map(v => (
-              <option key={v.id} value={v.id}>
-                v{v.version_number} ({v.row_count?.toLocaleString() ?? '?'} rows)
-              </option>
-            ))}
-          </select>
+          {/* Dataset + Version selectors */}
+          <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+            <select
+              value={selectedDatasetId}
+              onChange={e => setSelectedDatasetId(e.target.value)}
+              className="text-xs border border-[var(--border-strong)] rounded px-2.5 py-1.5 bg-white text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-blue)]/30"
+            >
+              {datasets.length === 0 && <option value="">No datasets</option>}
+              {datasets.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+            <select
+              value={selectedVersionId}
+              onChange={e => setSelectedVersionId(e.target.value)}
+              className="text-xs border border-[var(--border-strong)] rounded px-2.5 py-1.5 bg-white text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-blue)]/30"
+            >
+              {versions.length === 0 && <option value="">No versions</option>}
+              {versions.map(v => (
+                <option key={v.id} value={v.id}>
+                  v{v.version_number} ({v.row_count?.toLocaleString() ?? '?'} rows)
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
-      {!selectedVersionId && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center mb-8">
-          <AlertCircle className="h-8 w-8 text-amber-500 mx-auto mb-2" />
-          <p className="text-sm text-amber-700 font-medium">
-            Select a dataset and version above to get started
-          </p>
-        </div>
-      )}
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto border-t border-[var(--border-row)]">
 
-      {/* THREE CARD ROW */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        {/* CARD 1: Reporting Checklist */}
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <ClipboardList className="h-4 w-4 text-[#003d9b]" />
-            <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
-              Reporting Checklist
-            </span>
+        {!selectedVersionId && (
+          <div className="px-6 py-4 flex items-center gap-2 bg-amber-50 border-b border-amber-100">
+            <AlertCircle className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
+            <p className="text-xs text-amber-700">Select a dataset and version above to get started.</p>
           </div>
+        )}
 
-          {checklist ? (
-            <div>
-              {/* Completion ring */}
-              <div className="flex items-center gap-4 mb-3">
-                <div className="relative h-16 w-16 flex-shrink-0">
-                  <svg className="h-16 w-16 -rotate-90" viewBox="0 0 64 64">
-                    <circle cx="32" cy="32" r="26" fill="none" stroke="#f1f5f9" strokeWidth="8" />
-                    <circle
-                      cx="32" cy="32" r="26"
-                      fill="none"
-                      stroke="#003d9b"
-                      strokeWidth="8"
-                      strokeDasharray={`${2 * Math.PI * 26}`}
-                      strokeDashoffset={`${2 * Math.PI * 26 * (1 - completionPct / 100)}`}
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-xs font-bold text-[#003d9b]">{completionPct}%</span>
-                  </div>
-                </div>
-                <div className="text-xs text-slate-600 space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-green-600 inline-block" />
-                    {checklist.auto_populated} auto-populated
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-blue-600 inline-block" />
-                    {checklist.manually_completed} manual
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
-                    {checklist.incomplete} incomplete
-                  </div>
-                </div>
-              </div>
-              {checklist.submission_ready && (
-                <div className="bg-green-50 text-green-700 text-xs font-semibold px-2 py-1 rounded-md inline-flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3" /> Submission Ready
-                </div>
+        {/* ── 1. Reporting Checklist ───────────────────────────────── */}
+        <div>
+          <div className="px-6 py-3 flex items-center justify-between border-b border-[var(--border-row)]">
+            <div className="flex items-center gap-3">
+              <ClipboardList className="h-3.5 w-3.5 text-[var(--text-tertiary)]" />
+              <span className="text-xs font-medium text-[var(--text-primary)]">Reporting Checklist</span>
+              {checklist && (
+                <span className="data-mono-xs text-[var(--text-tertiary)]">
+                  {completionPct}% · {checklist.incomplete} incomplete
+                </span>
+              )}
+              {checklist?.submission_ready && (
+                <span className="flex items-center gap-1 text-[10px] font-medium text-[var(--timeline-verified)]">
+                  <CheckCircle2 className="h-3 w-3" /> Ready
+                </span>
               )}
             </div>
-          ) : (
-            <div>
-              <p className="text-xs text-slate-500 mb-3">
-                Auto-generate your {activeGuideline} reporting checklist from project data
-              </p>
-              <div className="flex flex-wrap gap-1.5 mb-3">
+            <div className="flex items-center gap-2">
+              {/* Guideline tabs */}
+              <div className="flex gap-1">
                 {GUIDELINES.map(g => (
-                  <button
-                    key={g}
-                    onClick={() => setActiveGuideline(g)}
-                    className={`text-xs px-2.5 py-1 rounded-full font-semibold transition-all ${
+                  <button key={g} onClick={() => setActiveGuideline(g)}
+                    className={`text-[10px] px-2 py-0.5 rounded font-medium transition-colors ${
                       g === activeGuideline
-                        ? 'bg-[#003d9b] text-white'
-                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                        ? 'bg-[var(--accent-blue)] text-white'
+                        : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
                     }`}
-                  >
-                    {g}
-                  </button>
+                  >{g}</button>
                 ))}
               </div>
               <button
                 onClick={handleGenerateChecklist}
                 disabled={generatingChecklist || !selectedVersionId}
-                className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-[#003d9b] text-white text-xs font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 transition-all"
+                className="flex items-center gap-1 text-xs px-2.5 py-1 rounded border border-[var(--border-strong)] text-[var(--text-secondary)] hover:bg-[var(--bg-row-hover)] disabled:opacity-50 transition-colors"
               >
-                {generatingChecklist ? (
-                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Generating...</>
-                ) : (
-                  <><ClipboardList className="h-3.5 w-3.5" /> Generate Checklist</>
-                )}
+                {generatingChecklist
+                  ? <><Loader2 className="h-3 w-3 animate-spin" /> Generating…</>
+                  : <><RefreshCw className="h-3 w-3" /> {checklist ? 'Regenerate' : 'Generate'}</>
+                }
               </button>
             </div>
-          )}
-        </div>
-
-        {/* CARD 2: Methods Statement */}
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <FileText className="h-4 w-4 text-[#003d9b]" />
-            <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
-              Methods Statement
-            </span>
           </div>
 
-          {methods ? (
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-slate-700">
-                  {methods.word_count} words
-                </span>
-                <button
-                  onClick={handleCopyMethods}
-                  className="flex items-center gap-1 text-xs text-[#003d9b] hover:opacity-80 font-semibold"
-                >
-                  {copiedMethods ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                  {copiedMethods ? 'Copied!' : 'Copy'}
-                </button>
+          {checklist && (
+            <>
+              {/* Progress bar */}
+              <div className="px-6 py-2 border-b border-[var(--border-row)]">
+                <div className="h-1 bg-[var(--bg-row-hover)] rounded-full overflow-hidden">
+                  <div className="h-full bg-[var(--accent-blue)] rounded-full transition-all duration-500"
+                    style={{ width: `${completionPct}%` }} />
+                </div>
               </div>
-              <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed">
-                {methods.full_text.slice(0, 200)}...
-              </p>
-            </div>
-          ) : (
-            <div>
-              <p className="text-xs text-slate-500 mb-3">
-                Auto-generate ready-to-paste methods text from your project data
-              </p>
-              <button
-                onClick={handleGenerateMethods}
-                disabled={generatingMethods || !selectedVersionId}
-                className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-[#003d9b] text-white text-xs font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 transition-all"
-              >
-                {generatingMethods ? (
-                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Generating...</>
-                ) : (
-                  <><FileText className="h-3.5 w-3.5" /> Generate Methods</>
-                )}
-              </button>
-            </div>
-          )}
-        </div>
 
-        {/* CARD 3: Verification Token */}
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Link2 className="h-4 w-4 text-[#003d9b]" />
-            <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
-              Verification Token
-            </span>
-          </div>
+              {/* Sections */}
+              {Object.entries(groupedItems).map(([section, items]) => {
+                const isExpanded = expandedSections.has(section)
+                const sectionIncomplete = items.filter(i => i.status === 'incomplete').length
+                return (
+                  <div key={section} className="border-b border-[var(--border-row)] last:border-0">
+                    <button
+                      onClick={() => toggleSection(section)}
+                      className="w-full flex items-center justify-between px-6 py-2.5 hover:bg-[var(--bg-row-hover)] transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        {isExpanded
+                          ? <ChevronDown className="h-3.5 w-3.5 text-[var(--text-tertiary)]" />
+                          : <ChevronRight className="h-3.5 w-3.5 text-[var(--text-tertiary)]" />}
+                        <span className="text-xs font-medium text-[var(--text-primary)]">{section}</span>
+                        <span className="data-mono-xs text-[var(--text-tertiary)]">{items.length} items</span>
+                      </div>
+                      {sectionIncomplete > 0 && (
+                        <span className="text-[10px] text-[var(--timeline-warning)]">{sectionIncomplete} incomplete</span>
+                      )}
+                    </button>
 
-          {activeToken ? (
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <code
-                  className="text-xs font-bold text-[#003d9b] bg-blue-50 px-2 py-1 rounded font-mono tracking-wider"
-                  style={{ fontFamily: 'JetBrains Mono, Menlo, monospace' }}
-                >
-                  {activeToken.token}
-                </code>
-                <button onClick={handleCopyToken} className="text-slate-400 hover:text-[#003d9b]">
-                  {copiedToken ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                </button>
-              </div>
-              <p className="text-xs text-slate-400">
-                Expires {new Date(activeToken.expires_at).toLocaleDateString()}
-                {' · '}
-                {activeToken.view_count} views
-              </p>
-            </div>
-          ) : (
-            <div>
-              <p className="text-xs text-slate-500 mb-3">
-                Create a PLX-VRF token for third-party verification of this dataset
-              </p>
-              <button
-                onClick={handleCreateToken}
-                disabled={creatingToken || !selectedVersionId}
-                className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-[#003d9b] text-white text-xs font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 transition-all"
-              >
-                {creatingToken ? (
-                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Creating...</>
-                ) : (
-                  <><Link2 className="h-3.5 w-3.5" /> Create Token</>
-                )}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* REPORTING CHECKLIST SECTION */}
-      {checklist && (
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm mb-8">
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
-            <div>
-              <h2 className="font-semibold text-[#191c1e]">{checklist.guideline} Reporting Checklist</h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                {checklist.total_items} items · {checklist.auto_populated} auto-populated · {checklist.incomplete} need attention
-              </p>
-            </div>
-            <div className="flex items-center gap-3 flex-wrap">
-              {/* Guideline tabs */}
-              <div className="flex gap-1.5">
-                {GUIDELINES.map(g => (
-                  <button
-                    key={g}
-                    onClick={() => setActiveGuideline(g)}
-                    className={`text-xs px-3 py-1 rounded-full font-semibold transition-all ${
-                      g === activeGuideline
-                        ? 'bg-[#003d9b] text-white'
-                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                    }`}
-                  >
-                    {g}
-                  </button>
-                ))}
-              </div>
-              <button
-                onClick={handleGenerateChecklist}
-                disabled={generatingChecklist}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-slate-200 rounded-lg text-slate-600 hover:border-[#003d9b]/30 hover:text-[#003d9b] disabled:opacity-50 transition-all"
-              >
-                <RefreshCw className={`h-3 w-3 ${generatingChecklist ? 'animate-spin' : ''}`} />
-                Regenerate
-              </button>
-              {checklist.submission_ready && (
-                <span className="text-xs bg-green-50 text-green-700 px-2.5 py-1 rounded-full font-semibold border border-green-200">
-                  Submission Ready
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Progress bar */}
-          <div className="px-6 py-3 border-b border-slate-100">
-            <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5">
-              <span>Completion</span>
-              <span>{completionPct}%</span>
-            </div>
-            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#003d9b] rounded-full transition-all duration-500"
-                style={{ width: `${completionPct}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Items grouped by section */}
-          <div className="divide-y divide-slate-100">
-            {Object.entries(groupedItems).map(([section, items]) => {
-              const isExpanded = expandedSections.has(section)
-              const sectionIncomplete = items.filter(i => i.status === 'incomplete').length
-              return (
-                <div key={section}>
-                  <button
-                    onClick={() => toggleSection(section)}
-                    className="w-full flex items-center justify-between px-6 py-3.5 hover:bg-slate-50 transition-colors text-left"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      {isExpanded
-                        ? <ChevronDown className="h-4 w-4 text-slate-400" />
-                        : <ChevronRight className="h-4 w-4 text-slate-400" />}
-                      <span className="text-sm font-semibold text-[#191c1e]">{section}</span>
-                      <span className="text-xs text-slate-400">({items.length} items)</span>
-                    </div>
-                    {sectionIncomplete > 0 && (
-                      <span className="text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-semibold">
-                        {sectionIncomplete} incomplete
-                      </span>
-                    )}
-                  </button>
-
-                  {isExpanded && (
-                    <div className="px-6 pb-4 space-y-3">
-                      {items.map(item => (
-                        <div
-                          key={item.item_id}
-                          className="border border-slate-100 rounded-lg p-4 bg-slate-50/50"
-                        >
-                          <div className="flex items-start gap-3">
-                            {STATUS_ICONS[item.status]}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-xs font-bold text-slate-500">
-                                  Item {item.item_number}
-                                </span>
-                                <span
-                                  className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                                  style={{
-                                    background: STATUS_COLORS[item.status] + '18',
-                                    color: STATUS_COLORS[item.status],
-                                  }}
-                                >
-                                  {item.status.replace('_', ' ')}
-                                  {item.auto_populated_confidence && ` (${item.auto_populated_confidence})`}
-                                </span>
-                              </div>
-                              <p className="text-xs font-medium text-[#191c1e] mb-2">
-                                {item.requirement}
-                              </p>
-
-                              {/* Auto-populated response */}
-                              {item.status === 'auto_populated' && item.response && (
-                                <div className="bg-green-50 border border-green-100 rounded-md p-2.5 mb-2">
-                                  <p className="text-xs text-green-800">{item.response}</p>
-                                  {item.source && (
-                                    <p className="text-xs text-green-600 mt-1 font-mono">
-                                      Source: {item.source}
-                                    </p>
-                                  )}
+                    {isExpanded && (
+                      <div className="px-6 pb-3 space-y-2">
+                        {items.map(item => (
+                          <div key={item.item_id} className="py-2 border-b border-[var(--border-row)] last:border-0">
+                            <div className="flex items-start gap-2.5">
+                              {STATUS_ICONS[item.status]}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="data-mono-xs text-[var(--text-tertiary)]">#{item.item_number}</span>
+                                  <span className="text-[10px] font-medium"
+                                    style={{ color: STATUS_COLORS[item.status] }}>
+                                    {item.status.replace('_', ' ')}
+                                  </span>
                                 </div>
-                              )}
+                                <p className="text-xs text-[var(--text-primary)] leading-snug mb-1.5">{item.requirement}</p>
 
-                              {/* Manual textarea for incomplete items */}
-                              {item.status === 'incomplete' && (
-                                <textarea
-                                  defaultValue={item.response || ''}
-                                  placeholder="Enter your response..."
-                                  rows={3}
-                                  className="w-full text-xs border border-slate-200 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-[#003d9b]/20 resize-none"
-                                  onBlur={e => {
-                                    const newResponse = e.target.value.trim()
-                                    if (newResponse && newResponse !== (item.response || '')) {
-                                      handleUpdateItem(item.item_id, {
-                                        status: 'manually_completed',
-                                        response: newResponse,
-                                      })
-                                    }
-                                  }}
-                                />
-                              )}
+                                {item.status === 'auto_populated' && item.response && (
+                                  <div className="surface-inset rounded px-3 py-2 mb-1.5">
+                                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{item.response}</p>
+                                    {item.source && (
+                                      <p className="data-mono-xs text-[var(--text-tertiary)] mt-1">Source: {item.source}</p>
+                                    )}
+                                  </div>
+                                )}
 
-                              {/* Page reference input */}
-                              <div className="flex items-center gap-3 mt-2">
-                                <input
-                                  type="text"
-                                  defaultValue={item.page_reference || ''}
-                                  placeholder="Page reference (optional)"
-                                  className="text-xs border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#003d9b]/20 w-40"
-                                  onBlur={e => {
-                                    if (e.target.value !== (item.page_reference || '')) {
-                                      handleUpdateItem(item.item_id, {
-                                        ...item,
-                                        page_reference: e.target.value,
-                                      })
-                                    }
-                                  }}
-                                />
-                                <label className="flex items-center gap-1.5 cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    defaultChecked={item.verified}
-                                    className="h-3.5 w-3.5 rounded"
-                                    onChange={e => {
-                                      handleUpdateItem(item.item_id, {
-                                        ...item,
-                                        verified: e.target.checked,
-                                      })
+                                {item.status === 'incomplete' && (
+                                  <textarea
+                                    defaultValue={item.response || ''}
+                                    placeholder="Enter your response…"
+                                    rows={2}
+                                    className="w-full text-xs border border-[var(--border-strong)] rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-[var(--accent-blue)]/30 resize-none bg-white"
+                                    onBlur={e => {
+                                      const v = e.target.value.trim()
+                                      if (v && v !== (item.response || ''))
+                                        handleUpdateItem(item.item_id, { status: 'manually_completed', response: v })
                                     }}
                                   />
-                                  <span className="text-xs text-slate-500">Verified</span>
-                                </label>
+                                )}
+
+                                <div className="flex items-center gap-3 mt-1.5">
+                                  <input type="text" defaultValue={item.page_reference || ''}
+                                    placeholder="Page ref (optional)"
+                                    className="text-xs border border-[var(--border-strong)] rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[var(--accent-blue)]/30 w-36 bg-white"
+                                    onBlur={e => {
+                                      if (e.target.value !== (item.page_reference || ''))
+                                        handleUpdateItem(item.item_id, { ...item, page_reference: e.target.value })
+                                    }}
+                                  />
+                                  <label className="flex items-center gap-1 cursor-pointer">
+                                    <input type="checkbox" defaultChecked={item.verified}
+                                      className="h-3 w-3 rounded accent-[var(--accent-blue)]"
+                                      onChange={e => handleUpdateItem(item.item_id, { ...item, verified: e.target.checked })}
+                                    />
+                                    <span className="text-xs text-[var(--text-tertiary)]">Verified</span>
+                                  </label>
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+
+              {/* Checklist footer */}
+              <div className="px-6 py-3 border-t border-[var(--border-row)] flex items-center justify-between">
+                <span className="text-xs text-[var(--text-tertiary)]">
+                  {checklist.incomplete} item{checklist.incomplete !== 1 ? 's' : ''} need attention
+                </span>
+                <button onClick={() => window.print()}
+                  className="flex items-center gap-1.5 text-xs text-[var(--accent-blue)] hover:underline">
+                  <Download className="h-3 w-3" /> Export PDF
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* ── 2. Methods Statement ─────────────────────────────────── */}
+        <div className="border-t border-[var(--border-row)]">
+          <div className="px-6 py-3 flex items-center justify-between border-b border-[var(--border-row)]">
+            <div className="flex items-center gap-3">
+              <FileText className="h-3.5 w-3.5 text-[var(--text-tertiary)]" />
+              <span className="text-xs font-medium text-[var(--text-primary)]">Methods Statement</span>
+              {methods && (
+                <span className="data-mono-xs text-[var(--text-tertiary)]">{methods.word_count} words</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {methods && (
+                <button onClick={handleCopyMethods}
+                  className="flex items-center gap-1 text-xs text-[var(--accent-blue)] hover:underline">
+                  {copiedMethods ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  {copiedMethods ? 'Copied' : 'Copy'}
+                </button>
+              )}
+              <button
+                onClick={handleGenerateMethods}
+                disabled={generatingMethods || !selectedVersionId}
+                className="flex items-center gap-1 text-xs px-2.5 py-1 rounded border border-[var(--border-strong)] text-[var(--text-secondary)] hover:bg-[var(--bg-row-hover)] disabled:opacity-50 transition-colors"
+              >
+                {generatingMethods
+                  ? <><Loader2 className="h-3 w-3 animate-spin" /> Generating…</>
+                  : <><RefreshCw className="h-3 w-3" /> {methods ? 'Regenerate' : 'Generate'}</>
+                }
+              </button>
+            </div>
           </div>
 
-          {/* Footer */}
-          <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
-            <div>
-              {checklist.submission_ready ? (
-                <span className="text-xs bg-green-50 text-green-700 px-3 py-1.5 rounded-full font-semibold border border-green-200 flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Ready for submission
-                </span>
-              ) : (
-                <span className="text-xs text-slate-400">
-                  {checklist.incomplete} item{checklist.incomplete !== 1 ? 's' : ''} still need attention
+          {methods && (
+            <div className="px-6 py-5 space-y-4">
+              {Object.entries(methods.sections).map(([key, text]) => (
+                <div key={key}>
+                  <p className="subsection-label mb-1">{key.replace(/_/g, ' ')}</p>
+                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{text}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── 3. Verification Token ────────────────────────────────── */}
+        <div className="border-t border-[var(--border-row)]">
+          <div className="px-6 py-3 flex items-center justify-between border-b border-[var(--border-row)]">
+            <div className="flex items-center gap-3">
+              <Link2 className="h-3.5 w-3.5 text-[var(--text-tertiary)]" />
+              <span className="text-xs font-medium text-[var(--text-primary)]">Verification Token</span>
+              {activeToken && (
+                <span className="data-mono-xs text-[var(--text-tertiary)]">
+                  {activeToken.view_count} views · expires {new Date(activeToken.expires_at).toLocaleDateString()}
                 </span>
               )}
             </div>
+            {!activeToken && (
+              <button
+                onClick={handleCreateToken}
+                disabled={creatingToken || !selectedVersionId}
+                className="flex items-center gap-1 text-xs px-2.5 py-1 rounded border border-[var(--border-strong)] text-[var(--text-secondary)] hover:bg-[var(--bg-row-hover)] disabled:opacity-50 transition-colors"
+              >
+                {creatingToken ? <><Loader2 className="h-3 w-3 animate-spin" /> Creating…</> : 'Create Token'}
+              </button>
+            )}
+          </div>
+
+          {activeToken && (
+            <div className="px-6 py-3 flex items-center gap-3">
+              <code className="data-mono-xs text-[var(--accent-blue)] bg-blue-50 px-2.5 py-1 rounded">
+                {activeToken.token}
+              </code>
+              <button onClick={handleCopyToken}
+                className="text-[var(--text-tertiary)] hover:text-[var(--accent-blue)] transition-colors">
+                {copiedToken ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* ── 4. Output Package ────────────────────────────────────── */}
+        <div className="border-t border-[var(--border-row)]">
+          <div className="px-6 py-3 flex items-center justify-between border-b border-[var(--border-row)]">
+            <div className="flex items-center gap-3">
+              <Package className="h-3.5 w-3.5 text-[var(--text-tertiary)]" />
+              <span className="text-xs font-medium text-[var(--text-primary)]">Output Package</span>
+              <span className="data-mono-xs text-[var(--text-tertiary)]">{selectedComponents.size} components selected</span>
+            </div>
             <button
-              onClick={() => window.print()}
-              className="text-xs flex items-center gap-1.5 text-slate-500 hover:text-[#003d9b] font-semibold transition-colors"
+              onClick={handleGeneratePackage}
+              disabled={generatingPackage || !selectedVersionId || selectedComponents.size === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white bg-[var(--accent-blue)] hover:opacity-90 transition-opacity disabled:opacity-50"
             >
-              <Download className="h-3.5 w-3.5" />
-              Export Checklist PDF
+              {generatingPackage
+                ? <><Loader2 className="h-3 w-3 animate-spin" /> Generating…</>
+                : <><Package className="h-3 w-3" /> Generate Package</>
+              }
             </button>
           </div>
-        </div>
-      )}
 
-      {/* METHODS STATEMENT SECTION */}
-      {methods && (
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm mb-8">
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-            <div>
-              <h2 className="font-semibold text-[#191c1e]">Methods Statement</h2>
-              <p className="text-xs text-slate-400 mt-0.5">{methods.word_count} words · 5 sections</p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleCopyMethods}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-slate-200 rounded-lg text-slate-600 hover:border-[#003d9b]/30 hover:text-[#003d9b] transition-all"
-              >
-                {copiedMethods ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                {copiedMethods ? 'Copied!' : 'Copy All'}
-              </button>
-              <button
-                onClick={handleGenerateMethods}
-                disabled={generatingMethods}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-slate-200 rounded-lg text-slate-600 hover:border-[#003d9b]/30 hover:text-[#003d9b] disabled:opacity-50 transition-all"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${generatingMethods ? 'animate-spin' : ''}`} />
-                Regenerate
-              </button>
-            </div>
-          </div>
-          <div className="p-6 space-y-4">
-            {Object.entries(methods.sections).map(([key, text]) => (
-              <div key={key}>
-                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                  {key.replace(/_/g, ' ')}
-                </h3>
-                <p className="text-sm text-slate-700 leading-relaxed">{text}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* OUTPUT PACKAGE SECTION */}
-      <div className="bg-white rounded-xl border border-slate-100 shadow-sm">
-        <div className="px-6 py-4 border-b border-slate-100">
-          <h2 className="font-semibold text-[#191c1e] flex items-center gap-2">
-            <Package className="h-4 w-4 text-[#003d9b]" />
-            Output Package
-          </h2>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Select components and generate a submission-ready .zip package
-          </p>
-        </div>
-
-        {/* Component selector grid */}
-        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-2">
+          {/* Component rows */}
           {PACKAGE_COMPONENTS.map(component => {
             const isSelected = selectedComponents.has(component.id)
             return (
-              <label
-                key={component.id}
-                className={`flex items-start gap-3 p-3.5 rounded-lg border-2 cursor-pointer transition-all ${
-                  isSelected
-                    ? 'border-[#003d9b] bg-blue-50/50'
-                    : 'border-slate-100 hover:border-slate-200'
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => toggleComponent(component.id)}
-                  className="mt-0.5 h-4 w-4 rounded accent-[#003d9b]"
-                />
+              <label key={component.id}
+                className="flex items-center gap-3 px-6 py-2.5 border-b border-[var(--border-row)] last:border-0 hover:bg-[var(--bg-row-hover)] cursor-pointer transition-colors">
+                <input type="checkbox" checked={isSelected} onChange={() => toggleComponent(component.id)}
+                  className="h-3.5 w-3.5 rounded accent-[var(--accent-blue)] flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-[#191c1e]">{component.label}</p>
-                  <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
-                    {component.description}
-                  </p>
-                  <span className="inline-block mt-1.5 text-xs bg-green-50 text-green-700 px-1.5 py-0.5 rounded font-semibold">
-                    Available
-                  </span>
+                  <p className="text-xs font-medium text-[var(--text-primary)]">{component.label}</p>
+                  <p className="data-mono-xs text-[var(--text-tertiary)] mt-0.5">{component.description}</p>
                 </div>
+                <span className="text-[10px] font-medium text-[var(--timeline-verified)]">Available</span>
               </label>
             )
           })}
-        </div>
 
-        {/* Generate button */}
-        <div className="px-6 pb-6">
-          <button
-            onClick={handleGeneratePackage}
-            disabled={generatingPackage || !selectedVersionId || selectedComponents.size === 0}
-            className="w-full flex items-center justify-center gap-2 py-3 px-6 bg-gradient-to-br from-[#003d9b] to-[#0052cc] text-white font-semibold rounded-xl shadow-lg hover:opacity-90 active:scale-[0.99] disabled:opacity-50 transition-all"
-          >
-            {generatingPackage ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Generating Submission Package...
-              </>
-            ) : (
-              <>
-                <Package className="h-5 w-5" />
-                Generate Submission Package ({selectedComponents.size} components)
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* Latest package status */}
-        {latestPackage && (
-          <div className="px-6 pb-6 border-t border-slate-100 pt-4">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span
-                    className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                      latestPackage.status === 'ready'
-                        ? 'bg-green-50 text-green-700'
-                        : latestPackage.status === 'failed'
-                        ? 'bg-red-50 text-red-700'
-                        : 'bg-amber-50 text-amber-700'
-                    }`}
-                  >
-                    {latestPackage.status === 'ready'
-                      ? 'Ready'
-                      : latestPackage.status === 'failed'
-                      ? 'Failed'
-                      : 'Generating...'}
-                  </span>
-                  <span className="text-xs text-slate-400">
-                    Generated {new Date(latestPackage.generated_at).toLocaleString()}
-                  </span>
-                </div>
+          {/* Latest package status */}
+          {latestPackage && (
+            <div className="px-6 py-3 border-t border-[var(--border-row)] flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className={`status-dot ${
+                  latestPackage.status === 'ready' ? 'status-dot--verified'
+                  : latestPackage.status === 'failed' ? 'status-dot--flagged'
+                  : 'status-dot--warning'
+                }`} />
+                <span className="text-xs text-[var(--text-secondary)]">
+                  {latestPackage.status === 'ready' ? 'Package ready'
+                    : latestPackage.status === 'failed' ? 'Generation failed'
+                    : 'Generating…'}
+                </span>
                 {latestPackage.package_hash && (
-                  <p className="text-xs text-slate-400 font-mono">
-                    SHA-256: {latestPackage.package_hash.slice(0, 32)}...
-                  </p>
+                  <span className="data-mono-xs text-[var(--text-tertiary)] hidden sm:inline">
+                    SHA-256: {latestPackage.package_hash.slice(0, 16)}…
+                  </span>
                 )}
               </div>
               {latestPackage.status === 'ready' && (
-                <a
-                  href={`/api/output/package/${latestPackage.id}/download`}
-                  className="flex items-center gap-2 text-xs font-semibold px-4 py-2 bg-[#003d9b] text-white rounded-lg hover:opacity-90 transition-all"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Download Package
+                <a href={`/api/output/package/${latestPackage.id}/download`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white bg-[var(--accent-blue)] hover:opacity-90 transition-opacity">
+                  <Download className="h-3 w-3" /> Download
                 </a>
               )}
               {latestPackage.status === 'generating' && (
-                <div className="flex items-center gap-2 text-xs text-amber-600">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Preparing files...
-                </div>
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--timeline-warning)]" />
               )}
             </div>
-          </div>
-        )}
+          )}
+        </div>
+
       </div>
     </div>
   )
