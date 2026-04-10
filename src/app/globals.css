@@ -174,6 +174,22 @@
     --color-clinical-bg:      #FFFFFF;
     --color-clinical-surface: #F8FAFC;
     --radius-clinical: 0.5rem;
+
+    /* ── V1 Row-based Layout System ─────────────────────────────────────── */
+    --bg-row-hover:  #F7F7F8;
+    --bg-row-active: #F0F0F2;
+    --border-row:    #EFEFEF;
+
+    /* ── Timeline Status ─────────────────────────────────────────────────── */
+    --timeline-verified: #22C55E;
+    --timeline-warning:  #F59E0B;
+    --timeline-flagged:  #EF4444;
+    --timeline-neutral:  #A1A1AA;
+
+    /* ── Context Panel ───────────────────────────────────────────────────── */
+    --panel-width:  320px;
+    --panel-bg:     #FFFFFF;
+    --panel-border: #EBEBEB;
   }
 
   .dark {
@@ -495,4 +511,259 @@
   );
   background-size: 200% auto;
   animation: shimmer-progress 3s linear infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   V1 DESIGN SYSTEM — Row-based, No-card, Instrument UI
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Row-based List Items ──────────────────────────────────────────────── */
+
+/* Standard list row — replaces card grids everywhere */
+.row-item {
+  display: flex;
+  align-items: center;
+  padding: 0.625rem 1.25rem;
+  border-bottom: 1px solid var(--border-row);
+  transition: background-color var(--duration-fast) var(--ease-out);
+  cursor: pointer;
+  min-height: 48px;
+}
+.row-item:hover {
+  background-color: var(--bg-row-hover);
+}
+.row-item:last-child {
+  border-bottom: none;
+}
+
+/* Row actions — hidden at rest, revealed on hover */
+.row-action {
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+.row-item:hover .row-action {
+  opacity: 1;
+}
+
+/* Compact row variant — for dense lists like previous runs */
+.row-item-sm {
+  display: flex;
+  align-items: center;
+  padding: 0.375rem 1rem;
+  border-bottom: 1px solid var(--border-row);
+  transition: background-color var(--duration-fast) var(--ease-out);
+  cursor: pointer;
+  min-height: 36px;
+}
+.row-item-sm:hover {
+  background-color: var(--bg-row-hover);
+}
+.row-item-sm:last-child {
+  border-bottom: none;
+}
+.row-item-sm:hover .row-action {
+  opacity: 1;
+}
+
+/* ─── Section Labels ────────────────────────────────────────────────────── */
+
+/* Day/group dividers — like Notion's date headers or GitHub's commit groups */
+.section-label {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 1rem 1.25rem 0.375rem;
+  border-bottom: 1px solid var(--border-row);
+  background-color: var(--bg-app);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* Inline subsection label — non-sticky, used within panels */
+.subsection-label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.5rem 0 0.25rem;
+}
+
+/* ─── Monospace Data Values ─────────────────────────────────────────────── */
+
+/* All numbers, p-values, hashes, statistics — always mono + tabular */
+.data-mono {
+  font-family: var(--font-mono, 'Geist Mono', monospace);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-sm);
+  letter-spacing: -0.01em;
+}
+.data-mono-xs {
+  font-family: var(--font-mono, 'Geist Mono', monospace);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-xs);
+  letter-spacing: -0.01em;
+}
+
+/* ─── Timeline Status Dots ──────────────────────────────────────────────── */
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+  display: inline-block;
+}
+.status-dot--verified { background-color: var(--timeline-verified); }
+.status-dot--warning  { background-color: var(--timeline-warning);  }
+.status-dot--flagged  { background-color: var(--timeline-flagged);  }
+.status-dot--neutral  { background-color: var(--timeline-neutral);  }
+
+/* Larger dot variant for the verification bar */
+.status-dot-md {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+  display: inline-block;
+}
+.status-dot-md--verified { background-color: var(--timeline-verified); }
+.status-dot-md--warning  { background-color: var(--timeline-warning);  }
+.status-dot-md--flagged  { background-color: var(--timeline-flagged);  }
+
+/* ─── Page Shell ────────────────────────────────────────────────────────── */
+
+/* Standard full-height content area with app background */
+.page-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background-color: var(--bg-app);
+}
+
+/* Page header — title + primary action, flush to top */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem 1rem;
+  flex-shrink: 0;
+  background-color: var(--bg-app);
+}
+
+/* Standard page title */
+.page-title {
+  font-size: var(--text-lg);
+  font-weight: 500;
+  color: var(--text-primary);
+  letter-spacing: var(--tracking-tight);
+}
+
+/* ─── Context Panel (right slide-in) ────────────────────────────────────── */
+
+.context-panel {
+  width: var(--panel-width);
+  min-width: var(--panel-width);
+  flex-shrink: 0;
+  border-left: 1px solid var(--panel-border);
+  background-color: var(--panel-bg);
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Panel inner padding */
+.context-panel-body {
+  padding: 1.25rem;
+}
+
+/* Panel section separator */
+.context-panel-divider {
+  height: 1px;
+  background-color: var(--panel-border);
+  margin: 1rem 0;
+}
+
+/* ─── Borderless Surface ────────────────────────────────────────────────── */
+
+/* Replaces shadowed cards — border-only container */
+.surface {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+/* Surface with subtle inset background */
+.surface-inset {
+  background-color: var(--bg-inset);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+}
+
+/* ─── Empty States ──────────────────────────────────────────────────────── */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  text-align: center;
+}
+.empty-state-icon {
+  color: var(--text-tertiary);
+  margin-bottom: 0.75rem;
+  opacity: 0.5;
+}
+.empty-state-title {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+.empty-state-description {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  margin-bottom: 1.25rem;
+  max-width: 280px;
+  line-height: var(--leading-relaxed);
+}
+
+/* ─── Verification Status Inline Labels ─────────────────────────────────── */
+
+.status-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+.status-label--verified { color: var(--timeline-verified); }
+.status-label--warning  { color: var(--timeline-warning);  }
+.status-label--flagged  { color: var(--timeline-flagged);  }
+.status-label--neutral  { color: var(--timeline-neutral);  }
+
+/* ─── New Keyframes ─────────────────────────────────────────────────────── */
+
+/* Right context panel slide-in */
+@keyframes slide-in-right {
+  from { transform: translateX(var(--panel-width)); opacity: 0; }
+  to   { transform: translateX(0);                 opacity: 1; }
+}
+
+/* Staggered list item entrance */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right var(--duration-normal) var(--ease-out) forwards;
+}
+.animate-fade-up {
+  animation: fade-up var(--duration-fast) var(--ease-out) forwards;
 }

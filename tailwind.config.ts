@@ -136,6 +136,18 @@ const config: Config = {
         'phase-analysis':    '#EC4899',
         'phase-writing':     '#14B8A6',
         'phase-publication': '#22C55E',
+        // V1 Row-based layout
+        'row-hover':  'var(--bg-row-hover)',
+        'row-active': 'var(--bg-row-active)',
+        'border-row': 'var(--border-row)',
+        // V1 Context panel
+        'panel-bg':     'var(--panel-bg)',
+        'panel-border': 'var(--panel-border)',
+        // V1 Timeline status
+        'timeline-verified': 'var(--timeline-verified)',
+        'timeline-warning':  'var(--timeline-warning)',
+        'timeline-flagged':  'var(--timeline-flagged)',
+        'timeline-neutral':  'var(--timeline-neutral)',
         // Radix shadcn compatibility
         border:     'hsl(var(--border))',
         input:      'hsl(var(--input))',
@@ -254,6 +266,15 @@ const config: Config = {
           '0%, 100%': { opacity: '1' },
           '50%':      { opacity: '0.4' },
         },
+        // V1 context panel & list animations
+        'slide-in-right': {
+          from: { transform: 'translateX(var(--panel-width))', opacity: '0' },
+          to:   { transform: 'translateX(0)',                  opacity: '1' },
+        },
+        'fade-up': {
+          from: { opacity: '0', transform: 'translateY(6px)' },
+          to:   { opacity: '1', transform: 'translateY(0)'   },
+        },
       },
       animation: {
         'snappy-in':    'snappy-in 0.25s ease-out forwards',
@@ -266,6 +287,11 @@ const config: Config = {
         'slide-up':       'slide-up 150ms cubic-bezier(0, 0, 0.2, 1)',
         'slide-in-left':  'slide-in-left 200ms cubic-bezier(0, 0, 0.2, 1)',
         pulse:            'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'slide-in-right': 'slide-in-right 200ms cubic-bezier(0, 0, 0.2, 1)',
+        'fade-up':        'fade-up 150ms cubic-bezier(0, 0, 0.2, 1)',
+      },
+      width: {
+        'panel': 'var(--panel-width)',
       },
     },
   },
