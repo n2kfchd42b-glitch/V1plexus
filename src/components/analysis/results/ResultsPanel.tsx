@@ -171,32 +171,27 @@ export function ResultsPanel({ result, analysisType, title, datasetName, onSave,
 
           {/* Tables column */}
           {hasTable && (
-            <div
-              className="bg-white rounded-2xl overflow-hidden flex flex-col"
-              style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)' }}
-            >
-              <div className="px-5 py-4 border-b border-[#f2f4f6] flex items-center justify-between gap-3 flex-shrink-0">
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope">
-                  Results Tables
-                </p>
+            <div className="border border-[var(--border-row)] rounded overflow-hidden flex flex-col">
+              <div className="px-4 py-3 border-b border-[var(--border-row)] flex items-center justify-between gap-3 flex-shrink-0">
+                <p className="subsection-label">Results Tables</p>
                 {primaryTables.length > 1 && (
                   <input
                     value={tableSearch}
                     onChange={e => setTableSearch(e.target.value)}
                     placeholder="Filter…"
-                    className="bg-[#f2f4f6] border border-[rgba(195,198,214,0.3)] rounded-lg px-2.5 py-1.5 text-xs text-[#18181B] outline-none focus:border-[rgba(0,82,204,0.4)] focus:shadow-[0_0_0_3px_rgba(0,82,204,0.08)] transition-all w-28"
+                    className="bg-[var(--bg-row-hover)] border-0 rounded px-2.5 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--accent-blue)]/30 w-24"
                   />
                 )}
               </div>
               <div className="overflow-y-auto flex-1" style={{ maxHeight: hasChart ? '520px' : undefined }}>
                 {filteredPrimaryTables.length > 0 ? (
                   filteredPrimaryTables.map(table => (
-                    <div key={table.id} className="px-5 py-5 border-b border-[#f2f4f6] last:border-0">
+                    <div key={table.id} className="px-4 py-4 border-b border-[var(--border-row)] last:border-0">
                       <CoefficientTable table={table} />
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-[#A1A1AA] text-center py-10">No tables match.</p>
+                  <p className="text-xs text-[var(--text-tertiary)] text-center py-8">No tables match.</p>
                 )}
               </div>
             </div>
@@ -206,59 +201,50 @@ export function ResultsPanel({ result, analysisType, title, datasetName, onSave,
 
       {/* ── 4. Statistical Narrative (generated on demand) ───────────── */}
       {narrative && (
-        <div className="bg-white rounded-2xl p-6" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope">
-              Statistical Narrative
-            </p>
+        <div className="py-4 border-b border-[var(--border-row)]">
+          <div className="flex items-center justify-between mb-2">
+            <p className="subsection-label">Statistical Narrative</p>
             <button
               onClick={copyNarrative}
-              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-700 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
             >
-              {narrativeCopied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+              {narrativeCopied ? <Check className="h-3 w-3 text-[var(--timeline-verified)]" /> : <Copy className="h-3 w-3" />}
               {narrativeCopied ? 'Copied' : 'Copy'}
             </button>
           </div>
-          <p className="text-sm text-[#52525B] leading-relaxed">{narrative}</p>
+          <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{narrative}</p>
         </div>
       )}
 
       {/* ── 5. Diagnostics — collapsible ─────────────────────────────── */}
       {hasDiagnostics && (
-        <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}>
+        <div className="border-t border-[var(--border-row)]">
           <button
             onClick={() => setDiagnosticsOpen(v => !v)}
-            className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-[#f7f9fb] transition-colors"
+            className="w-full flex items-center justify-between py-3 text-left hover:text-[var(--text-primary)] transition-colors"
           >
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#A1A1AA] font-manrope">
-                Advanced
-              </p>
-              <p className="text-sm font-semibold text-[#18181B] mt-0.5">Diagnostics</p>
-            </div>
+            <p className="text-xs font-medium text-[var(--text-secondary)]">Diagnostics</p>
             <ChevronDown
-              className={`h-4 w-4 text-[#A1A1AA] transition-transform duration-200 ${diagnosticsOpen ? 'rotate-180' : ''}`}
+              className={`h-3.5 w-3.5 text-[var(--text-tertiary)] transition-transform duration-200 ${diagnosticsOpen ? 'rotate-180' : ''}`}
             />
           </button>
 
           {diagnosticsOpen && (
-            <div className="border-t border-[#f2f4f6]">
+            <div className="border-t border-[var(--border-row)] pt-4 space-y-4">
               {diagnosticCharts.length > 0 && (
-                <div className="p-6">
-                  <AnalysisCharts
-                    charts={diagnosticCharts as Parameters<typeof AnalysisCharts>[0]['charts']}
-                    runId={runId}
-                    datasetId={datasetId}
-                    versionId={versionId}
-                    analysisType={analysisType}
-                  />
-                </div>
+                <AnalysisCharts
+                  charts={diagnosticCharts as Parameters<typeof AnalysisCharts>[0]['charts']}
+                  runId={runId}
+                  datasetId={datasetId}
+                  versionId={versionId}
+                  analysisType={analysisType}
+                />
               )}
 
               {advancedTables.length > 0 && (
-                <div className={diagnosticCharts.length > 0 ? 'border-t border-[#f2f4f6]' : ''}>
+                <div>
                   {advancedTables.map(table => (
-                    <div key={table.id} className="px-6 py-5 border-b border-[#f2f4f6] last:border-0">
+                    <div key={table.id} className="py-4 border-b border-[var(--border-row)] last:border-0">
                       <CoefficientTable table={table} />
                     </div>
                   ))}
@@ -266,11 +252,9 @@ export function ResultsPanel({ result, analysisType, title, datasetName, onSave,
               )}
 
               {result.interpretation && (
-                <div className="px-6 py-5 border-t border-[#f2f4f6]">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope mb-3">
-                    Statistical Summary
-                  </p>
-                  <p className="text-sm text-[#52525B] leading-relaxed">{result.interpretation}</p>
+                <div className="py-3 border-t border-[var(--border-row)]">
+                  <p className="subsection-label mb-2">Statistical Summary</p>
+                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{result.interpretation}</p>
                 </div>
               )}
             </div>
@@ -279,12 +263,11 @@ export function ResultsPanel({ result, analysisType, title, datasetName, onSave,
       )}
 
       {/* ── Persistent action footer ──────────────────────────────────── */}
-      <div className="flex items-center gap-3 pt-5 border-t border-[#f2f4f6] flex-wrap">
+      <div className="flex items-center gap-2 pt-4 border-t border-[var(--border-row)] flex-wrap">
         <ResultsActions onSave={onSave} saved={isSaved} />
         <button
           onClick={() => exportToWord(result, exportTitle)}
-          className="inline-flex items-center gap-2 text-xs font-medium text-[#52525B] hover:text-[#18181B] border border-[rgba(195,198,214,0.4)] rounded-lg px-4 py-2 hover:bg-[#f2f4f6] transition-all bg-white"
-          style={{ boxShadow: '0 8px 24px rgba(0,24,72,0.05)' }}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-strong)] rounded px-3 py-1.5 hover:bg-[var(--bg-row-hover)] transition-colors"
         >
           <FileText className="h-3.5 w-3.5" />
           Export to Word
@@ -293,8 +276,7 @@ export function ResultsPanel({ result, analysisType, title, datasetName, onSave,
           <button
             onClick={generateNarrative}
             disabled={narrativeLoading}
-            className="inline-flex items-center gap-2 text-xs font-medium text-[#0040a2] hover:text-[#003080] border border-[rgba(0,64,162,0.25)] rounded-lg px-4 py-2 hover:bg-blue-50 transition-all bg-white disabled:opacity-50"
-            style={{ boxShadow: '0 8px 24px rgba(0,24,72,0.05)' }}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--accent-blue)] border border-[var(--accent-blue)]/25 rounded px-3 py-1.5 hover:bg-blue-50 transition-colors disabled:opacity-50"
           >
             <Sparkles className="h-3.5 w-3.5" />
             {narrativeLoading ? 'Generating…' : 'Generate Narrative'}

@@ -458,25 +458,23 @@ export function AnalysisHub({ projectId }: Props) {
               {/* ── Left: Run list ─────────────── */}
               <div className="w-72 flex-shrink-0 border-r border-[var(--border-row)] flex flex-col">
 
-                {/* Stats strip */}
-                <div className="px-4 py-2.5 border-b border-[var(--border-row)] flex items-center gap-4 flex-shrink-0">
-                  <span className="data-mono-xs text-[var(--text-tertiary)]">
-                    <span className="text-[var(--text-primary)] font-medium">{stats.total}</span> total
-                  </span>
-                  <span className="data-mono-xs text-[var(--timeline-verified)]">{stats.completed} done</span>
-                  {stats.failed > 0 && (
-                    <span className="data-mono-xs text-[var(--timeline-flagged)]">{stats.failed} failed</span>
-                  )}
-                </div>
-
-                {/* Search */}
-                <div className="px-3 py-2 border-b border-[var(--border-row)] flex-shrink-0">
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-[var(--text-tertiary)]" />
+                {/* Stats + search */}
+                <div className="px-3 py-2 border-b border-[var(--border-row)] flex items-center gap-3 flex-shrink-0">
+                  <div className="flex items-center gap-3 flex-1">
+                    <span className="data-mono-xs text-[var(--text-tertiary)]">
+                      <span className="text-[var(--text-primary)] font-medium">{stats.total}</span> total
+                    </span>
+                    <span className="data-mono-xs text-[var(--timeline-verified)]">{stats.completed} done</span>
+                    {stats.failed > 0 && (
+                      <span className="data-mono-xs text-[var(--timeline-flagged)]">{stats.failed} failed</span>
+                    )}
+                  </div>
+                  <div className="relative flex-shrink-0 w-28">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-[var(--text-tertiary)]" />
                     <input
                       type="text" placeholder="Search…" value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
-                      className="w-full pl-7 pr-3 py-1.5 text-xs rounded bg-[var(--bg-row-hover)] border-0 text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none focus:ring-1 focus:ring-[var(--accent-blue)]/30"
+                      className="w-full pl-6 pr-2 py-1 text-xs rounded bg-[var(--bg-row-hover)] border-0 text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none focus:ring-1 focus:ring-[var(--accent-blue)]/30"
                     />
                   </div>
                 </div>

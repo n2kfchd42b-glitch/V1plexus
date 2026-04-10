@@ -3,10 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
 import {
-  ArrowLeft, Calendar, Database, CheckCircle2, Loader2,
-  AlertCircle, Clock, Download, FileText, Table2,
+  ArrowLeft, Calendar, Database, Loader2,
+  AlertCircle, Download, FileText, Table2,
 } from 'lucide-react'
 import { ResultsPanel } from '@/components/analysis/results/ResultsPanel'
 import { SensitivityPanel } from '@/components/analysis/SensitivityPanel'
@@ -16,14 +15,6 @@ import { formatDateTime } from '@/lib/utils'
 import type { AnalysisRun, AnalysisType } from '@/types/database'
 import type { AnalysisResult } from '@/lib/analysis/engine'
 import { ANALYSIS_TYPES } from '@/components/analysis/AnalysisTypePicker'
-
-const statusConfig = {
-  completed: { icon: CheckCircle2, label: 'Completed',  iconClass: 'text-[#22C55E]', badgeClass: 'bg-[#F0FDF4] text-[#166634]' },
-  failed:    { icon: AlertCircle,  label: 'Failed',     iconClass: 'text-[#EF4444]', badgeClass: 'bg-[#FEF2F2] text-[#991B1B]' },
-  running:   { icon: Loader2,      label: 'Running',    iconClass: 'text-[#3B82F6]', badgeClass: 'bg-[#EFF6FF] text-[#1E40AF]' },
-  pending:   { icon: Clock,        label: 'Pending',    iconClass: 'text-[#A1A1AA]', badgeClass: 'bg-[#F0F0F0] text-[#52525B]' },
-  cancelled: { icon: AlertCircle,  label: 'Cancelled',  iconClass: 'text-[#A1A1AA]', badgeClass: 'bg-[#F0F0F0] text-[#52525B]' },
-}
 
 export default function AnalysisRunPage() {
   const params = useParams()
@@ -50,16 +41,16 @@ export default function AnalysisRunPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f7f9fb]">
-        <div className="max-w-7xl mx-auto px-8 py-10 space-y-6">
-          <div className="h-3.5 w-24 bg-[#f2f4f6] rounded-full animate-pulse" />
-          <div className="h-9 w-96 bg-[#f2f4f6] rounded-xl animate-pulse" />
-          <div className="h-4 w-72 bg-[#f2f4f6] rounded-full animate-pulse" />
-          <div className="grid grid-cols-4 gap-4 mt-8">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-28 bg-white rounded-2xl animate-pulse" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }} />
-            ))}
-          </div>
+      <div className="page-shell">
+        <div className="px-6 pt-6 pb-4 flex-shrink-0 space-y-3">
+          <div className="skeleton h-3 w-16 rounded" />
+          <div className="skeleton h-5 w-72 rounded" />
+          <div className="skeleton h-3 w-48 rounded" />
+        </div>
+        <div className="px-6 py-4 flex gap-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="skeleton h-7 w-20 rounded" />
+          ))}
         </div>
       </div>
     )
@@ -67,12 +58,13 @@ export default function AnalysisRunPage() {
 
   if (!run) {
     return (
-      <div className="min-h-screen bg-[#f7f9fb] flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="h-10 w-10 text-[#A1A1AA] mx-auto mb-4" />
-          <p className="font-manrope font-bold text-[#18181B]">Analysis run not found</p>
-          <Link href={`/projects/${projectId}/analysis`}>
-            <Button variant="outline" className="mt-4">Back to Analysis Hub</Button>
+      <div className="page-shell flex items-center justify-center">
+        <div className="empty-state">
+          <AlertCircle className="empty-state-icon h-8 w-8" />
+          <p className="empty-state-title">Analysis run not found</p>
+          <Link href={`/projects/${projectId}/analysis`}
+            className="text-xs text-[var(--accent-blue)] hover:underline mt-2">
+            Back to Analysis
           </Link>
         </div>
       </div>
@@ -81,8 +73,8 @@ export default function AnalysisRunPage() {
 
   const typeInfo = ANALYSIS_TYPES.find(t => t.type === run.analysis_type)
   const result = run.results as unknown as AnalysisResult | null
-  const status = statusConfig[run.status as keyof typeof statusConfig] ?? statusConfig.pending
   const isCompleted = run.status === 'completed'
+  const dataset = run.dataset as { name: string } | null
 
   const displayResult: AnalysisResult = result ?? {
     type: run.analysis_type,
@@ -92,122 +84,93 @@ export default function AnalysisRunPage() {
     interpretation: run.interpretation ?? '',
   }
 
-  // Extract sample size from summary if available
   const sampleN = result?.summary?.n ?? result?.summary?.sampleSize ?? null
-  const dataset = run.dataset as { name: string } | null
+
+  const statusDot = {
+    completed: 'status-dot--verified',
+    failed:    'status-dot--flagged',
+    running:   'status-dot--warning',
+    pending:   'status-dot--neutral',
+    cancelled: 'status-dot--neutral',
+  }[run.status] ?? 'status-dot--neutral'
 
   return (
-    <div className="min-h-screen bg-[#f7f9fb]">
-      {/* Shimmer progress bar — completed runs only */}
-      {isCompleted && <div className="shimmer-bar h-[3px] w-full" />}
+    <div className="page-shell">
 
       {/* Page header */}
-      <div className="bg-[#f7f9fb] px-8 pt-7 pb-0">
-        <div className="max-w-7xl mx-auto">
+      <div className="px-6 pt-6 pb-4 flex-shrink-0">
 
-          {/* Breadcrumb */}
-          <Link href={`/projects/${projectId}/analysis`}>
-            <button className="flex items-center gap-1.5 text-[#A1A1AA] hover:text-[#18181B] transition-colors mb-5 text-xs font-medium">
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Analysis Hub
-            </button>
-          </Link>
+        {/* Breadcrumb */}
+        <Link
+          href={`/projects/${projectId}/analysis`}
+          className="flex items-center gap-1 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors mb-4"
+        >
+          <ArrowLeft className="h-3 w-3" />
+          Analysis
+        </Link>
 
-          {/* Title row */}
-          <div className="flex items-end justify-between gap-6 flex-wrap">
-            <div>
-              {/* Section tag + run ID */}
-              <div className="flex items-center gap-2.5 mb-2">
-                <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope">
-                  Analysis Results
-                </span>
-                <span className="w-1 h-1 bg-[#c3c6d6] rounded-full inline-block" />
-                <span className="text-[11px] text-[#A1A1AA] font-mono">
-                  {runId.slice(0, 8).toUpperCase()}
-                </span>
-              </div>
-
-              {/* Title */}
-              <h1 className="font-manrope font-extrabold text-[2rem] leading-tight tracking-tight text-[#18181B]">
-                {run.title ?? typeInfo?.label ?? run.analysis_type.replace(/_/g, ' ')}
-                {' '}
-                <span className="text-[#0052cc]">Results</span>
-              </h1>
-
-              {/* Metadata strip */}
-              <p className="text-sm text-[#52525B] mt-1.5 flex items-center gap-2 flex-wrap">
-                <span>{typeInfo?.label ?? run.analysis_type.replace(/_/g, ' ')}</span>
-                {dataset && (
-                  <>
-                    <span className="text-[#c3c6d6]">·</span>
-                    <span className="flex items-center gap-1">
-                      <Database className="h-3.5 w-3.5 text-[#A1A1AA]" />
-                      {dataset.name}
-                    </span>
-                  </>
-                )}
-                {sampleN && (
-                  <>
-                    <span className="text-[#c3c6d6]">·</span>
-                    <span>N = {Number(sampleN).toLocaleString()}</span>
-                  </>
-                )}
-                <span className="text-[#c3c6d6]">·</span>
-                <span className="flex items-center gap-1">
-                  <Calendar className="h-3.5 w-3.5 text-[#A1A1AA]" />
-                  {formatDateTime(run.created_at)}
-                </span>
-              </p>
+        {/* Title row */}
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className={`status-dot ${statusDot}`} />
+              <span className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-medium">
+                {isCompleted ? 'Results Ready' : run.status}
+              </span>
+              <span className="data-mono-xs text-[var(--text-tertiary)]">
+                {runId.slice(0, 8).toUpperCase()}
+              </span>
             </div>
-
-            {/* Right controls */}
-            <div className="flex items-center gap-3 pb-1">
-              {/* Status pill */}
-              {isCompleted ? (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#f0fdf4] border border-[rgba(22,101,52,0.15)]">
-                  <span className="w-1.5 h-1.5 bg-[#16a34a] rounded-full animate-pulse" />
-                  <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#166534] font-manrope">
-                    Results Ready
+            <h1 className="page-title">
+              {run.title ?? typeInfo?.label ?? run.analysis_type.replace(/_/g, ' ')}
+            </h1>
+            <p className="text-xs text-[var(--text-tertiary)] mt-1 flex items-center gap-2 flex-wrap">
+              <span>{typeInfo?.label ?? run.analysis_type.replace(/_/g, ' ')}</span>
+              {dataset && (
+                <>
+                  <span>·</span>
+                  <span className="flex items-center gap-1">
+                    <Database className="h-3 w-3" />
+                    {dataset.name}
                   </span>
-                </div>
-              ) : (
-                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-[0.08em] font-manrope ${status.badgeClass}`}>
-                  {status.label}
-                </div>
+                </>
               )}
-
-              <button
-                title="Export PDF"
-                className="flex items-center gap-1.5 px-4 py-2 bg-white border border-[rgba(195,198,214,0.4)] rounded-lg text-[11px] font-bold uppercase tracking-[0.06em] text-[#52525B] hover:bg-[#f2f4f6] transition-colors"
-                style={{ boxShadow: '0 8px 24px rgba(0,24,72,0.05)' }}
-              >
-                <Download className="h-3.5 w-3.5" />
-                Export PDF
-              </button>
-
-              {isCompleted && (
-                <button
-                  onClick={() => setTableModalOpen(true)}
-                  title="Generate Table"
-                  className="flex items-center gap-1.5 px-4 py-2 bg-white border border-[rgba(195,198,214,0.4)] rounded-lg text-[11px] font-bold uppercase tracking-[0.06em] text-[#0052cc] hover:bg-[rgba(0,64,162,0.04)] transition-colors"
-                  style={{ boxShadow: '0 8px 24px rgba(0,24,72,0.05)' }}
-                >
-                  <Table2 className="h-3.5 w-3.5" />
-                  Generate Table
-                </button>
-              )}
-
-              <button
-                title="Draft Manuscript"
-                className="flex items-center gap-1.5 px-4 py-2 text-white rounded-lg text-[11px] font-bold uppercase tracking-[0.06em] transition-all hover:scale-[1.02] active:scale-[0.98]"
-                style={{ background: 'linear-gradient(135deg, #003d9b 0%, #0052cc 100%)' }}
-              >
-                <FileText className="h-3.5 w-3.5" />
-                Draft Manuscript
-              </button>
-            </div>
+              {sampleN && <><span>·</span><span>N = {Number(sampleN).toLocaleString()}</span></>}
+              <span>·</span>
+              <span className="flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                {formatDateTime(run.created_at)}
+              </span>
+            </p>
           </div>
 
+          {/* Actions */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              title="Export PDF"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-[var(--border-strong)] text-[var(--text-secondary)] hover:bg-[var(--bg-row-hover)] transition-colors"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Export PDF
+            </button>
+
+            {isCompleted && (
+              <button
+                onClick={() => setTableModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-[var(--border-strong)] text-[var(--accent-blue)] hover:bg-[var(--bg-row-hover)] transition-colors"
+              >
+                <Table2 className="h-3.5 w-3.5" />
+                Generate Table
+              </button>
+            )}
+
+            <button
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white bg-[var(--accent-blue)] hover:opacity-90 transition-opacity"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Draft Manuscript
+            </button>
+          </div>
         </div>
       </div>
 
@@ -222,29 +185,26 @@ export default function AnalysisRunPage() {
       )}
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-8 py-8">
+      <div className="flex-1 overflow-y-auto px-6 py-5">
         {run.status === 'failed' ? (
-          <div className="bg-white rounded-2xl p-8" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}>
-            <div className="flex items-start gap-4">
-              <div className="rounded-xl bg-[#FEF2F2] p-3">
-                <AlertCircle className="h-5 w-5 text-[#EF4444]" />
-              </div>
-              <div>
-                <p className="font-manrope font-bold text-[#18181B]">Analysis Failed</p>
-                <p className="text-sm text-[#52525B] mt-1.5 leading-relaxed">
-                  {run.error_message ?? 'An unknown error occurred during analysis.'}
-                </p>
-                <Link href={`/projects/${projectId}/analysis/new`}>
-                  <Button variant="outline" size="sm" className="mt-4">Try Again</Button>
-                </Link>
-              </div>
+          <div className="rounded border border-[var(--timeline-flagged)]/20 bg-red-50 px-4 py-4 flex items-start gap-3">
+            <AlertCircle className="h-4 w-4 text-[var(--timeline-flagged)] flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-[var(--text-primary)]">Analysis Failed</p>
+              <p className="text-xs text-[var(--text-secondary)] mt-1 leading-relaxed">
+                {run.error_message ?? 'An unknown error occurred during analysis.'}
+              </p>
+              <Link href={`/projects/${projectId}/analysis`}
+                className="text-xs text-[var(--accent-blue)] hover:underline mt-2 inline-block">
+                Try Again
+              </Link>
             </div>
           </div>
         ) : run.status === 'running' || run.status === 'pending' ? (
-          <div className="bg-white rounded-2xl p-16 text-center" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}>
-            <Loader2 className="h-8 w-8 text-[#0052cc] animate-spin mx-auto mb-4" />
-            <p className="font-manrope font-bold text-[#18181B]">Analysis in progress</p>
-            <p className="text-sm text-[#52525B] mt-1">Results will appear here when complete.</p>
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Loader2 className="h-6 w-6 text-[var(--accent-blue)] animate-spin mb-3" />
+            <p className="text-sm text-[var(--text-primary)]">Analysis in progress</p>
+            <p className="text-xs text-[var(--text-tertiary)] mt-1">Results will appear here when complete.</p>
           </div>
         ) : (
           <>
@@ -262,11 +222,10 @@ export default function AnalysisRunPage() {
               savedChartConfig={run.chart_config ?? null}
             />
 
-            {/* Sensitivity panel — linear & logistic regression only */}
             {run.dataset_id && run.version_id &&
              ['linear_regression', 'multiple_linear_regression', 'logistic_regression'].includes(run.analysis_type) &&
              !!(run.config as Record<string, unknown>)?.outcome_variable && (
-              <div className="mt-5">
+              <div className="mt-6 pt-6 border-t border-[var(--border-row)]">
                 <SensitivityPanel
                   projectId={projectId}
                   datasetId={run.dataset_id}
