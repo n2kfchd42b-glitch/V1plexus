@@ -16,7 +16,7 @@ import { KeyFindingCard } from './KeyFindingCard'
 import { ProjectDatasetSelector } from './ProjectDatasetSelector'
 import { AISuggestions } from './AISuggestions'
 import { AnalysisCharts } from './results/AnalysisCharts'
-import { ResultsPanel } from './results/ResultsPanel'
+import { HubResultsPreview } from './HubResultsPreview'
 import { createClient } from '@/lib/supabase/client'
 import { runAnalysis } from '@/lib/analysis/engine'
 import { useAuth } from '@/hooks/useAuth'
@@ -412,10 +412,10 @@ export function AnalysisHub({ projectId }: Props) {
                 : <>Analysis <span className="text-[#0052cc]">Hub</span></>
               }
             </h1>
-            <p className="text-sm text-[#52525B] mt-1.5 max-w-xl">
+            <p className="text-xs text-[#A1A1AA] mt-1.5">
               {project?.description
-                ? project.description.slice(0, 120) + (project.description.length > 120 ? '…' : '')
-                : 'Run guided statistical analyses on your research data with AI-powered interpretations.'
+                ? project.description.slice(0, 90) + (project.description.length > 90 ? '…' : '')
+                : 'Statistical analysis with AI-powered interpretations.'
               }
             </p>
           </div>
@@ -468,15 +468,15 @@ export function AnalysisHub({ projectId }: Props) {
                 style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04), 0 4px 12px rgba(0,24,72,0.03)', maxHeight: 'calc(100vh - 220px)' }}
               >
                 {/* Stats strip */}
-                <div className="px-5 py-4 border-b border-[#f2f4f6] flex items-center gap-6 flex-shrink-0">
+                <div className="px-5 py-3 border-b border-[#f2f4f6] flex items-center gap-5 flex-shrink-0">
                   {[
                     { label: 'Total',     value: stats.total,     color: 'text-[#18181B]' },
                     { label: 'Completed', value: stats.completed, color: 'text-[#166534]' },
                     { label: 'Failed',    value: stats.failed,    color: 'text-[#991B1B]' },
                   ].map(({ label, value, color }) => (
-                    <div key={label}>
-                      <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#A1A1AA] font-manrope">{label}</p>
-                      <p className={`font-manrope font-extrabold text-xl leading-none mt-0.5 ${color}`}>{value}</p>
+                    <div key={label} className="flex items-baseline gap-1.5">
+                      <p className={`font-manrope font-bold text-sm leading-none ${color}`}>{value}</p>
+                      <p className="text-[10px] text-[#A1A1AA]">{label.toLowerCase()}</p>
                     </div>
                   ))}
                 </div>
@@ -555,74 +555,35 @@ export function AnalysisHub({ projectId }: Props) {
                 </div>
               </div>
 
-              {/* ── Right: Results panel ─────────────── */}
+              {/* ── Right: Lightweight preview ───────── */}
               <div className="flex-1 overflow-y-auto min-w-0">
-                {selectedRun ? (
-                  <>
-                    {/* Results header */}
-                    <div className="flex items-start justify-between gap-4 mb-5">
-                      <div className="min-w-0">
-                        <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#0040a2] font-manrope block mb-1">
-                          {selectedTypeInfo?.label ?? selectedRun.analysis_type.replace(/_/g, ' ')}
-                        </span>
-                        <h2 className="font-manrope font-bold text-xl text-[#18181B] truncate">
-                          {selectedRun.title ?? selectedTypeInfo?.label}
-                        </h2>
-                        {selectedDataset && (
-                          <p className="text-xs text-[#A1A1AA] mt-0.5 flex items-center gap-1.5">
-                            <Database className="h-3 w-3" />
-                            {selectedDataset.name}
-                            <span className="text-[#c3c6d6]">·</span>
-                            {formatRelative(selectedRun.created_at)}
-                          </p>
-                        )}
-                      </div>
-                      <Link href={`/projects/${projectId}/analysis/${selectedRun.id}`} className="flex-shrink-0">
-                        <button className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-[0.06em] text-[#0052cc] bg-white border border-[rgba(0,82,204,0.2)] hover:bg-[rgba(0,64,162,0.04)] transition-all"
-                          style={{ boxShadow: '0 4px 12px rgba(0,24,72,0.05)' }}>
-                          Full Page
-                          <ChevronRight className="h-3.5 w-3.5" />
-                        </button>
-                      </Link>
-                    </div>
-
-                    {/* Results body */}
-                    {selectedRun.status === 'completed' && selectedResult ? (
-                      <ResultsPanel
-                        result={selectedResult}
-                        analysisType={selectedRun.analysis_type as AnalysisType}
-                        title={selectedRun.title ?? selectedTypeInfo?.label}
-                        datasetName={selectedDataset?.name}
-                        onSave={async () => {}}
-                        isSaved={true}
-                        runId={selectedRun.id}
-                        projectId={projectId}
-                        datasetId={selectedRun.dataset_id ?? null}
-                        versionId={selectedRun.version_id ?? null}
-                        savedChartConfig={(selectedRun.chart_config as Record<string, unknown> | null) ?? null}
-                      />
-                    ) : selectedRun.status === 'running' || selectedRun.status === 'pending' ? (
-                      <div className="bg-white rounded-2xl p-16 text-center" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}>
-                        <div className="w-10 h-10 rounded-full border-2 border-[#0052cc] border-t-transparent animate-spin mx-auto mb-4" />
-                        <p className="font-manrope font-bold text-[#18181B]">Analysis in progress</p>
-                        <p className="text-sm text-[#A1A1AA] mt-1">Results will appear here when complete.</p>
-                      </div>
-                    ) : (
-                      <div className="bg-white rounded-2xl p-14 text-center" style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)' }}>
-                        <p className="font-manrope font-bold text-[#991B1B]">Analysis Failed</p>
-                        <p className="text-sm text-[#A1A1AA] mt-1">{selectedRun.error_message ?? 'An unknown error occurred.'}</p>
-                      </div>
-                    )}
-                  </>
+                {selectedRun?.status === 'completed' && selectedResult ? (
+                  <HubResultsPreview
+                    run={selectedRun}
+                    result={selectedResult}
+                    projectId={projectId}
+                  />
+                ) : selectedRun?.status === 'running' || selectedRun?.status === 'pending' ? (
+                  <div className="bg-white rounded-2xl p-16 text-center" style={{ boxShadow: '0 4px 24px rgba(0,24,72,0.06)' }}>
+                    <div className="w-8 h-8 rounded-full border-2 border-[#0052cc] border-t-transparent animate-spin mx-auto mb-4" />
+                    <p className="font-manrope font-semibold text-[#18181B] text-sm">Analysis in progress</p>
+                    <p className="text-xs text-[#A1A1AA] mt-1">Results will appear here when complete.</p>
+                  </div>
+                ) : selectedRun?.status === 'failed' ? (
+                  <div className="bg-white rounded-2xl px-7 py-10 text-center" style={{ boxShadow: '0 4px 24px rgba(0,24,72,0.06)' }}>
+                    <p className="font-manrope font-semibold text-[#991B1B] text-sm">Analysis failed</p>
+                    <p className="text-xs text-[#A1A1AA] mt-1">{selectedRun.error_message ?? 'An unknown error occurred.'}</p>
+                  </div>
                 ) : (
-                  <div className="bg-white rounded-2xl p-16 text-center h-full flex flex-col items-center justify-center"
-                    style={{ boxShadow: '0 20px 50px rgba(0,24,72,0.04)', minHeight: '400px' }}>
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                  <div className="flex flex-col items-center justify-center h-full min-h-[360px] text-center px-8">
+                    <div className="w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-3"
                       style={{ background: 'linear-gradient(135deg, #003d9b, #0052cc)' }}>
-                      <BarChart2 className="h-6 w-6 text-white" />
+                      <BarChart2 className="h-5 w-5 text-white" />
                     </div>
-                    <p className="font-manrope font-bold text-[#18181B]">Select a run to view results</p>
-                    <p className="text-sm text-[#A1A1AA] mt-1 max-w-xs">Click any analysis in the list to see its results inline.</p>
+                    <p className="font-manrope font-semibold text-[#18181B] text-sm">Select a run</p>
+                    <p className="text-xs text-[#A1A1AA] mt-1 max-w-[200px]">
+                      Click any analysis from the list to preview results here.
+                    </p>
                   </div>
                 )}
               </div>
