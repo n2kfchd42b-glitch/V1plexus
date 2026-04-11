@@ -1,17 +1,15 @@
 "use client"
 
 import { useEffect, useState, useMemo } from 'react'
-import { motion, type Variants } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
-  Plus, BarChart2, CheckCircle2,
-  Search, X, ChevronRight, Database, Table2,
+  BarChart2, CheckCircle2, Clock, X, Database, Table2, Play,
 } from 'lucide-react'
 import { HubTableGeneratorModal } from './HubTableGeneratorModal'
 import { AssumptionCheckModal } from './AssumptionCheckModal'
 import type { AssumptionCheckResult } from '@/types/analysisIntegrity'
-import { AnalysisTypePicker, ANALYSIS_TYPES } from './AnalysisTypePicker'
+import { ANALYSIS_TYPES } from './AnalysisTypePicker'
 import { ProjectDatasetSelector } from './ProjectDatasetSelector'
-import { AISuggestions } from './AISuggestions'
 import { HubResultsPreview } from './HubResultsPreview'
 import { createClient } from '@/lib/supabase/client'
 import { runAnalysis } from '@/lib/analysis/engine'
@@ -48,9 +46,6 @@ import { SampleSizeConfig } from './configs/SampleSizeConfig'
 
 interface Props { projectId: string }
 
-type FilterStatus = 'all' | 'completed' | 'running' | 'failed'
-type WizardStep  = 'data' | 'configure' | 'result'
-
 interface ProjectMeta {
   title: string
   description: string | null
@@ -58,14 +53,15 @@ interface ProjectMeta {
   research_objectives: string | null
 }
 
-const runListContainer: Variants = {
-  hidden:  {},
-  visible: { transition: { staggerChildren: 0.05 } },
-}
-const runListItem: Variants = {
-  hidden:  { opacity: 0, x: -4 },
-  visible: { opacity: 1, x: 0, transition: { duration: 0.15, ease: 'easeOut' } },
-}
+// Grouped for the flat select
+const TYPE_GROUPS: { label: string; types: AnalysisType[] }[] = [
+  { label: 'Basic', types: ['descriptive', 'frequency', 'chi_square', 't_test', 'anova', 'correlation'] },
+  { label: 'Regression', types: ['simple_regression', 'multiple_regression', 'logistic_regression', 'multinomial_regression', 'ordinal_regression', 'poisson_regression', 'negbinomial_regression'] },
+  { label: 'Survival', types: ['kaplan_meier', 'cox_regression', 'time_series'] },
+  { label: 'Advanced', types: ['pca', 'factor_analysis', 'cluster_analysis', 'meta_analysis'] },
+  { label: 'Epidemiology', types: ['outbreak_investigation', 'spatial_analysis'] },
+  { label: 'Study Design', types: ['sample_size'] },
+]
 
 function ConfigComponent({ type, config, onChange, onRun, loading, columns }: {
   type: AnalysisType; config: Record<string, unknown>
@@ -97,7 +93,7 @@ function ConfigComponent({ type, config, onChange, onRun, loading, columns }: {
     case 'spatial_analysis':         return <SpatialConfig {...p} />
     case 'outbreak_investigation':   return <OutbreakConfig {...p} />
     case 'sample_size':              return <SampleSizeConfig {...p} />
-    default: return <p className="text-sm text-[#A1A1AA]">No configuration available.</p>
+    default: return <p className="text-sm text-[var(--text-tertiary)]">No configuration available.</p>
   }
 }
 
@@ -106,17 +102,15 @@ export function AnalysisHub({ projectId }: Props) {
   const { profile } = useAuth()
   const supabase = useMemo(() => createClient(), [])
 
-  const [runs, setRuns]           = useState<AnalysisRun[]>([])
-  const [loading, setLoading]     = useState(true)
-  const [project, setProject]     = useState<ProjectMeta | null>(null)
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all')
-  const [searchQuery, setSearchQuery]   = useState('')
+  const [runs, setRuns]     = useState<AnalysisRun[]>([])
+  const [loading, setLoading] = useState(true)
+  const [project, setProject] = useState<ProjectMeta | null>(null)
 
-  // Inline wizard
-  const [wizardActive, setWizardActive] = useState(false)
-  const [wizardStep, setWizardStep]     = useState<WizardStep>('data')
+  // History drawer
+  const [historyOpen, setHistoryOpen]   = useState(false)
+  const [viewingRunId, setViewingRunId] = useState<string | null>(null)
 
-  // Analysis wizard
+  // Input form state
   const [data, setData]               = useState<DataRow[]>([])
   const [columns, setColumns]         = useState<DatasetColumn[]>([])
   const [fileName, setFileName]       = useState('')
@@ -124,23 +118,20 @@ export function AnalysisHub({ projectId }: Props) {
   const [versionId, setVersionId]     = useState<string | undefined>()
   const [selectedType, setSelectedType] = useState<AnalysisType | null>(null)
   const [config, setConfig]           = useState<Record<string, unknown>>({})
-  const [running, setRunning]         = useState(false)
-  const [result, setResult]           = useState<AnalysisResult | null>(null)
-  const [savedRunId, setSavedRunId]   = useState<string | null>(null)
-  const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
 
-  // Hub table generator
+  // Run state
+  const [running, setRunning]   = useState(false)
+  const [result, setResult]     = useState<AnalysisResult | null>(null)
+  const [savedRunId, setSavedRunId] = useState<string | null>(null)
+
+  // Modals
   const [hubTableModalOpen, setHubTableModalOpen] = useState(false)
-
-  // Assumption checks
   const [assumptionCheckResult, setAssumptionCheckResult] = useState<AssumptionCheckResult | null>(null)
   const [showAssumptionModal, setShowAssumptionModal] = useState(false)
 
   // Approval gate
   const [approvalBlock, setApprovalBlock] = useState<{
-    status: string
-    reason: string
-    requestId?: string
+    status: string; reason: string; requestId?: string
   } | null>(null)
 
   useEffect(() => {
@@ -149,13 +140,7 @@ export function AnalysisHub({ projectId }: Props) {
       .eq('project_id', projectId).is('deleted_at', null)
       .order('created_at', { ascending: false }).limit(50)
       .then(({ data }) => {
-        if (data) {
-          const loaded = data as AnalysisRun[]
-          setRuns(loaded)
-          // Auto-select the most recent completed run
-          const first = loaded.find(r => r.status === 'completed')
-          if (first) setSelectedRunId(first.id)
-        }
+        if (data) setRuns(data as AnalysisRun[])
         setLoading(false)
       })
   }, [projectId, supabase])
@@ -167,63 +152,43 @@ export function AnalysisHub({ projectId }: Props) {
       .then(({ data }) => { if (data) setProject(data as ProjectMeta) })
   }, [projectId, supabase])
 
-  // Auto-advance wizard steps
-  useEffect(() => {
-    if (wizardActive && wizardStep === 'data' && data.length > 0) setWizardStep('configure')
-  }, [data.length, wizardActive, wizardStep])
-
-  useEffect(() => {
-    if (wizardActive && wizardStep === 'configure' && result && !result.summary?.error) setWizardStep('result')
-  }, [result, wizardActive, wizardStep])
-
-  const openWizard = () => {
-    setWizardActive(true)
-    setWizardStep('data')
-    setResult(null); setSavedRunId(null); setSelectedType(null); setConfig({})
-  }
-  const closeWizard = () => setWizardActive(false)
+  // ── Engine functions (unchanged) ────────────────────────
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from('analysis_runs')
       .update({ deleted_at: new Date().toISOString() }).eq('id', id)
     if (error) { toast.error('Failed to delete analysis'); return }
     setRuns(prev => prev.filter(r => r.id !== id))
+    if (viewingRunId === id) setViewingRunId(null)
     await logAudit('analysis.run.deleted', 'analysis_run', id, {}, projectId)
     toast.success('Analysis deleted')
   }
 
   const handleData = async (rows: DataRow[], cols: DatasetColumn[], name: string, dsId?: string, vsId?: string) => {
     setData(rows); setColumns(cols); setFileName(name)
-    setDatasetId(dsId); setVersionId(vsId); setResult(null)
+    setDatasetId(dsId); setVersionId(vsId); setResult(null); setSavedRunId(null)
     setApprovalBlock(null)
 
-    // Check approval gate when a dataset version is selected
     if (dsId && vsId) {
       try {
         const res = await fetch(`/api/datasets/${dsId}/approval/status?version_id=${vsId}`)
         if (res.ok) {
           const json = await res.json()
           if (!json.can_analyze && json.status !== 'not_required') {
-            setApprovalBlock({
-              status: json.status,
-              reason: json.reason ?? 'Supervisor approval required.',
-              requestId: json.request?.id,
-            })
+            setApprovalBlock({ status: json.status, reason: json.reason ?? 'Supervisor approval required.', requestId: json.request?.id })
           }
         }
-      } catch {
-        // non-blocking — don't gate if check fails
-      }
+      } catch { /* non-blocking */ }
     }
   }
 
   const handleTypeSelect = (type: AnalysisType) => {
-    setSelectedType(type); setConfig({}); setResult(null)
+    setSelectedType(type); setConfig({}); setResult(null); setSavedRunId(null)
   }
 
   const executeAnalysis = async () => {
     if (!selectedType) return
-    setRunning(true); setResult(null)
+    setRunning(true); setResult(null); setViewingRunId(null)
     try {
       setResult(await runAnalysis(selectedType, data, config))
     } catch (err) {
@@ -237,19 +202,12 @@ export function AnalysisHub({ projectId }: Props) {
     if (!selectedType) return
     if (approvalBlock) return
 
-    // Run assumption checks when a versioned dataset is loaded
     if (datasetId && versionId) {
       try {
         const res = await fetch('/api/analysis/assumption-checks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            dataset_id: datasetId,
-            version_id: versionId,
-            project_id: projectId,
-            analysis_type: selectedType,
-            analysis_config: config,
-          }),
+          body: JSON.stringify({ dataset_id: datasetId, version_id: versionId, project_id: projectId, analysis_type: selectedType, analysis_config: config }),
         })
         if (res.ok) {
           const checkResult: AssumptionCheckResult = await res.json()
@@ -259,9 +217,7 @@ export function AnalysisHub({ projectId }: Props) {
             return
           }
         }
-      } catch {
-        // Non-blocking — if assumption check service is unavailable, allow analysis to proceed
-      }
+      } catch { /* non-blocking */ }
     }
 
     await executeAnalysis()
@@ -281,7 +237,6 @@ export function AnalysisHub({ projectId }: Props) {
     if (run) {
       await logAudit('analysis.run.saved', 'analysis_run', run.id, { type: selectedType, title: run.title, dataset_id: datasetId ?? null }, projectId)
 
-      // Write analysis timeline entry (non-blocking)
       if (datasetId) {
         const s = result.summary ?? {}
         const keyResult = {
@@ -294,477 +249,425 @@ export function AnalysisHub({ projectId }: Props) {
         fetch(`/api/analytics/timeline/${datasetId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            project_id: projectId,
-            dataset_id: datasetId,
-            analysis_type: selectedType,
-            variables: config,
-            key_result: keyResult.estimate !== null ? keyResult : null,
-            label: run.title,
-            analysis_run_id: run.id,
-          }),
-        }).catch(() => {/* non-blocking */})
+          body: JSON.stringify({ project_id: projectId, dataset_id: datasetId, analysis_type: selectedType, variables: config, key_result: keyResult.estimate !== null ? keyResult : null, label: run.title, analysis_run_id: run.id }),
+        }).catch(() => {})
       }
 
       setSavedRunId(run.id)
       setRuns(prev => [run as AnalysisRun, ...prev])
-      setSelectedRunId(run.id)
-      closeWizard()
+      toast.success('Analysis saved')
     }
   }
 
-  const stats = useMemo(() => {
-    const completed = runs.filter(r => r.status === 'completed').length
-    const active    = runs.filter(r => r.status === 'running' || r.status === 'pending').length
-    const failed    = runs.filter(r => r.status === 'failed').length
-    return { total: runs.length, completed, active, failed }
-  }, [runs])
-
-  const filteredRuns = useMemo(() => {
-    let res = runs
-    if (filterStatus !== 'all') {
-      res = res.filter(r => filterStatus === 'running'
-        ? r.status === 'running' || r.status === 'pending'
-        : r.status === filterStatus)
-    }
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase()
-      res = res.filter(r =>
-        (r.title ?? '').toLowerCase().includes(q) ||
-        r.analysis_type.toLowerCase().includes(q) ||
-        (r.dataset as { name: string } | null)?.name?.toLowerCase().includes(q)
-      )
-    }
-    return res
-  }, [runs, filterStatus, searchQuery])
+  // ── Derived ─────────────────────────────────────────────
 
   const needsData  = selectedType !== 'sample_size'
   const dataLoaded = data.length > 0
-  const columnsForAI = columns.map(c => ({ name: c.name, type: c.type, unique_values: c.unique_values, missing: c.missing }))
+  const canRun     = !!selectedType && !running && !approvalBlock && (needsData ? dataLoaded : true)
 
-  const WIZARD_STEPS: { id: WizardStep; label: string }[] = [
-    { id: 'data',      label: 'Data' },
-    { id: 'configure', label: 'Configure' },
-    { id: 'result',    label: 'Results' },
-  ]
-  const wizardStepOrder: WizardStep[] = ['data', 'configure', 'result']
-  const wizardStepIdx = wizardStepOrder.indexOf(wizardStep)
+  const viewingRun    = viewingRunId ? runs.find(r => r.id === viewingRunId) ?? null : null
+  const viewingResult = viewingRun?.results as unknown as AnalysisResult | null | undefined
 
-  // ── Loading skeleton ──────────────────────────────────
+  const statusDotClass: Record<string, string> = {
+    completed: 'status-dot--verified',
+    failed:    'status-dot--flagged',
+    running:   'status-dot--running',
+    pending:   'status-dot--neutral',
+    cancelled: 'status-dot--neutral',
+  }
+
+  // ── Loading ──────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="flex flex-col flex-1 min-h-0">
-        <div className="px-6 pt-6 pb-4 flex-shrink-0 border-b border-[var(--border-row)]">
-          <div className="skeleton h-5 w-24 rounded" />
+      <div className="flex flex-1 min-h-0">
+        <div className="w-[380px] flex-shrink-0 border-r border-[var(--border-row)] p-5 space-y-4">
+          {[80, 120, 60, 100].map((w, i) => (
+            <div key={i} className="skeleton rounded h-8" style={{ width: `${w}%` }} />
+          ))}
         </div>
-        <div className="flex flex-1 min-h-0">
-          <div className="w-72 flex-shrink-0 border-r border-[var(--border-row)]">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="row-item pointer-events-none">
-                <div className="skeleton h-2 w-2 rounded-full flex-shrink-0" />
-                <div className="flex-1 space-y-1.5 min-w-0">
-                  <div className="skeleton h-3.5 w-40 rounded" />
-                  <div className="skeleton h-3 w-24 rounded" />
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="flex-1" />
-        </div>
+        <div className="flex-1" />
       </div>
     )
   }
 
+  // ── Render ───────────────────────────────────────────────
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-      {/* ── Page header ──────────────────────────────── */}
-      <div className="px-6 pt-6 pb-4 flex-shrink-0">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="page-title">Analysis</h1>
-            <p className="text-xs text-[var(--text-tertiary)] mt-1">
-              {project?.description
-                ? project.description.slice(0, 90) + (project.description.length > 90 ? '…' : '')
-                : 'Statistical analysis with AI-powered interpretations.'
-              }
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button
-              onClick={() => setHubTableModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-[var(--border-strong)] text-[var(--text-secondary)] hover:bg-[var(--bg-row-hover)] transition-colors"
-            >
-              <Table2 className="h-3.5 w-3.5" />
-              Generate Table
-            </button>
-            <button
-              onClick={openWizard}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-[var(--accent-blue)] text-white hover:opacity-90 transition-opacity"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              New Analysis
-            </button>
-          </div>
+
+      {/* ── Page header ─────────────────────────────────── */}
+      <div className="px-6 pt-5 pb-4 flex-shrink-0 border-b border-[var(--border-row)] flex items-center justify-between gap-4">
+        <div>
+          <h1 className="page-title">Analysis</h1>
+          <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
+            {project?.description
+              ? project.description.slice(0, 100) + (project.description.length > 100 ? '…' : '')
+              : 'Run statistical analyses and view results side-by-side.'}
+          </p>
         </div>
+        <button
+          onClick={() => setHubTableModalOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-[var(--border-strong)] text-[var(--text-secondary)] hover:bg-[var(--bg-row-hover)] transition-colors flex-shrink-0"
+        >
+          <Table2 className="h-3.5 w-3.5" />
+          Generate Table
+        </button>
       </div>
 
-      {/* ── Main split-pane ─────────────────────────── */}
-      <div className="flex flex-1 min-h-0 overflow-hidden border-t border-[var(--border-row)]">
+      {/* ── Two-panel workspace ──────────────────────────── */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
 
-        {runs.length === 0 && !wizardActive ? (
-          <div className="flex-1 flex items-center justify-center">
-            <EmptyState onNew={openWizard} />
-          </div>
-        ) : (() => {
-          const selectedRun    = runs.find(r => r.id === selectedRunId) ?? null
-          const selectedResult = selectedRun?.results as unknown as AnalysisResult | null | undefined
+        {/* ── LEFT: Input panel ─────────────────────────── */}
+        <div className="relative w-[380px] flex-shrink-0 border-r border-[var(--border-row)] flex flex-col overflow-hidden">
 
-          const statusDotClass: Record<string, string> = {
-            completed: 'status-dot--verified',
-            failed:    'status-dot--flagged',
-            running:   'status-dot--warning',
-            pending:   'status-dot--neutral',
-            cancelled: 'status-dot--neutral',
-          }
-          return (
-            <div className="flex flex-1 min-h-0 overflow-hidden">
-
-              {/* ── Left: Run list ─────────────── */}
-              <div className="w-72 flex-shrink-0 border-r border-[var(--border-row)] flex flex-col">
-
-                {/* Stats + search */}
-                <div className="px-3 py-2 border-b border-[var(--border-row)] flex items-center gap-3 flex-shrink-0">
-                  <div className="flex items-center gap-3 flex-1">
-                    <span className="data-mono-xs text-[var(--text-tertiary)]">
-                      <span className="text-[var(--text-primary)] font-medium">{stats.total}</span> total
-                    </span>
-                    <span className="data-mono-xs text-[var(--timeline-verified)]">{stats.completed} done</span>
-                    {stats.failed > 0 && (
-                      <span className="data-mono-xs text-[var(--timeline-flagged)]">{stats.failed} failed</span>
-                    )}
-                  </div>
-                  <div className="relative flex-shrink-0 w-28">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-[var(--text-tertiary)]" />
-                    <input
-                      type="text" placeholder="Search…" value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                      className="w-full pl-6 pr-2 py-1 text-xs rounded bg-[var(--bg-row-hover)] border-0 text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none focus:ring-1 focus:ring-[var(--accent-blue)]/30"
-                    />
-                  </div>
-                </div>
-
-                {/* Filter tabs */}
-                <div className="flex border-b border-[var(--border-row)] flex-shrink-0">
-                  {(['all', 'completed', 'running', 'failed'] as FilterStatus[]).map(s => (
-                    <button key={s} onClick={() => setFilterStatus(s)}
-                      className={`flex-1 py-1.5 text-[10px] font-medium uppercase tracking-wide transition-colors ${
-                        filterStatus === s
-                          ? 'text-[var(--accent-blue)] border-b-2 border-[var(--accent-blue)] -mb-px'
-                          : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
-                      }`}
-                    >
-                      {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Scrollable run list */}
-                <div className="overflow-y-auto flex-1">
-                  {filteredRuns.length === 0 ? (
-                    <div className="text-center py-8 px-4">
-                      <p className="text-xs text-[var(--text-tertiary)]">No analyses match your filters</p>
-                      <button onClick={() => { setFilterStatus('all'); setSearchQuery('') }}
-                        className="text-[var(--accent-blue)] text-xs mt-2 hover:underline">Clear filters</button>
-                    </div>
-                  ) : (
-                    <motion.div
-                      key={filterStatus + searchQuery}
-                      initial="hidden"
-                      animate="visible"
-                      variants={runListContainer}
-                    >
-                      {filteredRuns.map((run) => {
-                        const info   = ANALYSIS_TYPES.find(t => t.type === run.analysis_type)
-                        const ds     = run.dataset as { name: string } | null
-                        const isRunning = run.status === 'running' || run.status === 'pending'
-                        const dotCls = isRunning
-                          ? 'status-dot--running'
-                          : (statusDotClass[run.status] ?? 'status-dot--neutral')
-                        const isSelected = selectedRunId === run.id
-                        return (
-                          <motion.button
-                            key={run.id}
-                            variants={runListItem}
-                            onClick={() => setSelectedRunId(run.id)}
-                            className={`group w-full text-left flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border-row)] last:border-0 transition-colors ${
-                              isSelected ? 'bg-[var(--bg-row-active)]' : 'hover:bg-[var(--bg-row-hover)]'
-                            }`}
-                          >
-                            <span className={`status-dot ${dotCls} flex-shrink-0`} />
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm text-[var(--text-primary)] truncate leading-snug">
-                                {run.title ?? info?.label ?? run.analysis_type}
-                              </p>
-                              <p className="data-mono-xs text-[var(--text-tertiary)] mt-0.5 truncate">
-                                {ds?.name ?? info?.label ?? run.analysis_type.replace(/_/g, ' ')}
-                                {' · '}{formatRelative(run.created_at)}
-                              </p>
-                            </div>
-                            <button
-                              onClick={e => { e.stopPropagation(); handleDelete(run.id) }}
-                              className="row-action text-[var(--text-tertiary)] hover:text-[var(--timeline-flagged)] flex-shrink-0 p-0.5"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </motion.button>
-                        )
-                      })}
-                    </motion.div>
-                  )}
-                </div>
+          {/* History drawer — slides over the left panel */}
+          {historyOpen && (
+            <motion.div
+              initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="absolute inset-0 z-20 bg-[var(--bg-app)] flex flex-col"
+            >
+              <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-row)] flex-shrink-0">
+                <span className="text-sm font-semibold text-[var(--text-primary)]">History</span>
+                <button
+                  onClick={() => setHistoryOpen(false)}
+                  className="h-7 w-7 flex items-center justify-center rounded-md text-[var(--text-tertiary)] hover:bg-[var(--bg-row-hover)] hover:text-[var(--text-primary)] transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
-
-              {/* ── Right: Inline wizard or results preview ── */}
-              <div className="flex-1 overflow-y-auto min-w-0 flex flex-col">
-                {wizardActive ? (
-                  <>
-                    {/* Wizard header with step indicator */}
-                    <div className="flex-shrink-0 px-6 pt-5 pb-4 border-b border-[var(--border-row)] flex items-center gap-4">
-                      <div className="flex items-center gap-1 flex-1">
-                        {WIZARD_STEPS.map((step, i) => {
-                          const isPast    = i < wizardStepIdx
-                          const isCurrent = wizardStep === step.id
-                          return (
-                            <button
-                              key={step.id}
-                              onClick={() => { if (isPast) setWizardStep(step.id) }}
-                              disabled={!isPast && !isCurrent}
-                              className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
-                                isCurrent
-                                  ? 'bg-[var(--bg-row-active)] text-[var(--text-primary)]'
-                                  : isPast
-                                    ? 'text-[var(--timeline-verified)] hover:text-[var(--text-primary)] cursor-pointer'
-                                    : 'text-[var(--text-tertiary)] cursor-default'
-                              }`}
-                            >
-                              <span className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-[8px] font-bold flex-shrink-0 ${
-                                isCurrent
-                                  ? 'bg-[var(--accent-blue)] text-white'
-                                  : isPast
-                                    ? 'bg-[var(--timeline-verified)] text-white'
-                                    : 'bg-[var(--border-strong)] text-[var(--text-tertiary)]'
-                              }`}>{isPast ? '✓' : i + 1}</span>
-                              {step.label}
-                            </button>
-                          )
-                        })}
-                      </div>
-                      <button
-                        onClick={closeWizard}
-                        className="h-7 w-7 flex items-center justify-center rounded-md text-[var(--text-tertiary)] hover:bg-[var(--bg-row-hover)] hover:text-[var(--text-primary)] transition-colors"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-
-                    {/* Wizard body */}
-                    <div className="flex-1 px-6 py-5 space-y-5 overflow-y-auto">
-
-                      {/* Step 1: Data */}
-                      {wizardStep === 'data' && (
-                        <>
-                          <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                            Select a dataset or upload a file. Your data is processed locally.
-                          </p>
-                          <ProjectDatasetSelector
-                            projectId={projectId} onData={handleData}
-                            datasetId={datasetId} versionId={versionId}
-                            data={data} fileName={fileName}
-                          />
-                          <div className="flex items-center gap-3 pt-1">
-                            <button
-                              disabled={!dataLoaded}
-                              onClick={() => setWizardStep('configure')}
-                              className="flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-medium text-white bg-[var(--accent-blue)] hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                              Continue <ChevronRight className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              onClick={() => setWizardStep('configure')}
-                              className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
-                            >
-                              Skip (sample size only)
-                            </button>
-                          </div>
-                        </>
-                      )}
-
-                      {/* Step 2: Configure */}
-                      {wizardStep === 'configure' && (
-                        <>
-                          {dataLoaded ? (
-                            <div className="flex items-center justify-between px-3 py-2 rounded bg-[var(--bg-row-hover)] border border-[var(--border-row)]">
-                              <div className="flex items-center gap-2">
-                                <Database className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
-                                <span className="text-xs font-medium text-[var(--text-primary)]">{fileName}</span>
-                                <span className="data-mono-xs text-[var(--text-tertiary)]">
-                                  {data.length.toLocaleString()} rows · {columns.length} cols
-                                </span>
-                              </div>
-                              <button
-                                onClick={() => setWizardStep('data')}
-                                className="text-xs text-[var(--accent-blue)] hover:underline"
-                              >
-                                Change
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-between px-3 py-2 rounded bg-amber-50 border border-amber-200">
-                              <span className="text-xs text-amber-700">No dataset — only sample size calculator available</span>
-                              <button onClick={() => setWizardStep('data')} className="text-xs text-amber-700 font-medium underline ml-2">Add data</button>
-                            </div>
-                          )}
-
-                          {project && (
-                            <AISuggestions
-                              projectId={projectId} projectTitle={project.title}
-                              projectDescription={project.description}
-                              methodology={project.methodology}
-                              researchObjectives={project.research_objectives}
-                              columns={dataLoaded ? columnsForAI : undefined}
-                              onSelect={handleTypeSelect} selectedType={selectedType}
-                            />
-                          )}
-                          <AnalysisTypePicker selected={selectedType} onSelect={handleTypeSelect} />
-
-                          {selectedType && (
-                            <>
-                              {needsData && !dataLoaded ? (
-                                <div>
-                                  <p className="subsection-label mb-2">Dataset Required</p>
-                                  <ProjectDatasetSelector
-                                    projectId={projectId} onData={handleData}
-                                    datasetId={datasetId} versionId={versionId}
-                                    data={data} fileName={fileName}
-                                  />
-                                </div>
-                              ) : null}
-
-                              {approvalBlock && (
-                                <div className="rounded border border-amber-200 bg-amber-50 px-4 py-3 space-y-1.5">
-                                  <p className="text-xs font-medium text-amber-800">
-                                    {approvalBlock.status === 'pending' ? 'Awaiting Supervisor Approval'
-                                      : approvalBlock.status === 'in_review' ? 'Under Supervisor Review'
-                                      : approvalBlock.status === 'not_requested' ? 'Approval Required'
-                                      : approvalBlock.status === 'rejected' ? 'Approval Declined'
-                                      : 'Revisions Requested'}
-                                  </p>
-                                  <p className="text-xs text-amber-700 leading-relaxed">{approvalBlock.reason}</p>
-                                  <a href={`/projects/${projectId}/data`} className="text-xs text-amber-800 font-medium underline">
-                                    {approvalBlock.status === 'not_requested' ? 'Submit for Approval →' : 'View Approval Status →'}
-                                  </a>
-                                </div>
-                              )}
-
-                              <div className="surface-inset rounded">
-                                <p className="subsection-label mb-3">Configuration</p>
-                                <ConfigComponent
-                                  type={selectedType} config={config} onChange={setConfig}
-                                  onRun={approvalBlock ? () => {} : handleRun}
-                                  loading={running}
-                                  columns={needsData ? (dataLoaded ? columns : []) : []}
-                                />
-                              </div>
-
-                              {result?.summary?.error && (
-                                <div className="rounded border border-[var(--timeline-flagged)]/20 bg-red-50 px-4 py-3">
-                                  <p className="text-xs font-medium text-[var(--timeline-flagged)]">Analysis Error</p>
-                                  <p className="text-xs text-[var(--text-secondary)] mt-1">{String(result.summary.error)}</p>
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </>
-                      )}
-
-                      {/* Step 3: Results */}
-                      {wizardStep === 'result' && result && !result.summary?.error && (
-                        <>
-                          {result.summary && Object.keys(result.summary).filter(k => k !== 'error').length > 0 && (
-                            <div className="grid grid-cols-2 gap-2">
-                              {Object.entries(result.summary).filter(([k]) => k !== 'error').slice(0, 6).map(([key, val]) => (
-                                <div key={key} className="px-3 py-2.5 rounded border border-[var(--border-row)] bg-white">
-                                  <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider truncate">{formatKey(key)}</p>
-                                  <p className="text-sm font-medium text-[var(--text-primary)] truncate mt-0.5">{String(val)}</p>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          {result.interpretation && (
-                            <div className="px-4 py-3 rounded bg-[var(--bg-row-hover)] border border-[var(--border-row)]">
-                              <p className="text-xs text-[var(--text-tertiary)] uppercase tracking-wider mb-1.5">Interpretation</p>
-                              <p className="text-sm text-[var(--text-primary)] leading-relaxed">{result.interpretation}</p>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-3 pt-2">
-                            <button
-                              onClick={handleSave}
-                              disabled={!!savedRunId}
-                              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium text-white bg-[var(--accent-blue)] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <CheckCircle2 className="h-4 w-4" />
-                              Save Analysis
-                            </button>
-                            <button
-                              onClick={() => setWizardStep('configure')}
-                              className="px-4 py-2.5 rounded-md text-sm text-[var(--text-secondary)] border border-[var(--border-row)] hover:bg-[var(--bg-row-hover)] transition-colors"
-                            >
-                              ← Reconfigure
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </>
-                ) : selectedRun?.status === 'completed' && selectedResult ? (
-                  <HubResultsPreview
-                    run={selectedRun}
-                    result={selectedResult}
-                    projectId={projectId}
-                  />
-                ) : selectedRun?.status === 'running' || selectedRun?.status === 'pending' ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center px-8">
-                    <div className="w-5 h-5 rounded-full border-2 border-[var(--accent-blue)] border-t-transparent animate-spin mb-3" />
-                    <p className="text-sm text-[var(--text-primary)]">Analysis in progress</p>
-                    <p className="text-xs text-[var(--text-tertiary)] mt-1">Results will appear here when complete.</p>
-                  </div>
-                ) : selectedRun?.status === 'failed' ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center px-8">
-                    <span className="status-dot status-dot--flagged mb-3" />
-                    <p className="text-sm text-[var(--text-primary)]">Analysis failed</p>
-                    <p className="text-xs text-[var(--text-tertiary)] mt-1">{selectedRun.error_message ?? 'An unknown error occurred.'}</p>
+              <div className="overflow-y-auto flex-1">
+                {runs.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center px-6 py-12">
+                    <BarChart2 className="h-5 w-5 text-[var(--text-tertiary)] mb-2" />
+                    <p className="text-xs text-[var(--text-tertiary)]">No analyses yet</p>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-center px-8">
-                    <BarChart2 className="h-6 w-6 text-[var(--text-tertiary)] mb-3" />
-                    <p className="text-sm text-[var(--text-primary)]">Select a run</p>
-                    <p className="text-xs text-[var(--text-tertiary)] mt-1 max-w-[200px]">
-                      Click any analysis from the list to preview results here.
-                    </p>
+                  <div>
+                    {runs.map(run => {
+                      const info = ANALYSIS_TYPES.find(t => t.type === run.analysis_type)
+                      const ds   = run.dataset as { name: string } | null
+                      const isViewing = viewingRunId === run.id
+                      return (
+                        <button
+                          key={run.id}
+                          onClick={() => { setViewingRunId(run.id); setHistoryOpen(false) }}
+                          className={`group w-full text-left flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border-row)] last:border-0 transition-colors ${
+                            isViewing ? 'bg-[var(--bg-row-active)]' : 'hover:bg-[var(--bg-row-hover)]'
+                          }`}
+                        >
+                          <span className={`status-dot ${statusDotClass[run.status] ?? 'status-dot--neutral'} flex-shrink-0`} />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-[var(--text-primary)] truncate leading-snug">
+                              {run.title ?? info?.label ?? run.analysis_type}
+                            </p>
+                            <p className="data-mono-xs text-[var(--text-tertiary)] mt-0.5 truncate">
+                              {ds?.name ? `${ds.name} · ` : ''}{formatRelative(run.created_at)}
+                            </p>
+                          </div>
+                          <button
+                            onClick={e => { e.stopPropagation(); handleDelete(run.id) }}
+                            className="opacity-0 group-hover:opacity-100 text-[var(--text-tertiary)] hover:text-[var(--timeline-flagged)] flex-shrink-0 p-0.5 transition-opacity"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
               </div>
+            </motion.div>
+          )}
 
+          {/* Input panel header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-row)] flex-shrink-0">
+            <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Configure</span>
+            <button
+              onClick={() => setHistoryOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-row-hover)] transition-colors"
+            >
+              <Clock className="h-3.5 w-3.5" />
+              History
+              {runs.length > 0 && (
+                <span className="ml-0.5 text-[10px] font-medium text-[var(--text-tertiary)]">({runs.length})</span>
+              )}
+            </button>
+          </div>
+
+          {/* Scrollable input form */}
+          <div className="flex-1 overflow-y-auto px-4 py-5 space-y-6">
+
+            {/* 1. Dataset */}
+            <div>
+              <p className="text-[11px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wide mb-2">Dataset</p>
+              <ProjectDatasetSelector
+                projectId={projectId} onData={handleData}
+                datasetId={datasetId} versionId={versionId}
+                data={data} fileName={fileName}
+              />
+              {dataLoaded && (
+                <div className="flex items-center gap-1.5 mt-2 px-2.5 py-1.5 rounded bg-[var(--bg-row-hover)] border border-[var(--border-row)]">
+                  <Database className="h-3 w-3 text-[var(--accent-blue)] flex-shrink-0" />
+                  <span className="text-xs text-[var(--text-primary)] font-medium truncate">{fileName}</span>
+                  <span className="data-mono-xs text-[var(--text-tertiary)] flex-shrink-0">{data.length.toLocaleString()}r · {columns.length}c</span>
+                </div>
+              )}
             </div>
-          )
-        })()}
+
+            {/* 2. Analysis type */}
+            <div>
+              <p className="text-[11px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wide mb-2">Analysis Type</p>
+              <select
+                value={selectedType ?? ''}
+                onChange={e => handleTypeSelect(e.target.value as AnalysisType)}
+                className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border-row)] bg-white text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]/30 focus:border-[var(--accent-blue)] transition-colors"
+              >
+                <option value="" disabled>Choose analysis…</option>
+                {TYPE_GROUPS.map(group => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.types.map(type => {
+                      const info = ANALYSIS_TYPES.find(t => t.type === type)
+                      return (
+                        <option key={type} value={type}>
+                          {info?.label ?? type}
+                        </option>
+                      )
+                    })}
+                  </optgroup>
+                ))}
+              </select>
+              {selectedType && ANALYSIS_TYPES.find(t => t.type === selectedType)?.description && (
+                <p className="text-xs text-[var(--text-tertiary)] mt-1.5 leading-relaxed">
+                  {ANALYSIS_TYPES.find(t => t.type === selectedType)?.description}
+                </p>
+              )}
+            </div>
+
+            {/* 3. Configuration */}
+            {selectedType && (
+              <div>
+                <p className="text-[11px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wide mb-3">Variables & Options</p>
+
+                {/* Approval gate */}
+                {approvalBlock && (
+                  <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2.5 space-y-1 mb-3">
+                    <p className="text-xs font-medium text-amber-800">
+                      {approvalBlock.status === 'pending' ? 'Awaiting Approval'
+                        : approvalBlock.status === 'rejected' ? 'Approval Declined'
+                        : 'Approval Required'}
+                    </p>
+                    <p className="text-xs text-amber-700 leading-relaxed">{approvalBlock.reason}</p>
+                  </div>
+                )}
+
+                {needsData && !dataLoaded ? (
+                  <p className="text-xs text-[var(--text-tertiary)] italic">Load a dataset above to configure this analysis.</p>
+                ) : (
+                  <ConfigComponent
+                    type={selectedType} config={config} onChange={setConfig}
+                    onRun={approvalBlock ? () => {} : handleRun}
+                    loading={running}
+                    columns={needsData ? columns : []}
+                  />
+                )}
+              </div>
+            )}
+
+          </div>
+
+          {/* Run button — sticky at the bottom */}
+          <div className="px-4 py-3 border-t border-[var(--border-row)] flex-shrink-0">
+            <button
+              onClick={handleRun}
+              disabled={!canRun}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-semibold text-white bg-[var(--accent-blue)] hover:opacity-90 active:opacity-80 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              {running ? (
+                <>
+                  <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                  Running…
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4" />
+                  Run Analysis
+                </>
+              )}
+            </button>
+          </div>
+
+        </div>
+
+        {/* ── RIGHT: Results panel ───────────────────────── */}
+        <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+
+          {viewingRunId && viewingRun ? (
+            /* ── Viewing a historical run ── */
+            <div className="flex flex-col h-full">
+              <div className="flex items-center justify-between px-6 py-3 border-b border-[var(--border-row)] flex-shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className={`status-dot ${statusDotClass[viewingRun.status] ?? 'status-dot--neutral'}`} />
+                  <span className="text-sm font-medium text-[var(--text-primary)] truncate">
+                    {viewingRun.title ?? ANALYSIS_TYPES.find(t => t.type === viewingRun.analysis_type)?.label ?? viewingRun.analysis_type}
+                  </span>
+                  <span className="data-mono-xs text-[var(--text-tertiary)]">· {formatRelative(viewingRun.created_at)}</span>
+                </div>
+                <button
+                  onClick={() => setViewingRunId(null)}
+                  className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-row-hover)] px-2.5 py-1 rounded transition-colors"
+                >
+                  ← Back
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {viewingRun.status === 'completed' && viewingResult ? (
+                  <HubResultsPreview run={viewingRun} result={viewingResult} projectId={projectId} />
+                ) : viewingRun.status === 'failed' ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+                    <span className="status-dot status-dot--flagged mb-3" />
+                    <p className="text-sm text-[var(--text-primary)]">Analysis failed</p>
+                    <p className="text-xs text-[var(--text-tertiary)] mt-1">{(viewingRun as { error_message?: string }).error_message ?? 'An unknown error occurred.'}</p>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-xs text-[var(--text-tertiary)]">No results available.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+          ) : running ? (
+            /* ── Running ── */
+            <div className="flex flex-col items-center justify-center h-full text-center px-8">
+              <div className="w-8 h-8 rounded-full border-2 border-[var(--accent-blue)] border-t-transparent animate-spin mb-4" />
+              <p className="text-sm font-medium text-[var(--text-primary)]">Running analysis…</p>
+              <p className="text-xs text-[var(--text-tertiary)] mt-1">
+                {ANALYSIS_TYPES.find(t => t.type === selectedType)?.label ?? 'Processing'}
+              </p>
+            </div>
+
+          ) : result && !result.summary?.error ? (
+            /* ── Fresh result ── */
+            <div className="flex flex-col h-full">
+              <div className="flex items-center justify-between px-6 py-3 border-b border-[var(--border-row)] flex-shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="status-dot status-dot--verified" />
+                  <span className="text-sm font-medium text-[var(--text-primary)]">
+                    {ANALYSIS_TYPES.find(t => t.type === selectedType)?.label ?? 'Results'}
+                  </span>
+                </div>
+                <button
+                  onClick={handleSave}
+                  disabled={!!savedRunId}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white bg-[var(--accent-blue)] hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  {savedRunId ? 'Saved' : 'Save'}
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+                {/* Key findings grid */}
+                {(() => {
+                  const findings = getKeyFindings(result, selectedType ?? '')
+                  if (findings.length === 0) return null
+                  return (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {findings.map(f => (
+                        <div key={f.label} className="px-3 py-2.5 rounded-lg border border-[var(--border-row)] bg-white">
+                          <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider truncate">{f.label}</p>
+                          <p className="text-base font-semibold text-[var(--text-primary)] mt-0.5 truncate">{f.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
+
+                {/* Interpretation */}
+                {result.interpretation && (
+                  <div className="px-4 py-3 rounded-lg bg-[var(--bg-row-hover)] border border-[var(--border-row)]">
+                    <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider mb-1.5 font-semibold">Interpretation</p>
+                    <p className="text-sm text-[var(--text-primary)] leading-relaxed">{result.interpretation}</p>
+                  </div>
+                )}
+
+                {/* Plain language summary */}
+                {(result as { plainLanguage?: string }).plainLanguage && (
+                  <div className="px-4 py-3 rounded-lg border border-[var(--accent-blue)]/15 bg-blue-50/40">
+                    <p className="text-[10px] text-[var(--accent-blue)] uppercase tracking-wider mb-1.5 font-semibold">Plain Language</p>
+                    <p className="text-sm text-[var(--text-primary)] leading-relaxed">{(result as { plainLanguage?: string }).plainLanguage}</p>
+                  </div>
+                )}
+
+                {/* Result tables */}
+                {(result.tables ?? []).slice(0, 3).map((table, i) => (
+                  <div key={i}>
+                    <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">{table.title}</p>
+                    <div className="overflow-x-auto rounded-lg border border-[var(--border-row)]">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-[var(--bg-row-hover)]">
+                            {table.headers.map((h, j) => (
+                              <th key={j} className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)] whitespace-nowrap border-b border-[var(--border-row)]">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {table.rows.slice(0, 20).map((row, j) => (
+                            <tr key={j} className="border-b border-[var(--border-row)] last:border-0 hover:bg-[var(--bg-row-hover)] transition-colors">
+                              {row.map((cell, k) => (
+                                <td key={k} className="px-3 py-2 text-[var(--text-primary)] whitespace-nowrap font-mono">
+                                  {cell === null ? <span className="text-[var(--text-tertiary)]">—</span> : String(cell)}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+
+              </div>
+            </div>
+
+          ) : result?.summary?.error ? (
+            /* ── Error ── */
+            <div className="flex flex-col items-center justify-center h-full text-center px-8">
+              <div className="rounded-lg border border-[var(--timeline-flagged)]/20 bg-red-50 px-6 py-5 max-w-md">
+                <p className="text-sm font-semibold text-[var(--timeline-flagged)] mb-1">Analysis Error</p>
+                <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{String(result.summary.error)}</p>
+              </div>
+            </div>
+
+          ) : (
+            /* ── Empty / idle state ── */
+            <div className="flex flex-col items-center justify-center h-full text-center px-8">
+              <BarChart2 className="h-8 w-8 text-[var(--text-tertiary)] mb-3 opacity-40" />
+              <p className="text-sm font-medium text-[var(--text-primary)]">Results appear here</p>
+              <p className="text-xs text-[var(--text-tertiary)] mt-1 max-w-[220px] leading-relaxed">
+                {runs.length > 0
+                  ? 'Configure and run a new analysis, or open History to view past results.'
+                  : 'Select a dataset and analysis type, then click Run Analysis.'}
+              </p>
+              {runs.length > 0 && (
+                <button
+                  onClick={() => setHistoryOpen(true)}
+                  className="mt-4 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-[var(--border-row)] text-[var(--text-secondary)] hover:bg-[var(--bg-row-hover)] transition-colors"
+                >
+                  <Clock className="h-3.5 w-3.5" />
+                  View History
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
       </div>
 
+      {/* ── Modals ──────────────────────────────────────── */}
       {hubTableModalOpen && (
-        <HubTableGeneratorModal
-          projectId={projectId}
-          onClose={() => setHubTableModalOpen(false)}
-        />
+        <HubTableGeneratorModal projectId={projectId} onClose={() => setHubTableModalOpen(false)} />
       )}
 
       {showAssumptionModal && assumptionCheckResult && selectedType && (
@@ -775,7 +678,6 @@ export function AnalysisHub({ projectId }: Props) {
           analysisType={selectedType}
           onProceed={async (notes) => {
             setShowAssumptionModal(false)
-            // Acknowledge via API if required
             if (assumptionCheckResult.requires_acknowledgement) {
               try {
                 await fetch(`/api/analysis/assumption-checks/${assumptionCheckResult.check_id}/acknowledge`, {
@@ -783,9 +685,7 @@ export function AnalysisHub({ projectId }: Props) {
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ acknowledgement_notes: notes }),
                 })
-              } catch {
-                // Non-blocking
-              }
+              } catch { /* non-blocking */ }
             }
             await executeAnalysis()
           }}
@@ -796,25 +696,7 @@ export function AnalysisHub({ projectId }: Props) {
   )
 }
 
-// ── Empty State ─────────────────────────────────────────
-function EmptyState({ onNew }: { onNew: () => void }) {
-  return (
-    <div className="empty-state">
-      <BarChart2 className="empty-state-icon h-8 w-8" />
-      <p className="empty-state-title">No analyses yet</p>
-      <p className="empty-state-description">
-        Run your first statistical analysis to get results, charts, and AI-powered interpretations.
-      </p>
-      <button onClick={onNew}
-        className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white bg-[var(--accent-blue)] hover:opacity-90 transition-opacity">
-        <Plus className="h-3.5 w-3.5" />
-        New Analysis
-      </button>
-    </div>
-  )
-}
-
-// ── Per-analysis-type key findings ─────────────────────
+// ── Key findings per analysis type ──────────────────────
 type Finding = { label: string; value: string }
 
 function getKeyFindings(result: AnalysisResult, analysisType: string): Finding[] {
@@ -824,7 +706,6 @@ function getKeyFindings(result: AnalysisResult, analysisType: string): Finding[]
   const get = (key: string): string | null =>
     s[key] !== undefined && s[key] !== null && s[key] !== '' ? String(s[key]) : null
 
-  // Look up a value in a table row by header keyword
   const fromTable = (tableId: string, headerKw: string, rowIdx = 0): string | null => {
     const t = tables.find(t => t.id === tableId || t.title?.toLowerCase().includes(tableId))
     if (!t || !t.rows[rowIdx]) return null
@@ -836,40 +717,34 @@ function getKeyFindings(result: AnalysisResult, analysisType: string): Finding[]
 
   const findings: Finding[] = []
   const add = (label: string, value: string | null) => {
-    if (value !== null && findings.length < 4) findings.push({ label, value })
+    if (value !== null && findings.length < 6) findings.push({ label, value })
   }
 
   switch (analysisType) {
     case 'descriptive': {
-      // Pull directly from numeric_summary table: [Variable, N, Missing, Mean, SD, Median, ...]
       const t = tables.find(t => t.id === 'numeric_summary')
       if (t && t.rows.length > 0) {
         const r = t.rows[0]
         add('Variable', r[0] !== null ? String(r[0]) : null)
-        add('N',        r[1] !== null ? String(r[1]) : null)
-        add('Mean',     r[3] !== null ? String(r[3]) : null)
-        add('Std Dev',  r[4] !== null ? String(r[4]) : null)
+        add('N', r[1] !== null ? String(r[1]) : null)
+        add('Mean', r[3] !== null ? String(r[3]) : null)
+        add('Std Dev', r[4] !== null ? String(r[4]) : null)
       } else {
-        // Categorical only — pull from categorical_summary: [Variable, N, Missing, Unique, Mode, Mode%]
         const ct = tables.find(t => t.id === 'categorical_summary')
         if (ct && ct.rows.length > 0) {
           const r = ct.rows[0]
           add('Variable', r[0] !== null ? String(r[0]) : null)
-          add('N',        r[1] !== null ? String(r[1]) : null)
-          add('Unique',   r[3] !== null ? String(r[3]) : null)
-          add('Mode',     r[4] !== null ? String(r[4]) : null)
+          add('N', r[1] !== null ? String(r[1]) : null)
+          add('Unique', r[3] !== null ? String(r[3]) : null)
+          add('Mode', r[4] !== null ? String(r[4]) : null)
         } else {
           add('N', get('n')); add('Numeric Vars', get('numericVars')); add('Cat Vars', get('catVars'))
         }
       }
       break
     }
-
     case 'frequency': {
-      add('N', get('n'))
-      add('Variable', get('variable'))
-      add('Categories', get('categories'))
-      // Most frequent value from first table
+      add('N', get('n')); add('Variable', get('variable')); add('Categories', get('categories'))
       const ft = tables[0]
       if (ft && ft.rows.length > 0) {
         const topRow = ft.rows.reduce((best, row) => Number(row[1]) > Number(best[1] ?? 0) ? row : best, ft.rows[0])
@@ -877,40 +752,32 @@ function getKeyFindings(result: AnalysisResult, analysisType: string): Finding[]
       }
       break
     }
-
     case 'chi_square':
       add('N', get('n')); add('χ²', get('chiSq') ?? get('chi2'))
       add('p-value', get('pValue')); add("Cramér's V", get('cramersV') ?? get('v'))
       break
-
     case 't_test': {
-      // t_test summary only has testType + variable; pull from table
       const tt = tables[0]
       if (tt) {
         const hi = (kw: string) => tt.headers.findIndex(h => h.toLowerCase().includes(kw))
-        const nIdx = hi('n'); const meanIdx = hi('mean'); const tIdx = hi('t'); const pIdx = hi('p')
-        const dIdx = hi('cohen')
         const r = tt.rows[0]
         if (r) {
-          if (nIdx >= 0)    add('N',         String(r[nIdx]))
-          if (meanIdx >= 0) add('Mean',      String(r[meanIdx]))
-          if (tIdx >= 0)    add('t',         String(r[tIdx]))
-          if (pIdx >= 0)    add('p-value',   String(r[pIdx]))
-          if (dIdx >= 0 && findings.length < 4) add("Cohen's d", String(r[dIdx]))
+          const nIdx = hi('n'); const meanIdx = hi('mean'); const tIdx = hi('t'); const pIdx = hi('p'); const dIdx = hi('cohen')
+          if (nIdx >= 0) add('N', String(r[nIdx]))
+          if (meanIdx >= 0) add('Mean', String(r[meanIdx]))
+          if (tIdx >= 0) add('t', String(r[tIdx]))
+          if (pIdx >= 0) add('p-value', String(r[pIdx]))
+          if (dIdx >= 0) add("Cohen's d", String(r[dIdx]))
         }
       }
       if (findings.length === 0) { add('Test', get('testType')); add('Variable', get('variable')) }
       break
     }
-
     case 'anova':
-      add('N', get('n')); add('F', get('fStat'))
-      add('p-value', get('pValue')); add('η²', get('etaSq') ?? get('etaSquared'))
+      add('N', get('n')); add('F', get('fStat')); add('p-value', get('pValue')); add('η²', get('etaSq') ?? get('etaSquared'))
       break
-
     case 'correlation': {
       add('Variables', get('variables')); add('Method', get('method'))
-      // First correlation value from table
       const ct = tables[0]
       if (ct && ct.rows.length > 0 && ct.rows[0].length >= 2) {
         const rVal = ct.rows[0][1]
@@ -920,90 +787,50 @@ function getKeyFindings(result: AnalysisResult, analysisType: string): Finding[]
       }
       break
     }
-
     case 'simple_regression':
-      add('N', get('n')); add('R²', get('r2') ?? get('rSquared'))
-      add('p-value', get('pValue'))
-      // Get β (slope) from coefficients table, row 1 (predictor)
+      add('N', get('n')); add('R²', get('r2') ?? get('rSquared')); add('p-value', get('pValue'))
       add('β', fromTable('coefficients', 'estimate', 1) ?? fromTable('coeff', 'b', 1))
       break
-
     case 'multiple_regression':
-      add('N', get('n')); add('R²', get('r2') ?? get('rSquared'))
-      add('Adj R²', get('adjR2') ?? get('adjustedR2')); add('p-value', get('pValue'))
+      add('N', get('n')); add('R²', get('r2') ?? get('rSquared')); add('Adj R²', get('adjR2') ?? get('adjustedR2')); add('p-value', get('pValue'))
       break
-
     case 'logistic_regression':
-      add('N', get('n')); add('Events', get('events'))
-      add('AUC', get('auc')); add('Nagelkerke R²', get('nagelkerkeR2'))
+      add('N', get('n')); add('Events', get('events')); add('AUC', get('auc')); add('Nagelkerke R²', get('nagelkerkeR2'))
       break
-
     case 'multinomial_regression':
     case 'ordinal_regression':
-      add('N', get('n')); add('AIC', get('aic'))
-      add('p-value', get('pValue')); add('Pseudo R²', get('pseudoR2') ?? get('mcfadden'))
+      add('N', get('n')); add('AIC', get('aic')); add('p-value', get('pValue')); add('Pseudo R²', get('pseudoR2') ?? get('mcfadden'))
       break
-
     case 'poisson_regression':
     case 'negbinomial_regression':
-      add('N', get('n')); add('AIC', get('aic'))
-      add('Deviance', get('deviance')); add('p-value', get('pValue'))
+      add('N', get('n')); add('AIC', get('aic')); add('Deviance', get('deviance')); add('p-value', get('pValue'))
       break
-
     case 'kaplan_meier':
-      add('N Total', get('n')); add('Events', get('events'))
-      add('Groups', get('groups')); add('Log-rank p', get('logRankP'))
+      add('N Total', get('n')); add('Events', get('events')); add('Groups', get('groups')); add('Log-rank p', get('logRankP'))
       break
-
     case 'cox_regression':
-      add('N', get('n')); add('Events', get('events'))
-      add('C-statistic', get('concordance')); add('LR p-value', get('lrP'))
+      add('N', get('n')); add('Events', get('events')); add('C-statistic', get('concordance')); add('LR p-value', get('lrP'))
       break
-
     case 'time_series':
-      add('N', get('n')); add('Time Points', get('timePoints'))
-      add('Classifications', get('classifications'))
-      // Try AIC from table
-      const tst = tables.find(t => t.title?.toLowerCase().includes('fit') || t.title?.toLowerCase().includes('model'))
-      if (tst) {
-        const aicRow = tst.rows.find(r => String(r[0]).toLowerCase().includes('aic'))
-        if (aicRow && aicRow[1] !== null) add('AIC', String(aicRow[1]))
-      }
+      add('N', get('n')); add('Time Points', get('timePoints')); add('Classifications', get('classifications'))
       break
-
     case 'pca':
-      add('N', get('n')); add('Components', get('nComp') ?? get('p'))
-      add('PC1 Var %', get('varExplained1')); add('PC2 Var %', get('varExplained2'))
+      add('N', get('n')); add('Components', get('nComp') ?? get('p')); add('PC1 Var %', get('varExplained1')); add('PC2 Var %', get('varExplained2'))
       break
-
     case 'factor_analysis':
-      add('N', get('n')); add('Factors', get('nFactors') ?? get('factors'))
-      add('KMO', get('kmo')); add('Total Var %', get('variance') ?? get('totalVariance'))
+      add('N', get('n')); add('Factors', get('nFactors') ?? get('factors')); add('KMO', get('kmo')); add('Total Var %', get('variance') ?? get('totalVariance'))
       break
-
     case 'cluster_analysis':
-      add('N', get('n')); add('Clusters', get('nClusters') ?? get('k'))
-      add('Silhouette', get('avgSilhouette') ?? get('silhouette')); add('WCSS', get('wcss'))
+      add('N', get('n')); add('Clusters', get('nClusters') ?? get('k')); add('Silhouette', get('avgSilhouette') ?? get('silhouette')); add('WCSS', get('wcss'))
       break
-
     case 'meta_analysis':
-      add('Studies', get('k')); add('Effect Size', get('summaryES'))
-      add('I²', get('I2') ?? get('i2')); add('p-value', get('pValue'))
+      add('Studies', get('k')); add('Effect Size', get('summaryES')); add('I²', get('I2') ?? get('i2')); add('p-value', get('pValue'))
       break
-
-    case 'spatial_analysis':
-    case 'outbreak_investigation':
-      add('N', get('n')); add('Mean', get('mean'))
-      add('SD', get('sd')); add('p-value', get('pValue'))
-      break
-
     case 'sample_size':
-      add('Design', get('design')); add('N per Group', get('nPerGroup'))
-      add('Total N', get('totalN') ?? get('finalN')); add('Power', get('power'))
+      add('Design', get('design')); add('N per Group', get('nPerGroup')); add('Total N', get('totalN') ?? get('finalN')); add('Power', get('power'))
       break
-
     default: {
-      const keys = Object.keys(s).filter(k => k !== 'error').slice(0, 4)
+      const keys = Object.keys(s).filter(k => k !== 'error').slice(0, 6)
       for (const k of keys) add(formatKey(k), get(k))
     }
   }
