@@ -7,11 +7,13 @@ interface AnalysisRunButtonProps {
   onClick: () => void
   loading: boolean
   disabled?: boolean
+  hidden?: boolean
 }
 
-export function AnalysisRunButton({ onClick, loading, disabled }: AnalysisRunButtonProps) {
+export function AnalysisRunButton({ onClick, loading, disabled, hidden }: AnalysisRunButtonProps) {
+  if (hidden) return null
   return (
-    <Button
+    <Button data-run-button="1"
       onClick={onClick}
       disabled={disabled || loading}
       className="w-full mt-4"

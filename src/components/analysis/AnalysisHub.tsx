@@ -11,6 +11,8 @@ import type { AssumptionCheckResult } from '@/types/analysisIntegrity'
 import { ANALYSIS_TYPES } from './AnalysisTypePicker'
 import { ProjectDatasetSelector } from './ProjectDatasetSelector'
 import { HubResultsPreview } from './HubResultsPreview'
+import { AnalysisCharts } from './results/AnalysisCharts'
+import type { ChartSpec } from '@/lib/analysis/types'
 import { createClient } from '@/lib/supabase/client'
 import { runAnalysis } from '@/lib/analysis/engine'
 import { useAuth } from '@/hooks/useAuth'
@@ -123,6 +125,7 @@ export function AnalysisHub({ projectId }: Props) {
   const [running, setRunning]   = useState(false)
   const [result, setResult]     = useState<AnalysisResult | null>(null)
   const [savedRunId, setSavedRunId] = useState<string | null>(null)
+  const [resultTab, setResultTab] = useState<'results' | 'tables'>('results')
 
   // Modals
   const [hubTableModalOpen, setHubTableModalOpen] = useState(false)
@@ -191,6 +194,7 @@ export function AnalysisHub({ projectId }: Props) {
     setRunning(true); setResult(null); setViewingRunId(null)
     try {
       setResult(await runAnalysis(selectedType, data, config))
+      setResultTab('results')
     } catch (err) {
       setResult({ type: selectedType, summary: { error: err instanceof Error ? err.message : 'Analysis failed' }, tables: [], charts: [], interpretation: 'Analysis failed.' })
     } finally {
@@ -463,12 +467,14 @@ export function AnalysisHub({ projectId }: Props) {
                 {needsData && !dataLoaded ? (
                   <p className="text-xs text-[var(--text-tertiary)] italic">Load a dataset above to configure this analysis.</p>
                 ) : (
-                  <ConfigComponent
-                    type={selectedType} config={config} onChange={setConfig}
-                    onRun={approvalBlock ? () => {} : handleRun}
-                    loading={running}
-                    columns={needsData ? columns : []}
-                  />
+                  <div className="[&_[data-run-button]]:hidden">
+                    <ConfigComponent
+                      type={selectedType} config={config} onChange={setConfig}
+                      onRun={approvalBlock ? () => {} : handleRun}
+                      loading={running}
+                      columns={needsData ? columns : []}
+                    />
+                  </div>
                 )}
               </div>
             )}
@@ -549,85 +555,116 @@ export function AnalysisHub({ projectId }: Props) {
           ) : result && !result.summary?.error ? (
             /* ── Fresh result ── */
             <div className="flex flex-col h-full">
-              <div className="flex items-center justify-between px-6 py-3 border-b border-[var(--border-row)] flex-shrink-0">
-                <div className="flex items-center gap-2">
-                  <span className="status-dot status-dot--verified" />
-                  <span className="text-sm font-medium text-[var(--text-primary)]">
-                    {ANALYSIS_TYPES.find(t => t.type === selectedType)?.label ?? 'Results'}
-                  </span>
+              {/* Result header: label + tabs + save */}
+              <div className="flex items-center gap-2 px-5 py-2.5 border-b border-[var(--border-row)] flex-shrink-0">
+                <span className="status-dot status-dot--verified flex-shrink-0" />
+                <span className="text-sm font-medium text-[var(--text-primary)] mr-2">
+                  {ANALYSIS_TYPES.find(t => t.type === selectedType)?.label ?? 'Results'}
+                </span>
+                {/* Tabs */}
+                <div className="flex items-center gap-0.5 flex-1">
+                  {(['results', 'tables'] as const).map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setResultTab(tab)}
+                      className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                        resultTab === tab
+                          ? 'bg-[var(--bg-row-active)] text-[var(--text-primary)]'
+                          : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-row-hover)]'
+                      }`}
+                    >
+                      {tab === 'results' ? 'Results' : 'Tables'}
+                    </button>
+                  ))}
                 </div>
                 <button
                   onClick={handleSave}
                   disabled={!!savedRunId}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white bg-[var(--accent-blue)] hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white bg-[var(--accent-blue)] hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   {savedRunId ? 'Saved' : 'Save'}
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
 
-                {/* Key findings grid */}
-                {(() => {
-                  const findings = getKeyFindings(result, selectedType ?? '')
-                  if (findings.length === 0) return null
-                  return (
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                      {findings.map(f => (
-                        <div key={f.label} className="px-3 py-2.5 rounded-lg border border-[var(--border-row)] bg-white">
-                          <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider truncate">{f.label}</p>
-                          <p className="text-base font-semibold text-[var(--text-primary)] mt-0.5 truncate">{f.value}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )
-                })()}
+              {/* Tab content */}
+              <div className="flex-1 overflow-y-auto">
+                {resultTab === 'results' ? (
+                  <div className="px-6 py-5 space-y-5">
+                    {/* Charts — hero */}
+                    {(result.charts ?? []).length > 0 && (
+                      <AnalysisCharts
+                        charts={result.charts as ChartSpec[]}
+                        analysisType={selectedType ?? 'descriptive'}
+                      />
+                    )}
 
-                {/* Interpretation */}
-                {result.interpretation && (
-                  <div className="px-4 py-3 rounded-lg bg-[var(--bg-row-hover)] border border-[var(--border-row)]">
-                    <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider mb-1.5 font-semibold">Interpretation</p>
-                    <p className="text-sm text-[var(--text-primary)] leading-relaxed">{result.interpretation}</p>
-                  </div>
-                )}
-
-                {/* Plain language summary */}
-                {(result as { plainLanguage?: string }).plainLanguage && (
-                  <div className="px-4 py-3 rounded-lg border border-[var(--accent-blue)]/15 bg-blue-50/40">
-                    <p className="text-[10px] text-[var(--accent-blue)] uppercase tracking-wider mb-1.5 font-semibold">Plain Language</p>
-                    <p className="text-sm text-[var(--text-primary)] leading-relaxed">{(result as { plainLanguage?: string }).plainLanguage}</p>
-                  </div>
-                )}
-
-                {/* Result tables */}
-                {(result.tables ?? []).slice(0, 3).map((table, i) => (
-                  <div key={i}>
-                    <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">{table.title}</p>
-                    <div className="overflow-x-auto rounded-lg border border-[var(--border-row)]">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="bg-[var(--bg-row-hover)]">
-                            {table.headers.map((h, j) => (
-                              <th key={j} className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)] whitespace-nowrap border-b border-[var(--border-row)]">{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {table.rows.slice(0, 20).map((row, j) => (
-                            <tr key={j} className="border-b border-[var(--border-row)] last:border-0 hover:bg-[var(--bg-row-hover)] transition-colors">
-                              {row.map((cell, k) => (
-                                <td key={k} className="px-3 py-2 text-[var(--text-primary)] whitespace-nowrap font-mono">
-                                  {cell === null ? <span className="text-[var(--text-tertiary)]">—</span> : String(cell)}
-                                </td>
-                              ))}
-                            </tr>
+                    {/* Key findings */}
+                    {(() => {
+                      const findings = getKeyFindings(result, selectedType ?? '')
+                      if (findings.length === 0) return null
+                      return (
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                          {findings.map(f => (
+                            <div key={f.label} className="px-3 py-2.5 rounded-lg border border-[var(--border-row)] bg-white">
+                              <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider truncate">{f.label}</p>
+                              <p className="text-base font-semibold text-[var(--text-primary)] mt-0.5 truncate">{f.value}</p>
+                            </div>
                           ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                ))}
+                        </div>
+                      )
+                    })()}
 
+                    {/* Interpretation */}
+                    {result.interpretation && (
+                      <div className="px-4 py-3 rounded-lg bg-[var(--bg-row-hover)] border border-[var(--border-row)]">
+                        <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider mb-1.5 font-semibold">Interpretation</p>
+                        <p className="text-sm text-[var(--text-primary)] leading-relaxed">{result.interpretation}</p>
+                      </div>
+                    )}
+
+                    {/* Plain language */}
+                    {(result as { plainLanguage?: string }).plainLanguage && (
+                      <div className="px-4 py-3 rounded-lg border border-[var(--accent-blue)]/15 bg-blue-50/40">
+                        <p className="text-[10px] text-[var(--accent-blue)] uppercase tracking-wider mb-1.5 font-semibold">Plain Language</p>
+                        <p className="text-sm text-[var(--text-primary)] leading-relaxed">{(result as { plainLanguage?: string }).plainLanguage}</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Tables tab */
+                  <div className="px-6 py-5 space-y-6">
+                    {(result.tables ?? []).length === 0 ? (
+                      <p className="text-xs text-[var(--text-tertiary)] text-center py-8">No tables in this result.</p>
+                    ) : (result.tables ?? []).map((table, i) => (
+                      <div key={i}>
+                        <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">{table.title}</p>
+                        <div className="overflow-x-auto rounded-lg border border-[var(--border-row)]">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="bg-[var(--bg-row-hover)]">
+                                {table.headers.map((h, j) => (
+                                  <th key={j} className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)] whitespace-nowrap border-b border-[var(--border-row)]">{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {table.rows.map((row, j) => (
+                                <tr key={j} className="border-b border-[var(--border-row)] last:border-0 hover:bg-[var(--bg-row-hover)] transition-colors">
+                                  {row.map((cell, k) => (
+                                    <td key={k} className="px-3 py-2 text-[var(--text-primary)] whitespace-nowrap font-mono">
+                                      {cell === null ? <span className="text-[var(--text-tertiary)]">—</span> : String(cell)}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
