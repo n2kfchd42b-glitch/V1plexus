@@ -12,7 +12,6 @@ import { ANALYSIS_TYPES } from './AnalysisTypePicker'
 import { ProjectDatasetSelector } from './ProjectDatasetSelector'
 import { HubResultsPreview } from './HubResultsPreview'
 import { AnalysisCharts } from './results/AnalysisCharts'
-import type { ChartSpec } from '@/lib/analysis/types'
 import { createClient } from '@/lib/supabase/client'
 import { runAnalysis } from '@/lib/analysis/engine'
 import { useAuth } from '@/hooks/useAuth'
@@ -594,7 +593,7 @@ export function AnalysisHub({ projectId }: Props) {
                     {/* Charts — hero */}
                     {(result.charts ?? []).length > 0 && (
                       <AnalysisCharts
-                        charts={result.charts as ChartSpec[]}
+                        charts={result.charts as Parameters<typeof AnalysisCharts>[0]['charts']}
                         analysisType={selectedType ?? 'descriptive'}
                       />
                     )}
