@@ -55,3 +55,22 @@ class CertificateLookupResult(BaseModel):
     pvp_id: str
     certificate: Optional[VerificationCertificate] = None
     found: bool
+
+
+class SharedVerificationResult(BaseModel):
+    """
+    Returned from GET /api/journal/report/{pvp_root_hash}.
+    Powers the public shareable verification page.
+    """
+    pvp_root_hash: str
+    trust_level: int
+    trust_label: str
+    overall_status: str     # "PASS" | "REVIEW" | "FAIL"
+    aad_risk: str           # "LOW" | "MEDIUM" | "HIGH"
+    submission_mode: str    # "individual" | "supervised" | "institutional"
+    ptls_version: str
+    verified_at: datetime
+    valid_until: datetime
+    certificate_hash: str   # SHA-256 of certificate_id — for display
+    human_readable: str
+    share_url: str          # {PLEXUS_BASE_URL}/verify/{pvp_root_hash}

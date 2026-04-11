@@ -64,6 +64,7 @@ class VerificationSummary(BaseModel):
     aad_risk: str
     overall_status: str   # "PASS" | "REVIEW" | "FAIL"
     human_readable: str
+    submission_mode: str = "individual"   # "individual" | "supervised" | "institutional"
 
 
 class VerificationReport(BaseModel):

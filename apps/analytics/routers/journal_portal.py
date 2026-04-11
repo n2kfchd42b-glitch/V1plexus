@@ -5,12 +5,14 @@ All endpoints are zero-auth (no JWT required).
 Journal services access this; institutional services are excluded by boundary.
 
 Rate limits (slowapi):
-  POST /api/journal/verify         → 20/minute per IP
-  GET  /api/journal/certificate/*  → 60/minute per IP
+  POST /api/journal/verify              → 20/minute per IP
+  GET  /api/journal/certificate/*       → 60/minute per IP
+  GET  /api/journal/report/*            → 60/minute per IP
 
 Endpoints:
   POST /api/journal/verify                        Upload .pvp file for verification
   GET  /api/journal/certificate/{pvp_id}          Look up existing certificate by pvp_id
+  GET  /api/journal/report/{pvp_root_hash}        Shareable verification report by root_hash
   GET  /api/journal/health                        Liveness check (no rate limit)
   GET  /api/journal/public-key                    Return portal's Ed25519 public key (hex)
 """
@@ -26,7 +28,11 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from supabase import create_client
 
-from ..models.journal_portal import CertificateLookupResult, PortalVerificationResult
+from ..models.journal_portal import (
+    CertificateLookupResult,
+    PortalVerificationResult,
+    SharedVerificationResult,
+)
 from ..services.journal_portal_service import JournalPortalError, JournalPortalService
 
 # ── Rate limiter (exported so main.py can attach it to the app) ───────────────
@@ -98,6 +104,32 @@ async def get_certificate(
     Rate limit: 60 requests/minute per IP.
     """
     return svc.get_certificate(pvp_id)
+
+
+@router.get("/report/{pvp_root_hash}", response_model=SharedVerificationResult)
+@limiter.limit("60/minute")
+async def get_report(
+    pvp_root_hash: str,
+    request: Request,
+    svc: JournalPortalService = Depends(_get_service),
+):
+    """
+    Return a shareable verification result by pvp_root_hash.
+
+    Powers the public /verify/{pvp_root_hash} page.
+    Returns 404 if the package has never been verified via POST /verify.
+    Rate limit: 60 requests/minute per IP.
+    """
+    result = svc.get_report(pvp_root_hash)
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "No verification record found for this package.",
+                "hint": "The package must be verified first via POST /api/journal/verify",
+            },
+        )
+    return result
 
 
 @router.get("/health")

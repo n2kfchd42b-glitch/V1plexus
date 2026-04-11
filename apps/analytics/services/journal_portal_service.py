@@ -19,6 +19,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import time
 import uuid
 import zipfile
@@ -33,6 +34,7 @@ from ..models.journal_portal import (
     CertificateLookupResult,
     PortalAADFlag,
     PortalVerificationResult,
+    SharedVerificationResult,
     VerificationCertificate,
 )
 from ..services.verification_engine import TRUST_LABELS, VerificationEngine
@@ -335,6 +337,22 @@ class JournalPortalService:
         return result
 
     @staticmethod
+    def _get_submission_mode(report: Any) -> str:
+        """
+        Derive submission mode from verification report.
+          - "institutional" if institution signature verified (R3.1=True)
+          - "supervised"    if supervisor signature verified  (R2.6=True)
+          - "individual"    otherwise
+        """
+        r2_checks = report.trust.requirements_checked.get("R2", {})
+        r3_checks = report.trust.requirements_checked.get("R3", {})
+        if r3_checks.get("R3.1", False):
+            return "institutional"
+        if r2_checks.get("R2.6", False):
+            return "supervised"
+        return "individual"
+
+    @staticmethod
     def _format_human_readable(report: Any, root_hash: str) -> str:
         """Generate a plain-text verification report for humans."""
         trust_level = report.trust.level
@@ -343,24 +361,66 @@ class JournalPortalService:
         r2_checks   = report.trust.requirements_checked.get("R2", {})
         r3_checks   = report.trust.requirements_checked.get("R3", {})
 
-        chain_status   = "PASS" if report.chain.passed else "FAIL"
+        chain_status     = "PASS" if report.chain.passed else "FAIL"
         integrity_status = "PASS" if report.integrity.passed else "FAIL"
 
         # Summarise R1 checks
-        reproducible = r1_checks.get("R1.2", False)
-        author_sig   = r1_checks.get("R1.3", False)
-        outputs_ok   = r1_checks.get("R1.4", False)
+        reproducible  = r1_checks.get("R1.2", False)
+        author_signed = r1_checks.get("R1.3", False)
+        outputs_ok    = r1_checks.get("R1.4", False)
 
-        # Summarise R2 checks
-        assumption_checks = r2_checks.get("R2.3", False)
-        dqi_ok            = r2_checks.get("R2.7", False)
+        # Summarise R2/R3 checks
+        assumption_checks  = r2_checks.get("R2.3", False)
+        dqi_ok             = r2_checks.get("R2.7", False)
+        supervisor_signed  = r2_checks.get("R2.6", False)
+        institution_signed = r3_checks.get("R3.1", False)
 
-        # Summarise R3 checks
-        institution_sig = r3_checks.get("R3.1", False)
+        # ── Endorsement display ───────────────────────────────────────────────
+        # N/A vs ❌ is determined by whether the rule was evaluated and failed:
+        #   - If R2.6 / R3.1 appears in downgrade_reasons, the sig was expected
+        #     and missing → show ❌.
+        #   - If the rule was never evaluated (e.g. chain/integrity failed early
+        #     and R2/R3 dicts are empty), or the package simply has no supervisor
+        #     assigned, → show N/A — Individual submission.
+        downgrade_str = " ".join(report.trust.downgrade_reasons)
+        r1_3_failed   = "R1.3" in downgrade_str   # evaluated + failed
+        r2_6_failed   = "R2.6" in downgrade_str   # evaluated + failed
+        r3_1_failed   = "R3.1" in downgrade_str   # evaluated + failed
 
+        # Author signed
+        if author_signed:
+            auth_display = "✅"
+        elif r1_3_failed:
+            auth_display = "❌"
+        else:
+            auth_display = "N/A"   # R1 never evaluated (chain/integrity failed early)
+
+        if supervisor_signed:
+            sup_display = "✅"
+        elif r2_6_failed:
+            sup_display = "❌"
+        else:
+            sup_display = "N/A — Individual submission"
+
+        if institution_signed:
+            inst_display = "✅"
+        elif r3_1_failed:
+            inst_display = "❌"
+        else:
+            inst_display = "N/A — Individual submission"
+
+        # submission_mode: embedded for later parsing by get_report()
+        if institution_signed:
+            submission_mode = "institutional"
+        elif supervisor_signed:
+            submission_mode = "supervised"
+        else:
+            submission_mode = "individual"
+
+        # ── AAD summary ───────────────────────────────────────────────────────
         aad_risk    = report.aad.overall_risk
         aad_summary = (
-            f"No adversarial analysis patterns detected."
+            "No adversarial analysis patterns detected."
             if not report.aad.flags
             else f"{len(report.aad.flags)} potential pattern(s) detected (risk: {aad_risk})."
         )
@@ -377,6 +437,7 @@ class JournalPortalService:
             f"Project ID     : {report.project_id}",
             f"Root Hash      : {root_hash}",
             f"Verified At    : {report.verified_at.strftime('%Y-%m-%d %H:%M:%S UTC')}",
+            f"SUBMISSION_MODE: {submission_mode}",
             "",
             "── INTEGRITY ──────────────────────────────────────────",
             f"Package integrity  : {integrity_status}",
@@ -388,12 +449,16 @@ class JournalPortalService:
             "",
             "── REPRODUCIBILITY CHECKS ─────────────────────────────",
             f"  Reproducible run  : {'YES' if reproducible else 'NO'}",
-            f"  Author signature  : {'YES' if author_sig else 'NO'}",
+            f"  Author signature  : {'YES' if author_signed else 'NO'}",
             f"  Outputs recorded  : {'YES' if outputs_ok else 'NO'}",
             f"  Assumption checks : {'YES' if assumption_checks else 'NO'}",
             f"  DQI score >= 0.7  : {'YES' if dqi_ok else 'NO'}",
-            f"  Institution signed: {'YES' if institution_sig else 'NO'}",
             downgrade_text,
+            "",
+            "── ENDORSEMENT ────────────────────────────────────────",
+            f"  Author Signed:       {auth_display}",
+            f"  Supervisor Signed:   {sup_display}",
+            f"  Institution Signed:  {inst_display}",
             "",
             "── ADVERSARIAL ANALYSIS DETECTION ─────────────────────",
             f"Overall AAD risk   : {aad_risk}",
@@ -405,6 +470,79 @@ class JournalPortalService:
             "=" * 60,
         ]
         return "\n".join(line for line in lines)
+
+    def get_report(self, pvp_root_hash: str) -> Optional[SharedVerificationResult]:
+        """
+        Look up a previously issued certificate by its root_hash and return a
+        SharedVerificationResult suitable for the public verification page.
+
+        Returns None if no certificate exists for this root_hash.
+        """
+        try:
+            resp = (
+                self._sb.table("verification_certificates")
+                .select("*")
+                .eq("root_hash", pvp_root_hash)
+                .order("issued_at", desc=True)
+                .limit(1)
+                .execute()
+            )
+            if not resp.data:
+                return None
+            row = resp.data[0]
+        except Exception:
+            return None
+
+        trust_level  = int(row["trust_level"])
+        trust_label  = str(row["trust_label"])
+        human_readable = str(row["human_readable"])
+        aad_flags_raw  = row.get("aad_flags") or []
+
+        # Derive aad_risk from triggered flags
+        triggered_risks = [
+            f["risk"] for f in aad_flags_raw if f.get("triggered")
+        ]
+        if "HIGH" in triggered_risks:
+            aad_risk = "HIGH"
+        elif "MEDIUM" in triggered_risks:
+            aad_risk = "MEDIUM"
+        else:
+            aad_risk = "LOW"
+
+        # overall_status
+        if trust_level == 0:
+            overall_status = "FAIL"
+        elif aad_risk in ("HIGH", "MEDIUM"):
+            overall_status = "REVIEW"
+        else:
+            overall_status = "PASS"
+
+        # submission_mode — parse the SUBMISSION_MODE: marker embedded in human_readable
+        mode_match = re.search(r"SUBMISSION_MODE:\s*(\w+)", human_readable)
+        submission_mode = mode_match.group(1) if mode_match else "individual"
+
+        # certificate_hash — SHA-256 of the certificate_id
+        certificate_hash = hashlib.sha256(
+            str(row["certificate_id"]).encode()
+        ).hexdigest()
+
+        base_url  = os.getenv("PLEXUS_BASE_URL", "https://plexus.science")
+        share_url = f"{base_url}/verify/{pvp_root_hash}"
+
+        return SharedVerificationResult(
+            pvp_root_hash=pvp_root_hash,
+            trust_level=trust_level,
+            trust_label=trust_label,
+            overall_status=overall_status,
+            aad_risk=aad_risk,
+            submission_mode=submission_mode,
+            ptls_version=os.getenv("PTLS_VERSION", "0.1"),
+            verified_at=datetime.fromisoformat(str(row["issued_at"])),
+            valid_until=datetime.fromisoformat(str(row["expires_at"])),
+            certificate_hash=certificate_hash,
+            human_readable=human_readable,
+            share_url=share_url,
+        )
 
     def _lookup_cert_by_pvp_id(self, pvp_id: str) -> Optional[VerificationCertificate]:
         """Query verification_certificates table for an existing certificate."""

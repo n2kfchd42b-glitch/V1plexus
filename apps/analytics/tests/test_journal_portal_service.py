@@ -25,7 +25,7 @@ import os
 import time
 import zipfile
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
@@ -51,6 +51,7 @@ from apps.analytics.models.journal_portal import (
     VerificationCertificate,
     PortalVerificationResult,
     CertificateLookupResult,
+    SharedVerificationResult,
 )
 from apps.analytics.main import app
 from apps.analytics.routers.journal_portal import _get_service
@@ -608,3 +609,230 @@ def test_rate_limit_verify_endpoint():
         assert ok_count <= 20,      f"Expected at most 20 successes (limit=20/min), got {ok_count}: {statuses}"
     finally:
         app.dependency_overrides.pop(_get_service, None)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 21. Endorsement shows N/A for solo researcher (chain/integrity failed)
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_endorsement_shows_na_for_solo():
+    """
+    When chain verification fails (early TrustEngine return), R2 checks are
+    never evaluated, so R2.6 never appears in downgrade_reasons.
+
+    Result: Supervisor Signed shows N/A — Individual submission (not ❌).
+    submission_mode == "individual".
+    """
+    # Chain-tampered PVP: integrity passes but chain fails → R2 not evaluated
+    pvp_bytes, _, _, _, _ = build_test_pvp(
+        _level1_events(), tamper_chain_at=0
+    )
+    svc    = _make_service()
+    result = svc.verify_package(pvp_bytes=pvp_bytes, requester_ip=_TEST_IP)
+    human  = result.certificate.human_readable
+
+    assert "N/A — Individual submission" in human, (
+        f"Expected N/A in endorsement section. human_readable:\n{human}"
+    )
+
+    # ❌ must NOT appear in the endorsement section specifically
+    endorsement_start = human.find("── ENDORSEMENT")
+    endorsement_end   = human.find("\n──", endorsement_start + 1)
+    endorsement_text  = (
+        human[endorsement_start:endorsement_end]
+        if endorsement_end > -1
+        else human[endorsement_start:]
+    )
+    assert "❌" not in endorsement_text, (
+        f"Expected no ❌ in endorsement section, but got:\n{endorsement_text}"
+    )
+
+    assert "SUBMISSION_MODE: individual" in human
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 22. Endorsement shows ✅ for supervised submission
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_endorsement_shows_check_supervised():
+    """
+    Level-2 PVP with supervisor signature present → R2.6 = True → ✅.
+    submission_mode == "supervised".
+    """
+    pvp_bytes, _, _, _, _ = build_test_pvp(
+        _level2_events(), add_supervisor=True
+    )
+    svc    = _make_service()
+    result = svc.verify_package(pvp_bytes=pvp_bytes, requester_ip=_TEST_IP)
+    human  = result.certificate.human_readable
+
+    assert "Supervisor Signed:   ✅" in human, (
+        f"Expected ✅ for supervisor. human_readable:\n{human}"
+    )
+    assert "SUBMISSION_MODE: supervised" in human
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 23. Endorsement shows ❌ when R2.6 was evaluated and failed
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_endorsement_shows_fail_when_required():
+    """
+    Standard level-1 PVP (integrity + chain pass, no supervisor):
+    R2.6 = False → R2.6 appears in downgrade_reasons → ❌ in supervisor line.
+    submission_mode == "individual" (no supervisor involvement at all).
+    """
+    pvp_bytes, _, _, _, _ = build_test_pvp(_level1_events())
+    svc    = _make_service()
+    result = svc.verify_package(pvp_bytes=pvp_bytes, requester_ip=_TEST_IP)
+    human  = result.certificate.human_readable
+
+    assert "Supervisor Signed:   ❌" in human, (
+        f"Expected ❌ in supervisor signed line. human_readable:\n{human}"
+    )
+    assert "SUBMISSION_MODE: individual" in human
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 24. GET /api/journal/report/{pvp_root_hash} — happy path
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_shared_report_endpoint_returns_result():
+    """
+    POST verify → extract root_hash → GET /api/journal/report/{root_hash} → 200.
+    Asserts trust_level, share_url, and submission_mode are present.
+    """
+    from apps.analytics.routers.journal_portal import _get_service as _gs
+    from apps.analytics.services.journal_portal_service import SharedVerificationResult
+
+    pvp_bytes, _, _, manifest, project_id = build_test_pvp(_level1_events())
+    root_hash = manifest["root_hash"]
+
+    # Build a cert row matching this root_hash
+    cert_id  = str(uuid4())
+    now      = datetime.now(timezone.utc)
+    cert_row = {
+        "certificate_id": cert_id,
+        "pvp_id":         str(uuid4()),
+        "project_id":     project_id,
+        "trust_level":    1,
+        "trust_label":    "Integrity Verified",
+        "aad_flags":      [],
+        "integrity_passed": True,
+        "root_hash":      root_hash,
+        "human_readable": f"SUBMISSION_MODE: individual\nSupervisor Signed:   N/A — Individual submission",
+        "portal_signature": "aa" * 64,
+        "issued_at":      now.isoformat(),
+        "expires_at":     (now + timedelta(days=90)).isoformat(),
+        "request_id":     None,
+    }
+
+    mock_svc = MagicMock()
+    # get_report() reads from verification_certificates by root_hash
+    from apps.analytics.services.journal_portal_service import (
+        SharedVerificationResult,
+        _hash_ip,
+    )
+
+    # Build a real service with a mock SB that returns the cert row
+    def _make_sb_for_report():
+        def _table(name: str):
+            if name == "verification_certificates":
+                q = _q([cert_row])
+                q.insert.return_value = _q([cert_row])
+                return q
+            return _q([])
+        sb = MagicMock()
+        sb.table.side_effect = _table
+        return sb
+
+    real_svc = JournalPortalService(_make_sb_for_report())
+
+    app.dependency_overrides[_gs] = lambda: real_svc
+    try:
+        client = TestClient(app)
+        resp   = client.get(f"/api/journal/report/{root_hash}")
+        assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
+        data = resp.json()
+        assert data["trust_level"] == 1
+        assert root_hash in data["share_url"]
+        assert data["submission_mode"] == "individual"
+        assert "pvp_root_hash" in data
+        assert "certificate_hash" in data
+    finally:
+        app.dependency_overrides.pop(_gs, None)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 25. GET /api/journal/report/{pvp_root_hash} — 404 for unknown hash
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_shared_report_404_for_unknown_hash():
+    """
+    Calling GET /api/journal/report/nonexistent_hash returns 404 with hint.
+    """
+    from apps.analytics.routers.journal_portal import _get_service as _gs
+
+    def _make_empty_sb():
+        sb = MagicMock()
+        sb.table.return_value = _q([])
+        return sb
+
+    real_svc = JournalPortalService(_make_empty_sb())
+
+    app.dependency_overrides[_gs] = lambda: real_svc
+    try:
+        client = TestClient(app, raise_server_exceptions=False)
+        resp   = client.get("/api/journal/report/nonexistent_hash_xyz")
+        assert resp.status_code == 404
+        body = resp.json()
+        assert "hint" in body["detail"]
+    finally:
+        app.dependency_overrides.pop(_gs, None)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 26. GET /api/journal/report/{pvp_root_hash} — rate limited at 60/minute
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_shared_report_rate_limited():
+    """
+    GET /api/journal/report/ is capped at 60 requests/minute per IP.
+    Send 65 requests from same IP; at least one must return 429 and
+    no more than 60 should succeed.
+    """
+    from datetime import timedelta
+    from apps.analytics.routers.journal_portal import _get_service as _gs, limiter
+
+    try:
+        limiter._storage.reset()
+    except Exception:
+        pass
+
+    def _make_empty_sb():
+        sb = MagicMock()
+        sb.table.return_value = _q([])
+        return sb
+
+    real_svc = JournalPortalService(_make_empty_sb())
+
+    app.dependency_overrides[_gs] = lambda: real_svc
+    try:
+        client   = TestClient(app, raise_server_exceptions=False)
+        statuses: List[int] = []
+        for _ in range(65):
+            resp = client.get(
+                "/api/journal/report/some_hash_abc",
+                headers={"X-Forwarded-For": "10.0.0.2"},
+            )
+            statuses.append(resp.status_code)
+
+        # 404 (cert not found) and 200 both count as "not rate-limited"
+        non_limited = [s for s in statuses if s != 429]
+        limited     = [s for s in statuses if s == 429]
+
+        assert len(non_limited) >= 1,  f"Expected at least 1 non-429, got: {statuses}"
+        assert len(limited) >= 1,      f"Expected at least 1 rate-limited (429), got: {statuses}"
+        assert len(non_limited) <= 60, f"Expected at most 60 successes (limit=60/min), got {len(non_limited)}: {statuses}"
+    finally:
+        app.dependency_overrides.pop(_gs, None)
