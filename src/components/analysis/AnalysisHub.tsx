@@ -2,21 +2,16 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { motion, type Variants } from 'framer-motion'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import {
-  Plus, BarChart2, CheckCircle2, AlertCircle,
-  Search, X, ChevronRight, Database,
-  ArrowLeft, ArrowRight, Download, FileText, Table2,
+  Plus, BarChart2, CheckCircle2,
+  Search, X, ChevronRight, Database, Table2,
 } from 'lucide-react'
 import { HubTableGeneratorModal } from './HubTableGeneratorModal'
 import { AssumptionCheckModal } from './AssumptionCheckModal'
 import type { AssumptionCheckResult } from '@/types/analysisIntegrity'
 import { AnalysisTypePicker, ANALYSIS_TYPES } from './AnalysisTypePicker'
-import { KeyFindingCard } from './KeyFindingCard'
 import { ProjectDatasetSelector } from './ProjectDatasetSelector'
 import { AISuggestions } from './AISuggestions'
-import { AnalysisCharts } from './results/AnalysisCharts'
 import { HubResultsPreview } from './HubResultsPreview'
 import { createClient } from '@/lib/supabase/client'
 import { runAnalysis } from '@/lib/analysis/engine'
@@ -25,7 +20,7 @@ import { toast } from 'sonner'
 import { formatRelative } from '@/lib/utils'
 import { logAudit } from '@/lib/audit'
 import type { AnalysisRun, AnalysisType, DatasetColumn } from '@/types/database'
-import type { DataRow, AnalysisResult, ChartSpec } from '@/lib/analysis/types'
+import type { DataRow, AnalysisResult } from '@/lib/analysis/types'
 
 // Config components
 import { DescriptiveConfig } from './configs/DescriptiveConfig'
@@ -54,7 +49,7 @@ import { SampleSizeConfig } from './configs/SampleSizeConfig'
 interface Props { projectId: string }
 
 type FilterStatus = 'all' | 'completed' | 'running' | 'failed'
-type DrawerStep  = 'dataset' | 'type' | 'config'
+type WizardStep  = 'data' | 'configure' | 'result'
 
 interface ProjectMeta {
   title: string
@@ -62,8 +57,6 @@ interface ProjectMeta {
   methodology: string | null
   research_objectives: string | null
 }
-
-const DIAGNOSTIC_TYPES = new Set(['residual_plot', 'acf_plot', 'funnel_plot'])
 
 const runListContainer: Variants = {
   hidden:  {},
@@ -108,33 +101,8 @@ function ConfigComponent({ type, config, onChange, onRun, loading, columns }: {
   }
 }
 
-function exportToWord(run: AnalysisRun) {
-  const result = run.results as unknown as AnalysisResult | null
-  if (!result) return
-  const title = run.title ?? run.analysis_type
-  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  const tableHtml = (result.tables ?? []).map(t => `
-    <h3 style="font-family:Calibri;font-size:12pt">${esc(t.title)}</h3>
-    <table style="border-collapse:collapse;width:100%;font-family:Calibri;font-size:10pt">
-      <thead><tr>${t.headers.map(h => `<th style="border:1px solid #999;padding:4px 8px;background:#f0f0f0">${esc(h)}</th>`).join('')}</tr></thead>
-      <tbody>${t.rows.map(row => `<tr>${row.map(cell => `<td style="border:1px solid #ccc;padding:4px 8px">${esc(cell === null ? '—' : String(cell))}</td>`).join('')}</tr>`).join('')}</tbody>
-    </table>
-  `).join('\n')
-  const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'>
-<head><meta charset="utf-8"><title>${esc(title)}</title>
-<style>body{font-family:Calibri;font-size:11pt;margin:2cm}h1{font-size:16pt}table{border-collapse:collapse;width:100%}</style>
-</head><body><h1>${esc(title)}</h1>${result.plainLanguage ? `<p>${esc(result.plainLanguage)}</p>` : ''}<h2>Results</h2>${tableHtml}${result.interpretation ? `<p>${esc(result.interpretation)}</p>` : ''}</body></html>`
-  const blob = new Blob([html], { type: 'application/vnd.ms-word;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a'); a.href = url
-  a.download = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_results.doc`
-  document.body.appendChild(a); a.click()
-  document.body.removeChild(a); URL.revokeObjectURL(url)
-}
-
 // ── Main Component ──────────────────────────────────────
 export function AnalysisHub({ projectId }: Props) {
-  const router = useRouter()
   const { profile } = useAuth()
   const supabase = useMemo(() => createClient(), [])
 
@@ -144,9 +112,9 @@ export function AnalysisHub({ projectId }: Props) {
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all')
   const [searchQuery, setSearchQuery]   = useState('')
 
-  // Drawer
-  const [drawerOpen, setDrawerOpen]   = useState(false)
-  const [drawerStep, setDrawerStep]   = useState<DrawerStep>('dataset')
+  // Inline wizard
+  const [wizardActive, setWizardActive] = useState(false)
+  const [wizardStep, setWizardStep]     = useState<WizardStep>('data')
 
   // Analysis wizard
   const [data, setData]               = useState<DataRow[]>([])
@@ -199,12 +167,21 @@ export function AnalysisHub({ projectId }: Props) {
       .then(({ data }) => { if (data) setProject(data as ProjectMeta) })
   }, [projectId, supabase])
 
-  const openDrawer = () => {
-    setDrawerOpen(true)
-    setDrawerStep(data.length > 0 ? 'type' : 'dataset')
+  // Auto-advance wizard steps
+  useEffect(() => {
+    if (wizardActive && wizardStep === 'data' && data.length > 0) setWizardStep('configure')
+  }, [data.length, wizardActive, wizardStep])
+
+  useEffect(() => {
+    if (wizardActive && wizardStep === 'configure' && result && !result.summary?.error) setWizardStep('result')
+  }, [result, wizardActive, wizardStep])
+
+  const openWizard = () => {
+    setWizardActive(true)
+    setWizardStep('data')
     setResult(null); setSavedRunId(null); setSelectedType(null); setConfig({})
   }
-  const closeDrawer = () => setDrawerOpen(false)
+  const closeWizard = () => setWizardActive(false)
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from('analysis_runs')
@@ -241,7 +218,7 @@ export function AnalysisHub({ projectId }: Props) {
   }
 
   const handleTypeSelect = (type: AnalysisType) => {
-    setSelectedType(type); setConfig({}); setResult(null); setDrawerStep('config')
+    setSelectedType(type); setConfig({}); setResult(null)
   }
 
   const executeAnalysis = async () => {
@@ -329,7 +306,10 @@ export function AnalysisHub({ projectId }: Props) {
         }).catch(() => {/* non-blocking */})
       }
 
-      setSavedRunId(run.id); closeDrawer(); router.push(`/projects/${projectId}/analysis/${run.id}`)
+      setSavedRunId(run.id)
+      setRuns(prev => [run as AnalysisRun, ...prev])
+      setSelectedRunId(run.id)
+      closeWizard()
     }
   }
 
@@ -358,28 +338,17 @@ export function AnalysisHub({ projectId }: Props) {
     return res
   }, [runs, filterStatus, searchQuery])
 
-  // Latest completed run with chart data
-  const latestCompleted = useMemo(() => runs.find(r => r.status === 'completed'), [runs])
-  const latestResult    = latestCompleted?.results as unknown as AnalysisResult | null | undefined
-  const latestCharts    = useMemo(() => {
-    const charts = (latestResult?.charts ?? []) as ChartSpec[]
-    return charts.filter(c => !DIAGNOSTIC_TYPES.has(c.type)).slice(0, 2)
-  }, [latestResult])
-  const latestTypeInfo  = latestCompleted ? ANALYSIS_TYPES.find(t => t.type === latestCompleted.analysis_type) : null
-  const latestDataset   = latestCompleted?.dataset as { name: string } | null | undefined
-
-  const typeInfo   = selectedType ? ANALYSIS_TYPES.find(t => t.type === selectedType) : null
   const needsData  = selectedType !== 'sample_size'
   const dataLoaded = data.length > 0
   const columnsForAI = columns.map(c => ({ name: c.name, type: c.type, unique_values: c.unique_values, missing: c.missing }))
 
-  const DRAWER_STEPS: { id: DrawerStep; label: string }[] = [
-    { id: 'dataset', label: 'Dataset' },
-    { id: 'type',    label: 'Analysis Type' },
-    { id: 'config',  label: 'Configure & Run' },
+  const WIZARD_STEPS: { id: WizardStep; label: string }[] = [
+    { id: 'data',      label: 'Data' },
+    { id: 'configure', label: 'Configure' },
+    { id: 'result',    label: 'Results' },
   ]
-  const drawerStepOrder: DrawerStep[] = ['dataset', 'type', 'config']
-  const drawerStepIdx = drawerStepOrder.indexOf(drawerStep)
+  const wizardStepOrder: WizardStep[] = ['data', 'configure', 'result']
+  const wizardStepIdx = wizardStepOrder.indexOf(wizardStep)
 
   // ── Loading skeleton ──────────────────────────────────
   if (loading) {
@@ -429,7 +398,7 @@ export function AnalysisHub({ projectId }: Props) {
               Generate Table
             </button>
             <button
-              onClick={openDrawer}
+              onClick={openWizard}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-[var(--accent-blue)] text-white hover:opacity-90 transition-opacity"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -442,9 +411,9 @@ export function AnalysisHub({ projectId }: Props) {
       {/* ── Main split-pane ─────────────────────────── */}
       <div className="flex flex-1 min-h-0 overflow-hidden border-t border-[var(--border-row)]">
 
-        {runs.length === 0 ? (
+        {runs.length === 0 && !wizardActive ? (
           <div className="flex-1 flex items-center justify-center">
-            <EmptyState onNew={openDrawer} />
+            <EmptyState onNew={openWizard} />
           </div>
         ) : (() => {
           const selectedRun    = runs.find(r => r.id === selectedRunId) ?? null
@@ -457,11 +426,6 @@ export function AnalysisHub({ projectId }: Props) {
             pending:   'status-dot--neutral',
             cancelled: 'status-dot--neutral',
           }
-          const statusLabel: Record<string, string> = {
-            completed: 'Done', failed: 'Failed', running: 'Running',
-            pending: 'Pending', cancelled: 'Cancelled',
-          }
-
           return (
             <div className="flex flex-1 min-h-0 overflow-hidden">
 
@@ -560,9 +524,209 @@ export function AnalysisHub({ projectId }: Props) {
                 </div>
               </div>
 
-              {/* ── Right: Results preview ───────── */}
-              <div className="flex-1 overflow-y-auto min-w-0">
-                {selectedRun?.status === 'completed' && selectedResult ? (
+              {/* ── Right: Inline wizard or results preview ── */}
+              <div className="flex-1 overflow-y-auto min-w-0 flex flex-col">
+                {wizardActive ? (
+                  <>
+                    {/* Wizard header with step indicator */}
+                    <div className="flex-shrink-0 px-6 pt-5 pb-4 border-b border-[var(--border-row)] flex items-center gap-4">
+                      <div className="flex items-center gap-1 flex-1">
+                        {WIZARD_STEPS.map((step, i) => {
+                          const isPast    = i < wizardStepIdx
+                          const isCurrent = wizardStep === step.id
+                          return (
+                            <button
+                              key={step.id}
+                              onClick={() => { if (isPast) setWizardStep(step.id) }}
+                              disabled={!isPast && !isCurrent}
+                              className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+                                isCurrent
+                                  ? 'bg-[var(--bg-row-active)] text-[var(--text-primary)]'
+                                  : isPast
+                                    ? 'text-[var(--timeline-verified)] hover:text-[var(--text-primary)] cursor-pointer'
+                                    : 'text-[var(--text-tertiary)] cursor-default'
+                              }`}
+                            >
+                              <span className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-[8px] font-bold flex-shrink-0 ${
+                                isCurrent
+                                  ? 'bg-[var(--accent-blue)] text-white'
+                                  : isPast
+                                    ? 'bg-[var(--timeline-verified)] text-white'
+                                    : 'bg-[var(--border-strong)] text-[var(--text-tertiary)]'
+                              }`}>{isPast ? '✓' : i + 1}</span>
+                              {step.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <button
+                        onClick={closeWizard}
+                        className="h-7 w-7 flex items-center justify-center rounded-md text-[var(--text-tertiary)] hover:bg-[var(--bg-row-hover)] hover:text-[var(--text-primary)] transition-colors"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Wizard body */}
+                    <div className="flex-1 px-6 py-5 space-y-5 overflow-y-auto">
+
+                      {/* Step 1: Data */}
+                      {wizardStep === 'data' && (
+                        <>
+                          <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                            Select a dataset or upload a file. Your data is processed locally.
+                          </p>
+                          <ProjectDatasetSelector
+                            projectId={projectId} onData={handleData}
+                            datasetId={datasetId} versionId={versionId}
+                            data={data} fileName={fileName}
+                          />
+                          <div className="flex items-center gap-3 pt-1">
+                            <button
+                              disabled={!dataLoaded}
+                              onClick={() => setWizardStep('configure')}
+                              className="flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-medium text-white bg-[var(--accent-blue)] hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              Continue <ChevronRight className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setWizardStep('configure')}
+                              className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+                            >
+                              Skip (sample size only)
+                            </button>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Step 2: Configure */}
+                      {wizardStep === 'configure' && (
+                        <>
+                          {dataLoaded ? (
+                            <div className="flex items-center justify-between px-3 py-2 rounded bg-[var(--bg-row-hover)] border border-[var(--border-row)]">
+                              <div className="flex items-center gap-2">
+                                <Database className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
+                                <span className="text-xs font-medium text-[var(--text-primary)]">{fileName}</span>
+                                <span className="data-mono-xs text-[var(--text-tertiary)]">
+                                  {data.length.toLocaleString()} rows · {columns.length} cols
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => setWizardStep('data')}
+                                className="text-xs text-[var(--accent-blue)] hover:underline"
+                              >
+                                Change
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between px-3 py-2 rounded bg-amber-50 border border-amber-200">
+                              <span className="text-xs text-amber-700">No dataset — only sample size calculator available</span>
+                              <button onClick={() => setWizardStep('data')} className="text-xs text-amber-700 font-medium underline ml-2">Add data</button>
+                            </div>
+                          )}
+
+                          {project && (
+                            <AISuggestions
+                              projectId={projectId} projectTitle={project.title}
+                              projectDescription={project.description}
+                              methodology={project.methodology}
+                              researchObjectives={project.research_objectives}
+                              columns={dataLoaded ? columnsForAI : undefined}
+                              onSelect={handleTypeSelect} selectedType={selectedType}
+                            />
+                          )}
+                          <AnalysisTypePicker selected={selectedType} onSelect={handleTypeSelect} />
+
+                          {selectedType && (
+                            <>
+                              {needsData && !dataLoaded ? (
+                                <div>
+                                  <p className="subsection-label mb-2">Dataset Required</p>
+                                  <ProjectDatasetSelector
+                                    projectId={projectId} onData={handleData}
+                                    datasetId={datasetId} versionId={versionId}
+                                    data={data} fileName={fileName}
+                                  />
+                                </div>
+                              ) : null}
+
+                              {approvalBlock && (
+                                <div className="rounded border border-amber-200 bg-amber-50 px-4 py-3 space-y-1.5">
+                                  <p className="text-xs font-medium text-amber-800">
+                                    {approvalBlock.status === 'pending' ? 'Awaiting Supervisor Approval'
+                                      : approvalBlock.status === 'in_review' ? 'Under Supervisor Review'
+                                      : approvalBlock.status === 'not_requested' ? 'Approval Required'
+                                      : approvalBlock.status === 'rejected' ? 'Approval Declined'
+                                      : 'Revisions Requested'}
+                                  </p>
+                                  <p className="text-xs text-amber-700 leading-relaxed">{approvalBlock.reason}</p>
+                                  <a href={`/projects/${projectId}/data`} className="text-xs text-amber-800 font-medium underline">
+                                    {approvalBlock.status === 'not_requested' ? 'Submit for Approval →' : 'View Approval Status →'}
+                                  </a>
+                                </div>
+                              )}
+
+                              <div className="surface-inset rounded">
+                                <p className="subsection-label mb-3">Configuration</p>
+                                <ConfigComponent
+                                  type={selectedType} config={config} onChange={setConfig}
+                                  onRun={approvalBlock ? () => {} : handleRun}
+                                  loading={running}
+                                  columns={needsData ? (dataLoaded ? columns : []) : []}
+                                />
+                              </div>
+
+                              {result?.summary?.error && (
+                                <div className="rounded border border-[var(--timeline-flagged)]/20 bg-red-50 px-4 py-3">
+                                  <p className="text-xs font-medium text-[var(--timeline-flagged)]">Analysis Error</p>
+                                  <p className="text-xs text-[var(--text-secondary)] mt-1">{String(result.summary.error)}</p>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </>
+                      )}
+
+                      {/* Step 3: Results */}
+                      {wizardStep === 'result' && result && !result.summary?.error && (
+                        <>
+                          {result.summary && Object.keys(result.summary).filter(k => k !== 'error').length > 0 && (
+                            <div className="grid grid-cols-2 gap-2">
+                              {Object.entries(result.summary).filter(([k]) => k !== 'error').slice(0, 6).map(([key, val]) => (
+                                <div key={key} className="px-3 py-2.5 rounded border border-[var(--border-row)] bg-white">
+                                  <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider truncate">{formatKey(key)}</p>
+                                  <p className="text-sm font-medium text-[var(--text-primary)] truncate mt-0.5">{String(val)}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {result.interpretation && (
+                            <div className="px-4 py-3 rounded bg-[var(--bg-row-hover)] border border-[var(--border-row)]">
+                              <p className="text-xs text-[var(--text-tertiary)] uppercase tracking-wider mb-1.5">Interpretation</p>
+                              <p className="text-sm text-[var(--text-primary)] leading-relaxed">{result.interpretation}</p>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-3 pt-2">
+                            <button
+                              onClick={handleSave}
+                              disabled={!!savedRunId}
+                              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium text-white bg-[var(--accent-blue)] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+                              Save Analysis
+                            </button>
+                            <button
+                              onClick={() => setWizardStep('configure')}
+                              className="px-4 py-2.5 rounded-md text-sm text-[var(--text-secondary)] border border-[var(--border-row)] hover:bg-[var(--bg-row-hover)] transition-colors"
+                            >
+                              ← Reconfigure
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </>
+                ) : selectedRun?.status === 'completed' && selectedResult ? (
                   <HubResultsPreview
                     run={selectedRun}
                     result={selectedResult}
@@ -594,172 +758,6 @@ export function AnalysisHub({ projectId }: Props) {
             </div>
           )
         })()}
-      </div>
-
-      {/* ── New Analysis Drawer ─────────────────────── */}
-      {drawerOpen && (
-        <div className="fixed inset-0 z-40 bg-black/20" onClick={closeDrawer} />
-      )}
-      <div
-        className={`fixed inset-y-0 right-0 z-50 flex flex-col w-full max-w-[560px] bg-white border-l border-[var(--panel-border)] overflow-y-auto transition-transform duration-200 ease-[cubic-bezier(0,0,0.2,1)] ${drawerOpen ? 'translate-x-0' : 'translate-x-full'}`}
-      >
-        {/* Drawer header */}
-        <div className="flex-shrink-0 px-6 pt-5 pb-4 border-b border-[var(--panel-border)]">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-[var(--text-primary)]">New Analysis</h2>
-            <button onClick={closeDrawer} className="h-7 w-7 flex items-center justify-center rounded-md text-[var(--text-tertiary)] hover:bg-[var(--bg-row-hover)] hover:text-[var(--text-primary)] transition-colors">
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-          <div className="flex items-center gap-1">
-            {DRAWER_STEPS.map((step, i) => {
-              const isPast = i < drawerStepIdx; const isCurrent = drawerStep === step.id
-              return (
-                <button key={step.id} onClick={() => { if (isPast) setDrawerStep(step.id) }} disabled={!isPast && !isCurrent}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
-                    isCurrent ? 'bg-[var(--bg-row-active)] text-[var(--text-primary)]'
-                    : isPast ? 'text-[var(--timeline-verified)] hover:text-[var(--text-primary)] cursor-pointer'
-                    : 'text-[var(--text-tertiary)] cursor-default'
-                  }`}
-                >
-                  <span className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-[8px] font-bold flex-shrink-0 ${
-                    isCurrent ? 'bg-[var(--accent-blue)] text-white'
-                    : isPast ? 'bg-[var(--timeline-verified)] text-white'
-                    : 'bg-[var(--border-strong)] text-[var(--text-tertiary)]'
-                  }`}>{isPast ? '✓' : i + 1}</span>
-                  {step.label}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Drawer body */}
-        <div className="flex-1 px-6 py-5 space-y-5">
-
-          {drawerStep === 'dataset' && (
-            <>
-              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">Select a dataset or upload a new file. Your data is processed locally.</p>
-              <ProjectDatasetSelector projectId={projectId} onData={handleData} datasetId={datasetId} versionId={versionId} data={data} fileName={fileName} />
-              <div className="flex items-center gap-3 pt-1">
-                <button disabled={!dataLoaded} onClick={() => setDrawerStep('type')}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-medium text-white bg-[var(--accent-blue)] hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed">
-                  Continue <ChevronRight className="h-3.5 w-3.5" />
-                </button>
-                <button onClick={() => setDrawerStep('type')} className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors">
-                  Skip (sample size only)
-                </button>
-              </div>
-            </>
-          )}
-
-          {drawerStep === 'type' && (
-            <>
-              {dataLoaded ? (
-                <div className="flex items-center justify-between px-3 py-2 rounded bg-[var(--bg-row-hover)] border border-[var(--border-row)]">
-                  <div className="flex items-center gap-2">
-                    <Database className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
-                    <span className="text-xs font-medium text-[var(--text-primary)]">{fileName}</span>
-                    <span className="data-mono-xs text-[var(--text-tertiary)]">{data.length.toLocaleString()} rows · {columns.length} cols</span>
-                  </div>
-                  <button onClick={() => setDrawerStep('dataset')} className="text-xs text-[var(--accent-blue)] hover:underline">Change</button>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between px-3 py-2 rounded bg-amber-50 border border-amber-200">
-                  <span className="text-xs text-amber-700">No dataset — only sample size calculator available</span>
-                  <button onClick={() => setDrawerStep('dataset')} className="text-xs text-amber-700 font-medium underline ml-2">Add data</button>
-                </div>
-              )}
-              {project && (
-                <AISuggestions projectId={projectId} projectTitle={project.title} projectDescription={project.description}
-                  methodology={project.methodology} researchObjectives={project.research_objectives}
-                  columns={dataLoaded ? columnsForAI : undefined} onSelect={handleTypeSelect} selectedType={selectedType} />
-              )}
-              <AnalysisTypePicker selected={selectedType} onSelect={handleTypeSelect} />
-            </>
-          )}
-
-          {drawerStep === 'config' && selectedType && (
-            <>
-              <div className="flex items-center gap-2">
-                <button onClick={() => setDrawerStep('type')} className="text-xs text-[var(--text-tertiary)] hover:text-[var(--accent-blue)] transition-colors">← Change type</button>
-                <span className="text-[var(--border-strong)]">·</span>
-                <span className="text-xs text-[var(--text-secondary)]">{typeInfo?.label}</span>
-              </div>
-
-              {needsData && !dataLoaded ? (
-                <div>
-                  <p className="subsection-label mb-2">Dataset Required</p>
-                  <ProjectDatasetSelector projectId={projectId} onData={handleData} datasetId={datasetId} versionId={versionId} data={data} fileName={fileName} />
-                </div>
-              ) : needsData && dataLoaded ? (
-                <div className="flex items-center justify-between px-3 py-2 rounded bg-[var(--bg-row-hover)] border border-[var(--border-row)]">
-                  <div className="flex items-center gap-2">
-                    <Database className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
-                    <span className="text-xs font-medium text-[var(--text-primary)]">{fileName}</span>
-                    <span className="data-mono-xs text-[var(--text-tertiary)]">{columns.length} columns</span>
-                  </div>
-                  <button onClick={() => setDrawerStep('dataset')} className="text-xs text-[var(--accent-blue)] hover:underline">Change</button>
-                </div>
-              ) : null}
-
-              {/* Approval gate blocked state */}
-              {approvalBlock && (
-                <div className="rounded border border-amber-200 bg-amber-50 px-4 py-3 space-y-1.5">
-                  <p className="text-xs font-medium text-amber-800">
-                    {approvalBlock.status === 'pending' ? 'Awaiting Supervisor Approval'
-                      : approvalBlock.status === 'in_review' ? 'Under Supervisor Review'
-                      : approvalBlock.status === 'not_requested' ? 'Approval Required'
-                      : approvalBlock.status === 'rejected' ? 'Approval Declined'
-                      : 'Revisions Requested'}
-                  </p>
-                  <p className="text-xs text-amber-700 leading-relaxed">{approvalBlock.reason}</p>
-                  <a href={`/projects/${projectId}/data`} className="text-xs text-amber-800 font-medium underline">
-                    {approvalBlock.status === 'not_requested' ? 'Submit for Approval →' : 'View Approval Status →'}
-                  </a>
-                </div>
-              )}
-
-              <div className="surface-inset rounded">
-                <p className="subsection-label mb-3">Configuration</p>
-                <ConfigComponent type={selectedType} config={config} onChange={setConfig}
-                  onRun={approvalBlock ? () => {} : handleRun}
-                  loading={running} columns={needsData ? (dataLoaded ? columns : []) : []} />
-              </div>
-
-              {result && !result.summary?.error && (
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <p className="subsection-label">Results Preview</p>
-                    <span className="text-xs text-[var(--text-tertiary)]">· Save to view full analysis</span>
-                  </div>
-                  {result.summary && Object.keys(result.summary).filter(k => k !== 'error').length > 0 && (
-                    <div className="grid grid-cols-2 gap-2 mb-3">
-                      {Object.entries(result.summary).filter(([k]) => k !== 'error').slice(0, 4).map(([key, val]) => (
-                        <div key={key} className="px-3 py-2.5 rounded border border-[var(--border-row)] bg-white">
-                          <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider truncate">{formatKey(key)}</p>
-                          <p className="text-sm font-medium text-[var(--text-primary)] truncate mt-0.5">{String(val)}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <button onClick={handleSave} disabled={!!savedRunId}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium text-white bg-[var(--accent-blue)] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed">
-                    <CheckCircle2 className="h-4 w-4" />
-                    Save &amp; View Full Results
-                  </button>
-                </div>
-              )}
-
-              {result?.summary?.error && (
-                <div className="rounded border border-[var(--timeline-flagged)]/20 bg-red-50 px-4 py-3">
-                  <p className="text-xs font-medium text-[var(--timeline-flagged)]">Analysis Error</p>
-                  <p className="text-xs text-[var(--text-secondary)] mt-1">{String(result.summary.error)}</p>
-                </div>
-              )}
-            </>
-          )}
-        </div>
       </div>
 
       {hubTableModalOpen && (
