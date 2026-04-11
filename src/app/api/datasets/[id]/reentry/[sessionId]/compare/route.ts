@@ -49,7 +49,8 @@ export async function POST(
     }
 
     // Call FastAPI endpoint
-    const analyticsUrl = process.env.ANALYTICS_API_URL || 'http://localhost:8000'
+    let analyticsUrl = process.env.ANALYTICS_API_URL || 'http://localhost:8000'
+    if (analyticsUrl && !analyticsUrl.startsWith('http')) analyticsUrl = `https://${analyticsUrl}`
     const sess = await supabase.auth.getSession()
     const accessToken = sess.data.session?.access_token
     if (!accessToken) {

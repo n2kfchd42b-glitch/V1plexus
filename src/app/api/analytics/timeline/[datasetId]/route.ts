@@ -11,7 +11,8 @@ export async function GET(
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const analyticsUrl = process.env.ANALYTICS_API_URL || 'http://localhost:8000'
+    let analyticsUrl = process.env.ANALYTICS_API_URL || 'http://localhost:8000'
+    if (analyticsUrl && !analyticsUrl.startsWith('http')) analyticsUrl = `https://${analyticsUrl}`
     const session = await supabase.auth.getSession()
     const token = session.data.session?.access_token
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -39,7 +40,8 @@ export async function POST(
     if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
-    const analyticsUrl = process.env.ANALYTICS_API_URL || 'http://localhost:8000'
+    let analyticsUrl = process.env.ANALYTICS_API_URL || 'http://localhost:8000'
+    if (analyticsUrl && !analyticsUrl.startsWith('http')) analyticsUrl = `https://${analyticsUrl}`
     const session = await supabase.auth.getSession()
     const token = session.data.session?.access_token
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
