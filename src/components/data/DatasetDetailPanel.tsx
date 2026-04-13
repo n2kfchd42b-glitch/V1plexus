@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -8,13 +8,8 @@ import {
   BarChart, LineChart, ScatterChart, TrendingUp, PieChart, Box, Grid3x3,
   Trash2, ExternalLink, Search, Plus, ChevronDown, ChevronRight,
   Hash, Type, Calendar, ToggleLeft, Tag, MapPin, Fingerprint, Copy, ShieldCheck,
-  GitMerge, GitCommit, Archive, ArchiveRestore,
+  GitMerge, GitCommit, Archive, ArchiveRestore, AlertTriangle, ChevronsRight,
 } from 'lucide-react'
-import { DAGBuilderPanel } from '@/components/analysis/causal/DAGBuilderPanel'
-import { DataPortraitPanel } from '@/components/analysis/DataPortraitPanel'
-import { EpidemiologicalFingerprint } from '@/components/analysis/EpidemiologicalFingerprint'
-import { AnalysisTimeline } from '@/components/analysis/AnalysisTimeline'
-import { useDataPortrait } from '@/hooks/useDataPortrait'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -25,6 +20,9 @@ import { VersionSelector } from '@/components/data/VersionSelector'
 import { BranchSelector } from '@/components/data/BranchSelector'
 import { DuplicateReviewModal } from '@/components/data/DuplicateReviewModal'
 import { ApprovalStatusCard } from '@/components/dataset-hub/ApprovalStatusCard'
+import { CleaningWorkbench } from '@/components/cleaning/CleaningWorkbench'
+import { DataQualityScorecard } from '@/components/dataset-hub/DataQualityScorecard'
+import { EnumeratorQualityPanel } from '@/components/dataset-hub/EnumeratorQualityPanel'
 import { loadVersionData } from '@/lib/data/storage'
 import { detectDuplicates } from '@/lib/data/operations'
 import { useAuth } from '@/hooks/useAuth'
@@ -33,6 +31,7 @@ import type {
   Dataset, DatasetVersion, DatasetBranch, ParsedDataset,
   DatasetExploration, ChartType, ChartConfig, ColumnSchema,
 } from '@/types/database'
+import type { QualityReport } from '@/types/qualityIntelligence'
 
 // ─── Chart type metadata ──────────────────────────────────────────────────────
 
@@ -73,8 +72,8 @@ function typeBadgeClass(type: string): string {
   if (type === 'date') return 'bg-amber-50 text-amber-700'
   if (type === 'boolean') return 'bg-purple-50 text-purple-700'
   if (type === 'categorical') return 'bg-emerald-50 text-emerald-700'
-  if (type === 'id') return 'bg-slate-100 text-slate-500'
-  return 'bg-slate-100 text-slate-600'
+  if (type === 'id') return 'bg-[var(--bg-inset)] text-[var(--text-tertiary)]'
+  return 'bg-[var(--bg-inset)] text-[var(--text-secondary)]'
 }
 
 function typeIcon(type: string) {
@@ -90,12 +89,12 @@ function typeIcon(type: string) {
 
 type TypeGroup = { label: string; icon: React.ReactNode; color: string; bgColor: string }
 const TYPE_GROUPS: Record<string, TypeGroup> = {
-  numeric:     { label: 'Numeric',     icon: <Hash className="h-3 w-3" />,       color: 'text-blue-700',    bgColor: 'bg-blue-50' },
-  text:        { label: 'Text',        icon: <Type className="h-3 w-3" />,       color: 'text-slate-700',   bgColor: 'bg-slate-100' },
-  categorical: { label: 'Categorical', icon: <Tag className="h-3 w-3" />,        color: 'text-emerald-700', bgColor: 'bg-emerald-50' },
-  date:        { label: 'Date',        icon: <Calendar className="h-3 w-3" />,   color: 'text-amber-700',   bgColor: 'bg-amber-50' },
-  boolean:     { label: 'Boolean',     icon: <ToggleLeft className="h-3 w-3" />, color: 'text-purple-700',  bgColor: 'bg-purple-50' },
-  other:       { label: 'Other',       icon: <Fingerprint className="h-3 w-3" />,color: 'text-slate-500',   bgColor: 'bg-slate-100' },
+  numeric:     { label: 'Numeric',     icon: <Hash className="h-3 w-3" />,       color: 'text-blue-700',                           bgColor: 'bg-blue-50' },
+  text:        { label: 'Text',        icon: <Type className="h-3 w-3" />,       color: 'text-[var(--text-secondary)]',            bgColor: 'bg-[var(--bg-inset)]' },
+  categorical: { label: 'Categorical', icon: <Tag className="h-3 w-3" />,        color: 'text-emerald-700',                        bgColor: 'bg-emerald-50' },
+  date:        { label: 'Date',        icon: <Calendar className="h-3 w-3" />,   color: 'text-amber-700',                          bgColor: 'bg-amber-50' },
+  boolean:     { label: 'Boolean',     icon: <ToggleLeft className="h-3 w-3" />, color: 'text-purple-700',                         bgColor: 'bg-purple-50' },
+  other:       { label: 'Other',       icon: <Fingerprint className="h-3 w-3" />,color: 'text-[var(--text-tertiary)]',             bgColor: 'bg-[var(--bg-inset)]' },
 }
 
 function getTypeGroup(type: string): string {
@@ -117,8 +116,8 @@ function MiniDistribution({ col }: { col: ColumnSchema }) {
         {vals.map((v, i) => (
           <div
             key={i}
-            className="w-1.5 rounded-sm"
-            style={{ height: `${Math.max(2, Math.round((v / max) * 20))}px`, background: '#003d9b', opacity: 0.25 + 0.75 * (v / max) }}
+            className="w-1.5 rounded-sm bg-[var(--accent-blue)]"
+            style={{ height: `${Math.max(2, Math.round((v / max) * 20))}px`, opacity: 0.25 + 0.75 * (v / max) }}
           />
         ))}
       </div>
@@ -127,7 +126,7 @@ function MiniDistribution({ col }: { col: ColumnSchema }) {
   return (
     <div className="flex items-end gap-0.5 h-5">
       {[0.3, 0.6, 1, 0.8, 0.5, 0.3].map((h, i) => (
-        <div key={i} className="w-1.5 rounded-sm bg-[#003d9b]" style={{ height: `${h * 20}px`, opacity: h * 0.8 }} />
+        <div key={i} className="w-1.5 rounded-sm bg-[var(--accent-blue)]" style={{ height: `${h * 20}px`, opacity: h * 0.8 }} />
       ))}
     </div>
   )
@@ -136,26 +135,26 @@ function MiniDistribution({ col }: { col: ColumnSchema }) {
 
 function ExplorationEmptyCard({ href }: { href: string }) {
   return (
-    <div className="bg-white rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.04)] overflow-hidden">
-      <div className="bg-[#f7f9fb] px-5 pt-5 pb-3">
+    <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] overflow-hidden">
+      <div className="bg-[var(--bg-inset)] px-5 pt-5 pb-3">
         <div className="flex items-end gap-1.5 h-14 mb-2">
           {[0.4, 0.7, 0.55, 1, 0.85, 0.6, 0.45, 0.9].map((h, idx) => (
-            <div key={idx} className="flex-1 rounded-sm bg-[#003d9b]/20" style={{ height: `${h * 100}%` }} />
+            <div key={idx} className="flex-1 rounded-sm bg-[var(--accent-blue-subtle)]" style={{ height: `${h * 100}%` }} />
           ))}
         </div>
         <div className="flex gap-1">
           {['', '', '', ''].map((_, i) => (
-            <div key={i} className="flex-1 h-1 rounded-full bg-slate-200" />
+            <div key={i} className="flex-1 h-1 rounded-full bg-[var(--border-subtle)]" />
           ))}
         </div>
       </div>
       <div className="p-4 text-center">
-        <p className="text-xs font-bold text-[#191c1e]">No explorations yet</p>
-        <p className="text-[10px] text-slate-400 mt-1 mb-3 leading-relaxed">
+        <p className="text-xs font-bold text-[var(--text-primary)]">No explorations yet</p>
+        <p className="text-[10px] text-[var(--text-tertiary)] mt-1 mb-3 leading-relaxed">
           Build charts, histograms, and scatter plots from your data.
         </p>
         <Link href={href}>
-          <button className="w-full py-2 bg-[#003d9b] text-white rounded-lg text-xs font-bold hover:bg-[#0052cc] transition-colors">
+          <button className="w-full py-2 bg-[var(--accent-blue)] text-[var(--text-inverse)] rounded-lg text-xs font-bold hover:opacity-90 transition-opacity">
             Open Explorer
           </button>
         </Link>
@@ -182,9 +181,10 @@ interface DatasetDetailPanelProps {
   isArchived?: boolean
   onArchive?: () => void
   onDelete?: () => void
+  onExpandPanel?: () => void
 }
 
-export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchived, onArchive, onDelete }: DatasetDetailPanelProps) {
+export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchived, onArchive, onDelete, onExpandPanel }: DatasetDetailPanelProps) {
   const router       = useRouter()
   const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
@@ -199,10 +199,11 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
   const [dataLoading,     setDataLoading]     = useState(false)
   const [error,           setError]           = useState<string | null>(null)
 
-  const [activeTab, setActiveTab] = useState<'schema' | 'data' | 'analysis' | 'charts'>(
+  const [activeTab, setActiveTab] = useState<'schema' | 'data' | 'clean' | 'quality' | 'charts' | 'duplicates'>(
     searchParams.get('tab') === 'charts' ? 'charts'
       : searchParams.get('tab') === 'data' ? 'data'
-      : searchParams.get('tab') === 'analysis' ? 'analysis'
+      : searchParams.get('tab') === 'clean' ? 'clean'
+      : searchParams.get('tab') === 'quality' ? 'quality'
       : 'schema'
   )
 
@@ -214,6 +215,14 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
   const [deletingId,       setDeletingId]       = useState<string | null>(null)
   const [showDuplicateModal, setShowDuplicateModal] = useState(false)
   const [confirmDelete,      setConfirmDelete]      = useState(false)
+
+  // Quality tab state (lazy — only fetched when tab first opened)
+  const [qualityReport,     setQualityReport]     = useState<QualityReport | null | undefined>(undefined)
+  const [qualityLoading,    setQualityLoading]    = useState(false)
+  const [qualityRecomputing,setQualityRecomputing]= useState(false)
+  const [qualitySubTab,     setQualitySubTab]     = useState<'overview' | 'enumerators'>('overview')
+  // Clean tab state (lazy mount — workbench only rendered after first activation)
+  const [cleanMounted,      setCleanMounted]      = useState(false)
 
   const supabase = createClient()
 
@@ -294,6 +303,45 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
     }
   }
 
+  const fetchQualityReport = useCallback(async () => {
+    if (!activeVersionId) return
+    setQualityLoading(true)
+    try {
+      const res = await fetch(`/api/datasets/${datasetId}/quality?version_id=${activeVersionId}`)
+      setQualityReport(res.ok ? await res.json() : null)
+    } finally {
+      setQualityLoading(false)
+    }
+  }, [datasetId, activeVersionId])
+
+  const handleRecomputeQuality = useCallback(async () => {
+    if (!activeVersionId) return
+    setQualityRecomputing(true)
+    try {
+      const res = await fetch(`/api/datasets/${datasetId}/quality`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version_id: activeVersionId }),
+      })
+      if (res.ok) setQualityReport(await res.json())
+      else await fetchQualityReport()
+    } finally {
+      setQualityRecomputing(false)
+    }
+  }, [datasetId, activeVersionId, fetchQualityReport])
+
+  // Lazy quality fetch — only triggers on first visit to quality tab
+  useEffect(() => {
+    if (activeTab === 'quality' && qualityReport === undefined && !qualityLoading) {
+      fetchQualityReport()
+    }
+  }, [activeTab, qualityReport, qualityLoading, fetchQualityReport])
+
+  // Lazy clean mount — workbench only instantiated after first tab visit
+  useEffect(() => {
+    if (activeTab === 'clean') setCleanMounted(true)
+  }, [activeTab])
+
   const activeVersion = versions.find(v => v.id === activeVersionId)
   const columns: ColumnSchema[] = parsedData?.columns ?? activeVersion?.schema_info ?? []
   const rowCount    = parsedData?.row_count ?? activeVersion?.row_count ?? 0
@@ -350,7 +398,7 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
       {/* ── COMPACT HEADER ─────────────────────────────────────────────────── */}
       <div className="px-6 pt-5 pb-0 bg-[var(--bg-surface)] border-b border-[var(--border-row)]">
 
-        {showBackLink && (
+        {showBackLink ? (
           <Link
             href={`/projects/${projectId}/data`}
             className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors mb-4"
@@ -358,7 +406,16 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
             <ArrowLeft className="h-3.5 w-3.5" />
             All Datasets
           </Link>
-        )}
+        ) : onExpandPanel ? (
+          <button
+            onClick={onExpandPanel}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors mb-4"
+            title="Show dataset list"
+          >
+            <ChevronsRight className="h-3.5 w-3.5" />
+            All Datasets
+          </button>
+        ) : null}
 
         <div className="flex items-start justify-between gap-4 mb-4">
 
@@ -463,32 +520,51 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
         </div>
 
         {/* ── TABS ── */}
-        <div className="flex items-center gap-0">
-          {(['schema', 'data', 'analysis', 'charts'] as const).map(tab => (
+        <div className="flex items-center gap-1 pt-3">
+          {[
+            { id: 'schema'  as const, label: 'Schema',       badge: null },
+            { id: 'data'    as const, label: 'Raw Data',     badge: null },
+            { id: 'clean'   as const, label: 'Clean',        badge: null },
+            { id: 'quality' as const, label: 'Quality',      badge: null },
+            { id: 'charts'  as const, label: 'Explorations', badge: savedCharts.length > 0 ? savedCharts.length : null },
+          ].map(({ id, label, badge }) => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
-                activeTab === tab
-                  ? 'border-[var(--accent-blue)] text-[var(--accent-blue)]'
-                  : 'border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+                activeTab === id
+                  ? 'bg-[var(--text-primary)] text-[var(--text-inverse)]'
+                  : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)]'
               }`}
             >
-              {tab === 'schema'   ? 'Schema'
-                : tab === 'data' ? 'Raw Data'
-                : tab === 'analysis' ? 'Analysis'
-                : (
-                <>
-                  Explorations
-                  {savedCharts.length > 0 && (
-                    <span className="text-[10px] bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)] rounded-full px-1.5 py-0.5 data-mono leading-none">
-                      {savedCharts.length}
-                    </span>
-                  )}
-                </>
+              {label}
+              {badge !== null && (
+                <span className={`text-[10px] rounded-full px-1.5 py-0.5 leading-none ${
+                  activeTab === id ? 'bg-white/20 text-white' : 'bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)]'
+                }`}>
+                  {badge}
+                </span>
               )}
             </button>
           ))}
+
+          {/* Conditional Duplicates tab — separated by divider, warning tokens */}
+          {duplicateReport && (
+            <>
+              <span className="mx-1.5 text-[var(--text-tertiary)] select-none">|</span>
+              <button
+                onClick={() => setActiveTab('duplicates')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+                  activeTab === 'duplicates'
+                    ? 'bg-[var(--status-warning-text)] text-white'
+                    : 'text-[var(--status-warning-text)] hover:bg-[var(--status-warning-bg)]'
+                }`}
+              >
+                <AlertTriangle className="h-3 w-3" />
+                {duplicateReport.duplicateGroups.length} Duplicates
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -707,9 +783,9 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
             {/* ── Right: sidebar ────────────────────────────────────────────── */}
             <div className="space-y-4">
 
-              {/* Completeness summary — click-through to quality page */}
+              {/* Completeness summary — click-through to Quality tab */}
               {columns.length > 0 && (
-                <Link href={`/projects/${projectId}/data/${datasetId}/quality`} className="block">
+                <button onClick={() => setActiveTab('quality')} className="block w-full text-left">
                   <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] shadow-[var(--shadow-xs)] px-5 py-4 hover:shadow-[var(--shadow-md)] hover:border-[var(--border-status-info)] transition-all cursor-pointer">
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-xs font-semibold text-[var(--text-primary)]">Completeness</p>
@@ -739,11 +815,11 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
                       )}
                     </div>
                   </div>
-                </Link>
+                </button>
               )}
 
-              {/* Quality Intelligence */}
-              <Link href={`/projects/${projectId}/data/${datasetId}/quality`} className="block">
+              {/* Quality Intelligence — switch to Quality tab */}
+              <button onClick={() => setActiveTab('quality')} className="block w-full text-left">
                 <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] shadow-[var(--shadow-xs)] px-5 py-4 hover:shadow-[var(--shadow-md)] hover:border-[var(--border-status-info)] transition-all cursor-pointer">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-[var(--status-info-bg)] rounded-md shrink-0">
@@ -756,7 +832,7 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
                     <ChevronRight className="h-3.5 w-3.5 text-[var(--text-tertiary)] shrink-0" />
                   </div>
                 </div>
-              </Link>
+              </button>
 
               {/* Duplicate records alert */}
               {duplicateReport && (
@@ -905,69 +981,150 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
 
         {/* ════ RAW DATA TAB ════ */}
         {activeTab === 'data' && (
-          <div className="bg-white rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.04)] overflow-hidden" style={{ minHeight: 400 }}>
+          <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] overflow-hidden" style={{ minHeight: 400 }}>
             {dataLoading ? (
               <div className="flex items-center justify-center py-24">
                 <div className="text-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-[#003d9b]/40 mx-auto mb-3" />
-                  <p className="text-sm text-slate-400">Loading data…</p>
+                  <Loader2 className="h-8 w-8 animate-spin text-[var(--accent-blue)] opacity-40 mx-auto mb-3" />
+                  <p className="text-sm text-[var(--text-tertiary)]">Loading data…</p>
                 </div>
               </div>
             ) : parsedData ? (
               <DatasetTable rows={parsedData.rows} columns={parsedData.columns} className="h-full" />
             ) : !error ? (
               <div className="flex items-center justify-center py-24">
-                <p className="text-sm text-slate-400">No data available for this version.</p>
+                <p className="text-sm text-[var(--text-tertiary)]">No data available for this version.</p>
               </div>
             ) : null}
           </div>
         )}
 
-        {/* ════ ANALYSIS TAB ════ */}
-        {activeTab === 'analysis' && (
-          <div className="space-y-8">
-
-            {/* Analysis Timeline — full width */}
-            <AnalysisTimeline datasetId={datasetId} />
-
-            {/* DAG Builder — full width, needs room */}
-            {activeVersionId && columns.length > 0 && (
-              <DAGBuilderPanel
-                projectId={projectId}
+        {/* ════ CLEAN TAB ════ */}
+        {activeTab === 'clean' && (
+          <div className="min-h-[600px]">
+            {cleanMounted && activeVersion && parsedData ? (
+              <CleaningWorkbench
                 datasetId={datasetId}
-                versionId={activeVersionId}
-                availableVariables={columns.map(c => c.name)}
+                projectId={projectId}
+                version={activeVersion}
+                initialRows={parsedData.rows}
+                initialColumns={parsedData.columns}
+                branchName={branches.find(b => b.id === activeBranchId)?.name ?? 'main'}
+                onVersionSaved={(newVersionId) => {
+                  createClient().from('dataset_versions').select('*').eq('dataset_id', datasetId)
+                    .order('version_number', { ascending: false })
+                    .then(({ data }) => {
+                      if (data) { setVersions(data); setActiveVersionId(newVersionId) }
+                    })
+                  setActiveTab('schema')
+                }}
+              />
+            ) : dataLoading || !parsedData ? (
+              <div className="flex items-center justify-center py-24">
+                <Loader2 className="h-6 w-6 animate-spin text-[var(--text-tertiary)]" />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+                <p className="text-sm text-[var(--text-secondary)] font-medium">No data loaded</p>
+                <p className="text-xs text-[var(--text-tertiary)]">Select a version to use the cleaning workbench.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ════ QUALITY TAB ════ */}
+        {activeTab === 'quality' && (
+          <div>
+            {/* Sub-tabs + recompute button */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-1">
+                {(['overview', 'enumerators'] as const).map(sub => (
+                  <button
+                    key={sub}
+                    onClick={() => setQualitySubTab(sub)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                      qualitySubTab === sub
+                        ? 'bg-[var(--text-primary)] text-[var(--text-inverse)]'
+                        : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)]'
+                    }`}
+                  >
+                    {sub === 'overview' ? 'Quality Overview' : 'Enumerator Metrics'}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={handleRecomputeQuality}
+                disabled={qualityRecomputing || !activeVersionId}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-strong)] transition-colors disabled:opacity-40"
+              >
+                <RefreshCw className={`h-3 w-3 ${qualityRecomputing ? 'animate-spin' : ''}`} />
+                {qualityRecomputing ? 'Recomputing…' : 'Recompute'}
+              </button>
+            </div>
+
+            {qualityLoading || qualityReport === undefined ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="rounded-xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] h-32 animate-pulse" />
+                ))}
+              </div>
+            ) : qualityReport === null ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+                <ShieldCheck className="h-10 w-10 text-[var(--text-tertiary)]" />
+                <p className="text-[var(--text-secondary)] text-sm font-medium">No quality report computed yet</p>
+                <p className="text-xs text-[var(--text-tertiary)] max-w-xs">
+                  Run the quality engine to get a DQI score, dimension breakdown, and enumerator analysis.
+                </p>
+                <button
+                  onClick={handleRecomputeQuality}
+                  disabled={qualityRecomputing || !activeVersionId}
+                  className="mt-2 flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl text-[var(--text-inverse)] bg-[var(--accent-blue)] hover:opacity-90 disabled:opacity-50 transition-opacity"
+                >
+                  <RefreshCw className={`h-4 w-4 ${qualityRecomputing ? 'animate-spin' : ''}`} />
+                  {qualityRecomputing ? 'Computing…' : 'Compute Quality Report'}
+                </button>
+              </div>
+            ) : qualitySubTab === 'overview' ? (
+              <DataQualityScorecard
+                report={qualityReport}
+                isLoading={qualityRecomputing}
+                onRecompute={handleRecomputeQuality}
+              />
+            ) : (
+              <EnumeratorQualityPanel
+                metrics={qualityReport.enumerator_metrics ?? null}
+                isLoading={qualityRecomputing}
               />
             )}
+          </div>
+        )}
 
-            {/* Portrait + Fingerprint — side by side */}
-            {activeVersionId && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-                <DataPortraitPanel
-                  datasetId={datasetId}
-                  projectId={projectId}
-                  versionId={activeVersionId}
-                />
-                <PortraitFingerprint
-                  datasetId={datasetId}
-                  projectId={projectId}
-                  versionId={activeVersionId}
-                />
-              </div>
-            )}
-
-            {/* Empty state when no version loaded yet */}
-            {!activeVersionId && (
-              <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
-                <div className="w-10 h-10 rounded-xl bg-[var(--bg-inset)] flex items-center justify-center">
-                  <BarChart2 className="h-5 w-5 text-[var(--text-tertiary)]" />
+        {/* ════ DUPLICATES TAB ════ */}
+        {activeTab === 'duplicates' && duplicateReport && (
+          <div className="max-w-2xl mx-auto">
+            <div className="bg-[var(--status-warning-bg)] border border-[var(--border-status-warning)] rounded-xl p-6">
+              <div className="flex items-start gap-4 mb-6">
+                <div className="p-2.5 bg-[var(--status-warning-bg)] border border-[var(--border-status-warning)] rounded-lg shrink-0">
+                  <AlertTriangle className="h-5 w-5 text-[var(--status-warning-text)]" />
                 </div>
-                <p className="text-sm font-semibold text-[var(--text-secondary)]">No version loaded</p>
-                <p className="text-xs text-[var(--text-tertiary)] max-w-xs">
-                  Select a version to view analysis tools.
-                </p>
+                <div>
+                  <h3 className="text-sm font-semibold text-[var(--status-warning-text)] mb-1">
+                    {duplicateReport.duplicateGroups.length} duplicate group{duplicateReport.duplicateGroups.length !== 1 ? 's' : ''} detected
+                  </h3>
+                  <p className="text-xs text-[var(--status-warning-text)] leading-relaxed">
+                    <span className="font-semibold">{duplicateReport.totalAffectedRows} records</span> share a duplicate{' '}
+                    <span className="data-mono font-semibold">{duplicateReport.idColumn}</span> value,{' '}
+                    affecting <span className="font-semibold">{duplicateReport.percentAffected.toFixed(1)}%</span> of the dataset.
+                  </p>
+                </div>
               </div>
-            )}
+              <button
+                onClick={() => setShowDuplicateModal(true)}
+                className="w-full py-2.5 bg-[var(--status-warning-text)] hover:opacity-90 text-white rounded-lg text-sm font-semibold transition-opacity"
+              >
+                Review &amp; Resolve Duplicates
+              </button>
+            </div>
           </div>
         )}
 
@@ -976,23 +1133,23 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
           <div>
             {chartsLoading ? (
               <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-5 w-5 animate-spin text-slate-300" />
+                <Loader2 className="h-5 w-5 animate-spin text-[var(--text-tertiary)]" />
               </div>
             ) : savedCharts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 gap-5 text-center bg-white rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
+              <div className="flex flex-col items-center justify-center py-24 gap-5 text-center bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)]">
                 <div className="flex items-end gap-2 h-20">
                   {[0.4, 0.7, 0.55, 1, 0.85, 0.6, 0.45, 0.9, 0.75, 0.5].map((h, i) => (
-                    <div key={i} className="w-5 rounded-t-sm bg-[#003d9b]/15" style={{ height: `${h * 80}px` }} />
+                    <div key={i} className="w-5 rounded-t-sm bg-[var(--accent-blue-subtle)]" style={{ height: `${h * 80}px` }} />
                   ))}
                 </div>
                 <div>
-                  <p className="font-manrope font-bold text-base text-[#191c1e]">No saved explorations yet</p>
-                  <p className="text-xs text-slate-400 mt-1 max-w-xs">
+                  <p className="font-manrope font-bold text-base text-[var(--text-primary)]">No saved explorations yet</p>
+                  <p className="text-xs text-[var(--text-tertiary)] mt-1 max-w-xs">
                     Open the Explorer to build bar charts, histograms, scatter plots, and more — then save them here.
                   </p>
                 </div>
                 <Link href={`/projects/${projectId}/data/${datasetId}/explore`}>
-                  <button className="inline-flex items-center gap-2 bg-[#003d9b] text-white px-6 py-2.5 rounded-lg text-sm font-semibold hover:bg-[#0052cc] transition-colors shadow-lg shadow-[#003d9b]/20">
+                  <button className="inline-flex items-center gap-2 bg-[var(--accent-blue)] text-[var(--text-inverse)] px-6 py-2.5 rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity">
                     <BarChart2 className="h-4 w-4" />Open Explorer
                   </button>
                 </Link>
@@ -1000,45 +1157,45 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
             ) : (
               <>
                 <div className="flex items-center justify-between mb-6">
-                  <p className="text-sm font-semibold text-[#191c1e]">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">
                     {savedCharts.length} saved exploration{savedCharts.length !== 1 ? 's' : ''}
                   </p>
                   <Link href={`/projects/${projectId}/data/${datasetId}/explore`}>
-                    <button className="inline-flex items-center gap-1.5 bg-[#003d9b] text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#0052cc] transition-colors">
+                    <button className="inline-flex items-center gap-1.5 bg-[var(--accent-blue)] text-[var(--text-inverse)] px-4 py-2 rounded-lg text-xs font-bold hover:opacity-90 transition-opacity">
                       <Plus className="h-3.5 w-3.5" />New Chart
                     </button>
                   </Link>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {savedCharts.map(chart => {
-                    const meta = CHART_META[chart.chart_type] ?? { label: chart.chart_type, icon: <BarChart2 size={14} />, color: 'bg-gray-100 text-gray-700' }
+                    const meta = CHART_META[chart.chart_type] ?? { label: chart.chart_type, icon: <BarChart2 size={14} />, color: 'bg-[var(--bg-inset)] text-[var(--text-secondary)]' }
                     const cfg = chart.config as ChartConfig
                     return (
-                      <div key={chart.id} className="bg-white rounded-xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:shadow-md transition-shadow flex flex-col gap-3">
+                      <div key={chart.id} className="bg-[var(--bg-surface)] rounded-xl p-5 border border-[var(--border-default)] hover:shadow-[var(--shadow-md)] transition-shadow flex flex-col gap-3">
                         <div className="flex items-center justify-between">
                           <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${meta.color}`}>
                             {meta.icon}{meta.label}
                           </span>
-                          <span className="text-[10px] text-slate-400 font-mono">{fmtDate(chart.created_at)}</span>
+                          <span className="data-mono text-[10px] text-[var(--text-tertiary)]">{fmtDate(chart.created_at)}</span>
                         </div>
                         <div>
-                          <p className="font-bold text-sm text-[#191c1e] truncate">{chart.title}</p>
+                          <p className="font-bold text-sm text-[var(--text-primary)] truncate">{chart.title}</p>
                           {(cfg.x_axis || cfg.y_axis) && (
-                            <p className="text-xs text-slate-400 mt-0.5 truncate">
+                            <p className="text-xs text-[var(--text-tertiary)] mt-0.5 truncate">
                               {[cfg.x_axis, cfg.y_axis].filter(Boolean).join(' → ')}
                             </p>
                           )}
                         </div>
                         <div className="flex items-center gap-2 mt-auto pt-1">
                           <Link href={`/projects/${projectId}/data/${datasetId}/explore?load=${chart.id}`} className="flex-1">
-                            <button className="w-full flex items-center justify-center gap-1.5 border border-slate-200 rounded-lg py-1.5 text-xs font-semibold text-slate-600 hover:border-[#003d9b] hover:text-[#003d9b] transition-colors">
+                            <button className="w-full flex items-center justify-center gap-1.5 border border-[var(--border-default)] rounded-lg py-1.5 text-xs font-semibold text-[var(--text-secondary)] hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)] transition-colors">
                               <ExternalLink size={12} />Open
                             </button>
                           </Link>
                           <button
                             onClick={() => handleDeleteChart(chart.id)}
                             disabled={deletingId === chart.id}
-                            className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--status-error)] hover:bg-[var(--status-error-bg)] transition-colors"
                           >
                             {deletingId === chart.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                           </button>
@@ -1081,8 +1238,3 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
   )
 }
 
-function PortraitFingerprint({ datasetId, projectId, versionId }: { datasetId: string; projectId: string; versionId: string | null }) {
-  const { portrait } = useDataPortrait(datasetId, projectId, versionId)
-  if (!portrait || portrait.status !== 'complete') return null
-  return <EpidemiologicalFingerprint portrait={portrait} />
-}
