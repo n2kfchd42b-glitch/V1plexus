@@ -64,7 +64,7 @@ export function Header({ profile, title, onSearchClick }: HeaderProps) {
   return (
     <header
       className={cn(
-        'h-12 px-5 flex items-center justify-between sticky top-0 z-20',
+        'h-16 px-6 flex items-center justify-between sticky top-0 z-20',
         'bg-[var(--bg-surface)] border-b transition-all duration-150',
         scrolled
           ? 'border-[var(--border-default)] shadow-xs'
@@ -72,11 +72,11 @@ export function Header({ profile, title, onSearchClick }: HeaderProps) {
       )}
     >
       {/* Breadcrumbs */}
-      <nav className="flex items-center gap-1 min-w-0">
+      <nav className="flex items-center gap-1.5 min-w-0">
         {breadcrumbs.map((crumb, i) => (
-          <div key={crumb.href} className="flex items-center gap-1 min-w-0">
+          <div key={crumb.href} className="flex items-center gap-1.5 min-w-0">
             {i > 0 && (
-              <ChevronRight className="h-3 w-3 text-[var(--text-tertiary)] flex-shrink-0" />
+              <ChevronRight className="h-3.5 w-3.5 text-[var(--text-tertiary)] flex-shrink-0" />
             )}
             {i === breadcrumbs.length - 1 ? (
               <span className="text-sm font-semibold text-[var(--text-primary)] truncate">
@@ -95,13 +95,13 @@ export function Header({ profile, title, onSearchClick }: HeaderProps) {
       </nav>
 
       {/* Right actions */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
         {/* Search with ⌘K hint */}
         <button
           onClick={onSearchClick}
-          className="hidden md:flex items-center gap-2 bg-[var(--bg-inset)] border border-[var(--border-row)] rounded-md px-3 py-1.5 text-xs w-52 text-[var(--text-tertiary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-text"
+          className="hidden md:flex items-center gap-2 bg-[var(--bg-inset)] border border-[var(--border-row)] rounded-lg px-3.5 py-2 text-xs w-56 text-[var(--text-tertiary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-text"
         >
-          <Search className="h-3 w-3 flex-shrink-0" />
+          <Search className="h-3.5 w-3.5 flex-shrink-0" />
           <span className="flex-1 text-left">Search…</span>
           <kbd className="text-[10px] font-mono bg-[var(--bg-surface)] border border-[var(--border-default)] rounded px-1.5 py-0.5 text-[var(--text-tertiary)]">⌘K</kbd>
         </button>
@@ -111,18 +111,18 @@ export function Header({ profile, title, onSearchClick }: HeaderProps) {
 
         {/* Avatar → settings */}
         {profile && (
-          <Link href="/settings" className="flex items-center gap-2">
+          <Link href="/settings" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
             <div className="hidden sm:block text-right">
-              <p className="text-xs font-semibold text-[var(--text-primary)] leading-none">
+              <p className="text-sm font-semibold text-[var(--text-primary)] leading-tight">
                 {profile.full_name ?? 'User'}
               </p>
               {profile.role && (
-                <p className="text-[10px] text-[var(--text-tertiary)] capitalize mt-0.5">{profile.role}</p>
+                <p className="text-[11px] text-[var(--text-tertiary)] capitalize mt-0.5">{profile.role}</p>
               )}
             </div>
-            <div className="w-7 h-7 rounded-full bg-[var(--accent-primary)] flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
+            <div className="w-8 h-8 rounded-full bg-[var(--accent-primary)] flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 ring-2 ring-[var(--border-default)]">
               {profile.avatar_url ? (
-                <img src={profile.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
+                <img src={profile.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
               ) : (
                 getInitials(profile.full_name)
               )}

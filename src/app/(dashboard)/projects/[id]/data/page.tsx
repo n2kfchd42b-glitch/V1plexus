@@ -111,7 +111,7 @@ export default function ProjectDataPage() {
   if (authLoading || !user) return null
 
   return (
-    <div className="flex flex-row bg-[var(--bg-app)] overflow-hidden h-[calc(100vh-3rem)]">
+    <div className="flex flex-row bg-[var(--bg-app)] overflow-hidden h-[calc(100vh-4rem)]">
 
       {/* ── LEFT PANEL ─────────────────────────────────────────────────────── */}
       <div className={cn(
