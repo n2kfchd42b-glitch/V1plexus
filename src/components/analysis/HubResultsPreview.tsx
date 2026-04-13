@@ -128,7 +128,7 @@ export function HubResultsPreview({ run, result, projectId }: Props) {
         {/* Key finding */}
         {finding.headline && (
           <div className="flex gap-3 pt-1 border-t border-[var(--border-row)]">
-            <div className="w-0.5 bg-[var(--accent-blue)] rounded-full flex-shrink-0 mt-0.5 self-stretch" />
+            <div className="w-0.5 bg-[var(--accent-primary)] rounded-full flex-shrink-0 mt-0.5 self-stretch" />
             <div className="min-w-0">
               <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-medium mb-1.5">
                 Key Finding

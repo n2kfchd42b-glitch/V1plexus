@@ -111,12 +111,12 @@ export default function ProjectDataPage() {
   if (authLoading || !user) return null
 
   return (
-    <div className="flex flex-row h-full min-h-0 bg-[var(--bg-app)] overflow-hidden">
+    <div className="flex flex-row bg-[var(--bg-app)] overflow-hidden h-[calc(100vh-3rem)]">
 
       {/* ── LEFT PANEL ─────────────────────────────────────────────────────── */}
       <div className={cn(
         'flex flex-col border-r border-[var(--border-row)] bg-[var(--bg-surface)] shrink-0 overflow-hidden transition-all duration-200',
-        panelOpen ? 'w-96' : 'w-10'
+        panelOpen ? 'w-64' : 'w-10'
       )}>
         {panelOpen ? (
           <>
@@ -133,7 +133,7 @@ export default function ProjectDataPage() {
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   onClick={() => setShowUpload(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[var(--accent-blue)] text-[var(--text-inverse)] text-[11px] font-semibold hover:opacity-90 transition-opacity"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[var(--accent-primary)] text-[var(--text-inverse)] text-[11px] font-semibold hover:opacity-90 transition-opacity"
                 >
                   <Upload className="h-3 w-3" />
                   Import
@@ -333,7 +333,7 @@ function PanelListItem({ dataset, isSelected, isArchived, onSelect, onDelete, on
     >
       {/* Active indicator */}
       {isSelected && (
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-[var(--accent-blue)] rounded-full" />
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-[var(--accent-primary)] rounded-full" />
       )}
 
       <div className="flex items-start gap-2">

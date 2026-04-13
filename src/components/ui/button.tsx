@@ -15,7 +15,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default:     "bg-[var(--accent-primary)] text-white hover:bg-[var(--accent-blue)] rounded-md shadow-xs",
+        default:     "bg-[var(--accent-primary)] text-white hover:bg-[var(--accent-primary-hover)] rounded-md shadow-xs",
         destructive: "bg-[var(--status-error)] text-white hover:bg-red-600 rounded-md shadow-xs",
         outline:     "border border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-primary)] rounded-md",
         secondary:   "bg-[var(--bg-surface-active)] text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] rounded-md",

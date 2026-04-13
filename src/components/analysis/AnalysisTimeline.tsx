@@ -63,7 +63,7 @@ export function AnalysisTimeline({ datasetId }: AnalysisTimelineProps) {
       <div className="flex items-center gap-2 mb-5">
         <GitBranch className="h-4 w-4 text-[#003d9b]" />
         <h3 className="font-manrope font-bold text-base text-[#191c1e]">Analysis Timeline</h3>
-        <span className="text-[10px] bg-[#003d9b]/10 text-[#003d9b] rounded-full px-2 py-0.5 font-mono">{entries.length}</span>
+        <span className="text-[10px] bg-[var(--accent-primary)]/10 text-[#003d9b] rounded-full px-2 py-0.5 font-mono">{entries.length}</span>
       </div>
 
       <div className="space-y-6">

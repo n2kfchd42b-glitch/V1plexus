@@ -53,7 +53,7 @@ export function NotificationItem({ notification, onMarkRead, onClose }: Notifica
     >
       {/* Unread dot */}
       {!notification.is_read && (
-        <div className="mt-2 h-1.5 w-1.5 rounded-full bg-[var(--accent-blue)] flex-shrink-0" />
+        <div className="mt-2 h-1.5 w-1.5 rounded-full bg-[var(--accent-primary)] flex-shrink-0" />
       )}
       {notification.is_read && <div className="mt-2 h-1.5 w-1.5 flex-shrink-0" />}
 

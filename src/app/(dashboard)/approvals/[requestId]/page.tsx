@@ -425,7 +425,7 @@ export default function ApprovalReviewPage() {
                 {auditEntries.map((entry, idx) => (
                   <div key={entry.id} className="flex gap-3">
                     <div className="flex flex-col items-center">
-                      <div className="h-5 w-5 rounded-full bg-[var(--accent-blue)] flex items-center justify-center text-white text-[9px] font-bold shrink-0">
+                      <div className="h-5 w-5 rounded-full bg-[var(--accent-primary)] flex items-center justify-center text-white text-[9px] font-bold shrink-0">
                         {idx + 1}
                       </div>
                       {idx < auditEntries.length - 1 && (
@@ -505,7 +505,7 @@ export default function ApprovalReviewPage() {
           <div className="rounded-2xl bg-[var(--bg-surface-lowest)] border border-[var(--border-subtle)] shadow-sm p-6">
             {/* Researcher info */}
             <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-full bg-[var(--accent-blue)] flex items-center justify-center text-white text-sm font-bold shrink-0">
+              <div className="h-10 w-10 rounded-full bg-[var(--accent-primary)] flex items-center justify-center text-white text-sm font-bold shrink-0">
                 {(req.researcher?.full_name ?? 'U').split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
               </div>
               <div>

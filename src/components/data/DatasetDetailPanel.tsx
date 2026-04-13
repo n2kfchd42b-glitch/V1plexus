@@ -110,7 +110,7 @@ function MiniDistribution({ col }: { col: ColumnSchema }) {
         {vals.map((v, i) => (
           <div
             key={i}
-            className="w-1.5 rounded-sm bg-[var(--accent-blue)]"
+            className="w-1.5 rounded-sm bg-[var(--accent-primary)]"
             style={{ height: `${Math.max(2, Math.round((v / max) * 20))}px`, opacity: 0.25 + 0.75 * (v / max) }}
           />
         ))}
@@ -120,7 +120,7 @@ function MiniDistribution({ col }: { col: ColumnSchema }) {
   return (
     <div className="flex items-end gap-0.5 h-5">
       {[0.3, 0.6, 1, 0.8, 0.5, 0.3].map((h, i) => (
-        <div key={i} className="w-1.5 rounded-sm bg-[var(--accent-blue)]" style={{ height: `${h * 20}px`, opacity: h * 0.8 }} />
+        <div key={i} className="w-1.5 rounded-sm bg-[var(--accent-primary)]" style={{ height: `${h * 20}px`, opacity: h * 0.8 }} />
       ))}
     </div>
   )
@@ -896,7 +896,7 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
                 <button
                   onClick={handleRecomputeQuality}
                   disabled={qualityRecomputing || !activeVersionId}
-                  className="mt-2 flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl text-[var(--text-inverse)] bg-[var(--accent-blue)] hover:opacity-90 disabled:opacity-50 transition-opacity"
+                  className="mt-2 flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl text-[var(--text-inverse)] bg-[var(--accent-primary)] hover:opacity-90 disabled:opacity-50 transition-opacity"
                 >
                   <RefreshCw className={`h-4 w-4 ${qualityRecomputing ? 'animate-spin' : ''}`} />
                   {qualityRecomputing ? 'Computing…' : 'Compute Quality Report'}
@@ -939,7 +939,7 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
                   </p>
                 </div>
                 <Link href={`/projects/${projectId}/data/${datasetId}/explore`}>
-                  <button className="inline-flex items-center gap-2 bg-[var(--accent-blue)] text-[var(--text-inverse)] px-6 py-2.5 rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity">
+                  <button className="inline-flex items-center gap-2 bg-[var(--accent-primary)] text-[var(--text-inverse)] px-6 py-2.5 rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity">
                     <BarChart2 className="h-4 w-4" />Open Explorer
                   </button>
                 </Link>
@@ -951,7 +951,7 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
                     {savedCharts.length} saved exploration{savedCharts.length !== 1 ? 's' : ''}
                   </p>
                   <Link href={`/projects/${projectId}/data/${datasetId}/explore`}>
-                    <button className="inline-flex items-center gap-1.5 bg-[var(--accent-blue)] text-[var(--text-inverse)] px-4 py-2 rounded-lg text-xs font-bold hover:opacity-90 transition-opacity">
+                    <button className="inline-flex items-center gap-1.5 bg-[var(--accent-primary)] text-[var(--text-inverse)] px-4 py-2 rounded-lg text-xs font-bold hover:opacity-90 transition-opacity">
                       <Plus className="h-3.5 w-3.5" />New Chart
                     </button>
                   </Link>

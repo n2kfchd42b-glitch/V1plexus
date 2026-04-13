@@ -14,7 +14,7 @@ export function InterpretationBox({ plainLanguage, text }: Props) {
   return (
     <div className="flex gap-3 py-4 border-b border-[var(--border-row)]">
       {/* Left accent bar */}
-      <div className="w-0.5 bg-[var(--accent-blue)] rounded-full flex-shrink-0 mt-0.5 self-stretch" />
+      <div className="w-0.5 bg-[var(--accent-primary)] rounded-full flex-shrink-0 mt-0.5 self-stretch" />
 
       <div className="flex-1 min-w-0">
         <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-medium mb-1.5">

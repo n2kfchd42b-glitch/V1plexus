@@ -104,7 +104,7 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
               : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
           )}>
             {projectsActive && (
-              <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-blue)]" />
+              <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-primary)]" />
             )}
             <FolderOpen className={cn(
               'flex-shrink-0 h-4 w-4 transition-colors duration-150',
@@ -144,7 +144,7 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
                       : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
                   )}>
                     {active && !collapsed && (
-                      <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-blue)]" />
+                      <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-primary)]" />
                     )}
                     <Icon className={cn(
                       'flex-shrink-0 h-3.5 w-3.5 transition-colors duration-150',

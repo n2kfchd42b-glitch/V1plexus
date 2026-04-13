@@ -240,7 +240,7 @@ export function ProjectAuditLedger({ projectId, projectTitle }: ProjectAuditLedg
           </div>
           <div className="px-5 py-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-full bg-[#003d9b]/10 flex items-center justify-center shrink-0">
+              <div className="h-8 w-8 rounded-full bg-[var(--accent-primary)]/10 flex items-center justify-center shrink-0">
                 <Clock className="h-4 w-4 text-[#003d9b]" />
               </div>
               <div>
@@ -249,7 +249,7 @@ export function ProjectAuditLedger({ projectId, projectTitle }: ProjectAuditLedg
               </div>
             </div>
             <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-full bg-[#003d9b]/10 flex items-center justify-center shrink-0">
+              <div className="h-8 w-8 rounded-full bg-[var(--accent-primary)]/10 flex items-center justify-center shrink-0">
                 <User className="h-4 w-4 text-[#003d9b]" />
               </div>
               <div>
@@ -260,7 +260,7 @@ export function ProjectAuditLedger({ projectId, projectTitle }: ProjectAuditLedg
               </div>
             </div>
             <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-full bg-[#003d9b]/10 flex items-center justify-center shrink-0">
+              <div className="h-8 w-8 rounded-full bg-[var(--accent-primary)]/10 flex items-center justify-center shrink-0">
                 <Hash className="h-4 w-4 text-[#003d9b]" />
               </div>
               <div className="min-w-0">

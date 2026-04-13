@@ -107,7 +107,7 @@ export default function ApprovalsPage() {
             onClick={() => setFilter(tab.key)}
             className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
               filter === tab.key
-                ? 'bg-[var(--accent-blue)] text-white'
+                ? 'bg-[var(--accent-primary)] text-white'
                 : 'bg-[var(--bg-inset)] text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)]'
             }`}
           >
@@ -165,7 +165,7 @@ export default function ApprovalsPage() {
                 {/* Middle row */}
                 <div className="mt-3 flex items-center gap-3 flex-wrap">
                   <div className="flex items-center gap-1.5">
-                    <div className="h-6 w-6 rounded-full bg-[var(--accent-blue)] flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                    <div className="h-6 w-6 rounded-full bg-[var(--accent-primary)] flex items-center justify-center text-white text-[10px] font-bold shrink-0">
                       {item.researcher_initials}
                     </div>
                     <span className="text-[12px] text-[var(--text-secondary)]">{item.researcher_name}</span>

@@ -139,11 +139,11 @@ export function SensitivityPanel({
           </thead>
           <tbody className="divide-y divide-[#f2f4f6]">
             {comparisons.map((c, i) => (
-              <tr key={i} className={`transition-colors ${c.method_variant === 'adjusted' || c.method_variant === 'adjusted_complete_case' ? 'bg-[#003d9b]/[0.02]' : 'hover:bg-slate-50'}`}>
+              <tr key={i} className={`transition-colors ${c.method_variant === 'adjusted' || c.method_variant === 'adjusted_complete_case' ? 'bg-[var(--accent-primary)]/[0.02]' : 'hover:bg-slate-50'}`}>
                 <td className="px-5 py-3">
                   <div className="flex items-center gap-2">
                     {(c.method_variant === 'adjusted' || c.method_variant === 'adjusted_complete_case') && (
-                      <span className="text-[9px] bg-[#003d9b]/10 text-[#003d9b] rounded px-1.5 py-0.5 font-bold uppercase shrink-0">Primary</span>
+                      <span className="text-[9px] bg-[var(--accent-primary)]/10 text-[#003d9b] rounded px-1.5 py-0.5 font-bold uppercase shrink-0">Primary</span>
                     )}
                     <span className="font-medium text-slate-700">{c.label}</span>
                   </div>

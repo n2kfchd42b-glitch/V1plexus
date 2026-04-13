@@ -270,7 +270,7 @@ function VariablesTab({ profiles }: { profiles: VariableProfile[] }) {
           <button
             onClick={() => setSelected(selected === p.name ? null : p.name)}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
-              selected === p.name ? 'bg-[#003d9b]/5' : 'hover:bg-slate-50'
+              selected === p.name ? 'bg-[var(--accent-primary)]/5' : 'hover:bg-slate-50'
             }`}
           >
             <DtypeTag dtype={p.dtype} />

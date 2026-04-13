@@ -525,7 +525,7 @@ export default function OutputPage() {
                   <button key={g} onClick={() => setActiveGuideline(g)}
                     className={`text-[10px] px-2 py-0.5 rounded font-medium transition-colors ${
                       g === activeGuideline
-                        ? 'bg-[var(--accent-blue)] text-white'
+                        ? 'bg-[var(--accent-primary)] text-white'
                         : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
                     }`}
                   >{g}</button>
@@ -549,7 +549,7 @@ export default function OutputPage() {
               {/* Progress bar */}
               <div className="px-6 py-2 border-b border-[var(--border-row)]">
                 <div className="h-1 bg-[var(--bg-row-hover)] rounded-full overflow-hidden">
-                  <div className="h-full bg-[var(--accent-blue)] rounded-full transition-all duration-500"
+                  <div className="h-full bg-[var(--accent-primary)] rounded-full transition-all duration-500"
                     style={{ width: `${completionPct}%` }} />
                 </div>
               </div>

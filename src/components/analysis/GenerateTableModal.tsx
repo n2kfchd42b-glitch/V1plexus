@@ -566,7 +566,7 @@ export function GenerateTableModal({ result, projectId, runTitle, onClose }: Pro
                             <div className="flex items-center gap-2 mb-1">
                               <div className="w-3 h-3 rounded-full border-2 flex items-center justify-center"
                                 style={{ borderColor: format === opt.value ? '#0052cc' : '#c3c6d6' }}>
-                                {format === opt.value && <div className="w-1.5 h-1.5 rounded-full bg-[#0052cc]" />}
+                                {format === opt.value && <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent-primary-hover)]" />}
                               </div>
                               <span className="text-xs font-bold text-[#18181B]">{opt.label}</span>
                             </div>

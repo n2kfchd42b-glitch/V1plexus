@@ -397,7 +397,7 @@ export default function ProfilePage() {
 
               <button
                 onClick={() => setActiveTab('edit')}
-                className="bg-[#0052CC] text-white px-5 py-2 rounded-lg font-semibold text-sm shadow-sm hover:bg-[#003d9b] transition-colors flex-shrink-0"
+                className="bg-[#0052CC] text-white px-5 py-2 rounded-lg font-semibold text-sm shadow-sm hover:bg-[var(--accent-primary)] transition-colors flex-shrink-0"
               >
                 Edit Profile
               </button>
@@ -552,7 +552,7 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Peer Review Portal — dark card */}
-                <div className="bg-[#003d9b] p-4 rounded-xl space-y-3">
+                <div className="bg-[var(--accent-primary)] p-4 rounded-xl space-y-3">
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-white text-[20px]">rate_review</span>
                     <h3 className="text-sm font-bold text-white font-manrope">Peer Review Portal</h3>
@@ -685,7 +685,7 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              <Button type="submit" disabled={saving} className="bg-[#0052CC] hover:bg-[#003d9b]">
+              <Button type="submit" disabled={saving} className="bg-[#0052CC] hover:bg-[var(--accent-primary)]">
                 {saving ? 'Saving…' : 'Save Changes'}
               </Button>
             </form>
@@ -724,7 +724,7 @@ export default function ProfilePage() {
                   <Label htmlFor="confirmPw">Confirm New Password</Label>
                   <Input id="confirmPw" type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} required className="mt-1" />
                 </div>
-                <Button type="submit" disabled={changingPw} className="bg-[#0052CC] hover:bg-[#003d9b]">
+                <Button type="submit" disabled={changingPw} className="bg-[#0052CC] hover:bg-[var(--accent-primary)]">
                   {changingPw ? 'Updating…' : 'Update Password'}
                 </Button>
               </form>
@@ -782,7 +782,7 @@ export default function ProfilePage() {
                     <p className="font-bold text-[#191c1e] font-manrope">Pro — $29 / month</p>
                     <p className="text-sm text-[#52525B] mt-0.5">Unlimited projects, storage &amp; collaboration</p>
                   </div>
-                  <Button size="sm" className="bg-[#0052CC] hover:bg-[#003d9b] flex items-center gap-1">
+                  <Button size="sm" className="bg-[#0052CC] hover:bg-[var(--accent-primary)] flex items-center gap-1">
                     Upgrade <ChevronRight className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -892,7 +892,7 @@ export default function ProfilePage() {
                 Cancel
               </Button>
               <Button
-                className="flex-1 bg-[#0052CC] hover:bg-[#003d9b]"
+                className="flex-1 bg-[#0052CC] hover:bg-[var(--accent-primary)]"
                 disabled={!credFile || uploading}
                 onClick={handleCredentialUpload}
               >

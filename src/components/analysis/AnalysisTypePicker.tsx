@@ -247,7 +247,7 @@ export function AnalysisTypePicker({ selected, onSelect }: Props) {
             <button
               key={goal.id}
               onClick={() => setActiveGoal(goal.id)}
-              className="group text-left rounded-xl border border-[rgba(0,82,204,0.15)] bg-white p-4 hover:bg-[#003d9b] hover:border-[#003d9b] hover:shadow-md transition-all duration-200"
+              className="group text-left rounded-xl border border-[rgba(0,82,204,0.15)] bg-white p-4 hover:bg-[var(--accent-primary)] hover:border-[#003d9b] hover:shadow-md transition-all duration-200"
             >
               <div className="flex items-start gap-3">
                 <span className="text-[#0040a2] group-hover:text-white transition-colors duration-200 mt-0.5 flex-shrink-0">
@@ -299,7 +299,7 @@ export function AnalysisTypePicker({ selected, onSelect }: Props) {
               'bg-white border-[rgba(0,82,204,0.18)]',
               info.unavailable
                 ? 'opacity-50 cursor-not-allowed'
-                : 'hover:bg-[#003d9b] hover:border-[#003d9b] hover:shadow-md',
+                : 'hover:bg-[var(--accent-primary)] hover:border-[#003d9b] hover:shadow-md',
               selected === info.type ? 'ring-2 ring-[#0052cc] shadow-sm' : ''
             )}
           >
