@@ -154,7 +154,7 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
   const [dataLoading,     setDataLoading]     = useState(false)
   const [error,           setError]           = useState<string | null>(null)
 
-  const [activeTab, setActiveTab] = useState<'schema' | 'data' | 'clean' | 'quality' | 'charts' | 'duplicates'>(
+  const [activeTab, setActiveTab] = useState<'schema' | 'data' | 'clean' | 'quality' | 'charts'>(
     searchParams.get('tab') === 'charts' ? 'charts'
       : searchParams.get('tab') === 'data' ? 'data'
       : searchParams.get('tab') === 'clean' ? 'clean'
@@ -438,17 +438,13 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
             </button>
           ))}
 
-          {/* Conditional Duplicates tab — separated by divider, warning tokens */}
+          {/* Duplicates — direct modal trigger, no intermediate page */}
           {duplicateReport && (
             <>
               <span className="mx-1.5 text-[var(--text-tertiary)] select-none">|</span>
               <button
-                onClick={() => setActiveTab('duplicates')}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${
-                  activeTab === 'duplicates'
-                    ? 'bg-[var(--status-warning-text)] text-white'
-                    : 'text-[var(--status-warning-text)] hover:bg-[var(--status-warning-bg)]'
-                }`}
+                onClick={() => setShowDuplicateModal(true)}
+                className="px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 text-[var(--status-warning-text)] hover:bg-[var(--status-warning-bg)]"
               >
                 <AlertTriangle className="h-3 w-3" />
                 {duplicateReport.duplicateGroups.length} Duplicates
@@ -728,14 +724,15 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
               </div>
             </div>
 
-            {/* ── Completeness — full width, dark blue, bottom of schema ──── */}
+            {/* ── Completeness — dark card, vertical bars, 5-col scroll ──── */}
             {columns.length > 0 && (
-              <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] shadow-[var(--shadow-xs)] p-5">
+              <div className="bg-[var(--bg-sidebar)] rounded-xl border border-white/10 p-5">
+                {/* Header */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-baseline gap-2">
-                    <h3 className="text-sm font-semibold text-[var(--text-primary)]">Completeness</h3>
+                    <h3 className="text-sm font-semibold text-white">Completeness</h3>
                     <span className="data-mono text-2xl font-bold tabular-nums text-[var(--accent-blue)]">{integrityPct}%</span>
-                    <span className="text-xs text-[var(--text-tertiary)]">integrity</span>
+                    <span className="text-xs text-white/40">integrity</span>
                   </div>
                   <button
                     onClick={() => setActiveTab('quality')}
@@ -744,20 +741,56 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
                     Full quality report →
                   </button>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-2">
-                  {columns.map(col => {
-                    const pct = rowCount > 0 ? ((rowCount - col.null_count) / rowCount) * 100 : 100
-                    const barColor = pct < 80 ? 'var(--status-error)' : pct < 95 ? 'var(--status-warning)' : 'var(--accent-blue)'
-                    return (
-                      <div key={col.name} className="flex items-center gap-2">
-                        <span className="data-mono text-[9px] text-[var(--text-tertiary)] w-20 truncate shrink-0">{col.name}</span>
-                        <div className="flex-1 h-1 bg-[var(--bg-inset)] rounded-full overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: barColor }} />
+
+                {/* Legend */}
+                <div className="flex items-center gap-4 mb-5">
+                  {[
+                    { label: '≤5% missing',  color: 'var(--accent-blue)' },
+                    { label: '>5% missing',   color: '#f59e0b' },
+                    { label: '>10% missing',  color: 'var(--status-error)' },
+                  ].map(({ label, color }) => (
+                    <div key={label} className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                      <span className="text-[10px] text-white/50">{label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Scrollable vertical bar columns — 5 visible at a time */}
+                <div className="overflow-x-auto pb-1">
+                  <div
+                    className="flex gap-3"
+                    style={{ minWidth: `${columns.length * 72}px` }}
+                  >
+                    {columns.map(col => {
+                      const pct = rowCount > 0 ? ((rowCount - col.null_count) / rowCount) * 100 : 100
+                      const missing = 100 - pct
+                      const barColor = missing > 10
+                        ? 'var(--status-error)'
+                        : missing > 5
+                        ? '#f59e0b'
+                        : 'var(--accent-blue)'
+                      return (
+                        <div key={col.name} className="flex flex-col items-center gap-2 flex-shrink-0 w-[60px]">
+                          <span
+                            className="data-mono text-[10px] font-bold tabular-nums"
+                            style={{ color: barColor }}
+                          >
+                            {Math.round(pct)}%
+                          </span>
+                          <div className="w-9 h-28 bg-white/10 rounded-lg overflow-hidden relative">
+                            <div
+                              className="absolute bottom-0 left-0 right-0 rounded-lg transition-all duration-300"
+                              style={{ height: `${pct}%`, background: barColor }}
+                            />
+                          </div>
+                          <span className="data-mono text-[9px] text-white/50 w-[60px] text-center truncate leading-tight">
+                            {col.name}
+                          </span>
                         </div>
-                        <span className="data-mono text-[9px] text-[var(--accent-blue)] w-7 text-right shrink-0">{Math.round(pct)}%</span>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
             )}
@@ -884,34 +917,6 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
           </div>
         )}
 
-        {/* ════ DUPLICATES TAB ════ */}
-        {activeTab === 'duplicates' && duplicateReport && (
-          <div className="max-w-2xl mx-auto">
-            <div className="bg-[var(--status-warning-bg)] border border-[var(--border-status-warning)] rounded-xl p-6">
-              <div className="flex items-start gap-4 mb-6">
-                <div className="p-2.5 bg-[var(--status-warning-bg)] border border-[var(--border-status-warning)] rounded-lg shrink-0">
-                  <AlertTriangle className="h-5 w-5 text-[var(--status-warning-text)]" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-[var(--status-warning-text)] mb-1">
-                    {duplicateReport.duplicateGroups.length} duplicate group{duplicateReport.duplicateGroups.length !== 1 ? 's' : ''} detected
-                  </h3>
-                  <p className="text-xs text-[var(--status-warning-text)] leading-relaxed">
-                    <span className="font-semibold">{duplicateReport.totalAffectedRows} records</span> share a duplicate{' '}
-                    <span className="data-mono font-semibold">{duplicateReport.idColumn}</span> value,{' '}
-                    affecting <span className="font-semibold">{duplicateReport.percentAffected.toFixed(1)}%</span> of the dataset.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowDuplicateModal(true)}
-                className="w-full py-2.5 bg-[var(--status-warning-text)] hover:opacity-90 text-white rounded-lg text-sm font-semibold transition-opacity"
-              >
-                Review &amp; Resolve Duplicates
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* ════ EXPLORATIONS TAB ════ */}
         {activeTab === 'charts' && (

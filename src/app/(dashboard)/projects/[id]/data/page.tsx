@@ -116,12 +116,12 @@ export default function ProjectDataPage() {
       {/* ── LEFT PANEL ─────────────────────────────────────────────────────── */}
       <div className={cn(
         'flex flex-col border-r border-[var(--border-row)] bg-[var(--bg-surface)] shrink-0 overflow-hidden transition-all duration-200',
-        panelOpen ? 'w-72' : 'w-10'
+        panelOpen ? 'w-96' : 'w-10'
       )}>
         {panelOpen ? (
           <>
             {/* Panel header */}
-            <div className="flex items-center justify-between px-3 pt-4 pb-2 shrink-0">
+            <div className="flex items-center justify-between px-3 pt-4 pb-3 shrink-0 border-b border-[var(--border-subtle)]">
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-[var(--text-primary)] truncate">Datasets</p>
                 {!listLoading && (
@@ -130,13 +130,13 @@ export default function ProjectDataPage() {
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-0.5 shrink-0">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   onClick={() => setShowUpload(true)}
-                  className="h-6 w-6 flex items-center justify-center rounded text-[var(--text-tertiary)] hover:text-[var(--accent-blue)] hover:bg-[var(--accent-blue-subtle)] transition-colors"
-                  title="Import dataset"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[var(--accent-blue)] text-[var(--text-inverse)] text-[11px] font-semibold hover:opacity-90 transition-opacity"
                 >
-                  <Upload className="h-3.5 w-3.5" />
+                  <Upload className="h-3 w-3" />
+                  Import
                 </button>
                 <button
                   onClick={() => setPanelOpen(false)}
@@ -218,17 +218,6 @@ export default function ProjectDataPage() {
                   ))}
                 </motion.div>
               )}
-            </div>
-
-            {/* Import button — pinned to panel bottom */}
-            <div className="shrink-0 px-3 py-3 border-t border-[var(--border-subtle)]">
-              <button
-                onClick={() => setShowUpload(true)}
-                className="w-full flex items-center justify-center gap-2 py-2 rounded-md bg-[var(--accent-blue)] text-[var(--text-inverse)] text-xs font-semibold hover:opacity-90 transition-opacity"
-              >
-                <Upload className="h-3.5 w-3.5" />
-                Import Dataset
-              </button>
             </div>
           </>
         ) : (

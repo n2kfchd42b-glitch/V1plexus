@@ -374,9 +374,9 @@ export interface DuplicateReport {
   percentAffected: number
 }
 
+// Only true clinical/study identifiers — avoids false positives on generic 'id' columns
 const ID_COLUMN_PRIORITY = [
-  'id', 'patient_id', 'subject_id', 'record_id', 'participant_id',
-  'study_id', 'sample_id', 'case_id', 'respondent_id', 'pid', 'sid',
+  'patient_id', 'study_id',
 ]
 
 function levenshtein(a: string, b: string): number {
@@ -409,9 +409,7 @@ export function detectDuplicates(rows: DataRow[], idColumnHint?: string): Duplic
       if (match) { idColumn = match; break }
     }
   }
-  if (!idColumn) {
-    idColumn = cols.find(c => c.toLowerCase().includes('id')) ?? cols[0]
-  }
+  // No recognised clinical ID column — do not flag duplicates
   if (!idColumn) return empty
 
   // Group rows by ID
