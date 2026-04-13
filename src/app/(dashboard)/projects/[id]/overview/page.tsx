@@ -99,6 +99,15 @@ export default async function ProjectOverviewPage({
     on_hold:   'var(--timeline-warning)',
   };
 
+  const statusBadge: Record<string, { bg: string; text: string; border: string; label: string }> = {
+    draft:     { bg: 'var(--bg-surface-active)',    text: 'var(--text-secondary)',        border: 'var(--border-default)',        label: 'Draft' },
+    active:    { bg: 'var(--accent-blue-subtle)',   text: 'var(--accent-blue)',            border: 'var(--border-status-info)',    label: 'Active' },
+    completed: { bg: 'var(--status-success-bg)',    text: 'var(--status-success-text)',    border: 'var(--border-status-success)', label: 'Completed' },
+    on_hold:   { bg: 'var(--status-warning-bg)',    text: 'var(--status-warning-text)',    border: 'var(--border-status-warning)', label: 'On Hold' },
+    archived:  { bg: 'var(--bg-surface-active)',    text: 'var(--text-tertiary)',          border: 'var(--border-default)',        label: 'Archived' },
+  };
+  const badge = statusBadge[project.status] ?? statusBadge.draft;
+
   // Compact header cards
   const quickLinks = [
     { href: `/projects/${id}/data`,     label: 'Data',     icon: Database,  iconColor: 'var(--phase-data)',     count: datasetCount ?? 0 },
@@ -114,54 +123,66 @@ export default async function ProjectOverviewPage({
       style={{ minHeight: '100%', background: 'var(--bg-app)' }}
     >
 
-      {/* ── Header: title left, compact quick-links right — sticky ──────────── */}
+      {/* ── Header: title, then status + nav row below ───────────────────────── */}
       <div
-        className="flex-shrink-0 flex items-start gap-4 px-6 pt-5 pb-4 sticky top-0 z-10"
-        style={{ background: 'var(--bg-app)' }}
+        className="flex-shrink-0 px-6 pt-6 pb-4"
+        style={{ background: 'var(--bg-app)', borderBottom: '1px solid var(--border-subtle)' }}
       >
-
-        {/* Title block */}
-        <div className="flex items-start gap-3 flex-1 min-w-0">
-          <span
-            className="status-dot-md flex-shrink-0 mt-2"
-            style={{ backgroundColor: statusColor[project.status] ?? statusColor.draft }}
+        {/* Title with left accent stripe */}
+        <div className="flex items-center gap-3">
+          <div
+            className="flex-shrink-0 rounded-full"
+            style={{ width: 4, height: 32, background: 'var(--accent-blue)' }}
           />
-          <div className="min-w-0">
-            <h1
-              className="text-2xl font-bold tracking-tight leading-tight"
-              style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-manrope)' }}
-            >
-              {project.title}
-            </h1>
-            {project.description && (
-              <p className="text-sm mt-1 leading-relaxed" style={{ color: 'var(--text-secondary)', maxWidth: 560 }}>
-                {project.description}
-              </p>
-            )}
-            <div className="flex items-center gap-2 mt-2">
-              <span
-                className="data-mono text-[10px] font-semibold uppercase px-2 py-0.5 rounded"
-                style={{
-                  background:    `color-mix(in srgb, ${statusColor[project.status] ?? statusColor.draft} 12%, transparent)`,
-                  color:          statusColor[project.status] ?? statusColor.draft,
-                  letterSpacing: '0.06em',
-                }}
-              >
-                {project.status.replace(/_/g, ' ')}
-              </span>
-            </div>
-          </div>
+          <h1
+            className="tracking-tight leading-none"
+            style={{
+              color:      'var(--text-primary)',
+              fontFamily: 'var(--font-manrope)',
+              fontWeight:  800,
+              fontSize:   '1.75rem',
+            }}
+          >
+            {project.title}
+          </h1>
         </div>
+        {project.description && (
+          <p
+            className="text-sm mt-1.5 leading-relaxed"
+            style={{ color: 'var(--text-secondary)', maxWidth: 560 }}
+          >
+            {project.description}
+          </p>
+        )}
 
-        {/* Quiet nav links — no card, no border */}
-        <div className="flex items-center flex-shrink-0">
+        {/* Status badge + nav links — same row */}
+        <div className="flex items-center gap-0 mt-3">
+          {/* Status badge */}
+          <span
+            className="inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold flex-shrink-0"
+            style={{
+              background: badge.bg,
+              color:      badge.text,
+              border:     `1px solid ${badge.border}`,
+            }}
+          >
+            {badge.label}
+          </span>
+
+          {/* Pipe divider */}
+          <span
+            className="flex-shrink-0 mx-2.5"
+            style={{ width: 1, height: 12, background: 'var(--border-default)', display: 'inline-block' }}
+          />
+
+          {/* Quiet nav links */}
           {quickLinks.map((link, i) => {
             const Icon = link.icon
             return (
               <span key={link.href} className="flex items-center">
                 {i > 0 && (
                   <span
-                    className="flex-shrink-0 mx-2"
+                    className="flex-shrink-0 mx-1.5"
                     style={{ width: 1, height: 12, background: 'var(--border-default)', display: 'inline-block' }}
                   />
                 )}
@@ -183,6 +204,16 @@ export default async function ProjectOverviewPage({
             )
           })}
         </div>
+      </div>
+
+      {/* ── Section label: Timeline ───────────────────────────────────────── */}
+      <div className="flex-shrink-0 flex items-center justify-between mx-5 mt-5 mb-2">
+        <span
+          className="text-[10px] font-semibold uppercase"
+          style={{ color: 'var(--text-tertiary)', letterSpacing: '0.07em' }}
+        >
+          Research Timeline
+        </span>
       </div>
 
       {/* ── Full-width Gantt ───────────────────────────────────────────────── */}
@@ -208,6 +239,16 @@ export default async function ProjectOverviewPage({
             initialNotes={notes}
           />
         </div>
+      </div>
+
+      {/* ── Section label: At a Glance ────────────────────────────────────── */}
+      <div className="flex-shrink-0 mx-5 mb-2 mt-1">
+        <span
+          className="text-[10px] font-semibold uppercase"
+          style={{ color: 'var(--text-tertiary)', letterSpacing: '0.07em' }}
+        >
+          At a Glance
+        </span>
       </div>
 
       {/* ── Bento metrics ─────────────────────────────────────────────────── */}
@@ -311,8 +352,7 @@ export default async function ProjectOverviewPage({
 
           {nextMilestone ? (
             <>
-              <div className="flex items-center gap-2 mb-1">
-                <div className="rounded-full flex-shrink-0" style={{ width: 7, height: 7, background: nextMilestone.color }} />
+              <div className="mb-1">
                 <p className="font-bold text-sm leading-snug tracking-tight" style={{ color: 'var(--text-inverse)', fontFamily: 'var(--font-manrope)' }}>
                   {nextMilestone.label}
                 </p>
