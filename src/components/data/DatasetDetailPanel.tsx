@@ -380,33 +380,37 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
             <p className="text-xs text-[var(--text-tertiary)] mt-0.5 truncate max-w-lg">{dataset.description}</p>
           )}
 
-          {/* Selectors + stats — all on same row */}
-          <div className="flex items-center flex-wrap gap-x-3 gap-y-1.5 mt-2">
-            {branches.length > 0 && activeBranchId && (
-              <BranchSelector branches={branches} currentBranchId={activeBranchId} onBranchChange={handleBranchChange} />
-            )}
-            {versions.length > 0 && activeVersionId && (
-              <VersionSelector versions={versions} currentVersionId={activeVersionId} onVersionChange={handleVersionChange} />
-            )}
-            {columns.length > 0 && (
-              <span className="text-[var(--border-default)] select-none px-0.5">·</span>
-            )}
-            {[
-              { label: 'Rows',      value: rowCount.toLocaleString(),  dim: false },
-              { label: 'Cols',      value: String(columns.length),     dim: false },
-              { label: 'Missing',   value: `${missingPct}%`,           dim: parseFloat(missingPct) > 0 },
-              { label: 'Integrity', value: `${integrityPct}%`,         dim: false },
-            ].map(({ label, value, dim }) => (
-              <div key={label} className="flex items-center gap-1">
-                <span className="section-label">{label}</span>
-                <span className={`data-mono text-xs font-semibold tabular-nums ${
-                  dim ? 'text-[var(--status-error)]' : 'text-[var(--accent-blue)]'
-                }`}>
-                  {value}
-                </span>
-              </div>
-            ))}
-          </div>
+          {/* Branch / version selectors — own row, never wraps */}
+          {(branches.length > 0 || versions.length > 0) && (
+            <div className="flex items-center gap-2 mt-2">
+              {branches.length > 0 && activeBranchId && (
+                <BranchSelector branches={branches} currentBranchId={activeBranchId} onBranchChange={handleBranchChange} />
+              )}
+              {versions.length > 0 && activeVersionId && (
+                <VersionSelector versions={versions} currentVersionId={activeVersionId} onVersionChange={handleVersionChange} />
+              )}
+            </div>
+          )}
+
+          {/* Stat cards — own row, always one level */}
+          {columns.length > 0 && (
+            <div className="flex items-stretch gap-2 mt-3">
+              {[
+                { label: 'Rows',      value: rowCount.toLocaleString(), color: 'text-[var(--accent-blue)]' },
+                { label: 'Cols',      value: String(columns.length),    color: 'text-[var(--accent-blue)]' },
+                { label: 'Missing',   value: `${missingPct}%`,          color: parseFloat(missingPct) > 0 ? 'text-[var(--status-error)]' : 'text-[var(--accent-blue)]' },
+                { label: 'Integrity', value: `${integrityPct}%`,        color: 'text-[var(--accent-blue)]' },
+              ].map(({ label, value, color }) => (
+                <div
+                  key={label}
+                  className="flex flex-col items-center justify-center px-4 py-2 rounded-lg bg-[var(--bg-inset)] border border-[var(--border-subtle)] min-w-[72px]"
+                >
+                  <span className={`data-mono text-base font-bold tabular-nums leading-tight ${color}`}>{value}</span>
+                  <span className="section-label mt-0.5 leading-none">{label}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ── TABS ── */}
