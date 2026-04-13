@@ -39,20 +39,38 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
 
   return (
     <aside className={cn(
-      'flex flex-col h-screen sticky top-0 transition-all duration-200 ease-out flex-shrink-0',
-      'bg-[#18181B] border-r border-white/10',
+      'relative flex flex-col h-screen sticky top-0 transition-all duration-200 ease-out flex-shrink-0',
+      'bg-[var(--bg-sidebar)] border-r border-white/10',
       collapsed ? 'w-12' : 'w-52'
     )}>
+
+      {/* Radial glow — top-left accent */}
+      <div
+        className="absolute top-0 left-0 w-40 h-40 pointer-events-none"
+        style={{ background: 'radial-gradient(circle at top left, rgba(59,130,246,0.13) 0%, transparent 65%)' }}
+      />
+
       {/* Logo */}
       <div className={cn(
-        'flex items-center border-b border-white/10 transition-all duration-200',
-        collapsed ? 'h-12 justify-center px-0' : 'h-14 px-4 gap-2'
+        'relative z-10 flex items-center border-b border-white/10 transition-all duration-200',
+        collapsed ? 'h-12 justify-center px-0' : 'h-[60px] px-4 gap-2'
       )}>
-        <BrandLogo variant="dark" collapsed={collapsed} />
+        <BrandLogo
+          variant="dark"
+          collapsed={collapsed}
+          subtitle={collapsed ? undefined : 'Research Lab'}
+        />
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
+      <nav className="relative z-10 flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
+
+        {/* Section label — workspace */}
+        {!collapsed && (
+          <p className="px-2.5 pt-0.5 pb-1.5 text-[9px] font-medium uppercase tracking-[0.10em] text-[var(--text-sidebar-icon)]">
+            Workspace
+          </p>
+        )}
 
         {/* Projects */}
         <Link href="/projects" title={collapsed ? 'Projects' : undefined}>
@@ -60,20 +78,20 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
             'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
             collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
             projectsActive
-              ? 'bg-[#3F3F46] text-white'
-              : 'text-[#A1A1AA] hover:bg-[#27272A] hover:text-white/80'
+              ? 'bg-[var(--bg-sidebar-active)] text-[var(--text-sidebar-active)]'
+              : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
           )}>
             {projectsActive && (
-              <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[#3B82F6]" />
+              <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-blue)]" />
             )}
             <FolderOpen className={cn(
               'flex-shrink-0 h-4 w-4 transition-colors duration-150',
-              projectsActive ? 'text-white' : 'text-[#71717A]'
+              projectsActive ? 'text-white' : 'text-[var(--text-sidebar-icon)]'
             )} />
             {!collapsed && (
               <span className={cn(
                 'text-sm font-medium transition-opacity duration-100',
-                projectsActive ? 'text-white' : 'text-[#A1A1AA]'
+                projectsActive ? 'text-[var(--text-sidebar-active)]' : 'text-[var(--text-sidebar)]'
               )}>
                 Projects
               </span>
@@ -84,6 +102,13 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
         {/* Divider */}
         <div className="my-2 h-px bg-white/10" />
 
+        {/* Section label — tools */}
+        {!collapsed && (
+          <p className="px-2.5 pt-0.5 pb-1.5 text-[9px] font-medium uppercase tracking-[0.10em] text-[var(--text-sidebar-icon)]">
+            Tools
+          </p>
+        )}
+
         {/* Command palette */}
         <button
           onClick={onCommandPalette}
@@ -91,26 +116,26 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
           className={cn(
             'w-full flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none text-left',
             collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
-            'text-[#A1A1AA] hover:bg-[#27272A] hover:text-white/80'
+            'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
           )}
         >
-          <Command className="h-4 w-4 text-[#71717A] flex-shrink-0" />
+          <Command className="h-4 w-4 text-[var(--text-sidebar-icon)] flex-shrink-0" />
           {!collapsed && (
             <div className="flex items-center justify-between flex-1 min-w-0">
-              <span className="text-sm font-medium text-[#A1A1AA]">Command</span>
-              <kbd className="text-[10px] text-[#71717A] bg-white/5 border border-white/10 rounded px-1 py-0.5 font-mono">⌘K</kbd>
+              <span className="text-sm font-medium text-[var(--text-sidebar)]">Command</span>
+              <kbd className="text-[10px] text-[var(--text-sidebar-icon)] bg-white/5 border border-white/10 rounded px-1 py-0.5 font-mono">⌘K</kbd>
             </div>
           )}
         </button>
       </nav>
 
-      {/* User + collapse controls */}
-      <div className="border-t border-white/10">
+      {/* User chip + collapse controls */}
+      <div className="relative z-10 border-t border-white/10">
         <div className={cn(
           'flex items-center gap-2.5 transition-all duration-200',
           collapsed ? 'px-2 py-2 justify-center' : 'px-3 py-3'
         )}>
-          <div className="flex items-center justify-center rounded-full bg-[#1B3A5C] text-white text-xs font-bold flex-shrink-0 h-7 w-7">
+          <div className="flex items-center justify-center rounded-full bg-[var(--accent-primary)] text-white text-xs font-bold flex-shrink-0 h-7 w-7">
             {profile?.avatar_url ? (
               <img src={profile.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" />
             ) : (
@@ -122,8 +147,8 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
               <p className="text-sm font-medium text-white/90 truncate leading-tight">
                 {profile?.full_name ?? 'Researcher'}
               </p>
-              <p className="text-xs text-[#71717A] truncate">
-                {profile?.email ?? ''}
+              <p className="text-[10px] text-[var(--text-sidebar-icon)] truncate capitalize">
+                {profile?.role ?? 'Researcher'}
               </p>
             </div>
           )}
@@ -137,7 +162,7 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
             onClick={onSignOut}
             title="Sign out"
             className={cn(
-              'flex items-center gap-2 h-7 rounded-md transition-colors duration-150 text-[#71717A] hover:text-[#EF4444] hover:bg-red-950/30',
+              'flex items-center gap-2 h-7 rounded-md transition-colors duration-150 text-[var(--text-sidebar-icon)] hover:text-[var(--status-error)] hover:bg-red-950/30',
               collapsed ? 'w-8 justify-center px-0' : 'flex-1 px-2.5'
             )}
           >
@@ -148,7 +173,7 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
           <button
             onClick={() => setCollapsed(c => !c)}
             title={collapsed ? 'Expand (⌘\\)' : 'Collapse (⌘\\)'}
-            className="flex items-center justify-center h-7 w-7 rounded-md text-[#71717A] hover:text-white hover:bg-[#27272A] transition-colors duration-150 flex-shrink-0"
+            className="flex items-center justify-center h-7 w-7 rounded-md text-[var(--text-sidebar-icon)] hover:text-white hover:bg-[var(--bg-sidebar-hover)] transition-colors duration-150 flex-shrink-0"
           >
             {collapsed
               ? <ChevronRight className="h-3.5 w-3.5" />

@@ -44,7 +44,7 @@ function useBreadcrumbs(pathname: string) {
 }
 
 export function Header({ profile, title, onSearchClick }: HeaderProps) {
-  const pathname  = usePathname()
+  const pathname    = usePathname()
   const breadcrumbs = useBreadcrumbs(pathname)
   const [scrolled, setScrolled] = useState(false)
 
@@ -59,8 +59,11 @@ export function Header({ profile, title, onSearchClick }: HeaderProps) {
   return (
     <header
       className={cn(
-        'h-12 px-6 flex items-center justify-between sticky top-0 z-20 bg-[var(--bg-app)] transition-all duration-150',
-        scrolled ? 'border-b border-[var(--border-row)]' : 'border-b border-transparent'
+        'h-12 px-5 flex items-center justify-between sticky top-0 z-20',
+        'bg-[var(--bg-surface)] border-b transition-all duration-150',
+        scrolled
+          ? 'border-[var(--border-default)] shadow-xs'
+          : 'border-[var(--border-subtle)]'
       )}
     >
       {/* Breadcrumbs */}
@@ -71,7 +74,7 @@ export function Header({ profile, title, onSearchClick }: HeaderProps) {
               <ChevronRight className="h-3 w-3 text-[var(--text-tertiary)] flex-shrink-0" />
             )}
             {i === breadcrumbs.length - 1 ? (
-              <span className="text-sm font-medium text-[var(--text-primary)] truncate">
+              <span className="text-sm font-semibold text-[var(--text-primary)] truncate">
                 {title ?? crumb.label}
               </span>
             ) : (
@@ -88,14 +91,14 @@ export function Header({ profile, title, onSearchClick }: HeaderProps) {
 
       {/* Right actions */}
       <div className="flex items-center gap-3">
-        {/* Search */}
+        {/* Search with ⌘K hint */}
         <button
           onClick={onSearchClick}
-          className="hidden md:flex items-center gap-2 bg-[var(--bg-row-hover)] border border-[var(--border-row)] rounded px-3 py-1.5 text-xs w-52 text-[var(--text-tertiary)] hover:border-[var(--border-strong)] transition-colors cursor-text"
+          className="hidden md:flex items-center gap-2 bg-[var(--bg-inset)] border border-[var(--border-row)] rounded-md px-3 py-1.5 text-xs w-52 text-[var(--text-tertiary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-text"
         >
           <Search className="h-3 w-3 flex-shrink-0" />
           <span className="flex-1 text-left">Search…</span>
-          <kbd className="text-[10px] font-mono bg-[var(--bg-app)] border border-[var(--border-row)] rounded px-1.5 py-0.5 text-[var(--text-tertiary)]">⌘K</kbd>
+          <kbd className="text-[10px] font-mono bg-[var(--bg-surface)] border border-[var(--border-default)] rounded px-1.5 py-0.5 text-[var(--text-tertiary)]">⌘K</kbd>
         </button>
 
         {/* Notifications */}
@@ -105,14 +108,14 @@ export function Header({ profile, title, onSearchClick }: HeaderProps) {
         {profile && (
           <Link href="/settings" className="flex items-center gap-2">
             <div className="hidden sm:block text-right">
-              <p className="text-xs font-medium text-[var(--text-primary)] leading-none">
+              <p className="text-xs font-semibold text-[var(--text-primary)] leading-none">
                 {profile.full_name ?? 'User'}
               </p>
               {profile.role && (
                 <p className="text-[10px] text-[var(--text-tertiary)] capitalize mt-0.5">{profile.role}</p>
               )}
             </div>
-            <div className="w-7 h-7 rounded-full bg-[var(--accent-blue)] flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
+            <div className="w-7 h-7 rounded-full bg-[var(--accent-primary)] flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
               {profile.avatar_url ? (
                 <img src={profile.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
               ) : (

@@ -17,9 +17,11 @@ interface BrandLogoProps {
   collapsed?: boolean
   /** Override the smart link destination */
   href?: string
+  /** Optional sublabel shown below the wordmark (e.g. "Research Lab") */
+  subtitle?: string
 }
 
-export function BrandLogo({ variant = 'light', collapsed = false, href }: BrandLogoProps) {
+export function BrandLogo({ variant = 'light', collapsed = false, href, subtitle }: BrandLogoProps) {
   const [dest, setDest] = useState<string>(href ?? '/')
 
   useEffect(() => {
@@ -46,9 +48,18 @@ export function BrandLogo({ variant = 'light', collapsed = false, href }: BrandL
 
       {/* Wordmark — hidden when sidebar is collapsed */}
       {!collapsed && (
-        <span className={`text-[15px] font-bold tracking-tight font-manrope ${wordmarkColor} group-hover:opacity-80 transition-opacity`}>
-          PLEXUS
-        </span>
+        <div className="flex flex-col gap-0">
+          <span className={`text-[15px] font-bold tracking-tight font-manrope leading-none ${wordmarkColor} group-hover:opacity-80 transition-opacity`}>
+            PLEXUS
+          </span>
+          {subtitle && (
+            <span className={`text-[9px] uppercase tracking-[0.10em] leading-none mt-0.5 ${
+              variant === 'dark' ? 'text-[var(--text-sidebar-icon)]' : 'text-[var(--text-tertiary)]'
+            }`}>
+              {subtitle}
+            </span>
+          )}
+        </div>
       )}
     </Link>
   )

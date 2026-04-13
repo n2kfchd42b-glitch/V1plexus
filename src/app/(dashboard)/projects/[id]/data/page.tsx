@@ -103,13 +103,13 @@ export default function ProjectDataPage() {
     <div className="flex flex-row h-full min-h-0 bg-[var(--bg-app)] overflow-hidden">
 
       {/* ── LEFT PANEL — dataset list ─────────────────────────────────────── */}
-      <div className="w-72 shrink-0 flex flex-col border-r border-[var(--border-row)] overflow-hidden">
+      <div className="w-64 shrink-0 flex flex-col border-r border-[var(--border-row)] overflow-hidden">
 
         {/* Header */}
         <div className="px-4 pt-5 pb-3 flex-shrink-0">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <h1 className="page-title">Data</h1>
+              <h1 className="page-title">Dataset Hub</h1>
               <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
                 {datasets.length} {datasets.length === 1 ? 'dataset' : 'datasets'}
                 {archivedCount > 0 && ` · ${archivedCount} archived`}
@@ -117,7 +117,7 @@ export default function ProjectDataPage() {
             </div>
             <button
               onClick={() => setShowUpload(true)}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-white bg-[var(--accent-blue)] hover:opacity-90 transition-opacity shrink-0"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-white bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] transition-colors shrink-0"
             >
               <Upload className="h-3 w-3" />
               Import
@@ -128,9 +128,10 @@ export default function ProjectDataPage() {
               onClick={() => setShowArchived(v => !v)}
               className={`mt-2 w-full text-left px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors ${
                 showArchived
-                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                  ? 'text-[var(--status-warning-text)] border-[var(--border-status-warning)]'
                   : 'border-[var(--border-strong)] text-[var(--text-secondary)] hover:bg-[var(--bg-row-hover)]'
               }`}
+              style={showArchived ? { background: 'var(--status-warning-bg)' } : undefined}
             >
               {showArchived ? 'View Active' : `View ${archivedCount} Archived`}
             </button>
@@ -181,10 +182,12 @@ export default function ProjectDataPage() {
       <div className="flex-1 min-w-0 overflow-hidden">
         {!selectedId ? (
           <div className="h-full flex flex-col items-center justify-center gap-3 text-center px-8">
-            <Database className="h-10 w-10 text-[var(--text-tertiary)]" />
-            <p className="text-sm font-medium text-[var(--text-secondary)]">Select a dataset</p>
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-1" style={{ background: 'var(--bg-inset)' }}>
+              <Database className="h-6 w-6 text-[var(--text-tertiary)]" />
+            </div>
+            <p className="text-sm font-semibold text-[var(--text-secondary)]">Select a dataset</p>
             <p className="text-xs text-[var(--text-tertiary)] max-w-xs leading-relaxed">
-              Choose a dataset from the left to view its schema, raw data, saved explorations, duplicates, and more.
+              Choose a dataset from the left to view its schema, raw data, explorations, and quality metrics.
             </p>
           </div>
         ) : (
@@ -253,30 +256,44 @@ function DatasetListItem({ dataset, isSelected, isArchived, onSelect, onDelete, 
   return (
     <div
       className={cn(
-        'group border-b border-[var(--border-row)] last:border-0 cursor-pointer transition-colors',
-        isSelected ? 'bg-blue-50/60' : 'hover:bg-[var(--bg-row-hover)]',
+        'group relative border-b border-[var(--border-row)] last:border-0 cursor-pointer transition-colors',
         isArchived && 'opacity-60'
       )}
+      style={isSelected ? {
+        background:  'var(--accent-blue-subtle)',
+        borderLeft:  '3px solid var(--accent-blue)',
+      } : undefined}
       onClick={onSelect}
     >
-      <div className="px-4 py-3 flex items-start gap-2.5">
-        <Database className={cn(
-          'h-3.5 w-3.5 mt-0.5 shrink-0',
-          isSelected ? 'text-[var(--accent-blue)]' : 'text-[var(--text-tertiary)]'
-        )} />
+      <div className={cn('py-3 flex items-start gap-2.5', isSelected ? 'pl-3 pr-3' : 'px-4')}>
+        {/* Icon container */}
+        <div
+          className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 mt-0.5"
+          style={isSelected
+            ? { background: 'rgba(59,130,246,0.15)' }
+            : { background: 'var(--bg-inset)' }
+          }
+        >
+          <Database className={cn(
+            'h-3.5 w-3.5',
+            isSelected ? 'text-[var(--accent-blue)]' : 'text-[var(--text-tertiary)]'
+          )} />
+        </div>
+
         <div className="flex-1 min-w-0">
           <p className={cn(
             'text-xs truncate leading-snug',
-            isSelected ? 'font-semibold text-[var(--accent-blue)]' : 'font-medium text-[var(--text-primary)]'
+            isSelected ? 'font-bold text-[var(--accent-blue)]' : 'font-semibold text-[var(--text-primary)]'
           )}>
             {dataset.name}
           </p>
           <p className="data-mono-xs text-[var(--text-tertiary)] mt-0.5 truncate">
             {version
-              ? `${version.row_count.toLocaleString()} rows · ${version.column_count} cols · v${version.version_number}`
+              ? `${version.row_count.toLocaleString()} rows · ${version.column_count} cols`
               : 'Processing…'}
           </p>
         </div>
+
         <div
           className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
           onClick={e => e.stopPropagation()}
@@ -296,7 +313,6 @@ function DatasetListItem({ dataset, isSelected, isArchived, onSelect, onDelete, 
             <Trash2 className="h-3 w-3" />
           </button>
         </div>
-        {isSelected && <ChevronRight className="h-3.5 w-3.5 text-[var(--accent-blue)] shrink-0 mt-0.5" />}
       </div>
     </div>
   )

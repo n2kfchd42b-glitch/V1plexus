@@ -3,8 +3,9 @@
 import { useEffect, useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
-  BarChart2, CheckCircle2, Clock, X, Database, Table2, Play,
+  BarChart2, CheckCircle2, ChevronRight, Clock, X, Database, Table2, Play,
 } from 'lucide-react'
+import Link from 'next/link'
 import { HubTableGeneratorModal } from './HubTableGeneratorModal'
 import { AssumptionCheckModal } from './AssumptionCheckModal'
 import type { AssumptionCheckResult } from '@/types/analysisIntegrity'
@@ -13,6 +14,7 @@ import { ProjectDatasetSelector } from './ProjectDatasetSelector'
 import { HubResultsPreview } from './HubResultsPreview'
 import { AnalysisCharts } from './results/AnalysisCharts'
 import { createClient } from '@/lib/supabase/client'
+import { loadVersionData } from '@/lib/data/storage'
 import { runAnalysis } from '@/lib/analysis/engine'
 import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'sonner'
@@ -46,6 +48,18 @@ import { OutbreakConfig } from './configs/OutbreakConfig'
 import { SampleSizeConfig } from './configs/SampleSizeConfig'
 
 interface Props { projectId: string }
+
+interface ProjectDataset {
+  id: string
+  name: string
+  latestVersion: {
+    id: string
+    version_number: number
+    row_count: number | null
+    column_count: number | null
+    file_path: string
+  } | null
+}
 
 interface ProjectMeta {
   title: string
@@ -98,6 +112,66 @@ function ConfigComponent({ type, config, onChange, onRun, loading, columns }: {
   }
 }
 
+// ── Analysis type grouped accordion ──────────────────────
+const ANALYSIS_GROUPS: {
+  id: string; label: string
+  types: { type: AnalysisType; label: string }[]
+}[] = [
+  {
+    id: 'descriptive', label: 'Descriptive',
+    types: [
+      { type: 'descriptive', label: 'Descriptive Stats' },
+      { type: 'frequency',   label: 'Frequency'         },
+    ],
+  },
+  {
+    id: 'tests', label: 'Hypothesis Tests',
+    types: [
+      { type: 'chi_square',  label: 'Chi-Square'   },
+      { type: 't_test',      label: 'T-Test'        },
+      { type: 'anova',       label: 'ANOVA'         },
+      { type: 'correlation', label: 'Correlation'   },
+    ],
+  },
+  {
+    id: 'regression', label: 'Regression',
+    types: [
+      { type: 'simple_regression',      label: 'Simple'       },
+      { type: 'multiple_regression',    label: 'Multiple'     },
+      { type: 'logistic_regression',    label: 'Logistic'     },
+      { type: 'multinomial_regression', label: 'Multinomial'  },
+      { type: 'ordinal_regression',     label: 'Ordinal'      },
+      { type: 'poisson_regression',     label: 'Poisson'      },
+      { type: 'negbinomial_regression', label: 'Neg. Binomial'},
+    ],
+  },
+  {
+    id: 'survival', label: 'Survival',
+    types: [
+      { type: 'kaplan_meier',   label: 'Kaplan-Meier'  },
+      { type: 'cox_regression', label: 'Cox Regression'},
+      { type: 'time_series',    label: 'Time Series'   },
+    ],
+  },
+  {
+    id: 'advanced', label: 'Advanced',
+    types: [
+      { type: 'pca',             label: 'PCA'           },
+      { type: 'factor_analysis', label: 'Factor'        },
+      { type: 'cluster_analysis',label: 'Clustering'    },
+      { type: 'meta_analysis',   label: 'Meta-Analysis' },
+    ],
+  },
+  {
+    id: 'epidemiology', label: 'Epidemiology',
+    types: [
+      { type: 'outbreak_investigation', label: 'Outbreak'    },
+      { type: 'spatial_analysis',       label: 'Spatial'     },
+      { type: 'sample_size',            label: 'Sample Size' },
+    ],
+  },
+]
+
 // ── Main Component ──────────────────────────────────────
 export function AnalysisHub({ projectId }: Props) {
   const { profile } = useAuth()
@@ -135,6 +209,76 @@ export function AnalysisHub({ projectId }: Props) {
   const [approvalBlock, setApprovalBlock] = useState<{
     status: string; reason: string; requestId?: string
   } | null>(null)
+
+  // Project datasets for inline picker
+  const [projectDatasets, setProjectDatasets]       = useState<ProjectDataset[]>([])
+  const [datasetsLoading, setDatasetsLoading]       = useState(true)
+  const [datasetLoadingId, setDatasetLoadingId]     = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetch = async () => {
+      setDatasetsLoading(true)
+      const { data: ds } = await supabase
+        .from('datasets')
+        .select('id, name')
+        .eq('project_id', projectId)
+        .is('deleted_at', null)
+        .is('archived_at', null)
+        .order('updated_at', { ascending: false })
+
+      if (!ds?.length) { setProjectDatasets([]); setDatasetsLoading(false); return }
+
+      const { data: vs } = await supabase
+        .from('dataset_versions')
+        .select('id, version_number, row_count, column_count, file_path, dataset_id')
+        .in('dataset_id', ds.map(d => d.id))
+        .order('version_number', { ascending: false })
+
+      const latestMap = new Map<string, ProjectDataset['latestVersion']>()
+      for (const v of (vs ?? [])) {
+        if (!latestMap.has(v.dataset_id)) latestMap.set(v.dataset_id, v)
+      }
+      setProjectDatasets(ds.map(d => ({ id: d.id, name: d.name, latestVersion: latestMap.get(d.id) ?? null })))
+      setDatasetsLoading(false)
+    }
+    fetch()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId])
+
+  const selectDataset = async (ds: ProjectDataset) => {
+    if (!ds.latestVersion || datasetLoadingId) return
+    setDatasetLoadingId(ds.id)
+    try {
+      const parsed = await loadVersionData(ds.latestVersion.file_path)
+      const cols: DatasetColumn[] = parsed.columns.map(col => ({
+        name: col.name,
+        type: col.type,
+        unique_values: col.unique_count,
+        missing: col.null_count,
+        sample_values: col.sample_values as (string | number)[],
+      }))
+      await handleData(parsed.rows as DataRow[], cols, ds.name, ds.id, ds.latestVersion.id)
+    } catch {
+      toast.error('Failed to load dataset')
+    } finally {
+      setDatasetLoadingId(null)
+    }
+  }
+
+  const clearDataset = () => {
+    setData([]); setColumns([]); setFileName('')
+    setDatasetId(undefined); setVersionId(undefined)
+    setResult(null); setSavedRunId(null); setApprovalBlock(null)
+  }
+
+  // Config panel collapse — triggered when analysis runs
+  const [configCollapsed, setConfigCollapsed] = useState(false)
+
+  // Analysis type accordion open groups
+  const [openGroups, setOpenGroups] = useState<string[]>([])
+  const toggleGroup = (id: string) =>
+    setOpenGroups(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id])
+
 
   useEffect(() => {
     supabase.from('analysis_runs')
@@ -191,6 +335,7 @@ export function AnalysisHub({ projectId }: Props) {
   const executeAnalysis = async () => {
     if (!selectedType) return
     setRunning(true); setResult(null); setViewingRunId(null)
+    setConfigCollapsed(true) // collapse config panel to make room for results
     try {
       setResult(await runAnalysis(selectedType, data, config))
       setResultTab('results')
@@ -283,7 +428,7 @@ export function AnalysisHub({ projectId }: Props) {
   if (loading) {
     return (
       <div className="flex flex-1 min-h-0">
-        <div className="w-[380px] flex-shrink-0 border-r border-[var(--border-row)] p-5 space-y-4">
+        <div className="w-[320px] flex-shrink-0 border-r border-[var(--border-row)] p-5 space-y-4">
           {[80, 120, 60, 100].map((w, i) => (
             <div key={i} className="skeleton rounded h-8" style={{ width: `${w}%` }} />
           ))}
@@ -297,33 +442,150 @@ export function AnalysisHub({ projectId }: Props) {
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
 
-      {/* ── Page header ─────────────────────────────────── */}
-      <div className="px-6 pt-5 pb-4 flex-shrink-0 border-b border-[var(--border-row)] flex items-center justify-between gap-4">
-        <div>
-          <h1 className="page-title">Analysis</h1>
-          <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
-            {project?.description
-              ? project.description.slice(0, 100) + (project.description.length > 100 ? '…' : '')
-              : 'Run statistical analyses and view results side-by-side.'}
-          </p>
+      {/* ── Tab bar ─────────────────────────────────────── */}
+      <div className="flex items-center flex-shrink-0 border-b border-[var(--border-row)] px-4"
+        style={{ background: 'var(--bg-surface)' }}>
+        {/* Project page tabs */}
+        <div className="flex items-center flex-1">
+          {([
+            { label: 'Overview', href: `/projects/${projectId}/overview` },
+            { label: 'Data',     href: `/projects/${projectId}/data`     },
+            { label: 'Analysis', active: true                             },
+          ] as { label: string; href?: string; active?: boolean }[]).map(tab => (
+            tab.href ? (
+              <Link
+                key={tab.label}
+                href={tab.href}
+                className="relative px-3 py-3 text-sm font-medium transition-colors"
+                style={{ color: 'var(--text-tertiary)' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-primary)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}
+              >
+                {tab.label}
+              </Link>
+            ) : (
+              <span
+                key={tab.label}
+                className="relative px-3 py-3 text-sm font-semibold"
+                style={{ color: 'var(--accent-blue)' }}
+              >
+                {tab.label}
+                <span className="absolute bottom-0 left-3 right-3 h-[2px] rounded-t-sm" style={{ background: 'var(--accent-blue)' }} />
+              </span>
+            )
+          ))}
         </div>
-        <button
-          onClick={() => setHubTableModalOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-[var(--border-strong)] text-[var(--text-secondary)] hover:bg-[var(--bg-row-hover)] transition-colors flex-shrink-0"
-        >
-          <Table2 className="h-3.5 w-3.5" />
-          Generate Table
-        </button>
+        {/* Actions */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => { setHistoryOpen(true); setConfigCollapsed(false) }}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors"
+            style={{ color: 'var(--text-secondary)' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-row-hover)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = '' }}
+          >
+            <Clock className="h-3.5 w-3.5" />
+            History
+            {runs.length > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                style={{ background: 'var(--bg-inset)', color: 'var(--text-tertiary)' }}>
+                {runs.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setHubTableModalOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors"
+            style={{ border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-row-hover)')}
+            onMouseLeave={e => (e.currentTarget.style.background = '')}
+          >
+            <Table2 className="h-3.5 w-3.5" />
+            Generate Table
+          </button>
+        </div>
       </div>
 
       {/* ── Two-panel workspace ──────────────────────────── */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
 
         {/* ── LEFT: Input panel ─────────────────────────── */}
-        <div className="relative w-[380px] flex-shrink-0 border-r border-[var(--border-row)] flex flex-col overflow-hidden">
+        <div
+          className="relative flex-shrink-0 border-r border-[var(--border-row)] flex flex-col overflow-hidden"
+          style={{
+            background: 'var(--bg-surface)',
+            width: configCollapsed ? '160px' : '320px',
+            transition: 'width 220ms cubic-bezier(0.4,0,0.2,1)',
+          }}
+        >
+
+          {/* ── Half-collapsed summary strip (160px) ───────── */}
+          {configCollapsed && (
+            <div className="flex flex-col h-full overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between px-3 py-2.5 border-b border-[var(--border-row)] flex-shrink-0"
+                style={{ background: 'var(--bg-app)' }}>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.08em]"
+                  style={{ color: 'var(--text-tertiary)' }}>Configure</span>
+                <button
+                  onClick={() => setConfigCollapsed(false)}
+                  className="h-6 w-6 flex items-center justify-center rounded transition-colors"
+                  style={{ color: 'var(--text-tertiary)' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-row-hover)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'var(--text-tertiary)' }}
+                  title="Expand"
+                >
+                  <ChevronRight className="h-3.5 w-3.5 rotate-180" />
+                </button>
+              </div>
+
+              {/* Mini config summary */}
+              <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
+                {/* Dataset */}
+                <div>
+                  <p className="text-[9px] uppercase tracking-[0.08em] mb-1" style={{ color: 'var(--text-tertiary)' }}>Dataset</p>
+                  {dataLoaded ? (
+                    <div className="flex items-center gap-1.5">
+                      <Database className="h-3 w-3 flex-shrink-0" style={{ color: 'var(--accent-blue)' }} />
+                      <span className="text-[11px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>{fileName}</span>
+                    </div>
+                  ) : (
+                    <span className="text-[11px] italic" style={{ color: 'var(--text-tertiary)' }}>None</span>
+                  )}
+                </div>
+
+                {/* Analysis type */}
+                <div>
+                  <p className="text-[9px] uppercase tracking-[0.08em] mb-1" style={{ color: 'var(--text-tertiary)' }}>Type</p>
+                  {selectedType ? (
+                    <span className="text-[11px] font-medium" style={{ color: 'var(--accent-blue)' }}>
+                      {ANALYSIS_TYPES.find(t => t.type === selectedType)?.label ?? selectedType}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] italic" style={{ color: 'var(--text-tertiary)' }}>None</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Re-run button */}
+              <div className="px-3 py-3 border-t border-[var(--border-row)] flex-shrink-0">
+                <button
+                  onClick={handleRun}
+                  disabled={!canRun}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-bold text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed active:scale-[0.98]"
+                  style={{ background: 'var(--accent-blue)' }}
+                  onMouseEnter={e => { if (canRun) e.currentTarget.style.background = 'var(--accent-blue-hover)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent-blue)' }}
+                >
+                  <Play className="h-3 w-3" />
+                  Run
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* History drawer — slides over the left panel */}
-          {historyOpen && (
+          {historyOpen && !configCollapsed && (
             <motion.div
               initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
@@ -382,65 +644,190 @@ export function AnalysisHub({ projectId }: Props) {
             </motion.div>
           )}
 
-          {/* Input panel header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-row)] flex-shrink-0">
-            <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Configure</span>
-            <button
-              onClick={() => setHistoryOpen(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-row-hover)] transition-colors"
-            >
-              <Clock className="h-3.5 w-3.5" />
-              History
-              {runs.length > 0 && (
-                <span className="ml-0.5 text-[10px] font-medium text-[var(--text-tertiary)]">({runs.length})</span>
-              )}
-            </button>
-          </div>
+          {/* ── Expanded content (hidden when collapsed) ── */}
+          {!configCollapsed && <>
 
           {/* Scrollable input form */}
-          <div className="flex-1 overflow-y-auto px-4 py-5 space-y-6">
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
 
             {/* 1. Dataset */}
             <div>
-              <p className="text-[11px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wide mb-2">Dataset</p>
-              <ProjectDatasetSelector
-                projectId={projectId} onData={handleData}
-                datasetId={datasetId} versionId={versionId}
-                data={data} fileName={fileName}
-              />
-              {dataLoaded && (
-                <div className="flex items-center gap-1.5 mt-2 px-2.5 py-1.5 rounded bg-[var(--bg-row-hover)] border border-[var(--border-row)]">
-                  <Database className="h-3 w-3 text-[var(--accent-blue)] flex-shrink-0" />
-                  <span className="text-xs text-[var(--text-primary)] font-medium truncate">{fileName}</span>
-                  <span className="data-mono-xs text-[var(--text-tertiary)] flex-shrink-0">{data.length.toLocaleString()}r · {columns.length}c</span>
+              <p className="subsection-label mb-2">Dataset</p>
+
+              {dataLoaded ? (
+                /* ── Selected state: just the chosen dataset + change link ── */
+                <div
+                  className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-md"
+                  style={{
+                    border:      '1px solid var(--accent-blue)',
+                    borderLeft:  '3px solid var(--accent-blue)',
+                    background:  'var(--accent-blue-subtle)',
+                  }}
+                >
+                  <div className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0"
+                    style={{ background: 'rgba(59,130,246,0.15)' }}>
+                    <Database className="h-3 w-3" style={{ color: 'var(--accent-blue)' }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{fileName}</p>
+                    <p className="data-mono-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      {data.length.toLocaleString()} rows · {columns.length} cols
+                    </p>
+                  </div>
+                  <button
+                    onClick={clearDataset}
+                    className="flex items-center gap-1 text-[11px] font-medium flex-shrink-0 px-1.5 py-1 rounded transition-colors"
+                    style={{ color: 'var(--text-tertiary)' }}
+                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.background = 'var(--bg-row-hover)' }}
+                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.background = '' }}
+                  >
+                    <X className="h-3 w-3" />
+                    Change
+                  </button>
+                </div>
+              ) : datasetsLoading ? (
+                /* ── Loading skeleton ── */
+                <div className="space-y-1.5">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="skeleton h-10 rounded-md" />
+                  ))}
+                </div>
+              ) : projectDatasets.length === 0 ? (
+                /* ── Empty state ── */
+                <div className="flex flex-col items-center text-center px-3 py-4 rounded-md"
+                  style={{ border: '1px dashed var(--border-strong)' }}>
+                  <Database className="h-5 w-5 mb-1.5" style={{ color: 'var(--text-tertiary)' }} />
+                  <p className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>No datasets yet</p>
+                  <Link
+                    href={`/projects/${projectId}/data`}
+                    className="text-[11px] mt-1 hover:underline"
+                    style={{ color: 'var(--accent-blue)' }}
+                  >
+                    Go to Data Hub →
+                  </Link>
+                </div>
+              ) : (
+                /* ── Dataset list — one tap to select ── */
+                <div className="flex flex-col gap-1">
+                  <p className="text-[11px] mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                    Click a dataset to load it for analysis
+                  </p>
+                  {projectDatasets.map(ds => {
+                    const isLoading = datasetLoadingId === ds.id
+                    const v = ds.latestVersion
+                    return (
+                      <button
+                        key={ds.id}
+                        onClick={() => selectDataset(ds)}
+                        disabled={!!datasetLoadingId}
+                        className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-left transition-colors disabled:opacity-60"
+                        style={{ border: '1px solid var(--border-default)', background: 'var(--bg-app)' }}
+                        onMouseEnter={e => { if (!datasetLoadingId) e.currentTarget.style.background = 'var(--bg-row-hover)' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-app)' }}
+                      >
+                        <div className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0"
+                          style={{ background: 'var(--bg-inset)' }}>
+                          <Database className="h-3 w-3" style={{ color: 'var(--text-tertiary)' }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{ds.name}</p>
+                          {v ? (
+                            <p className="data-mono-xs" style={{ color: 'var(--text-tertiary)' }}>
+                              {v.row_count?.toLocaleString() ?? '—'} rows · {v.column_count ?? '—'} cols
+                            </p>
+                          ) : (
+                            <p className="text-[11px] italic" style={{ color: 'var(--text-tertiary)' }}>No version</p>
+                          )}
+                        </div>
+                        {isLoading && (
+                          <div className="h-3.5 w-3.5 rounded-full border-2 border-t-transparent flex-shrink-0 animate-spin"
+                            style={{ borderColor: 'var(--accent-blue)', borderTopColor: 'transparent' }} />
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
               )}
             </div>
 
             {/* 2. Analysis type */}
             <div>
-              <p className="text-[11px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wide mb-2">Analysis Type</p>
-              <select
-                value={selectedType ?? ''}
-                onChange={e => handleTypeSelect(e.target.value as AnalysisType)}
-                className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border-row)] bg-white text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]/30 focus:border-[var(--accent-blue)] transition-colors"
-              >
-                <option value="" disabled>Choose analysis…</option>
-                {TYPE_GROUPS.map(group => (
-                  <optgroup key={group.label} label={group.label}>
-                    {group.types.map(type => {
-                      const info = ANALYSIS_TYPES.find(t => t.type === type)
+              <p className="subsection-label mb-2">Analysis Type</p>
+              {/* 2-column accordion grid: [Descriptive, Regression, Advanced] | [Tests, Survival, Epidemiology] */}
+              <div className="grid grid-cols-2 gap-1.5 items-start">
+                {[
+                  [ANALYSIS_GROUPS[0], ANALYSIS_GROUPS[2], ANALYSIS_GROUPS[4]],
+                  [ANALYSIS_GROUPS[1], ANALYSIS_GROUPS[3], ANALYSIS_GROUPS[5]],
+                ].map((col, ci) => (
+                  <div key={ci} className="flex flex-col gap-1.5">
+                    {col.map(group => {
+                      const isOpen     = openGroups.includes(group.id)
+                      const hasSelected = group.types.some(t => t.type === selectedType)
                       return (
-                        <option key={type} value={type}>
-                          {info?.label ?? type}
-                        </option>
+                        <div
+                          key={group.id}
+                          className="rounded-md overflow-hidden"
+                          style={{
+                            border:     hasSelected
+                              ? '1px solid var(--accent-blue)'
+                              : '1px solid var(--border-default)',
+                            background: 'var(--bg-surface)',
+                          }}
+                        >
+                          {/* Card header */}
+                          <button
+                            onClick={() => toggleGroup(group.id)}
+                            className="w-full flex items-center justify-between px-2.5 py-2 text-left transition-colors"
+                            style={{ background: hasSelected ? 'var(--accent-blue-subtle)' : 'var(--bg-app)' }}
+                            onMouseEnter={e => { if (!hasSelected) e.currentTarget.style.background = 'var(--bg-row-hover)' }}
+                            onMouseLeave={e => { if (!hasSelected) e.currentTarget.style.background = hasSelected ? 'var(--accent-blue-subtle)' : 'var(--bg-app)' }}
+                          >
+                            <span className="text-[11px] font-semibold leading-tight"
+                              style={{ color: hasSelected ? 'var(--accent-blue)' : 'var(--accent-primary)' }}>
+                              {group.label}
+                            </span>
+                            <ChevronRight
+                              className="h-3 w-3 flex-shrink-0 transition-transform"
+                              style={{
+                                color: hasSelected ? 'var(--accent-blue)' : 'var(--text-tertiary)',
+                                transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                              }}
+                            />
+                          </button>
+
+                          {/* Expanded: type list */}
+                          {isOpen && (
+                            <div className="px-1.5 py-1.5 flex flex-col gap-1 border-t border-[var(--border-row)]">
+                              {group.types.map(({ type, label }) => {
+                                const isActive = selectedType === type
+                                return (
+                                  <button
+                                    key={type}
+                                    onClick={() => { handleTypeSelect(type); setOpenGroups(prev => prev.filter(g => g !== group.id)) }}
+                                    className="w-full text-left px-2 py-1.5 rounded text-[11px] font-medium transition-colors leading-tight"
+                                    style={isActive ? {
+                                      background: 'var(--accent-blue-subtle)',
+                                      color:      'var(--accent-blue)',
+                                    } : {
+                                      color: 'var(--text-secondary)',
+                                    }}
+                                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--bg-row-hover)' }}
+                                    onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = '' }}
+                                  >
+                                    {label}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
                       )
                     })}
-                  </optgroup>
+                  </div>
                 ))}
-              </select>
+              </div>
               {selectedType && ANALYSIS_TYPES.find(t => t.type === selectedType)?.description && (
-                <p className="text-xs text-[var(--text-tertiary)] mt-1.5 leading-relaxed">
+                <p className="text-xs mt-2 leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
                   {ANALYSIS_TYPES.find(t => t.type === selectedType)?.description}
                 </p>
               )}
@@ -449,17 +836,18 @@ export function AnalysisHub({ projectId }: Props) {
             {/* 3. Configuration */}
             {selectedType && (
               <div>
-                <p className="text-[11px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wide mb-3">Variables & Options</p>
+                <p className="subsection-label mb-3">Variables</p>
 
                 {/* Approval gate */}
                 {approvalBlock && (
-                  <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2.5 space-y-1 mb-3">
-                    <p className="text-xs font-medium text-amber-800">
+                  <div className="rounded px-3 py-2.5 space-y-1 mb-3"
+                    style={{ border: '1px solid var(--border-status-warning)', background: 'var(--status-warning-bg)' }}>
+                    <p className="text-xs font-medium" style={{ color: 'var(--status-warning-text)' }}>
                       {approvalBlock.status === 'pending' ? 'Awaiting Approval'
                         : approvalBlock.status === 'rejected' ? 'Approval Declined'
                         : 'Approval Required'}
                     </p>
-                    <p className="text-xs text-amber-700 leading-relaxed">{approvalBlock.reason}</p>
+                    <p className="text-xs leading-relaxed" style={{ color: 'var(--status-warning-text)' }}>{approvalBlock.reason}</p>
                   </div>
                 )}
 
@@ -481,11 +869,15 @@ export function AnalysisHub({ projectId }: Props) {
           </div>
 
           {/* Run button — sticky at the bottom */}
-          <div className="px-4 py-3 border-t border-[var(--border-row)] flex-shrink-0">
+          <div className="px-4 py-3 border-t border-[var(--border-row)] flex-shrink-0"
+            style={{ background: 'var(--bg-app)' }}>
             <button
               onClick={handleRun}
               disabled={!canRun}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-semibold text-white bg-[var(--accent-blue)] hover:opacity-90 active:opacity-80 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-bold text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed active:scale-[0.98]"
+              style={{ background: 'var(--accent-blue)' }}
+              onMouseEnter={e => { if (canRun) e.currentTarget.style.background = 'var(--accent-blue-hover)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent-blue)' }}
             >
               {running ? (
                 <>
@@ -500,6 +892,8 @@ export function AnalysisHub({ projectId }: Props) {
               )}
             </button>
           </div>
+
+          </>}
 
         </div>
 
@@ -554,36 +948,51 @@ export function AnalysisHub({ projectId }: Props) {
           ) : result && !result.summary?.error ? (
             /* ── Fresh result ── */
             <div className="flex flex-col h-full">
-              {/* Result header: label + tabs + save */}
-              <div className="flex items-center gap-2 px-5 py-2.5 border-b border-[var(--border-row)] flex-shrink-0">
-                <span className="status-dot status-dot--verified flex-shrink-0" />
-                <span className="text-sm font-medium text-[var(--text-primary)] mr-2">
-                  {ANALYSIS_TYPES.find(t => t.type === selectedType)?.label ?? 'Results'}
-                </span>
+              {/* Result header */}
+              <div className="px-5 pt-4 pb-0 flex-shrink-0" style={{ background: 'var(--bg-surface)' }}>
+                {/* Title + actions row */}
+                <div className="flex items-start gap-3 mb-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold leading-snug" style={{ color: 'var(--text-primary)' }}>
+                      {ANALYSIS_TYPES.find(t => t.type === selectedType)?.label ?? 'Results'}
+                      {fileName ? ` — ${fileName}` : ''}
+                    </p>
+                    <p className="data-mono-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                      {data.length > 0 ? `${data.length.toLocaleString()} observations` : ''}
+                      {result && ' · Completed just now'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <button
+                      onClick={handleSave}
+                      disabled={!!savedRunId}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      style={{ border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-row-hover)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = '')}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" style={{ color: savedRunId ? 'var(--status-success)' : undefined }} />
+                      {savedRunId ? 'Saved' : 'Add to Report'}
+                    </button>
+                  </div>
+                </div>
                 {/* Tabs */}
-                <div className="flex items-center gap-0.5 flex-1">
+                <div className="flex items-center gap-0">
                   {(['results', 'tables'] as const).map(tab => (
                     <button
                       key={tab}
                       onClick={() => setResultTab(tab)}
-                      className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                        resultTab === tab
-                          ? 'bg-[var(--bg-row-active)] text-[var(--text-primary)]'
-                          : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-row-hover)]'
-                      }`}
+                      className="relative px-3 py-2 text-xs font-medium transition-colors"
+                      style={{ color: resultTab === tab ? 'var(--accent-blue)' : 'var(--text-tertiary)' }}
                     >
                       {tab === 'results' ? 'Results' : 'Tables'}
+                      {resultTab === tab && (
+                        <span className="absolute bottom-0 left-3 right-3 h-[2px] rounded-t-sm" style={{ background: 'var(--accent-blue)' }} />
+                      )}
                     </button>
                   ))}
                 </div>
-                <button
-                  onClick={handleSave}
-                  disabled={!!savedRunId}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white bg-[var(--accent-blue)] hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  {savedRunId ? 'Saved' : 'Save'}
-                </button>
+                <div className="h-px" style={{ background: 'var(--border-row)' }} />
               </div>
 
               {/* Tab content */}
@@ -598,18 +1007,28 @@ export function AnalysisHub({ projectId }: Props) {
                       />
                     )}
 
-                    {/* Key findings */}
+                    {/* Summary chips */}
                     {(() => {
                       const findings = getKeyFindings(result, selectedType ?? '')
                       if (findings.length === 0) return null
                       return (
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                          {findings.map(f => (
-                            <div key={f.label} className="px-3 py-2.5 rounded-lg border border-[var(--border-row)] bg-white">
-                              <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider truncate">{f.label}</p>
-                              <p className="text-base font-semibold text-[var(--text-primary)] mt-0.5 truncate">{f.value}</p>
-                            </div>
-                          ))}
+                        <div className="flex flex-wrap gap-2 pb-3 border-b border-[var(--border-row)]">
+                          {findings.map((f, i) => {
+                            // Colour-code: last chip (complete %) teal, second-to-last (missing %) amber, rest plain
+                            const isComplete = i === findings.length - 1 && f.label.toLowerCase().includes('complet')
+                            const isMissing  = f.label.toLowerCase().includes('miss')
+                            const chipStyle = isComplete
+                              ? { background: 'var(--accent-blue-subtle)', border: '1px solid var(--border-status-info)', color: 'var(--status-info-text)' }
+                              : isMissing
+                              ? { background: 'var(--status-warning-bg)', border: '1px solid var(--border-status-warning)', color: 'var(--status-warning-text)' }
+                              : { background: 'var(--bg-surface)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }
+                            return (
+                              <div key={f.label} className="flex flex-col px-3 py-2 rounded-lg" style={chipStyle}>
+                                <span className="text-[9px] uppercase tracking-[0.08em] mb-0.5" style={{ opacity: 0.7 }}>{f.label}</span>
+                                <span className="text-sm font-bold" style={{ fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{f.value}</span>
+                              </div>
+                            )
+                          })}
                         </div>
                       )
                     })()}
@@ -679,17 +1098,25 @@ export function AnalysisHub({ projectId }: Props) {
           ) : (
             /* ── Empty / idle state ── */
             <div className="flex flex-col items-center justify-center h-full text-center px-8">
-              <BarChart2 className="h-8 w-8 text-[var(--text-tertiary)] mb-3 opacity-40" />
-              <p className="text-sm font-medium text-[var(--text-primary)]">Results appear here</p>
-              <p className="text-xs text-[var(--text-tertiary)] mt-1 max-w-[220px] leading-relaxed">
+              <div
+                className="w-14 h-14 rounded-xl flex items-center justify-center mb-4"
+                style={{ background: 'var(--bg-inset)', border: '1px solid var(--border-default)' }}
+              >
+                <BarChart2 className="h-7 w-7" style={{ color: 'var(--text-tertiary)' }} />
+              </div>
+              <p className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Configure and run a new analysis</p>
+              <p className="text-xs max-w-[240px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
                 {runs.length > 0
-                  ? 'Configure and run a new analysis, or open History to view past results.'
-                  : 'Select a dataset and analysis type, then click Run Analysis.'}
+                  ? 'Select a dataset and analysis type on the left, or open History to view past results.'
+                  : 'Select a dataset and analysis type on the left, then click Run Analysis.'}
               </p>
               {runs.length > 0 && (
                 <button
-                  onClick={() => setHistoryOpen(true)}
-                  className="mt-4 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-[var(--border-row)] text-[var(--text-secondary)] hover:bg-[var(--bg-row-hover)] transition-colors"
+                  onClick={() => { setHistoryOpen(true); setConfigCollapsed(false) }}
+                  className="mt-4 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+                  style={{ border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-row-hover)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '')}
                 >
                   <Clock className="h-3.5 w-3.5" />
                   View History

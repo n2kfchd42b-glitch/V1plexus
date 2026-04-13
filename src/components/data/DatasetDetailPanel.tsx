@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -677,9 +677,8 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink }: Datas
                             const qualityDot = completeness < 80 ? '#ef4444' : completeness < 95 ? '#f59e0b' : '#22c55e'
                             const isExpanded = expandedRow === col.name
                             return (
-                              <>
+                              <React.Fragment key={col.name}>
                                 <tr
-                                  key={col.name}
                                   className="group hover:bg-[#f7f9fb] border-b border-[#f2f4f6] transition-colors cursor-pointer"
                                   onClick={() => setExpandedRow(isExpanded ? null : col.name)}
                                 >
@@ -752,7 +751,7 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink }: Datas
                                     </td>
                                   </tr>
                                 )}
-                              </>
+                              </React.Fragment>
                             )
                           })}
                         </tbody>

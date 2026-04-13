@@ -24,17 +24,88 @@ interface ProjectWithCounts extends Project {
   run_count: number
 }
 
-// ── Status dot ─────────────────────────────────────────────────────────────
+// ── Hero globe SVG ─────────────────────────────────────────────────────────
 
-function StatusDot({ status }: { status: string }) {
-  const color: Record<string, string> = {
-    draft:     'bg-[var(--timeline-neutral)]',
-    active:    'bg-[var(--accent-blue)]',
-    completed: 'bg-[var(--timeline-verified)]',
-    archived:  'bg-[var(--border-strong)]',
-  }
+function GlobeWireframe() {
   return (
-    <span className={cn('status-dot', color[status] ?? color.draft)} />
+    <svg
+      viewBox="0 0 200 200"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="absolute right-0 top-1/2 -translate-y-1/2 h-48 w-48 opacity-[0.07] pointer-events-none select-none"
+      aria-hidden
+    >
+      <circle cx="100" cy="100" r="80" stroke="white" strokeWidth="1" />
+      <ellipse cx="100" cy="100" rx="40" ry="80" stroke="white" strokeWidth="1" />
+      <ellipse cx="100" cy="100" rx="80" ry="32" stroke="white" strokeWidth="1" />
+      <ellipse cx="100" cy="100" rx="80" ry="60" stroke="white" strokeWidth="0.6" />
+      <ellipse cx="100" cy="100" rx="60" ry="80" stroke="white" strokeWidth="0.6" />
+      <line x1="20" y1="100" x2="180" y2="100" stroke="white" strokeWidth="0.6" />
+      <line x1="100" y1="20" x2="100" y2="180" stroke="white" strokeWidth="0.6" />
+    </svg>
+  )
+}
+
+// ── Hero banner ────────────────────────────────────────────────────────────
+
+function HeroBanner({ projects, loading }: { projects: ProjectWithCounts[]; loading: boolean }) {
+  const activeProjects  = projects.filter(p => p.status !== 'archived').length
+  const totalDatasets   = projects.reduce((s, p) => s + p.dataset_count, 0)
+  const totalAnalyses   = projects.reduce((s, p) => s + p.run_count, 0)
+  const totalProjects   = projects.length
+
+  const stats = [
+    { label: 'Active Projects',  value: loading ? '—' : String(activeProjects) },
+    { label: 'Datasets',         value: loading ? '—' : String(totalDatasets) },
+    { label: 'Analyses',         value: loading ? '—' : String(totalAnalyses) },
+    { label: 'Total Projects',   value: loading ? '—' : String(totalProjects) },
+  ]
+
+  return (
+    <div
+      className="mx-6 mt-5 mb-4 rounded-xl overflow-hidden relative flex-shrink-0"
+      style={{ background: 'var(--bg-sidebar)' }}
+    >
+      <GlobeWireframe />
+
+      {/* Left-side accent glow */}
+      <div
+        className="absolute top-0 left-0 w-48 h-full pointer-events-none"
+        style={{ background: 'radial-gradient(ellipse at top left, rgba(59,130,246,0.12) 0%, transparent 70%)' }}
+      />
+
+      <div className="relative z-10 px-6 py-5">
+        <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-[var(--text-sidebar)] mb-2">
+          Global Health Research Infrastructure
+        </p>
+        <h2 className="text-2xl font-bold tracking-tight text-white font-manrope leading-none mb-1.5">
+          Research Projects
+        </h2>
+        <p className="text-sm text-[var(--text-sidebar)] mb-5 max-w-sm leading-relaxed">
+          Design studies, manage datasets, and run statistical analyses — all in one auditable platform.
+        </p>
+
+        {/* Stats strip */}
+        <div className="flex items-center gap-0 border-t border-white/10 pt-4">
+          {stats.map((stat, i) => (
+            <div key={stat.label} className="flex items-center">
+              {i > 0 && <div className="w-px h-8 bg-white/15 mx-5" />}
+              <div>
+                <p
+                  className="text-xl font-bold text-white leading-none"
+                  style={{ fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}
+                >
+                  {stat.value}
+                </p>
+                <p className="text-[9px] uppercase tracking-[0.08em] text-[var(--text-sidebar)] mt-0.5">
+                  {stat.label}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -48,35 +119,58 @@ function ProjectRow({
   onArchive: (id: string, status: Project['status']) => void
 }) {
   const isArchived = project.status === 'archived'
+  const isDraft    = project.status === 'draft'
 
   return (
     <Link href={`/projects/${project.id}/overview`} className="block">
-      <div className={cn('row-item group', isArchived && 'opacity-50')}>
-        {/* Left — title + meta */}
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <StatusDot status={project.status} />
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-[var(--text-primary)] truncate leading-snug">
-              {project.title}
-            </p>
-            <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
-              {statusLabel(project.status)}
-              {project.dataset_count > 0 && (
-                <> · {project.dataset_count} dataset{project.dataset_count !== 1 ? 's' : ''}</>
-              )}
-              {project.run_count > 0 && (
-                <> · {project.run_count} {project.run_count === 1 ? 'analysis' : 'analyses'}</>
-              )}
-            </p>
-          </div>
+      <div className={cn('row-item group', isArchived && 'opacity-50')} style={{ minHeight: '60px', alignItems: 'flex-start', paddingTop: '0.75rem', paddingBottom: '0.75rem' }}>
+
+        {/* Icon container */}
+        <div
+          className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center mr-3 mt-0.5"
+          style={{ background: 'var(--accent-blue-subtle)' }}
+        >
+          <FolderOpen className="h-4 w-4 text-[var(--accent-blue)]" />
         </div>
 
-        {/* Right — last active + actions */}
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <span className="text-xs text-[var(--text-tertiary)] row-action tabular-nums">
-            {formatRelative(project.updated_at)}
-          </span>
+        {/* Title + description + meta */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <p className="text-sm font-semibold text-[var(--text-primary)] truncate leading-snug">
+              {project.title}
+            </p>
+            {isDraft && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0"
+                style={{
+                  background:   'var(--status-warning-bg)',
+                  color:        'var(--status-warning-text)',
+                  border:       '1px solid var(--border-status-warning)',
+                }}>
+                <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: 'var(--status-warning)' }} />
+                Draft
+              </span>
+            )}
+          </div>
 
+          {project.description && (
+            <p className="text-xs text-[var(--text-secondary)] leading-relaxed mb-1 line-clamp-2">
+              {project.description}
+            </p>
+          )}
+
+          <p className="data-mono-xs text-[var(--text-tertiary)]">
+            {formatRelative(project.updated_at)}
+            {project.dataset_count > 0 && (
+              <> · {project.dataset_count} dataset{project.dataset_count !== 1 ? 's' : ''}</>
+            )}
+            {project.run_count > 0 && (
+              <> · {project.run_count} {project.run_count === 1 ? 'analysis' : 'analyses'}</>
+            )}
+          </p>
+        </div>
+
+        {/* Right — actions */}
+        <div className="flex items-center gap-2 flex-shrink-0 mt-1">
           <button
             onClick={e => {
               e.preventDefault()
@@ -108,15 +202,13 @@ function ProjectRow({
 
 function SkeletonRow() {
   return (
-    <div className="row-item pointer-events-none">
-      <div className="flex items-center gap-3 flex-1">
-        <div className="skeleton h-1.5 w-1.5 rounded-full flex-shrink-0" />
-        <div className="space-y-1.5 flex-1">
-          <div className="skeleton h-3.5 w-48 rounded" />
-          <div className="skeleton h-3 w-32 rounded" />
-        </div>
+    <div className="row-item pointer-events-none" style={{ minHeight: '60px', alignItems: 'flex-start', paddingTop: '0.75rem', paddingBottom: '0.75rem' }}>
+      <div className="skeleton w-9 h-9 rounded-lg flex-shrink-0 mr-3" />
+      <div className="flex-1 space-y-1.5">
+        <div className="skeleton h-3.5 w-48 rounded" />
+        <div className="skeleton h-3 w-64 rounded" />
+        <div className="skeleton h-3 w-32 rounded" />
       </div>
-      <div className="skeleton h-3 w-16 rounded flex-shrink-0" />
     </div>
   )
 }
@@ -157,7 +249,6 @@ export default function ProjectsPage() {
 
     if (!projectRows) { setLoading(false); return }
 
-    // Fetch dataset and run counts in parallel
     const ids = projectRows.map(p => p.id)
     const [{ data: datasets }, { data: runs }] = await Promise.all([
       supabase.from('datasets').select('project_id').in('project_id', ids),
@@ -234,9 +325,7 @@ export default function ProjectsPage() {
     }
   }
 
-  // Derived lists
   const archivedCount = projects.filter(p => p.status === 'archived').length
-  const activeCount   = projects.filter(p => p.status !== 'archived').length
 
   const filtered = projects.filter(p => {
     if (!showArchived && p.status === 'archived') return false
@@ -246,27 +335,10 @@ export default function ProjectsPage() {
   return (
     <div className="page-shell">
 
-      {/* Header */}
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Your Projects</h1>
-          {!loading && (
-            <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
-              {activeCount} active
-              {archivedCount > 0 && ` · ${archivedCount} archived`}
-            </p>
-          )}
-        </div>
-        <button
-          onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-[var(--accent-blue)] text-white text-xs font-medium hover:bg-blue-600 transition-colors btn-press"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          New Project
-        </button>
-      </div>
+      {/* Hero banner */}
+      <HeroBanner projects={projects} loading={loading} />
 
-      {/* Search + filters */}
+      {/* Toolbar */}
       <div className="flex items-center gap-2 px-6 pb-3">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--text-tertiary)]" />
@@ -301,28 +373,36 @@ export default function ProjectsPage() {
             {showArchived ? 'Hide archived' : 'Show archived'}
           </button>
         )}
+
+        <button
+          onClick={() => setShowNew(true)}
+          className="ml-auto inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-[var(--accent-blue)] text-white text-xs font-medium hover:bg-[var(--accent-blue-hover)] transition-colors btn-press"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          New Project
+        </button>
       </div>
 
       {/* Project list */}
       <div className="flex-1 overflow-y-auto">
         <div className="border-t border-[var(--border-row)]">
 
-          {/* Loading */}
           {loading && (
             Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
           )}
 
-          {/* Empty — no projects exist */}
           {!loading && projects.length === 0 && (
             <div className="empty-state">
-              <FolderOpen className="empty-state-icon h-8 w-8" />
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-3" style={{ background: 'var(--accent-blue-subtle)' }}>
+                <FolderOpen className="h-6 w-6 text-[var(--accent-blue)]" />
+              </div>
               <p className="empty-state-title">Start your first project</p>
               <p className="empty-state-description">
                 Create a project to begin building your research record.
               </p>
               <button
                 onClick={() => setShowNew(true)}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-[var(--accent-blue)] text-white text-xs font-medium hover:bg-blue-600 transition-colors"
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-[var(--accent-blue)] text-white text-xs font-medium hover:bg-[var(--accent-blue-hover)] transition-colors"
               >
                 <Plus className="h-3.5 w-3.5" />
                 New Project
@@ -330,14 +410,13 @@ export default function ProjectsPage() {
             </div>
           )}
 
-          {/* Empty — search returned nothing */}
           {!loading && projects.length > 0 && filtered.length === 0 && (
             <div className="empty-state">
-              <Search className="empty-state-icon h-7 w-7" />
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-3" style={{ background: 'var(--bg-inset)' }}>
+                <Search className="h-5 w-5 text-[var(--text-tertiary)]" />
+              </div>
               <p className="empty-state-title">No projects match</p>
-              <p className="empty-state-description">
-                Try a different search term.
-              </p>
+              <p className="empty-state-description">Try a different search term.</p>
               <button
                 onClick={() => setSearch('')}
                 className="text-xs text-[var(--accent-blue)] hover:underline"
@@ -347,7 +426,6 @@ export default function ProjectsPage() {
             </div>
           )}
 
-          {/* Rows */}
           {!loading && filtered.map(project => (
             <ProjectRow
               key={project.id}
@@ -405,7 +483,7 @@ export default function ProjectsPage() {
             <button
               onClick={handleCreate}
               disabled={creating || !title.trim()}
-              className="h-8 px-4 rounded-md bg-[var(--accent-blue)] text-white text-xs font-medium hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors btn-press"
+              className="h-8 px-4 rounded-md bg-[var(--accent-blue)] text-white text-xs font-medium hover:bg-[var(--accent-blue-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors btn-press"
             >
               {creating ? 'Creating…' : 'Create Project'}
             </button>
