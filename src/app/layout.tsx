@@ -5,6 +5,7 @@ import { Manrope, Inter, Instrument_Serif } from "next/font/google"
 import { Analytics } from '@vercel/analytics/next'
 import { KeepaliveProvider } from '@/components/layout/KeepaliveProvider'
 import { ConnectionGuard } from '@/components/layout/ConnectionGuard'
+import { AuthProvider } from '@/components/auth/AuthProvider'
 import "./globals.css"
 
 const manrope = Manrope({
@@ -54,11 +55,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className={GeistSans.className}>
-        <KeepaliveProvider>
-          <ConnectionGuard>
-            {children}
-          </ConnectionGuard>
-        </KeepaliveProvider>
+        <AuthProvider>
+          <KeepaliveProvider>
+            <ConnectionGuard>
+              {children}
+            </ConnectionGuard>
+          </KeepaliveProvider>
+        </AuthProvider>
         <Analytics />
       </body>
     </html>
