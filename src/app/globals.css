@@ -20,7 +20,6 @@
     --on-primary-container: 221 100% 33%;
     
     /* Semantic Colors */
-    --secondary: 220 13% 28%;
     --on-surface: 240 10% 11%;
     --on-surface-variant: 220 13% 28%;
     
@@ -91,6 +90,12 @@
     --border-strong:  #D4D4D8;
     --border-focus:   #3B82F6;
 
+    /* Status border tints — used by badge variants */
+    --border-status-info:    #BFDBFE;
+    --border-status-success: #BBF7D0;
+    --border-status-warning: #FDE68A;
+    --border-status-error:   #FECACA;
+
     /* Text */
     --text-primary:        #18181B;
     --text-secondary:      #52525B;
@@ -98,10 +103,12 @@
     --text-inverse:        #FAFAFA;
     --text-sidebar:        #A1A1AA;
     --text-sidebar-active: #FAFAFA;
+    --text-sidebar-icon:   #71717A;
 
     /* Accent */
     --accent-primary:     #1B3A5C;
     --accent-blue:        #3B82F6;
+    --accent-blue-hover:  #2563EB;
     --accent-blue-subtle: #EFF6FF;
 
     /* Status */
@@ -112,6 +119,7 @@
     --status-warning-bg:   #FFFBEB;
     --status-warning-text: #92400E;
     --status-error:        #EF4444;
+    --status-error-hover:  #DC2626;
     --status-error-bg:     #FEF2F2;
     --status-error-text:   #991B1B;
     --status-info:         #3B82F6;
@@ -164,9 +172,9 @@
     --ease-out:         cubic-bezier(0, 0, 0.2, 1);
     --ease-spring:      cubic-bezier(0.34, 1.56, 0.64, 1);
 
-    /* Sidebar width */
-    --sidebar-width: 240px;
-    --sidebar-collapsed-width: 48px;
+    /* Sidebar width — matches w-52 (expanded) and w-12 (collapsed) in Sidebar/WorkspaceSidebar */
+    --sidebar-width: 208px;
+    --sidebar-width-collapsed: 48px;
 
     /* Clinical Design System — "Empirical Canvas" */
     --color-clinical-blue:    #0052CC;
@@ -475,7 +483,8 @@
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  /* Landing/marketing use only — do not apply inside the dashboard shell */
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.06);
 }
 
 /* Clinical Primary Button */
