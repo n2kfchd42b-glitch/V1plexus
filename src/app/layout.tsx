@@ -3,6 +3,8 @@ import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
 import { Manrope, Inter, Instrument_Serif } from "next/font/google"
 import { Analytics } from '@vercel/analytics/next'
+import { KeepaliveProvider } from '@/components/layout/KeepaliveProvider'
+import { ConnectionGuard } from '@/components/layout/ConnectionGuard'
 import "./globals.css"
 
 const manrope = Manrope({
@@ -52,7 +54,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className={GeistSans.className}>
-        {children}
+        <KeepaliveProvider>
+          <ConnectionGuard>
+            {children}
+          </ConnectionGuard>
+        </KeepaliveProvider>
         <Analytics />
       </body>
     </html>
