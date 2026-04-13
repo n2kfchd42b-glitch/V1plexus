@@ -19,7 +19,6 @@ import { DatasetTable } from '@/components/data/DatasetTable'
 import { VersionSelector } from '@/components/data/VersionSelector'
 import { BranchSelector } from '@/components/data/BranchSelector'
 import { DuplicateReviewModal } from '@/components/data/DuplicateReviewModal'
-import { ApprovalStatusCard } from '@/components/dataset-hub/ApprovalStatusCard'
 import { CleaningWorkbench } from '@/components/cleaning/CleaningWorkbench'
 import { DataQualityScorecard } from '@/components/dataset-hub/DataQualityScorecard'
 import { EnumeratorQualityPanel } from '@/components/dataset-hub/EnumeratorQualityPanel'
@@ -51,11 +50,6 @@ const CHART_META: Partial<Record<ChartType, { label: string; icon: React.ReactNo
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-function fmtDateShort(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit' })
-    .replace(/\//g, '.')
 }
 
 function typeLabel(type: string): string {
@@ -132,45 +126,6 @@ function MiniDistribution({ col }: { col: ColumnSchema }) {
   )
 }
 
-
-function ExplorationEmptyCard({ href }: { href: string }) {
-  return (
-    <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] overflow-hidden">
-      <div className="bg-[var(--bg-inset)] px-5 pt-5 pb-3">
-        <div className="flex items-end gap-1.5 h-14 mb-2">
-          {[0.4, 0.7, 0.55, 1, 0.85, 0.6, 0.45, 0.9].map((h, idx) => (
-            <div key={idx} className="flex-1 rounded-sm bg-[var(--accent-blue-subtle)]" style={{ height: `${h * 100}%` }} />
-          ))}
-        </div>
-        <div className="flex gap-1">
-          {['', '', '', ''].map((_, i) => (
-            <div key={i} className="flex-1 h-1 rounded-full bg-[var(--border-subtle)]" />
-          ))}
-        </div>
-      </div>
-      <div className="p-4 text-center">
-        <p className="text-xs font-bold text-[var(--text-primary)]">No explorations yet</p>
-        <p className="text-[10px] text-[var(--text-tertiary)] mt-1 mb-3 leading-relaxed">
-          Build charts, histograms, and scatter plots from your data.
-        </p>
-        <Link href={href}>
-          <button className="w-full py-2 bg-[var(--accent-blue)] text-[var(--text-inverse)] rounded-lg text-xs font-bold hover:opacity-90 transition-opacity">
-            Open Explorer
-          </button>
-        </Link>
-      </div>
-    </div>
-  )
-}
-
-function versionDiff(curr: ColumnSchema[], prev: ColumnSchema[] | undefined) {
-  if (!prev) return null
-  const prevNames = new Set(prev.map(c => c.name))
-  const currNames = new Set(curr.map(c => c.name))
-  const added   = curr.filter(c => !prevNames.has(c.name)).length
-  const removed = prev.filter(c => !currNames.has(c.name)).length
-  return { added, removed }
-}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -417,54 +372,95 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
           </button>
         ) : null}
 
-        <div className="flex items-start justify-between gap-4 mb-4">
+        <div className="mb-4">
+          <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)] font-manrope truncate">
+            {dataset.name}
+          </h1>
+          {dataset.description && (
+            <p className="text-xs text-[var(--text-tertiary)] mt-0.5 truncate max-w-lg">{dataset.description}</p>
+          )}
 
-          {/* Left — name + selectors */}
-          <div className="min-w-0">
-            <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)] font-manrope truncate">
-              {dataset.name}
-            </h1>
-            {dataset.description && (
-              <p className="text-xs text-[var(--text-tertiary)] mt-0.5 truncate max-w-sm">{dataset.description}</p>
+          {/* Selectors + stats — all on same row */}
+          <div className="flex items-center flex-wrap gap-x-3 gap-y-1.5 mt-2">
+            {branches.length > 0 && activeBranchId && (
+              <BranchSelector branches={branches} currentBranchId={activeBranchId} onBranchChange={handleBranchChange} />
             )}
-            {(branches.length > 0 || versions.length > 0) && (
-              <div className="flex items-center gap-2 mt-2">
-                {branches.length > 0 && activeBranchId && (
-                  <BranchSelector branches={branches} currentBranchId={activeBranchId} onBranchChange={handleBranchChange} />
-                )}
-                {versions.length > 0 && activeVersionId && (
-                  <VersionSelector versions={versions} currentVersionId={activeVersionId} onVersionChange={handleVersionChange} />
-                )}
+            {versions.length > 0 && activeVersionId && (
+              <VersionSelector versions={versions} currentVersionId={activeVersionId} onVersionChange={handleVersionChange} />
+            )}
+            {columns.length > 0 && (
+              <span className="text-[var(--border-default)] select-none px-0.5">·</span>
+            )}
+            {[
+              { label: 'Rows',      value: rowCount.toLocaleString(),  dim: false },
+              { label: 'Cols',      value: String(columns.length),     dim: false },
+              { label: 'Missing',   value: `${missingPct}%`,           dim: parseFloat(missingPct) > 0 },
+              { label: 'Integrity', value: `${integrityPct}%`,         dim: false },
+            ].map(({ label, value, dim }) => (
+              <div key={label} className="flex items-center gap-1">
+                <span className="section-label">{label}</span>
+                <span className={`data-mono text-xs font-semibold tabular-nums ${
+                  dim ? 'text-[var(--status-error)]' : 'text-[var(--accent-blue)]'
+                }`}>
+                  {value}
+                </span>
               </div>
-            )}
+            ))}
           </div>
+        </div>
 
-          {/* Right — stats strip + overflow menu */}
-          <div className="flex items-center gap-5 shrink-0">
+        {/* ── TABS ── */}
+        <div className="flex items-center gap-1 pt-3">
+          {[
+            { id: 'schema'  as const, label: 'Schema',       badge: null },
+            { id: 'data'    as const, label: 'Raw Data',     badge: null },
+            { id: 'clean'   as const, label: 'Clean',        badge: null },
+            { id: 'quality' as const, label: 'Quality',      badge: null },
+            { id: 'charts'  as const, label: 'Explorations', badge: savedCharts.length > 0 ? savedCharts.length : null },
+          ].map(({ id, label, badge }) => (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+                activeTab === id
+                  ? 'bg-[var(--text-primary)] text-[var(--text-inverse)]'
+                  : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)]'
+              }`}
+            >
+              {label}
+              {badge !== null && (
+                <span className={`text-[10px] rounded-full px-1.5 py-0.5 leading-none ${
+                  activeTab === id ? 'bg-white/20 text-white' : 'bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)]'
+                }`}>
+                  {badge}
+                </span>
+              )}
+            </button>
+          ))}
 
-            {/* Stats strip */}
-            <div className="flex items-center gap-4">
-              {[
-                { label: 'Rows',      value: rowCount.toLocaleString(),  dim: false },
-                { label: 'Cols',      value: String(columns.length),     dim: false },
-                { label: 'Missing',   value: `${missingPct}%`,           dim: parseFloat(missingPct) > 0 },
-                { label: 'Integrity', value: `${integrityPct}%`,         dim: false },
-              ].map(({ label, value, dim }) => (
-                <div key={label} className="text-right">
-                  <p className="section-label mb-0.5">{label}</p>
-                  <p className={`data-mono text-sm font-semibold tabular-nums ${
-                    dim ? 'text-[var(--status-error)]' : 'text-[var(--accent-blue)]'
-                  }`}>
-                    {value}
-                  </p>
-                </div>
-              ))}
-            </div>
+          {/* Conditional Duplicates tab — separated by divider, warning tokens */}
+          {duplicateReport && (
+            <>
+              <span className="mx-1.5 text-[var(--text-tertiary)] select-none">|</span>
+              <button
+                onClick={() => setActiveTab('duplicates')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+                  activeTab === 'duplicates'
+                    ? 'bg-[var(--status-warning-text)] text-white'
+                    : 'text-[var(--status-warning-text)] hover:bg-[var(--status-warning-bg)]'
+                }`}
+              >
+                <AlertTriangle className="h-3 w-3" />
+                {duplicateReport.duplicateGroups.length} Duplicates
+              </button>
+            </>
+          )}
 
-            {/* ••• overflow menu */}
+          {/* ••• overflow menu — pushed to far right */}
+          <div className="ml-auto">
             <DropdownMenu onOpenChange={(open) => { if (!open) setConfirmDelete(false) }}>
               <DropdownMenuTrigger asChild>
-                <button className="h-8 w-8 flex items-center justify-center rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] transition-colors">
+                <button className="h-7 w-7 flex items-center justify-center rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] transition-colors">
                   <MoreHorizontal className="h-4 w-4" />
                 </button>
               </DropdownMenuTrigger>
@@ -518,54 +514,6 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
             </DropdownMenu>
           </div>
         </div>
-
-        {/* ── TABS ── */}
-        <div className="flex items-center gap-1 pt-3">
-          {[
-            { id: 'schema'  as const, label: 'Schema',       badge: null },
-            { id: 'data'    as const, label: 'Raw Data',     badge: null },
-            { id: 'clean'   as const, label: 'Clean',        badge: null },
-            { id: 'quality' as const, label: 'Quality',      badge: null },
-            { id: 'charts'  as const, label: 'Explorations', badge: savedCharts.length > 0 ? savedCharts.length : null },
-          ].map(({ id, label, badge }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${
-                activeTab === id
-                  ? 'bg-[var(--text-primary)] text-[var(--text-inverse)]'
-                  : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)]'
-              }`}
-            >
-              {label}
-              {badge !== null && (
-                <span className={`text-[10px] rounded-full px-1.5 py-0.5 leading-none ${
-                  activeTab === id ? 'bg-white/20 text-white' : 'bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)]'
-                }`}>
-                  {badge}
-                </span>
-              )}
-            </button>
-          ))}
-
-          {/* Conditional Duplicates tab — separated by divider, warning tokens */}
-          {duplicateReport && (
-            <>
-              <span className="mx-1.5 text-[var(--text-tertiary)] select-none">|</span>
-              <button
-                onClick={() => setActiveTab('duplicates')}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${
-                  activeTab === 'duplicates'
-                    ? 'bg-[var(--status-warning-text)] text-white'
-                    : 'text-[var(--status-warning-text)] hover:bg-[var(--status-warning-bg)]'
-                }`}
-              >
-                <AlertTriangle className="h-3 w-3" />
-                {duplicateReport.duplicateGroups.length} Duplicates
-              </button>
-            </>
-          )}
-        </div>
       </div>
 
       {/* ── TAB CONTENT ── */}
@@ -590,10 +538,10 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
 
         {/* ════ SCHEMA TAB ════ */}
         {activeTab === 'schema' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          <div className="space-y-6">
 
-            {/* ── Left: variable table ──────────────────────────────────────── */}
-            <div className="lg:col-span-2">
+            {/* ── Variables table — full width ─────────────────────────────── */}
+            <div>
               <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] shadow-[var(--shadow-xs)]">
 
                 {/* Table header */}
@@ -780,202 +728,39 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
               </div>
             </div>
 
-            {/* ── Right: sidebar ────────────────────────────────────────────── */}
-            <div className="space-y-4">
-
-              {/* Completeness summary — click-through to Quality tab */}
-              {columns.length > 0 && (
-                <button onClick={() => setActiveTab('quality')} className="block w-full text-left">
-                  <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] shadow-[var(--shadow-xs)] px-5 py-4 hover:shadow-[var(--shadow-md)] hover:border-[var(--border-status-info)] transition-all cursor-pointer">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-xs font-semibold text-[var(--text-primary)]">Completeness</p>
-                      <ChevronRight className="h-3.5 w-3.5 text-[var(--text-tertiary)]" />
-                    </div>
-                    <div className="flex items-end gap-1 mb-3">
-                      <span className="data-mono text-2xl font-bold tabular-nums text-[var(--accent-blue)]">{integrityPct}%</span>
-                      <span className="text-xs text-[var(--text-tertiary)] mb-0.5">integrity</span>
-                    </div>
-                    {/* Mini bar per column (top 8) */}
-                    <div className="space-y-1.5">
-                      {columns.slice(0, 8).map(col => {
-                        const pct = rowCount > 0 ? ((rowCount - col.null_count) / rowCount) * 100 : 100
-                        const barColor = pct < 80 ? 'var(--status-error)' : pct < 95 ? 'var(--status-warning)' : 'var(--status-success)'
-                        return (
-                          <div key={col.name} className="flex items-center gap-2">
-                            <span className="data-mono text-[9px] text-[var(--text-tertiary)] w-24 truncate shrink-0">{col.name}</span>
-                            <div className="flex-1 h-1 bg-[var(--bg-inset)] rounded-full overflow-hidden">
-                              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: barColor }} />
-                            </div>
-                            <span className="data-mono text-[9px] text-[var(--text-tertiary)] w-7 text-right shrink-0">{Math.round(pct)}%</span>
-                          </div>
-                        )
-                      })}
-                      {columns.length > 8 && (
-                        <p className="text-[9px] text-[var(--text-tertiary)] pt-0.5">+{columns.length - 8} more columns</p>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              )}
-
-              {/* Quality Intelligence — switch to Quality tab */}
-              <button onClick={() => setActiveTab('quality')} className="block w-full text-left">
-                <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] shadow-[var(--shadow-xs)] px-5 py-4 hover:shadow-[var(--shadow-md)] hover:border-[var(--border-status-info)] transition-all cursor-pointer">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-[var(--status-info-bg)] rounded-md shrink-0">
-                      <ShieldCheck className="h-4 w-4 text-[var(--status-info-text)]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-[var(--text-primary)]">Data Quality Intelligence</p>
-                      <p className="text-xs text-[var(--text-tertiary)] mt-0.5">DQI score, dimensions &amp; enumerator metrics</p>
-                    </div>
-                    <ChevronRight className="h-3.5 w-3.5 text-[var(--text-tertiary)] shrink-0" />
-                  </div>
-                </div>
-              </button>
-
-              {/* Duplicate records alert */}
-              {duplicateReport && (
-                <div className="bg-[var(--status-warning-bg)] border border-[var(--border-status-warning)] rounded-lg p-4 shadow-[var(--shadow-xs)]">
-                  <div className="flex items-start gap-3">
-                    <div className="p-1.5 bg-amber-100 rounded-md shrink-0 mt-0.5">
-                      <Copy className="h-3.5 w-3.5 text-[var(--status-warning-text)]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="text-xs font-semibold text-[var(--status-warning-text)]">Duplicate Records</p>
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-800">
-                          {duplicateReport.duplicateGroups.length}
-                        </span>
-                      </div>
-                      <p className="text-xs text-[var(--status-warning-text)] leading-relaxed">
-                        <span className="font-semibold">{duplicateReport.totalAffectedRows} records</span> share a duplicate{' '}
-                        <span className="data-mono font-semibold">{duplicateReport.idColumn}</span>{' '}
-                        ({duplicateReport.percentAffected.toFixed(1)}% of dataset).
-                      </p>
-                      <button
-                        onClick={() => setShowDuplicateModal(true)}
-                        className="mt-2.5 w-full py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-xs font-semibold transition-colors"
-                      >
-                        Review &amp; Resolve
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Version history */}
+            {/* ── Completeness — full width, dark blue, bottom of schema ──── */}
+            {columns.length > 0 && (
               <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] shadow-[var(--shadow-xs)] p-5">
-                <h3 className="text-xs font-semibold text-[var(--text-primary)] mb-4">Version History</h3>
-                {versions.length === 0 ? (
-                  <p className="text-xs text-[var(--text-tertiary)] italic">No versions yet.</p>
-                ) : (
-                  <div className="space-y-4 relative before:content-[''] before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-px before:bg-[var(--border-subtle)]">
-                    {versions.slice(0, 5).map((v, idx) => {
-                      const isActive = v.id === activeVersionId
-                      const prevVersion = versions[idx + 1]
-                      const diff = versionDiff(v.schema_info ?? [], prevVersion?.schema_info)
-                      return (
-                        <div key={v.id} className="relative pl-8">
-                          <button
-                            onClick={() => handleVersionChange(v.id)}
-                            className={`absolute left-0 top-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ring-2 ring-[var(--bg-surface)] transition-colors ${
-                              isActive
-                                ? 'bg-[var(--accent-blue)] text-white'
-                                : 'bg-[var(--bg-inset)] text-[var(--text-tertiary)] hover:bg-[var(--accent-blue-subtle)] hover:text-[var(--accent-blue)]'
-                            }`}
-                          >
-                            {versions.length - idx}
-                          </button>
-                          {isActive && <p className="section-label text-[var(--accent-blue)] mb-0.5">Current</p>}
-                          <p className={`text-xs font-semibold truncate ${isActive ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
-                            v{v.version_number} — {v.commit_message || 'Initial upload'}
-                          </p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <p className="data-mono text-[10px] text-[var(--text-tertiary)]">{fmtDateShort(v.created_at)}</p>
-                            {diff && (diff.added > 0 || diff.removed > 0) && (
-                              <div className="flex items-center gap-1">
-                                {diff.added > 0 && <span className="text-[10px] font-semibold text-[var(--status-success-text)]">+{diff.added}</span>}
-                                {diff.removed > 0 && <span className="text-[10px] font-semibold text-[var(--status-error-text)]">−{diff.removed}</span>}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-baseline gap-2">
+                    <h3 className="text-sm font-semibold text-[var(--text-primary)]">Completeness</h3>
+                    <span className="data-mono text-2xl font-bold tabular-nums text-[var(--accent-blue)]">{integrityPct}%</span>
+                    <span className="text-xs text-[var(--text-tertiary)]">integrity</span>
                   </div>
-                )}
-                <Link href={`/projects/${projectId}/data/${datasetId}/versions`}>
-                  <button className="mt-4 w-full py-2 bg-[var(--bg-inset)] rounded-md text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-surface-active)] transition-colors">
-                    View all versions
+                  <button
+                    onClick={() => setActiveTab('quality')}
+                    className="text-xs font-medium text-[var(--accent-blue)] hover:opacity-80 transition-opacity"
+                  >
+                    Full quality report →
                   </button>
-                </Link>
-              </div>
-
-              {/* Approval status */}
-              {activeVersion && (
-                <ApprovalStatusCard
-                  datasetId={datasetId}
-                  datasetName={dataset?.name ?? datasetId}
-                  versionId={activeVersion.id}
-                  versionNumber={activeVersion.version_number}
-                  projectId={projectId}
-                />
-              )}
-
-              {/* Saved explorations preview */}
-              <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] shadow-[var(--shadow-xs)] p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-semibold text-[var(--text-primary)]">Explorations</h3>
-                  <Link href={`/projects/${projectId}/data/${datasetId}/explore`}>
-                    <button className="flex items-center gap-1 text-xs font-medium text-[var(--accent-blue)] hover:opacity-80 transition-opacity">
-                      <Plus className="h-3 w-3" />New
-                    </button>
-                  </Link>
                 </div>
-                {chartsLoading ? (
-                  <div className="flex items-center justify-center py-6">
-                    <Loader2 className="h-4 w-4 animate-spin text-[var(--text-tertiary)]" />
-                  </div>
-                ) : savedCharts.length === 0 ? (
-                  <ExplorationEmptyCard href={`/projects/${projectId}/data/${datasetId}/explore`} />
-                ) : (
-                  <div className="space-y-2">
-                    {savedCharts.slice(0, 3).map(chart => {
-                      const meta = CHART_META[chart.chart_type] ?? { label: chart.chart_type, icon: <BarChart2 size={12} />, color: '' }
-                      return (
-                        <div key={chart.id} className="group flex items-center gap-2.5 px-3 py-2 rounded-md hover:bg-[var(--bg-row-hover)] transition-colors">
-                          <span className="text-[var(--text-tertiary)] shrink-0">{meta.icon}</span>
-                          <span className="flex-1 text-xs font-medium text-[var(--text-secondary)] truncate">{chart.title}</span>
-                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                            <Link href={`/projects/${projectId}/data/${datasetId}/explore?load=${chart.id}`}>
-                              <button className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-active)] transition-colors">
-                                <ExternalLink size={11} />
-                              </button>
-                            </Link>
-                            <button
-                              onClick={() => handleDeleteChart(chart.id)}
-                              disabled={deletingId === chart.id}
-                              className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--status-error)] hover:bg-[var(--status-error-bg)] transition-colors"
-                            >
-                              {deletingId === chart.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
-                            </button>
-                          </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-2">
+                  {columns.map(col => {
+                    const pct = rowCount > 0 ? ((rowCount - col.null_count) / rowCount) * 100 : 100
+                    const barColor = pct < 80 ? 'var(--status-error)' : pct < 95 ? 'var(--status-warning)' : 'var(--accent-blue)'
+                    return (
+                      <div key={col.name} className="flex items-center gap-2">
+                        <span className="data-mono text-[9px] text-[var(--text-tertiary)] w-20 truncate shrink-0">{col.name}</span>
+                        <div className="flex-1 h-1 bg-[var(--bg-inset)] rounded-full overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: barColor }} />
                         </div>
-                      )
-                    })}
-                    {savedCharts.length > 3 && (
-                      <button
-                        onClick={() => setActiveTab('charts')}
-                        className="w-full pt-2 text-xs font-medium text-[var(--text-tertiary)] hover:text-[var(--accent-blue)] transition-colors text-center"
-                      >
-                        View all {savedCharts.length} explorations →
-                      </button>
-                    )}
-                  </div>
-                )}
+                        <span className="data-mono text-[9px] text-[var(--accent-blue)] w-7 text-right shrink-0">{Math.round(pct)}%</span>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 

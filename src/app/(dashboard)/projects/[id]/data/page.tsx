@@ -116,7 +116,7 @@ export default function ProjectDataPage() {
       {/* ── LEFT PANEL ─────────────────────────────────────────────────────── */}
       <div className={cn(
         'flex flex-col border-r border-[var(--border-row)] bg-[var(--bg-surface)] shrink-0 overflow-hidden transition-all duration-200',
-        panelOpen ? 'w-56' : 'w-10'
+        panelOpen ? 'w-72' : 'w-10'
       )}>
         {panelOpen ? (
           <>
