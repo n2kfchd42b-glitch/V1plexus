@@ -46,7 +46,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   if (!user) return null
 
   return (
-    <div className="flex min-h-screen bg-[var(--bg-app)]">
+    <div className="flex h-screen bg-[var(--bg-app)]">
       {/* Desktop sidebar — now workspace-aware */}
       <div className="hidden md:block">
         <WorkspaceSidebar
@@ -59,9 +59,9 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       {/* Mobile sidebar */}
       <MobileSidebar profile={profile} onSignOut={signOut} />
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         <Header profile={profile} onSearchClick={openCommandPalette} />
-        <main className="flex-1 overflow-hidden">
+        <main className="flex-1">
           <div className="page-content">
             {children}
           </div>

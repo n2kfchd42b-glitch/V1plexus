@@ -376,7 +376,7 @@ export default function ProjectsPage() {
 
         <button
           onClick={() => setShowNew(true)}
-          className="ml-auto inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-[var(--accent-blue)] text-white text-xs font-medium hover:bg-[var(--accent-blue-hover)] transition-colors btn-press"
+          className="ml-auto inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-white text-xs font-medium btn-press btn-primary"
         >
           <Plus className="h-3.5 w-3.5" />
           New Project
@@ -402,7 +402,7 @@ export default function ProjectsPage() {
               </p>
               <button
                 onClick={() => setShowNew(true)}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-[var(--accent-blue)] text-white text-xs font-medium hover:bg-[var(--accent-blue-hover)] transition-colors"
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-white text-xs font-medium btn-primary"
               >
                 <Plus className="h-3.5 w-3.5" />
                 New Project
@@ -483,7 +483,7 @@ export default function ProjectsPage() {
             <button
               onClick={handleCreate}
               disabled={creating || !title.trim()}
-              className="h-8 px-4 rounded-md bg-[var(--accent-blue)] text-white text-xs font-medium hover:bg-[var(--accent-blue-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors btn-press"
+              className="h-8 px-4 rounded-md text-white text-xs font-medium disabled:cursor-not-allowed btn-press btn-primary"
             >
               {creating ? 'Creating…' : 'Create Project'}
             </button>

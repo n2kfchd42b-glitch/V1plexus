@@ -165,7 +165,7 @@ export default function DatasetQualityPage() {
             <button
               onClick={handleRecompute}
               disabled={recomputing || !versionId}
-              className="mt-2 flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl bg-[var(--accent-blue)] text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="mt-2 flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl text-white disabled:opacity-50 btn-primary"
             >
               <RefreshCw className={`h-4 w-4 ${recomputing ? 'animate-spin' : ''}`} />
               {recomputing ? 'Computing…' : 'Compute Quality Report'}

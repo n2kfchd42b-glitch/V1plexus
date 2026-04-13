@@ -80,9 +80,9 @@
     --bg-surface-hover:  #F5F5F5;
     --bg-surface-active: #EFEFEF;
     --bg-inset:          #F0F0F0;
-    --bg-sidebar:        #18181B;
-    --bg-sidebar-hover:  #27272A;
-    --bg-sidebar-active: #3F3F46;
+    --bg-sidebar:        #0B1C2E;
+    --bg-sidebar-hover:  #132639;
+    --bg-sidebar-active: #1B3A5C;
 
     /* Borders */
     --border-default: #E4E4E7;
@@ -101,15 +101,17 @@
     --text-secondary:      #52525B;
     --text-tertiary:       #A1A1AA;
     --text-inverse:        #FAFAFA;
-    --text-sidebar:        #A1A1AA;
-    --text-sidebar-active: #FAFAFA;
-    --text-sidebar-icon:   #71717A;
+    --text-sidebar:        #93B4CC;
+    --text-sidebar-active: #FFFFFF;
+    --text-sidebar-icon:   #5B87A8;
 
     /* Accent */
-    --accent-primary:     #1B3A5C;
-    --accent-blue:        #3B82F6;
-    --accent-blue-hover:  #2563EB;
-    --accent-blue-subtle: #EFF6FF;
+    --accent-primary:       #1B3A5C;
+    --accent-primary-hover: #1E4976;
+    --accent-blue:          #3B82F6;
+    --accent-blue-hover:    #2563EB;
+    --accent-blue-subtle:   #EFF6FF;
+    /* btn-primary: use --accent-primary at rest, --accent-blue on hover */
 
     /* Status */
     --status-success:      #22C55E;
@@ -407,8 +409,7 @@
 /*  Page transition  */
 .page-content {
   animation: fade-in 150ms ease-out;
-  height: 100%;
-  overflow-y: auto;
+  min-height: 100%;
 }
 
 @keyframes fade-in {
@@ -451,6 +452,51 @@
 .btn-press:active {
   transform: scale(0.98);
   transition: transform var(--duration-instant) var(--ease-out);
+}
+
+/* ── Primary button — navy rest, blue hover ──────────────────────────────── */
+/* Applied globally via [data-btn-primary] so inline-style buttons pick it up */
+.btn-primary {
+  background: var(--accent-primary) !important;
+  color: #fff;
+  transition: background 150ms ease-out;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-blue) !important;
+}
+.btn-primary:disabled {
+  opacity: 0.45;
+}
+
+/* ── Gantt scrollbar utilities ───────────────────────────────────────────── */
+/* Hide scrollbar on the main timeline body (scroll still works) */
+.gantt-scroll-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.gantt-scroll-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+/* Gantt timeline — always-visible horizontal scrollbar, vertical hidden */
+.gantt-scroll-top {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) var(--bg-inset);
+}
+.gantt-scroll-top::-webkit-scrollbar {
+  width: 0;        /* hide vertical */
+  height: 6px;     /* show horizontal */
+}
+.gantt-scroll-top::-webkit-scrollbar-track {
+  background: var(--bg-inset);
+}
+.gantt-scroll-top::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 9999px;
+  min-width: 40px;
+}
+.gantt-scroll-top::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
 }
 
 /* ─── Clinical Design System — Component Classes ─────────────────────────── */

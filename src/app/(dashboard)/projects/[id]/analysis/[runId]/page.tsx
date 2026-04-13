@@ -165,7 +165,7 @@ export default function AnalysisRunPage() {
             )}
 
             <button
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white bg-[var(--accent-blue)] hover:opacity-90 transition-opacity"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white btn-primary"
             >
               <FileText className="h-3.5 w-3.5" />
               Draft Manuscript

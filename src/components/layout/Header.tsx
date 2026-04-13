@@ -31,12 +31,17 @@ function useBreadcrumbs(pathname: string) {
     timeline:      'Timeline',
     output:        'Report',
     overview:      'Overview',
+    report:        'Report',
+    ethics:        'Ethics',
+    team:          'Team',
+    audit:         'Audit',
   }
 
   segments.forEach((seg, i) => {
     const href = '/' + segments.slice(0, i + 1).join('/')
     const isId = /^[0-9a-f-]{36}$/.test(seg) || /^[0-9a-f]{20,}$/.test(seg)
-    const label = isId ? '…' : (labelMap[seg] ?? seg.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()))
+    if (isId) return // skip UUIDs — they add noise without meaning
+    const label = labelMap[seg] ?? seg.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
     crumbs.push({ label, href })
   })
 

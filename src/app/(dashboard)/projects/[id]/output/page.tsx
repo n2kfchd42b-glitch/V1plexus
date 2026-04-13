@@ -746,7 +746,7 @@ export default function OutputPage() {
             <button
               onClick={handleGeneratePackage}
               disabled={generatingPackage || !selectedVersionId || selectedComponents.size === 0}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white bg-[var(--accent-blue)] hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white disabled:opacity-50 btn-primary"
             >
               {generatingPackage
                 ? <><Loader2 className="h-3 w-3 animate-spin" /> Generating…</>
@@ -794,7 +794,7 @@ export default function OutputPage() {
               </div>
               {latestPackage.status === 'ready' && (
                 <a href={`/api/output/package/${latestPackage.id}/download`}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white bg-[var(--accent-blue)] hover:opacity-90 transition-opacity">
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white btn-primary">
                   <Download className="h-3 w-3" /> Download
                 </a>
               )}

@@ -117,7 +117,7 @@ export default function ProjectDataPage() {
             </div>
             <button
               onClick={() => setShowUpload(true)}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-white bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] transition-colors shrink-0"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-white shrink-0 btn-primary"
             >
               <Upload className="h-3 w-3" />
               Import

@@ -572,10 +572,7 @@ export function AnalysisHub({ projectId }: Props) {
                 <button
                   onClick={handleRun}
                   disabled={!canRun}
-                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-bold text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed active:scale-[0.98]"
-                  style={{ background: 'var(--accent-blue)' }}
-                  onMouseEnter={e => { if (canRun) e.currentTarget.style.background = 'var(--accent-blue-hover)' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent-blue)' }}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-bold text-white disabled:opacity-30 disabled:cursor-not-allowed active:scale-[0.98] btn-primary"
                 >
                   <Play className="h-3 w-3" />
                   Run
@@ -874,10 +871,7 @@ export function AnalysisHub({ projectId }: Props) {
             <button
               onClick={handleRun}
               disabled={!canRun}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-bold text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed active:scale-[0.98]"
-              style={{ background: 'var(--accent-blue)' }}
-              onMouseEnter={e => { if (canRun) e.currentTarget.style.background = 'var(--accent-blue-hover)' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent-blue)' }}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-bold text-white disabled:opacity-30 disabled:cursor-not-allowed active:scale-[0.98] btn-primary"
             >
               {running ? (
                 <>

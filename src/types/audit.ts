@@ -48,6 +48,7 @@ export type AuditAction =
   | 'project.deleted'
   | 'project.member.added'
   | 'project.member.removed'
+  | 'progress.note'
   // Auth operations
   | 'auth.login'
   | 'auth.logout'

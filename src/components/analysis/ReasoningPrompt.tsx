@@ -70,7 +70,7 @@ export function ReasoningPrompt({ runId, projectId, onDismiss }: Props) {
         <button
           onClick={handleSave}
           disabled={!text.trim() || saving}
-          className="px-3 py-1.5 text-xs font-medium rounded bg-[var(--accent-blue)] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
+          className="px-3 py-1.5 text-xs font-medium rounded text-white disabled:opacity-40 btn-primary"
         >
           {saving ? 'Saving…' : 'Save note'}
         </button>

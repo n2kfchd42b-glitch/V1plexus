@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { FolderOpen, LogOut, ChevronLeft, ChevronRight, Command } from 'lucide-react'
+import {
+  FolderOpen, LogOut, ChevronLeft, ChevronRight, Command,
+  LayoutDashboard, Database, BarChart2, Clock, FileText, Settings,
+} from 'lucide-react'
 import { BrandLogo } from '@/components/layout/BrandLogo'
 import { cn, getInitials } from '@/lib/utils'
 import type { Profile } from '@/types/database'
@@ -14,14 +17,32 @@ interface WorkspaceSidebarProps {
   onCommandPalette?: () => void
 }
 
+const PROJECT_TABS = [
+  { slug: 'overview',  label: 'Overview',  icon: LayoutDashboard },
+  { slug: 'data',      label: 'Data',      icon: Database        },
+  { slug: 'analysis',  label: 'Analysis',  icon: BarChart2       },
+  { slug: 'timeline',  label: 'Timeline',  icon: Clock           },
+  { slug: 'report',    label: 'Report',    icon: FileText        },
+  { slug: 'settings',  label: 'Settings',  icon: Settings        },
+]
+
 export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: WorkspaceSidebarProps) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(true)
 
-  // Collapse on navigation
+  // Detect if we're inside a project
+  const projectMatch = pathname.match(/^\/projects\/([^/]+)/)
+  const projectId    = projectMatch?.[1] ?? null
+  const isInProject  = !!projectId && projectId !== 'new'
+
+  // Auto-expand when entering a project; collapse when leaving
   useEffect(() => {
-    setCollapsed(true)
-  }, [pathname])
+    if (isInProject) {
+      setCollapsed(false)
+    } else {
+      setCollapsed(true)
+    }
+  }, [isInProject])
 
   // Cmd+\ to toggle
   useEffect(() => {
@@ -44,10 +65,10 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
       collapsed ? 'w-12' : 'w-52'
     )}>
 
-      {/* Radial glow — top-left accent */}
+      {/* Radial glow */}
       <div
         className="absolute top-0 left-0 w-40 h-40 pointer-events-none"
-        style={{ background: 'radial-gradient(circle at top left, rgba(59,130,246,0.13) 0%, transparent 65%)' }}
+        style={{ background: 'radial-gradient(circle at top left, rgba(59,130,246,0.18) 0%, transparent 60%)' }}
       />
 
       {/* Logo */}
@@ -63,9 +84,9 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
       </div>
 
       {/* Navigation */}
-      <nav className="relative z-10 flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
+      <nav className="relative z-10 flex-1 px-2 py-3 overflow-y-auto">
 
-        {/* Section label — workspace */}
+        {/* Section label */}
         {!collapsed && (
           <p className="px-2.5 pt-0.5 pb-1.5 text-[9px] font-medium uppercase tracking-[0.10em] text-[var(--text-sidebar-icon)]">
             Workspace
@@ -98,6 +119,50 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
             )}
           </div>
         </Link>
+
+        {/* ── Project sub-nav — only when inside a project ─────────────────── */}
+        {isInProject && projectId && (
+          <div className={cn(
+            'mt-1 mb-1',
+            collapsed ? 'flex flex-col items-center gap-0.5' : 'ml-3 border-l border-white/10 pl-2 flex flex-col gap-0.5'
+          )}>
+            {PROJECT_TABS.map(({ slug, label, icon: Icon }) => {
+              const href   = `/projects/${projectId}/${slug}`
+              const active = pathname === href || pathname.startsWith(href + '/')
+              return (
+                <Link
+                  key={slug}
+                  href={href}
+                  title={collapsed ? label : undefined}
+                >
+                  <div className={cn(
+                    'relative flex items-center gap-2.5 h-7 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
+                    collapsed ? 'justify-center w-8 mx-auto px-0' : 'px-2',
+                    active
+                      ? 'bg-[var(--bg-sidebar-active)] text-white'
+                      : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
+                  )}>
+                    {active && !collapsed && (
+                      <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-blue)]" />
+                    )}
+                    <Icon className={cn(
+                      'flex-shrink-0 h-3.5 w-3.5 transition-colors duration-150',
+                      active ? 'text-white' : 'text-[var(--text-sidebar-icon)]'
+                    )} />
+                    {!collapsed && (
+                      <span className={cn(
+                        'text-xs font-medium',
+                        active ? 'text-white' : 'text-[var(--text-sidebar)]'
+                      )}>
+                        {label}
+                      </span>
+                    )}
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        )}
 
         {/* Divider */}
         <div className="my-2 h-px bg-white/10" />
