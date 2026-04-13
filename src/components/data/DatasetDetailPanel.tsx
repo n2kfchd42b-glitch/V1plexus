@@ -4,10 +4,11 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ArrowLeft, Wand2, BarChart2, GitMerge, GitCommit, Loader2, RefreshCw,
+  ArrowLeft, BarChart2, Loader2, RefreshCw, MoreHorizontal,
   BarChart, LineChart, ScatterChart, TrendingUp, PieChart, Box, Grid3x3,
-  Trash2, ExternalLink, Search, Filter, Plus, ChevronDown, ChevronRight,
+  Trash2, ExternalLink, Search, Plus, ChevronDown, ChevronRight,
   Hash, Type, Calendar, ToggleLeft, Tag, MapPin, Fingerprint, Copy, ShieldCheck,
+  GitMerge, GitCommit, Archive, ArchiveRestore,
 } from 'lucide-react'
 import { DAGBuilderPanel } from '@/components/analysis/causal/DAGBuilderPanel'
 import { DataPortraitPanel } from '@/components/analysis/DataPortraitPanel'
@@ -15,6 +16,10 @@ import { EpidemiologicalFingerprint } from '@/components/analysis/Epidemiologica
 import { AnalysisTimeline } from '@/components/analysis/AnalysisTimeline'
 import { useDataPortrait } from '@/hooks/useDataPortrait'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { DatasetTable } from '@/components/data/DatasetTable'
 import { VersionSelector } from '@/components/data/VersionSelector'
 import { BranchSelector } from '@/components/data/BranchSelector'
@@ -128,94 +133,6 @@ function MiniDistribution({ col }: { col: ColumnSchema }) {
   )
 }
 
-function CompletenessChart({ columns, rowCount }: { columns: ColumnSchema[]; rowCount: number }) {
-  const [showIncompleteOnly, setShowIncompleteOnly] = useState(false)
-  const [sortMode, setSortMode] = useState<'worst_first' | 'best_first' | 'alphabetical'>('worst_first')
-
-  const items = useMemo(() => {
-    let list = columns.map(c => ({
-      name: c.name,
-      pct: rowCount > 0 ? ((rowCount - c.null_count) / rowCount) * 100 : 100,
-      type: c.type,
-      missing: c.null_count,
-    }))
-    if (showIncompleteOnly) list = list.filter(c => c.pct < 100)
-    if (sortMode === 'worst_first')    list.sort((a, b) => a.pct - b.pct)
-    else if (sortMode === 'best_first') list.sort((a, b) => b.pct - a.pct)
-    else list.sort((a, b) => a.name.localeCompare(b.name))
-    return list
-  }, [columns, rowCount, showIncompleteOnly, sortMode])
-
-  const incompleteCount = useMemo(() =>
-    columns.filter(c => (rowCount > 0 ? ((rowCount - c.null_count) / rowCount) * 100 : 100) < 100).length,
-    [columns, rowCount]
-  )
-
-  return (
-    <div>
-      <div className="flex flex-wrap items-center gap-3 mb-5">
-        <button
-          onClick={() => setShowIncompleteOnly(v => !v)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${
-            showIncompleteOnly ? 'bg-white/20 text-white' : 'bg-white/8 text-white/50 hover:bg-white/12 hover:text-white/70'
-          }`}
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
-          Incomplete only
-          {incompleteCount > 0 && <span className="ml-0.5 text-[10px] opacity-70">({incompleteCount})</span>}
-        </button>
-        <div className="flex items-center gap-1 ml-auto">
-          {(['worst_first', 'best_first', 'alphabetical'] as const).map(mode => (
-            <button
-              key={mode}
-              onClick={() => setSortMode(mode)}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-colors ${
-                sortMode === mode ? 'bg-white/20 text-white' : 'text-white/40 hover:text-white/60'
-              }`}
-            >
-              {mode === 'worst_first' ? 'Worst first' : mode === 'best_first' ? 'Best first' : 'A–Z'}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="overflow-y-auto max-h-[220px] space-y-2.5 pr-1 scrollbar-thin">
-        {items.length === 0 ? (
-          <p className="text-[11px] text-white/40 italic py-4 text-center">All columns are 100% complete</p>
-        ) : items.map(col => (
-          <div key={col.name} className="flex items-center gap-3">
-            <div className="w-36 shrink-0 flex items-center gap-1.5">
-              <span className="text-white/40">{typeIcon(col.type)}</span>
-              <span className="font-mono text-[10px] text-white/60 truncate">{col.name}</span>
-            </div>
-            <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${col.pct}%`,
-                  background: col.pct < 80 ? '#f87171' : col.pct < 95 ? '#fbbf24' : 'rgba(255,255,255,0.75)',
-                }}
-              />
-            </div>
-            <span className="w-12 text-right font-mono text-[10px] shrink-0"
-              style={{ color: col.pct < 80 ? '#f87171' : col.pct < 95 ? '#fbbf24' : 'rgba(255,255,255,0.5)' }}>
-              {col.pct.toFixed(1)}%
-            </span>
-            {col.missing > 0 && (
-              <span className="w-16 text-right font-mono text-[10px] text-white/30 shrink-0">
-                {col.missing.toLocaleString()} null
-              </span>
-            )}
-          </div>
-        ))}
-      </div>
-      <p className="text-[10px] text-white/25 mt-3">
-        {showIncompleteOnly
-          ? `${items.length} incomplete column${items.length !== 1 ? 's' : ''} of ${columns.length} total`
-          : `${items.length} column${items.length !== 1 ? 's' : ''} · scroll to see all`}
-      </p>
-    </div>
-  )
-}
 
 function ExplorationEmptyCard({ href }: { href: string }) {
   return (
@@ -262,9 +179,12 @@ interface DatasetDetailPanelProps {
   datasetId: string
   projectId: string
   showBackLink?: boolean
+  isArchived?: boolean
+  onArchive?: () => void
+  onDelete?: () => void
 }
 
-export function DatasetDetailPanel({ datasetId, projectId, showBackLink }: DatasetDetailPanelProps) {
+export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchived, onArchive, onDelete }: DatasetDetailPanelProps) {
   const router       = useRouter()
   const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
@@ -279,8 +199,11 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink }: Datas
   const [dataLoading,     setDataLoading]     = useState(false)
   const [error,           setError]           = useState<string | null>(null)
 
-  const [activeTab, setActiveTab] = useState<'schema' | 'data' | 'charts'>(
-    searchParams.get('tab') === 'charts' ? 'charts' : searchParams.get('tab') === 'data' ? 'data' : 'schema'
+  const [activeTab, setActiveTab] = useState<'schema' | 'data' | 'analysis' | 'charts'>(
+    searchParams.get('tab') === 'charts' ? 'charts'
+      : searchParams.get('tab') === 'data' ? 'data'
+      : searchParams.get('tab') === 'analysis' ? 'analysis'
+      : 'schema'
   )
 
   const [schemaSearch,     setSchemaSearch]     = useState('')
@@ -290,6 +213,7 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink }: Datas
   const [chartsLoading,    setChartsLoading]    = useState(false)
   const [deletingId,       setDeletingId]       = useState<string | null>(null)
   const [showDuplicateModal, setShowDuplicateModal] = useState(false)
+  const [confirmDelete,      setConfirmDelete]      = useState(false)
 
   const supabase = createClient()
 
@@ -420,42 +344,34 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink }: Datas
     )
   }
 
-  const pipelineSteps = [
-    { key: 'import',   label: 'Import',          desc: 'Data loaded',            href: null,                                                       done: true  },
-    { key: 'clean',    label: 'Clean',            desc: 'Remove outliers & nulls', href: `/projects/${projectId}/data/${datasetId}/clean`,           done: false },
-    { key: 'explore',  label: 'Explore',          desc: 'Visual EDA',              href: `/projects/${projectId}/data/${datasetId}/explore`,         done: false },
-    { key: 'quality',  label: 'Quality',          desc: 'Assess completeness',     href: `/projects/${projectId}/data/${datasetId}/quality`,         done: false },
-    { key: 'analysis', label: 'Analysis Ready',   desc: 'Run statistical tests',   href: `/projects/${projectId}/analysis`,                          done: false },
-  ]
-
   return (
-    <div className="h-full overflow-y-auto bg-[#f7f9fb]">
-      <div className="px-8 pt-8 pb-0">
+    <div className="h-full overflow-y-auto bg-[var(--bg-app)]">
+
+      {/* ── COMPACT HEADER ─────────────────────────────────────────────────── */}
+      <div className="px-6 pt-5 pb-0 bg-[var(--bg-surface)] border-b border-[var(--border-row)]">
+
         {showBackLink && (
           <Link
             href={`/projects/${projectId}/data`}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#003d9b] transition-colors mb-5"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors mb-4"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             All Datasets
           </Link>
         )}
 
-        <section className="flex flex-col md:flex-row justify-between items-end gap-6 mb-8">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-3">
-              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-bold font-mono uppercase tracking-widest">
-                Dataset
-              </span>
-              {dataset.description && (
-                <span className="text-slate-400 text-xs font-mono truncate max-w-xs">{dataset.description}</span>
-              )}
-            </div>
-            <h1 className="font-manrope text-4xl font-extrabold tracking-tight text-[#191c1e]">
+        <div className="flex items-start justify-between gap-4 mb-4">
+
+          {/* Left — name + selectors */}
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)] font-manrope truncate">
               {dataset.name}
             </h1>
+            {dataset.description && (
+              <p className="text-xs text-[var(--text-tertiary)] mt-0.5 truncate max-w-sm">{dataset.description}</p>
+            )}
             {(branches.length > 0 || versions.length > 0) && (
-              <div className="flex items-center gap-3 pt-1">
+              <div className="flex items-center gap-2 mt-2">
                 {branches.length > 0 && activeBranchId && (
                   <BranchSelector branches={branches} currentBranchId={activeBranchId} onBranchChange={handleBranchChange} />
                 )}
@@ -466,96 +382,106 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink }: Datas
             )}
           </div>
 
-          <div className="flex gap-8 shrink-0">
-            {[
-              { label: 'Rows',      value: rowCount.toLocaleString(), color: 'text-[#003d9b]' },
-              { label: 'Columns',   value: String(columns.length),    color: 'text-[#003d9b]' },
-              { label: 'Missing',   value: `${missingPct}%`,          color: 'text-red-500' },
-              { label: 'Integrity', value: `${integrityPct}%`,        color: 'text-[#003d9b]' },
-            ].map(({ label, value, color }) => (
-              <div key={label} className="text-right">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-                <p className={`text-2xl font-mono font-semibold ${color}`}>{value}</p>
-              </div>
-            ))}
-          </div>
-        </section>
+          {/* Right — stats strip + overflow menu */}
+          <div className="flex items-center gap-5 shrink-0">
 
-        {/* ── WORKFLOW PIPELINE ── */}
-        <section className="mb-8">
-          <div className="flex items-stretch gap-0 bg-white rounded-2xl overflow-hidden border border-slate-200/60"
-            style={{ boxShadow: '0 4px 20px rgba(0,24,72,0.05)' }}>
-            {pipelineSteps.map((step, i) => {
-              const isLast = i === pipelineSteps.length - 1
-              const content = (
-                <div className={`
-                  group flex-1 flex items-center gap-3 px-5 py-4 relative
-                  ${step.href ? 'cursor-pointer hover:bg-[#f7f9fb] transition-colors' : 'cursor-default'}
-                  ${!isLast ? 'border-r border-slate-200/60' : ''}
-                `}>
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-bold transition-colors
-                    ${step.done
-                      ? 'bg-[#f0fdf4] text-[#166534]'
-                      : 'bg-[#f2f4f6] text-[#A1A1AA] group-hover:bg-[rgba(0,64,162,0.08)] group-hover:text-[#003d9b]'
-                    }`}>
-                    {step.done ? '✓' : i + 1}
-                  </div>
-                  <div className="min-w-0">
-                    <p className={`text-sm font-semibold leading-none font-manrope ${step.done ? 'text-[#166534]' : 'text-[#18181B]'}`}>
-                      {step.label}
-                    </p>
-                    <p className="text-[11px] text-[#A1A1AA] mt-0.5 leading-none hidden sm:block">{step.desc}</p>
-                  </div>
-                  {!isLast && (
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 w-4 h-4 bg-white border-r border-t border-slate-200/60 rotate-45" />
-                  )}
+            {/* Stats strip */}
+            <div className="flex items-center gap-4">
+              {[
+                { label: 'Rows',      value: rowCount.toLocaleString(),  dim: false },
+                { label: 'Cols',      value: String(columns.length),     dim: false },
+                { label: 'Missing',   value: `${missingPct}%`,           dim: parseFloat(missingPct) > 0 },
+                { label: 'Integrity', value: `${integrityPct}%`,         dim: false },
+              ].map(({ label, value, dim }) => (
+                <div key={label} className="text-right">
+                  <p className="section-label mb-0.5">{label}</p>
+                  <p className={`data-mono text-sm font-semibold tabular-nums ${
+                    dim ? 'text-[var(--status-error)]' : 'text-[var(--accent-blue)]'
+                  }`}>
+                    {value}
+                  </p>
                 </div>
-              )
-              return step.href ? (
-                <Link key={step.key} href={step.href} className="flex-1 flex">{content}</Link>
-              ) : (
-                <div key={step.key} className="flex-1 flex">{content}</div>
-              )
-            })}
+              ))}
+            </div>
+
+            {/* ••• overflow menu */}
+            <DropdownMenu onOpenChange={(open) => { if (!open) setConfirmDelete(false) }}>
+              <DropdownMenuTrigger asChild>
+                <button className="h-8 w-8 flex items-center justify-center rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] transition-colors">
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem asChild>
+                  <Link href={`/projects/${projectId}/data/${datasetId}/merge`} className="flex items-center gap-2">
+                    <GitMerge className="h-3.5 w-3.5" />
+                    Merge datasets
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href={`/projects/${projectId}/data/${datasetId}/versions`} className="flex items-center gap-2">
+                    <GitCommit className="h-3.5 w-3.5" />
+                    Version history
+                  </Link>
+                </DropdownMenuItem>
+                {onArchive && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={onArchive} className="flex items-center gap-2">
+                      {isArchived
+                        ? <><ArchiveRestore className="h-3.5 w-3.5" />Unarchive</>
+                        : <><Archive className="h-3.5 w-3.5" />Archive</>
+                      }
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {onDelete && (
+                  <>
+                    {!onArchive && <DropdownMenuSeparator />}
+                    {confirmDelete ? (
+                      <DropdownMenuItem
+                        onClick={() => { onDelete(); setConfirmDelete(false) }}
+                        className="flex items-center gap-2 text-[var(--status-error)] focus:text-[var(--status-error)]"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Confirm delete
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem
+                        onClick={(e) => { e.preventDefault(); setConfirmDelete(true) }}
+                        className="flex items-center gap-2 text-[var(--status-error)] focus:text-[var(--status-error)]"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete dataset
+                      </DropdownMenuItem>
+                    )}
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-          <div className="flex items-center gap-3 mt-3">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Actions:</span>
-            <button
-              onClick={() => router.push(`/projects/${projectId}/data/${datasetId}/merge`)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#52525B] bg-white border border-slate-200 hover:border-[#003d9b] hover:text-[#003d9b] transition-all"
-              style={{ boxShadow: '0 2px 8px rgba(0,24,72,0.04)' }}
-            >
-              <GitMerge className="h-3.5 w-3.5" />
-              Merge Datasets
-            </button>
-            <button
-              onClick={() => router.push(`/projects/${projectId}/data/${datasetId}/versions`)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#52525B] bg-white border border-slate-200 hover:border-[#003d9b] hover:text-[#003d9b] transition-all"
-              style={{ boxShadow: '0 2px 8px rgba(0,24,72,0.04)' }}
-            >
-              <GitCommit className="h-3.5 w-3.5" />
-              Version Control
-            </button>
-          </div>
-        </section>
+        </div>
 
         {/* ── TABS ── */}
-        <div className="flex items-center gap-0 border-b border-slate-200/60">
-          {(['schema', 'data', 'charts'] as const).map(tab => (
+        <div className="flex items-center gap-0">
+          {(['schema', 'data', 'analysis', 'charts'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
                 activeTab === tab
-                  ? 'border-[#003d9b] text-[#003d9b]'
-                  : 'border-transparent text-slate-400 hover:text-slate-700'
+                  ? 'border-[var(--accent-blue)] text-[var(--accent-blue)]'
+                  : 'border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
               }`}
             >
-              {tab === 'schema' ? 'Schema' : tab === 'data' ? 'Raw Data' : (
+              {tab === 'schema'   ? 'Schema'
+                : tab === 'data' ? 'Raw Data'
+                : tab === 'analysis' ? 'Analysis'
+                : (
                 <>
                   Explorations
                   {savedCharts.length > 0 && (
-                    <span className="text-[10px] bg-[#003d9b]/10 text-[#003d9b] rounded-full px-1.5 py-0.5 font-mono leading-none">
+                    <span className="text-[10px] bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)] rounded-full px-1.5 py-0.5 data-mono leading-none">
                       {savedCharts.length}
                     </span>
                   )}
@@ -588,390 +514,393 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink }: Datas
 
         {/* ════ SCHEMA TAB ════ */}
         {activeTab === 'schema' && (
-          <>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-              <div className="lg:col-span-2 space-y-6">
-                <div className="bg-white rounded-xl p-8 shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
-                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-5">
-                    <div>
-                      <h3 className="font-manrope font-bold text-xl text-[#191c1e]">Schema &amp; Variables</h3>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {dataLoading ? 'Loading schema…' : (
-                          schemaTypeFilter.size > 0 || schemaSearch
-                            ? <><span className="font-semibold text-[#003d9b]">{filteredColumns.length}</span> of {columns.length} variable{columns.length !== 1 ? 's' : ''} shown</>
-                            : <>{columns.length} variable{columns.length !== 1 ? 's' : ''} in this dataset</>
-                        )}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 w-full md:w-auto">
-                      <div className="relative flex-1 md:w-60">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-3.5 w-3.5" />
-                        <input
-                          value={schemaSearch}
-                          onChange={e => setSchemaSearch(e.target.value)}
-                          className="w-full pl-9 pr-4 py-2 bg-[#f2f4f6] border-none rounded-lg text-xs focus:ring-2 focus:ring-[#003d9b]/20 outline-none"
-                          placeholder="Search variables…"
-                        />
-                      </div>
-                      {(schemaTypeFilter.size > 0 || schemaSearch) && (
-                        <button
-                          onClick={() => { setSchemaTypeFilter(new Set()); setSchemaSearch('') }}
-                          className="flex items-center gap-1 px-3 py-2 bg-[#003d9b]/8 rounded-lg text-xs font-bold text-[#003d9b] hover:bg-[#003d9b]/15 transition-colors whitespace-nowrap"
-                        >
-                          Clear filters
-                        </button>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+
+            {/* ── Left: variable table ──────────────────────────────────────── */}
+            <div className="lg:col-span-2">
+              <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] shadow-[var(--shadow-xs)]">
+
+                {/* Table header */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-5 border-b border-[var(--border-subtle)]">
+                  <div>
+                    <h3 className="text-base font-semibold text-[var(--text-primary)] tracking-tight">Variables</h3>
+                    <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
+                      {dataLoading ? 'Loading…' : (
+                        schemaTypeFilter.size > 0 || schemaSearch
+                          ? <><span className="font-semibold text-[var(--accent-blue)]">{filteredColumns.length}</span> of {columns.length} shown</>
+                          : <>{columns.length} variable{columns.length !== 1 ? 's' : ''}</>
                       )}
-                    </div>
+                    </p>
                   </div>
-
-                  {columns.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-6 pb-5 border-b border-[#f2f4f6]">
-                      {Object.entries(typeCounts).map(([group, count]) => {
-                        const g = TYPE_GROUPS[group]
-                        const isActive = schemaTypeFilter.size === 0 || schemaTypeFilter.has(group)
-                        return (
-                          <button
-                            key={group}
-                            onClick={() => setSchemaTypeFilter(prev => {
-                              const next = new Set(prev)
-                              if (next.has(group)) { next.delete(group) } else { next.add(group) }
-                              return next
-                            })}
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
-                              isActive ? `${g.bgColor} ${g.color}` : 'bg-slate-100 text-slate-400'
-                            } hover:opacity-80`}
-                          >
-                            {g.icon}
-                            {count} {g.label}
-                          </button>
-                        )
-                      })}
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="relative flex-1 sm:w-56">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] h-3.5 w-3.5" />
+                      <input
+                        value={schemaSearch}
+                        onChange={e => setSchemaSearch(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg-inset)] border-none rounded-md text-xs text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:ring-2 focus:ring-[var(--border-focus)] outline-none"
+                        placeholder="Search variables…"
+                      />
                     </div>
-                  )}
-
-                  {dataLoading ? (
-                    <div className="flex items-center justify-center py-16">
-                      <Loader2 className="h-6 w-6 animate-spin text-[#003d9b]/40" />
-                    </div>
-                  ) : columns.length === 0 ? (
-                    <div className="flex items-center justify-center py-16">
-                      <p className="text-sm text-slate-400">No schema available yet.</p>
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto overflow-y-auto max-h-[540px]">
-                      <table className="w-full text-left">
-                        <thead className="text-[10px] uppercase tracking-widest text-slate-400 font-bold sticky top-0 bg-white z-10">
-                          <tr className="border-b border-[#f2f4f6]">
-                            <th className="pb-3 px-2 w-4" />
-                            <th className="pb-3 px-2">Variable</th>
-                            <th className="pb-3 px-2">Type</th>
-                            <th className="pb-3 px-2">Quality</th>
-                            <th className="pb-3 px-2">Distribution</th>
-                            <th className="pb-3 px-2 text-right">Missing</th>
-                          </tr>
-                        </thead>
-                        <tbody className="text-xs">
-                          {filteredColumns.map(col => {
-                            const completeness = rowCount > 0 ? ((rowCount - col.null_count) / rowCount) * 100 : 100
-                            const cardinalityRatio = rowCount > 0 ? Math.round((col.unique_count / rowCount) * 100) : 0
-                            const qualityDot = completeness < 80 ? '#ef4444' : completeness < 95 ? '#f59e0b' : '#22c55e'
-                            const isExpanded = expandedRow === col.name
-                            return (
-                              <React.Fragment key={col.name}>
-                                <tr
-                                  className="group hover:bg-[#f7f9fb] border-b border-[#f2f4f6] transition-colors cursor-pointer"
-                                  onClick={() => setExpandedRow(isExpanded ? null : col.name)}
-                                >
-                                  <td className="py-3 px-2 text-slate-300 group-hover:text-[#003d9b] transition-colors">
-                                    {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                                  </td>
-                                  <td className="py-3 px-2 font-mono font-medium text-[#003d9b]">{col.name}</td>
-                                  <td className="py-3 px-2">
-                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${typeBadgeClass(col.type)}`}>
-                                      {typeIcon(col.type)}{typeLabel(col.type)}
-                                    </span>
-                                  </td>
-                                  <td className="py-3 px-2">
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-2 h-2 rounded-full shrink-0"
-                                        style={{ background: qualityDot, boxShadow: `0 0 0 2px white, 0 0 0 3px ${qualityDot}` }} />
-                                      <span className="font-mono text-[10px] text-slate-400">{col.unique_count.toLocaleString()} uniq</span>
-                                      {cardinalityRatio <= 5 && col.unique_count > 1 && (
-                                        <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1 rounded">low</span>
-                                      )}
-                                      {cardinalityRatio >= 95 && (
-                                        <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1 rounded">id</span>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="py-3 px-2"><MiniDistribution col={col} /></td>
-                                  <td className="py-3 px-2 text-right font-mono text-slate-400">{col.null_count}</td>
-                                </tr>
-                                {isExpanded && (
-                                  <tr key={`${col.name}-expanded`} className="bg-[#f7f9fb]">
-                                    <td colSpan={6} className="px-6 py-4">
-                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                        {col.min !== undefined && col.min !== null && (
-                                          <div className="bg-white rounded-lg p-3 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Min</p>
-                                            <p className="font-mono text-sm font-semibold text-[#191c1e] truncate">{String(col.min)}</p>
-                                          </div>
-                                        )}
-                                        {col.max !== undefined && col.max !== null && (
-                                          <div className="bg-white rounded-lg p-3 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Max</p>
-                                            <p className="font-mono text-sm font-semibold text-[#191c1e] truncate">{String(col.max)}</p>
-                                          </div>
-                                        )}
-                                        {col.mean !== undefined && col.mean !== null && (
-                                          <div className="bg-white rounded-lg p-3 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Mean</p>
-                                            <p className="font-mono text-sm font-semibold text-[#191c1e]">{col.mean.toFixed(2)}</p>
-                                          </div>
-                                        )}
-                                        {col.unique_count !== undefined && (
-                                          <div className="bg-white rounded-lg p-3 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Unique</p>
-                                            <p className="font-mono text-sm font-semibold text-[#191c1e]">{col.unique_count.toLocaleString()}</p>
-                                          </div>
-                                        )}
-                                      </div>
-                                      {col.sample_values?.length > 0 && (
-                                        <div className="mt-3">
-                                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Sample values</p>
-                                          <div className="flex flex-wrap gap-1.5">
-                                            {col.sample_values.slice(0, 8).map((v, i) => (
-                                              <span key={i} className="px-2 py-0.5 bg-white border border-[#e0e3e5] rounded text-[10px] font-mono text-slate-600">
-                                                {String(v ?? 'null')}
-                                              </span>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      )}
-                                    </td>
-                                  </tr>
-                                )}
-                              </React.Fragment>
-                            )
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  {columns.length > 0 && (
-                    <div className="mt-5 pt-4 border-t border-[#f2f4f6] flex justify-between items-center text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-                      <span>
-                        {filteredColumns.length < columns.length
-                          ? <><span className="text-[#003d9b]">{filteredColumns.length}</span> of {columns.length} variables</>
-                          : <>{columns.length} variable{columns.length !== 1 ? 's' : ''} · scroll to see all</>
-                        }
-                      </span>
-                      <span className="font-mono text-[#003d9b]/50">{versions.length} version{versions.length !== 1 ? 's' : ''}</span>
-                    </div>
-                  )}
+                    {(schemaTypeFilter.size > 0 || schemaSearch) && (
+                      <button
+                        onClick={() => { setSchemaTypeFilter(new Set()); setSchemaSearch('') }}
+                        className="px-2.5 py-1.5 rounded-md text-xs font-medium text-[var(--accent-blue)] bg-[var(--accent-blue-subtle)] hover:opacity-80 transition-opacity whitespace-nowrap"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                {activeVersionId && columns.length > 0 && (
-                  <DAGBuilderPanel
-                    projectId={projectId}
-                    datasetId={datasetId}
-                    versionId={activeVersionId}
-                    availableVariables={columns.map(c => c.name)}
-                  />
+                {/* Type filters */}
+                {columns.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 px-5 py-3 border-b border-[var(--border-subtle)]">
+                    {Object.entries(typeCounts).map(([group, count]) => {
+                      const g = TYPE_GROUPS[group]
+                      const isActive = schemaTypeFilter.size === 0 || schemaTypeFilter.has(group)
+                      return (
+                        <button
+                          key={group}
+                          onClick={() => setSchemaTypeFilter(prev => {
+                            const next = new Set(prev)
+                            if (next.has(group)) { next.delete(group) } else { next.add(group) }
+                            return next
+                          })}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-all cursor-pointer ${
+                            isActive ? `${g.bgColor} ${g.color}` : 'bg-[var(--bg-inset)] text-[var(--text-tertiary)]'
+                          } hover:opacity-80`}
+                        >
+                          {g.icon}
+                          {count} {g.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Table body */}
+                {dataLoading ? (
+                  <div className="flex items-center justify-center py-14">
+                    <Loader2 className="h-5 w-5 animate-spin text-[var(--text-tertiary)]" />
+                  </div>
+                ) : columns.length === 0 ? (
+                  <div className="flex items-center justify-center py-14">
+                    <p className="text-sm text-[var(--text-tertiary)]">No schema available yet.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto overflow-y-auto max-h-[560px]">
+                    <table className="w-full text-left">
+                      <thead className="sticky top-0 bg-[var(--bg-surface)] z-10">
+                        <tr className="border-b border-[var(--border-subtle)]">
+                          <th className="pb-2.5 pt-3 px-3 w-4" />
+                          <th className="section-label pb-2.5 pt-3 px-2">Variable</th>
+                          <th className="section-label pb-2.5 pt-3 px-2">Type</th>
+                          <th className="section-label pb-2.5 pt-3 px-2">Quality</th>
+                          <th className="section-label pb-2.5 pt-3 px-2">Distribution</th>
+                          <th className="section-label pb-2.5 pt-3 px-2 text-right">Missing</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-xs">
+                        {filteredColumns.map(col => {
+                          const completeness = rowCount > 0 ? ((rowCount - col.null_count) / rowCount) * 100 : 100
+                          const cardinalityRatio = rowCount > 0 ? Math.round((col.unique_count / rowCount) * 100) : 0
+                          const qualityDot = completeness < 80 ? 'var(--status-error)' : completeness < 95 ? 'var(--status-warning)' : 'var(--status-success)'
+                          const isExpanded = expandedRow === col.name
+                          return (
+                            <React.Fragment key={col.name}>
+                              <tr
+                                className="group hover:bg-[var(--bg-row-hover)] border-b border-[var(--border-row)] transition-colors cursor-pointer"
+                                onClick={() => setExpandedRow(isExpanded ? null : col.name)}
+                              >
+                                <td className="py-3 px-3 text-[var(--text-tertiary)] group-hover:text-[var(--accent-blue)] transition-colors">
+                                  {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                </td>
+                                <td className="py-3 px-2 data-mono font-medium text-[var(--accent-blue)]">{col.name}</td>
+                                <td className="py-3 px-2">
+                                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${typeBadgeClass(col.type)}`}>
+                                    {typeIcon(col.type)}{typeLabel(col.type)}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: qualityDot }} />
+                                    <span className="data-mono text-[10px] text-[var(--text-tertiary)]">{col.unique_count.toLocaleString()} uniq</span>
+                                    {cardinalityRatio <= 5 && col.unique_count > 1 && (
+                                      <span className="text-[9px] font-medium text-[var(--status-success-text)] bg-[var(--status-success-bg)] px-1 rounded">low</span>
+                                    )}
+                                    {cardinalityRatio >= 95 && (
+                                      <span className="text-[9px] font-medium text-[var(--status-info-text)] bg-[var(--status-info-bg)] px-1 rounded">id</span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-3 px-2"><MiniDistribution col={col} /></td>
+                                <td className="py-3 px-2 text-right data-mono text-[var(--text-tertiary)]">{col.null_count}</td>
+                              </tr>
+                              {isExpanded && (
+                                <tr key={`${col.name}-expanded`} className="bg-[var(--bg-inset)]">
+                                  <td colSpan={6} className="px-5 py-4">
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                      {col.min !== undefined && col.min !== null && (
+                                        <div className="bg-[var(--bg-surface)] rounded-md p-3 shadow-[var(--shadow-xs)]">
+                                          <p className="section-label mb-1">Min</p>
+                                          <p className="data-mono text-sm font-semibold text-[var(--text-primary)] truncate">{String(col.min)}</p>
+                                        </div>
+                                      )}
+                                      {col.max !== undefined && col.max !== null && (
+                                        <div className="bg-[var(--bg-surface)] rounded-md p-3 shadow-[var(--shadow-xs)]">
+                                          <p className="section-label mb-1">Max</p>
+                                          <p className="data-mono text-sm font-semibold text-[var(--text-primary)] truncate">{String(col.max)}</p>
+                                        </div>
+                                      )}
+                                      {col.mean !== undefined && col.mean !== null && (
+                                        <div className="bg-[var(--bg-surface)] rounded-md p-3 shadow-[var(--shadow-xs)]">
+                                          <p className="section-label mb-1">Mean</p>
+                                          <p className="data-mono text-sm font-semibold text-[var(--text-primary)]">{col.mean.toFixed(2)}</p>
+                                        </div>
+                                      )}
+                                      {col.unique_count !== undefined && (
+                                        <div className="bg-[var(--bg-surface)] rounded-md p-3 shadow-[var(--shadow-xs)]">
+                                          <p className="section-label mb-1">Unique</p>
+                                          <p className="data-mono text-sm font-semibold text-[var(--text-primary)]">{col.unique_count.toLocaleString()}</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                    {col.sample_values?.length > 0 && (
+                                      <div className="mt-3">
+                                        <p className="section-label mb-2">Sample values</p>
+                                        <div className="flex flex-wrap gap-1.5">
+                                          {col.sample_values.slice(0, 8).map((v, i) => (
+                                            <span key={i} className="px-2 py-0.5 bg-[var(--bg-surface)] border border-[var(--border-default)] rounded text-[10px] data-mono text-[var(--text-secondary)]">
+                                              {String(v ?? 'null')}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Footer */}
+                {columns.length > 0 && (
+                  <div className="px-5 py-3 border-t border-[var(--border-subtle)] flex justify-between items-center">
+                    <span className="section-label">
+                      {filteredColumns.length < columns.length
+                        ? <><span className="text-[var(--accent-blue)]">{filteredColumns.length}</span> of {columns.length} variables</>
+                        : <>{columns.length} variable{columns.length !== 1 ? 's' : ''}</>
+                      }
+                    </span>
+                    <span className="data-mono text-[10px] text-[var(--text-tertiary)]">{versions.length} version{versions.length !== 1 ? 's' : ''}</span>
+                  </div>
                 )}
               </div>
+            </div>
 
-              <div className="space-y-6">
-                {activeVersionId && (
-                  <DataPortraitPanel datasetId={datasetId} projectId={projectId} versionId={activeVersionId} />
-                )}
-                <PortraitFingerprint datasetId={datasetId} projectId={projectId} versionId={activeVersionId} />
+            {/* ── Right: sidebar ────────────────────────────────────────────── */}
+            <div className="space-y-4">
 
-                <div className="bg-white rounded-xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
-                  <h3 className="font-manrope font-bold text-lg text-[#191c1e] mb-6">Version History</h3>
-                  {versions.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic">No versions yet.</p>
-                  ) : (
-                    <div className="space-y-5 relative before:content-[''] before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#f2f4f6]">
-                      {versions.slice(0, 5).map((v, idx) => {
-                        const isActive = v.id === activeVersionId
-                        const prevVersion = versions[idx + 1]
-                        const diff = versionDiff(v.schema_info ?? [], prevVersion?.schema_info)
+              {/* Completeness summary — click-through to quality page */}
+              {columns.length > 0 && (
+                <Link href={`/projects/${projectId}/data/${datasetId}/quality`} className="block">
+                  <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] shadow-[var(--shadow-xs)] px-5 py-4 hover:shadow-[var(--shadow-md)] hover:border-[var(--border-status-info)] transition-all cursor-pointer">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-xs font-semibold text-[var(--text-primary)]">Completeness</p>
+                      <ChevronRight className="h-3.5 w-3.5 text-[var(--text-tertiary)]" />
+                    </div>
+                    <div className="flex items-end gap-1 mb-3">
+                      <span className="data-mono text-2xl font-bold tabular-nums text-[var(--accent-blue)]">{integrityPct}%</span>
+                      <span className="text-xs text-[var(--text-tertiary)] mb-0.5">integrity</span>
+                    </div>
+                    {/* Mini bar per column (top 8) */}
+                    <div className="space-y-1.5">
+                      {columns.slice(0, 8).map(col => {
+                        const pct = rowCount > 0 ? ((rowCount - col.null_count) / rowCount) * 100 : 100
+                        const barColor = pct < 80 ? 'var(--status-error)' : pct < 95 ? 'var(--status-warning)' : 'var(--status-success)'
                         return (
-                          <div key={v.id} className="relative pl-10">
-                            <button
-                              onClick={() => handleVersionChange(v.id)}
-                              className={`absolute left-0 top-1 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ring-4 ring-white transition-colors ${
-                                isActive ? 'bg-[#003d9b] text-white' : 'bg-[#f2f4f6] text-slate-500 hover:bg-[#003d9b]/10'
-                              }`}
-                            >
-                              {versions.length - idx}
-                            </button>
-                            {isActive && <p className="text-[10px] font-bold text-[#003d9b] tracking-widest uppercase mb-0.5">Current</p>}
-                            <h4 className={`font-bold text-sm ${isActive ? 'text-[#191c1e]' : 'text-slate-600'}`}>
-                              v{v.version_number} — {v.commit_message || 'Initial upload'}
-                            </h4>
-                            <div className="flex items-center gap-3 mt-0.5">
-                              <p className="text-[10px] text-slate-400 font-mono">{fmtDateShort(v.created_at)}</p>
-                              {diff && (diff.added > 0 || diff.removed > 0) && (
-                                <div className="flex items-center gap-1.5">
-                                  {diff.added > 0 && <span className="text-[10px] font-bold text-emerald-600">+{diff.added} col{diff.added > 1 ? 's' : ''}</span>}
-                                  {diff.removed > 0 && <span className="text-[10px] font-bold text-red-500">−{diff.removed} col{diff.removed > 1 ? 's' : ''}</span>}
-                                </div>
-                              )}
+                          <div key={col.name} className="flex items-center gap-2">
+                            <span className="data-mono text-[9px] text-[var(--text-tertiary)] w-24 truncate shrink-0">{col.name}</span>
+                            <div className="flex-1 h-1 bg-[var(--bg-inset)] rounded-full overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: barColor }} />
                             </div>
+                            <span className="data-mono text-[9px] text-[var(--text-tertiary)] w-7 text-right shrink-0">{Math.round(pct)}%</span>
                           </div>
                         )
                       })}
-                    </div>
-                  )}
-                  <Link href={`/projects/${projectId}/data/${datasetId}/versions`}>
-                    <button className="mt-6 w-full py-2.5 bg-[#f2f4f6] rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors">
-                      View All Versions
-                    </button>
-                  </Link>
-                </div>
-
-                {activeVersion && (
-                  <ApprovalStatusCard
-                    datasetId={datasetId}
-                    datasetName={dataset?.name ?? datasetId}
-                    versionId={activeVersion.id}
-                    versionNumber={activeVersion.version_number}
-                    projectId={projectId}
-                  />
-                )}
-
-                <Link href={`/projects/${projectId}/data/${datasetId}/quality`} className="block">
-                  <div className="bg-white rounded-xl px-5 py-4 shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_24px_rgba(0,0,0,0.08)] transition-shadow cursor-pointer border border-transparent hover:border-blue-100">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2.5 bg-blue-50 rounded-lg shrink-0">
-                        <ShieldCheck className="h-4 w-4 text-blue-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-[#191c1e]">Data Quality Intelligence</p>
-                        <p className="text-xs text-slate-400 mt-1 leading-relaxed">DQI score, dimension breakdown &amp; enumerator metrics</p>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-slate-300 shrink-0" />
+                      {columns.length > 8 && (
+                        <p className="text-[9px] text-[var(--text-tertiary)] pt-0.5">+{columns.length - 8} more columns</p>
+                      )}
                     </div>
                   </div>
                 </Link>
+              )}
 
-                {duplicateReport && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 shadow-[0_2px_8px_rgba(217,119,6,0.08)]">
-                    <div className="flex items-start gap-3">
-                      <div className="p-2 bg-amber-100 rounded-lg shrink-0 mt-0.5">
-                        <Copy className="h-4 w-4 text-amber-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-manrope font-bold text-sm text-amber-900">Duplicate Records</h3>
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-800">
-                            {duplicateReport.duplicateGroups.length}
-                          </span>
-                        </div>
-                        <p className="text-xs text-amber-700 leading-relaxed">
-                          <span className="font-semibold">{duplicateReport.totalAffectedRows} records</span> share a duplicate{' '}
-                          <span className="font-mono font-semibold">{duplicateReport.idColumn}</span>{' '}
-                          ({duplicateReport.percentAffected.toFixed(1)}% of dataset).
-                          {duplicateReport.nearDuplicateGroups.length > 0 && (
-                            <> Also found <span className="font-semibold">{duplicateReport.nearDuplicateGroups.length} near-duplicate</span> ID pairs.</>
-                          )}
-                        </p>
-                        <button
-                          onClick={() => setShowDuplicateModal(true)}
-                          className="mt-3 w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors"
-                        >
-                          Review &amp; Resolve
-                        </button>
-                      </div>
+              {/* Quality Intelligence */}
+              <Link href={`/projects/${projectId}/data/${datasetId}/quality`} className="block">
+                <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] shadow-[var(--shadow-xs)] px-5 py-4 hover:shadow-[var(--shadow-md)] hover:border-[var(--border-status-info)] transition-all cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-[var(--status-info-bg)] rounded-md shrink-0">
+                      <ShieldCheck className="h-4 w-4 text-[var(--status-info-text)]" />
                     </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">Data Quality Intelligence</p>
+                      <p className="text-xs text-[var(--text-tertiary)] mt-0.5">DQI score, dimensions &amp; enumerator metrics</p>
+                    </div>
+                    <ChevronRight className="h-3.5 w-3.5 text-[var(--text-tertiary)] shrink-0" />
+                  </div>
+                </div>
+              </Link>
+
+              {/* Duplicate records alert */}
+              {duplicateReport && (
+                <div className="bg-[var(--status-warning-bg)] border border-[var(--border-status-warning)] rounded-lg p-4 shadow-[var(--shadow-xs)]">
+                  <div className="flex items-start gap-3">
+                    <div className="p-1.5 bg-amber-100 rounded-md shrink-0 mt-0.5">
+                      <Copy className="h-3.5 w-3.5 text-[var(--status-warning-text)]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-xs font-semibold text-[var(--status-warning-text)]">Duplicate Records</p>
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-800">
+                          {duplicateReport.duplicateGroups.length}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[var(--status-warning-text)] leading-relaxed">
+                        <span className="font-semibold">{duplicateReport.totalAffectedRows} records</span> share a duplicate{' '}
+                        <span className="data-mono font-semibold">{duplicateReport.idColumn}</span>{' '}
+                        ({duplicateReport.percentAffected.toFixed(1)}% of dataset).
+                      </p>
+                      <button
+                        onClick={() => setShowDuplicateModal(true)}
+                        className="mt-2.5 w-full py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-xs font-semibold transition-colors"
+                      >
+                        Review &amp; Resolve
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Version history */}
+              <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] shadow-[var(--shadow-xs)] p-5">
+                <h3 className="text-xs font-semibold text-[var(--text-primary)] mb-4">Version History</h3>
+                {versions.length === 0 ? (
+                  <p className="text-xs text-[var(--text-tertiary)] italic">No versions yet.</p>
+                ) : (
+                  <div className="space-y-4 relative before:content-[''] before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-px before:bg-[var(--border-subtle)]">
+                    {versions.slice(0, 5).map((v, idx) => {
+                      const isActive = v.id === activeVersionId
+                      const prevVersion = versions[idx + 1]
+                      const diff = versionDiff(v.schema_info ?? [], prevVersion?.schema_info)
+                      return (
+                        <div key={v.id} className="relative pl-8">
+                          <button
+                            onClick={() => handleVersionChange(v.id)}
+                            className={`absolute left-0 top-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ring-2 ring-[var(--bg-surface)] transition-colors ${
+                              isActive
+                                ? 'bg-[var(--accent-blue)] text-white'
+                                : 'bg-[var(--bg-inset)] text-[var(--text-tertiary)] hover:bg-[var(--accent-blue-subtle)] hover:text-[var(--accent-blue)]'
+                            }`}
+                          >
+                            {versions.length - idx}
+                          </button>
+                          {isActive && <p className="section-label text-[var(--accent-blue)] mb-0.5">Current</p>}
+                          <p className={`text-xs font-semibold truncate ${isActive ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
+                            v{v.version_number} — {v.commit_message || 'Initial upload'}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <p className="data-mono text-[10px] text-[var(--text-tertiary)]">{fmtDateShort(v.created_at)}</p>
+                            {diff && (diff.added > 0 || diff.removed > 0) && (
+                              <div className="flex items-center gap-1">
+                                {diff.added > 0 && <span className="text-[10px] font-semibold text-[var(--status-success-text)]">+{diff.added}</span>}
+                                {diff.removed > 0 && <span className="text-[10px] font-semibold text-[var(--status-error-text)]">−{diff.removed}</span>}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
+                <Link href={`/projects/${projectId}/data/${datasetId}/versions`}>
+                  <button className="mt-4 w-full py-2 bg-[var(--bg-inset)] rounded-md text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-surface-active)] transition-colors">
+                    View all versions
+                  </button>
+                </Link>
+              </div>
 
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center px-1">
-                    <h3 className="font-manrope font-bold text-lg text-[#191c1e]">Saved Explorations</h3>
-                    <Link href={`/projects/${projectId}/data/${datasetId}/explore`}>
-                      <button className="flex items-center gap-1 text-xs font-semibold text-[#003d9b] hover:text-[#0052cc] transition-colors">
-                        <Plus className="h-3.5 w-3.5" />New
-                      </button>
-                    </Link>
+              {/* Approval status */}
+              {activeVersion && (
+                <ApprovalStatusCard
+                  datasetId={datasetId}
+                  datasetName={dataset?.name ?? datasetId}
+                  versionId={activeVersion.id}
+                  versionNumber={activeVersion.version_number}
+                  projectId={projectId}
+                />
+              )}
+
+              {/* Saved explorations preview */}
+              <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] shadow-[var(--shadow-xs)] p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-xs font-semibold text-[var(--text-primary)]">Explorations</h3>
+                  <Link href={`/projects/${projectId}/data/${datasetId}/explore`}>
+                    <button className="flex items-center gap-1 text-xs font-medium text-[var(--accent-blue)] hover:opacity-80 transition-opacity">
+                      <Plus className="h-3 w-3" />New
+                    </button>
+                  </Link>
+                </div>
+                {chartsLoading ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="h-4 w-4 animate-spin text-[var(--text-tertiary)]" />
                   </div>
-                  {chartsLoading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-5 w-5 animate-spin text-slate-300" />
-                    </div>
-                  ) : savedCharts.length === 0 ? (
-                    <ExplorationEmptyCard href={`/projects/${projectId}/data/${datasetId}/explore`} />
-                  ) : (
-                    <>
-                      {savedCharts.slice(0, 4).map(chart => {
-                        const meta = CHART_META[chart.chart_type] ?? { label: chart.chart_type, icon: <BarChart2 size={14} />, color: 'bg-white/10 text-white/80' }
-                        return (
-                          <div key={chart.id} className="bg-gradient-to-br from-[#003d9b] to-[#0052cc] rounded-xl overflow-hidden shadow-lg shadow-[#003d9b]/20 hover:-translate-y-0.5 transition-all duration-200">
-                            <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-2">
-                              <div className="min-w-0 flex-1">
-                                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/15 text-white/80 mb-2">
-                                  {meta.icon}{meta.label}
-                                </span>
-                                <h4 className="text-xs font-bold text-white truncate">{chart.title}</h4>
-                                <p className="text-[10px] text-white/40 mt-0.5">{fmtDate(chart.created_at)}</p>
-                              </div>
-                              <div className="flex items-center gap-0.5 shrink-0 mt-0.5">
-                                <Link href={`/projects/${projectId}/data/${datasetId}/explore?load=${chart.id}`}>
-                                  <button className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors">
-                                    <ExternalLink size={11} />
-                                  </button>
-                                </Link>
-                                <button
-                                  onClick={() => handleDeleteChart(chart.id)}
-                                  disabled={deletingId === chart.id}
-                                  className="p-1.5 rounded-lg text-white/30 hover:text-red-300 hover:bg-white/10 transition-colors"
-                                >
-                                  {deletingId === chart.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
-                                </button>
-                              </div>
-                            </div>
+                ) : savedCharts.length === 0 ? (
+                  <ExplorationEmptyCard href={`/projects/${projectId}/data/${datasetId}/explore`} />
+                ) : (
+                  <div className="space-y-2">
+                    {savedCharts.slice(0, 3).map(chart => {
+                      const meta = CHART_META[chart.chart_type] ?? { label: chart.chart_type, icon: <BarChart2 size={12} />, color: '' }
+                      return (
+                        <div key={chart.id} className="group flex items-center gap-2.5 px-3 py-2 rounded-md hover:bg-[var(--bg-row-hover)] transition-colors">
+                          <span className="text-[var(--text-tertiary)] shrink-0">{meta.icon}</span>
+                          <span className="flex-1 text-xs font-medium text-[var(--text-secondary)] truncate">{chart.title}</span>
+                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                            <Link href={`/projects/${projectId}/data/${datasetId}/explore?load=${chart.id}`}>
+                              <button className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-active)] transition-colors">
+                                <ExternalLink size={11} />
+                              </button>
+                            </Link>
+                            <button
+                              onClick={() => handleDeleteChart(chart.id)}
+                              disabled={deletingId === chart.id}
+                              className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--status-error)] hover:bg-[var(--status-error-bg)] transition-colors"
+                            >
+                              {deletingId === chart.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                            </button>
                           </div>
-                        )
-                      })}
-                      {savedCharts.length > 4 && (
-                        <button
-                          onClick={() => setActiveTab('charts')}
-                          className="w-full py-2.5 bg-white rounded-xl text-xs font-bold text-slate-500 hover:text-[#003d9b] transition-colors shadow-[0_4px_20px_rgba(0,0,0,0.04)]"
-                        >
-                          View all {savedCharts.length} explorations →
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
+                        </div>
+                      )
+                    })}
+                    {savedCharts.length > 3 && (
+                      <button
+                        onClick={() => setActiveTab('charts')}
+                        className="w-full pt-2 text-xs font-medium text-[var(--text-tertiary)] hover:text-[var(--accent-blue)] transition-colors text-center"
+                      >
+                        View all {savedCharts.length} explorations →
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
-
-            <div className="mt-8">
-              <AnalysisTimeline datasetId={datasetId} />
-            </div>
-
-            {columns.length > 0 && (
-              <div className="mt-8 bg-gradient-to-br from-[#003d9b] to-[#0046b0] rounded-xl p-8 shadow-lg shadow-[#003d9b]/25">
-                <div className="flex justify-between items-start mb-7">
-                  <div>
-                    <h3 className="font-manrope font-bold text-lg text-white">Completeness Profile</h3>
-                    <p className="text-[10px] text-white/50 mt-0.5">Per-column data completeness · filter and sort below</p>
-                  </div>
-                  <div className="flex items-center gap-5 text-[10px] font-bold uppercase tracking-wider shrink-0">
-                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-red-400" /><span className="text-white/50">&lt; 80%</span></div>
-                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-amber-400" /><span className="text-white/50">&lt; 95%</span></div>
-                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-white/60" /><span className="text-white/50">Complete</span></div>
-                  </div>
-                </div>
-                <CompletenessChart columns={columns} rowCount={rowCount} />
-              </div>
-            )}
-          </>
+          </div>
         )}
 
         {/* ════ RAW DATA TAB ════ */}
@@ -991,6 +920,54 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink }: Datas
                 <p className="text-sm text-slate-400">No data available for this version.</p>
               </div>
             ) : null}
+          </div>
+        )}
+
+        {/* ════ ANALYSIS TAB ════ */}
+        {activeTab === 'analysis' && (
+          <div className="space-y-8">
+
+            {/* Analysis Timeline — full width */}
+            <AnalysisTimeline datasetId={datasetId} />
+
+            {/* DAG Builder — full width, needs room */}
+            {activeVersionId && columns.length > 0 && (
+              <DAGBuilderPanel
+                projectId={projectId}
+                datasetId={datasetId}
+                versionId={activeVersionId}
+                availableVariables={columns.map(c => c.name)}
+              />
+            )}
+
+            {/* Portrait + Fingerprint — side by side */}
+            {activeVersionId && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                <DataPortraitPanel
+                  datasetId={datasetId}
+                  projectId={projectId}
+                  versionId={activeVersionId}
+                />
+                <PortraitFingerprint
+                  datasetId={datasetId}
+                  projectId={projectId}
+                  versionId={activeVersionId}
+                />
+              </div>
+            )}
+
+            {/* Empty state when no version loaded yet */}
+            {!activeVersionId && (
+              <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
+                <div className="w-10 h-10 rounded-xl bg-[var(--bg-inset)] flex items-center justify-center">
+                  <BarChart2 className="h-5 w-5 text-[var(--text-tertiary)]" />
+                </div>
+                <p className="text-sm font-semibold text-[var(--text-secondary)]">No version loaded</p>
+                <p className="text-xs text-[var(--text-tertiary)] max-w-xs">
+                  Select a version to view analysis tools.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
