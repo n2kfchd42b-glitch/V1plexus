@@ -219,6 +219,17 @@ export default function ProjectDataPage() {
                 </motion.div>
               )}
             </div>
+
+            {/* Import button — pinned to panel bottom */}
+            <div className="shrink-0 px-3 py-3 border-t border-[var(--border-subtle)]">
+              <button
+                onClick={() => setShowUpload(true)}
+                className="w-full flex items-center justify-center gap-2 py-2 rounded-md bg-[var(--accent-blue)] text-[var(--text-inverse)] text-xs font-semibold hover:opacity-90 transition-opacity"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                Import Dataset
+              </button>
+            </div>
           </>
         ) : (
           /* ── Collapsed strip ── */

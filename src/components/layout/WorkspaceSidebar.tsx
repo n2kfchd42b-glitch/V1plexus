@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   FolderOpen, LogOut, ChevronLeft, ChevronRight, Command,
-  LayoutDashboard, Database, BarChart2, Clock, FileText, Settings,
+  LayoutDashboard, Database, BarChart2, Clock, BookOpen, FileText, Settings,
 } from 'lucide-react'
 import { BrandLogo } from '@/components/layout/BrandLogo'
 import { cn, getInitials } from '@/lib/utils'
@@ -18,12 +18,13 @@ interface WorkspaceSidebarProps {
 }
 
 const PROJECT_TABS = [
-  { slug: 'overview',  label: 'Overview',  icon: LayoutDashboard },
-  { slug: 'data',      label: 'Data',      icon: Database        },
-  { slug: 'analysis',  label: 'Analysis',  icon: BarChart2       },
-  { slug: 'timeline',  label: 'Timeline',  icon: Clock           },
-  { slug: 'report',    label: 'Report',    icon: FileText        },
-  { slug: 'settings',  label: 'Settings',  icon: Settings        },
+  { slug: 'overview',   label: 'Overview',   icon: LayoutDashboard },
+  { slug: 'data',       label: 'Data',       icon: Database        },
+  { slug: 'analysis',   label: 'Analysis',   icon: BarChart2       },
+  { slug: 'timeline',   label: 'Timeline',   icon: Clock           },
+  { slug: 'documents',  label: 'Documents',  icon: BookOpen        },
+  { slug: 'report',     label: 'Report',     icon: FileText        },
+  { slug: 'settings',   label: 'Settings',   icon: Settings        },
 ]
 
 export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: WorkspaceSidebarProps) {
