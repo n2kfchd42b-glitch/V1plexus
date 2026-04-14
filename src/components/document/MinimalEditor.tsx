@@ -84,8 +84,10 @@ interface MinimalEditorProps {
   onTitleSave?: (title: string) => void
   triggerSaveRef?: { current: (() => Promise<void>) | null }
   insertContentRef?: { current: ((html: string) => void) | null }
+  closeEditorPanelRef?: { current: (() => void) | null }
   readOnly?: boolean
   onFocusModeChange?: (active: boolean) => void
+  onEditorPanelOpen?: () => void
 }
 
 export function MinimalEditor({
@@ -97,8 +99,10 @@ export function MinimalEditor({
   onTitleSave,
   triggerSaveRef,
   insertContentRef,
+  closeEditorPanelRef,
   readOnly = false,
   onFocusModeChange,
+  onEditorPanelOpen,
 }: MinimalEditorProps) {
   const [title, setTitle] = useState(initialTitle)
   const [titleFocused, setTitleFocused] = useState(false)
@@ -243,9 +247,19 @@ export function MinimalEditor({
   }, [editor, citationStyle])
 
   const toggleRightPanel = (panel: RightPanel) => {
-    setRightPanel(p => p === panel ? null : panel)
+    setRightPanel(p => {
+      const next = p === panel ? null : panel
+      if (next !== null) onEditorPanelOpen?.()
+      return next
+    })
     setOutlineOpen(false)
   }
+
+  useEffect(() => {
+    if (!closeEditorPanelRef) return
+    closeEditorPanelRef.current = () => setRightPanel(null)
+    return () => { closeEditorPanelRef.current = null }
+  }, [closeEditorPanelRef])
 
   return (
     <div className="flex h-full bg-bg-app overflow-hidden">
@@ -455,7 +469,7 @@ export function MinimalEditor({
 
       {/* ── Minimal footer ──────────────────────────────────────────────── */}
       {!focusMode && (
-        <footer className="fixed bottom-6 right-14 z-40 flex items-center gap-3 text-text-tertiary text-[10px] font-manrope uppercase tracking-widest pointer-events-none">
+        <footer className="absolute bottom-6 right-4 z-40 flex items-center gap-3 text-text-tertiary text-[10px] font-manrope uppercase tracking-widest pointer-events-none">
           <span>{wordCount.toLocaleString()} words</span>
           <span className="w-[3px] h-[3px] rounded-full bg-border-default" />
           <span>{readingTime(wordCount)} read</span>

@@ -35,7 +35,6 @@ import { DocumentSecurityPanel } from '@/components/document/DocumentSecurityPan
 // ── Pillar 6 ──────────────────────────────────────────────────────────────────
 import { TranslationPanel } from '@/components/document/TranslationPanel'
 
-import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -50,7 +49,6 @@ export default function DocumentPage() {
   const router = useRouter()
   const projectId = params.id as string
   const docId = params.docId as string
-  useAuth()
   const [document, setDocument] = useState<Document | null>(null)
   const [deleteState, setDeleteState] = useState<DeleteState>('idle')
   const [rightPanel, setRightPanel] = useState<RightPanel>(null)
@@ -60,6 +58,7 @@ export default function DocumentPage() {
 
   const triggerSaveRef = useRef<(() => Promise<void>) | null>(null)
   const insertContentRef = useRef<((html: string) => void) | null>(null)
+  const closeEditorPanelRef = useRef<(() => void) | null>(null)
 
   const supabase = createClient()
 
@@ -115,8 +114,13 @@ export default function DocumentPage() {
     }
   }
 
-  const togglePanel = (panel: RightPanel) =>
-    setRightPanel(prev => (prev === panel ? null : panel))
+  const togglePanel = (panel: RightPanel) => {
+    setRightPanel(prev => {
+      const next = prev === panel ? null : panel
+      if (next !== null) closeEditorPanelRef.current?.()
+      return next
+    })
+  }
 
   if (!document) {
     return (
@@ -133,6 +137,7 @@ export default function DocumentPage() {
       <DocumentListPanel
         projectId={projectId}
         selectedDocId={docId}
+        activeDocTitle={document.title}
         triggerSaveRef={triggerSaveRef}
       />
 
@@ -273,8 +278,10 @@ export default function DocumentPage() {
             onTitleSave={handleTitleSave}
             triggerSaveRef={triggerSaveRef}
             insertContentRef={insertContentRef}
+            closeEditorPanelRef={closeEditorPanelRef}
             readOnly={false}
             onFocusModeChange={setFocusMode}
+            onEditorPanelOpen={() => setRightPanel(null)}
           />
         </div>
 

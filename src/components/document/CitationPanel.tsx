@@ -159,7 +159,7 @@ export function CitationPanel({ citations, style, onStyleChange, onInsert, onRem
             className={cn(
               'flex-1 py-2.5 text-xs font-medium transition-colors capitalize',
               section === s
-                ? 'text-[var(--color-clinical-blue)] border-b-2 border-[var(--color-clinical-blue)] -mb-px bg-white'
+                ? 'text-[var(--accent-blue)] border-b-2 border-[var(--accent-blue)] -mb-px bg-white'
                 : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             )}
           >
@@ -183,7 +183,7 @@ export function CitationPanel({ citations, style, onStyleChange, onInsert, onRem
                 className={cn(
                   'flex items-center gap-1 px-2 py-2 text-[11px] font-medium border-b-2 transition-all',
                   tab === key
-                    ? 'border-[var(--color-clinical-blue)] text-[var(--color-clinical-blue)]'
+                    ? 'border-[var(--accent-blue)] text-[var(--accent-blue)]'
                     : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 )}
               >
@@ -232,7 +232,7 @@ export function CitationPanel({ citations, style, onStyleChange, onInsert, onRem
                       </div>
                       <button
                         onClick={() => onInsert(c)}
-                        className="shrink-0 flex items-center gap-1 text-[11px] font-medium text-white bg-[var(--color-clinical-blue)] hover:bg-[var(--color-clinical-deep)] px-2 py-1 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                        className="shrink-0 flex items-center gap-1 text-[11px] font-medium text-white bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] px-2 py-1 rounded-md transition-colors opacity-0 group-hover:opacity-100"
                       >
                         <Plus className="h-3 w-3" />
                         Cite
@@ -259,7 +259,7 @@ export function CitationPanel({ citations, style, onStyleChange, onInsert, onRem
                   <button
                     onClick={fetchByDoi}
                     disabled={loading}
-                    className="flex items-center gap-1 text-xs font-medium text-white bg-[var(--color-clinical-blue)] hover:bg-[var(--color-clinical-deep)] px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
+                    className="flex items-center gap-1 text-xs font-medium text-white bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
                   >
                     {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
                     Add
@@ -282,7 +282,7 @@ export function CitationPanel({ citations, style, onStyleChange, onInsert, onRem
                 />
                 <button
                   onClick={parseBibtex}
-                  className="flex items-center gap-1.5 text-xs font-medium text-white bg-[var(--color-clinical-blue)] hover:bg-[var(--color-clinical-deep)] px-3 py-1.5 rounded-lg transition-colors"
+                  className="flex items-center gap-1.5 text-xs font-medium text-white bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] px-3 py-1.5 rounded-lg transition-colors"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   Import
@@ -330,7 +330,7 @@ export function CitationPanel({ citations, style, onStyleChange, onInsert, onRem
                 {citations.map((c, i) => (
                   <li key={i} className="group px-3 py-2.5 hover:bg-[var(--bg-app)] transition-colors">
                     <div className="flex items-start gap-2">
-                      <span className="text-[11px] font-bold text-[var(--color-clinical-blue)] shrink-0 mt-0.5 w-4 text-right">
+                      <span className="text-[11px] font-bold text-[var(--accent-blue)] shrink-0 mt-0.5 w-4 text-right">
                         {formatInlineCitation(c, style, i + 1)}
                       </span>
                       <div className="flex-1 min-w-0">

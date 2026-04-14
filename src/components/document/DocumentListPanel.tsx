@@ -36,12 +36,14 @@ const STATUS_DOT: Record<string, string> = {
 interface DocumentListPanelProps {
   projectId: string
   selectedDocId: string
+  activeDocTitle?: string
   triggerSaveRef?: { current: (() => Promise<void>) | null }
 }
 
 export function DocumentListPanel({
   projectId,
   selectedDocId,
+  activeDocTitle,
   triggerSaveRef,
 }: DocumentListPanelProps) {
   const router = useRouter()
@@ -296,7 +298,7 @@ export function DocumentListPanel({
                           'text-[12px] font-medium leading-snug truncate',
                           isSelected ? 'text-accent-blue' : 'text-text-primary'
                         )}>
-                          {doc.title || 'Untitled'}
+                          {(isSelected && activeDocTitle) ? activeDocTitle : (doc.title || 'Untitled')}
                         </p>
                         <p className="text-[10px] text-text-tertiary mt-0.5 truncate">
                           {formatRelativeTime(doc.updated_at)}
