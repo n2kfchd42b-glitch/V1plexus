@@ -45,6 +45,32 @@ function extractText(node: Record<string, unknown>): string {
   return text
 }
 
+function extractCitationsFromContent(content: Record<string, unknown> | null | undefined): CslCitation[] {
+  const found: Array<{ num: number; citation: CslCitation }> = []
+  function walk(node: Record<string, unknown>) {
+    if (node.type === 'citation') {
+      const attrs = node.attrs as Record<string, unknown> | undefined
+      if (attrs?.citationData) {
+        try {
+          const citation = JSON.parse(attrs.citationData as string) as CslCitation
+          found.push({ num: (attrs.num as number) ?? found.length + 1, citation })
+        } catch { /* skip malformed */ }
+      }
+    }
+    if (Array.isArray(node.content)) {
+      for (const child of node.content as Record<string, unknown>[]) walk(child)
+    }
+  }
+  if (content) walk(content)
+  const seen = new Set<string>()
+  const unique: CslCitation[] = []
+  for (const { citation } of found.sort((a, b) => a.num - b.num)) {
+    const key = citation.DOI ?? citation.title
+    if (!seen.has(key)) { seen.add(key); unique.push(citation) }
+  }
+  return unique
+}
+
 function readingTime(words: number): string {
   return `${Math.max(1, Math.round(words / 200))} min`
 }
@@ -84,7 +110,7 @@ export function MinimalEditor({
   const [outlineCollapsed, setOutlineCollapsed] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
   const [showGenerateModal, setShowGenerateModal] = useState(false)
-  const [citations, setCitations] = useState<CslCitation[]>([])
+  const [citations, setCitations] = useState<CslCitation[]>(() => extractCitationsFromContent(initialContent))
   const [citationStyle, setCitationStyle] = useState<ReferenceStyle>('vancouver')
 
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
