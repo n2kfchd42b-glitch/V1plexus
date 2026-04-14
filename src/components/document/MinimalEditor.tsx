@@ -208,39 +208,16 @@ export function MinimalEditor({
     })
   }, [editor, citationStyle])
 
-  const toggleRightPanel = (panel: RightPanel) =>
+  const toggleRightPanel = (panel: RightPanel) => {
     setRightPanel(p => p === panel ? null : panel)
+    setOutlineOpen(false)
+  }
 
   return (
     <div className="flex h-full bg-bg-app overflow-hidden">
 
-      {/* ── Outline sidebar ─────────────────────────────────────────────── */}
-      {outlineOpen && !focusMode && (
-        <DocumentOutline
-          editor={editor}
-          collapsed={outlineCollapsed}
-          onToggle={() => setOutlineCollapsed(p => !p)}
-        />
-      )}
-
       {/* ── Writing area ────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto relative min-w-0">
-
-        {/* Outline toggle — left gutter button */}
-        {!focusMode && (
-          <button
-            onClick={() => setOutlineOpen(p => !p)}
-            className={cn(
-              'fixed left-6 top-1/2 -translate-y-1/2 z-30 hidden lg:flex flex-col gap-[5px] py-2 px-1 rounded transition-colors group',
-              outlineOpen ? 'text-accent-blue' : 'text-text-tertiary/40 hover:text-text-secondary'
-            )}
-            title="Toggle outline (⌘\\)"
-          >
-            <div className={cn('h-[1.5px] rounded-full transition-all bg-current', outlineOpen ? 'w-4' : 'w-4')} />
-            <div className={cn('h-[1.5px] rounded-full transition-all bg-current', outlineOpen ? 'w-4' : 'w-3')} />
-            <div className={cn('h-[1.5px] rounded-full transition-all bg-current', outlineOpen ? 'w-4' : 'w-2')} />
-          </button>
-        )}
 
         <main className={cn('pb-48 px-6', focusMode ? 'pt-16' : 'pt-28')}>
           <div className="max-w-[720px] mx-auto relative">
@@ -328,6 +305,15 @@ export function MinimalEditor({
         )}
       </div>
 
+      {/* ── Outline sidebar — right side ────────────────────────────────── */}
+      {outlineOpen && !focusMode && (
+        <DocumentOutline
+          editor={editor}
+          collapsed={outlineCollapsed}
+          onToggle={() => setOutlineCollapsed(p => !p)}
+        />
+      )}
+
       {/* ── Right strip + panels ─────────────────────────────────────────── */}
       {!focusMode && (
         rightPanel ? (
@@ -405,7 +391,10 @@ export function MinimalEditor({
             <div className="flex-1" />
 
             <button
-              onClick={() => setOutlineOpen(p => !p)}
+              onClick={() => {
+                setOutlineOpen(p => !p)
+                setRightPanel(null)
+              }}
               className={cn(
                 'h-7 w-7 flex items-center justify-center rounded transition-colors',
                 outlineOpen ? 'text-accent-blue bg-accent-blue-subtle' : 'text-text-tertiary/50 hover:text-text-primary hover:bg-bg-surface-hover'
