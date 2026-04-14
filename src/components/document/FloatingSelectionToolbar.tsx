@@ -21,6 +21,7 @@ export function FloatingSelectionToolbar({ editor, onInsertCitation, onAddCommen
   const [position, setPosition] = useState<ToolbarPosition>({ top: 0, left: 0 })
   const [aiLoading, setAiLoading] = useState<string | null>(null)
   const toolbarRef = useRef<HTMLDivElement>(null)
+  const isPointerDownRef = useRef(false)
 
   const updatePosition = useCallback(() => {
     if (!editor) return
@@ -32,26 +33,61 @@ export function FloatingSelectionToolbar({ editor, onInsertCitation, onAddCommen
     const editorRect = editor.view.dom.getBoundingClientRect()
 
     const midX = (domFrom.left + domTo.left) / 2 - editorRect.left
-    const top = domFrom.top - editorRect.top - 44
+    const top = domFrom.top - editorRect.top - 48
 
     setPosition({
       top: Math.max(4, top),
-      left: Math.min(Math.max(0, midX - 140), editorRect.width - 280),
+      left: Math.min(Math.max(0, midX - 160), editorRect.width - 320),
     })
     setVisible(true)
   }, [editor])
 
   useEffect(() => {
     if (!editor) return
-    const handler = () => {
-      const { empty } = editor.state.selection
-      if (empty) { setVisible(false) } else { updatePosition() }
+
+    const editorEl = editor.view.dom
+
+    // Track pointer state — only show toolbar after pointer is released
+    const onPointerDown = () => { isPointerDownRef.current = true }
+    const onPointerUp = () => {
+      isPointerDownRef.current = false
+      // Small delay lets the selection finalize
+      setTimeout(() => {
+        const { empty } = editor.state.selection
+        if (!empty) updatePosition()
+      }, 30)
     }
-    editor.on('selectionUpdate', handler)
-    editor.on('blur', () => setTimeout(() => {
-      if (!toolbarRef.current?.contains(document.activeElement)) setVisible(false)
-    }, 150))
-    return () => { editor.off('selectionUpdate', handler) }
+
+    // Keyboard selection (Shift+Arrow) — show immediately since no pointer drag
+    const onSelectionUpdate = () => {
+      const { empty } = editor.state.selection
+      if (empty) {
+        setVisible(false)
+        return
+      }
+      // Only auto-show for keyboard selections (not mouse drag)
+      if (!isPointerDownRef.current) updatePosition()
+    }
+
+    const onBlur = () => {
+      setTimeout(() => {
+        if (!toolbarRef.current?.contains(document.activeElement)) {
+          setVisible(false)
+        }
+      }, 150)
+    }
+
+    editorEl.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('pointerup', onPointerUp)
+    editor.on('selectionUpdate', onSelectionUpdate)
+    editor.on('blur', onBlur)
+
+    return () => {
+      editorEl.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('pointerup', onPointerUp)
+      editor.off('selectionUpdate', onSelectionUpdate)
+      editor.off('blur', onBlur)
+    }
   }, [editor, updatePosition])
 
   async function handleAiAction(action: 'rephrase' | 'shorten' | 'expand') {
@@ -90,84 +126,113 @@ export function FloatingSelectionToolbar({ editor, onInsertCitation, onAddCommen
 
   if (!visible || !editor) return null
 
-  const isLinkActive = editor.isActive('link')
-
   const setLink = () => {
     const url = window.prompt('URL', editor.getAttributes('link').href ?? '')
     if (url === null) return
-    if (url === '') {
-      editor.chain().focus().unsetLink().run()
-    } else {
-      editor.chain().focus().setLink({ href: url }).run()
-    }
+    if (url === '') editor.chain().focus().unsetLink().run()
+    else editor.chain().focus().setLink({ href: url }).run()
     setVisible(false)
   }
+
+  const isH1 = editor.isActive('heading', { level: 1 })
+  const isH2 = editor.isActive('heading', { level: 2 })
+  const isH3 = editor.isActive('heading', { level: 3 })
+  const isParagraph = !isH1 && !isH2 && !isH3
 
   return (
     <div
       ref={toolbarRef}
-      className="absolute z-40 flex items-center gap-0.5 bg-[#18181B] rounded-lg px-1.5 py-1 shadow-xl border border-white/10"
+      className="absolute z-40 flex items-center gap-0.5 bg-[#18181B] rounded-lg px-1.5 py-1 shadow-xl"
       style={{ top: position.top, left: position.left }}
       onMouseDown={e => e.preventDefault()}
     >
-      {/* Formatting */}
+      {/* Block type — ¶ H1 H2 H3 */}
+      <button
+        onClick={() => editor.chain().focus().setParagraph().run()}
+        className={cn('h-7 w-7 flex items-center justify-center rounded text-[11px] font-bold transition-colors',
+          isParagraph ? 'bg-white/20 text-white' : 'text-white/50 hover:text-white hover:bg-white/10')}
+        title="Paragraph"
+      >¶</button>
+      <button
+        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        className={cn('h-7 w-7 flex items-center justify-center rounded text-[11px] font-bold transition-colors',
+          isH1 ? 'bg-white/20 text-white' : 'text-white/50 hover:text-white hover:bg-white/10')}
+        title="Heading 1"
+      >H1</button>
+      <button
+        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        className={cn('h-7 w-7 flex items-center justify-center rounded text-[11px] font-bold transition-colors',
+          isH2 ? 'bg-white/20 text-white' : 'text-white/50 hover:text-white hover:bg-white/10')}
+        title="Heading 2"
+      >H2</button>
+      <button
+        onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+        className={cn('h-7 w-7 flex items-center justify-center rounded text-[11px] font-bold transition-colors',
+          isH3 ? 'bg-white/20 text-white' : 'text-white/50 hover:text-white hover:bg-white/10')}
+        title="Heading 3"
+      >H3</button>
+
+      <div className="h-4 w-px bg-white/15 mx-0.5" />
+
+      {/* Inline formatting */}
       <button
         onClick={() => editor.chain().focus().toggleBold().run()}
-        className={cn('h-7 w-7 flex items-center justify-center rounded text-white/80 hover:text-white hover:bg-white/10 transition-colors', editor.isActive('bold') && 'bg-white/20 text-white')}
-        title="Bold"
+        className={cn('h-7 w-7 flex items-center justify-center rounded text-white/80 hover:text-white hover:bg-white/10 transition-colors',
+          editor.isActive('bold') && 'bg-white/20 text-white')}
+        title="Bold (⌘B)"
       >
         <Bold className="h-3.5 w-3.5" />
       </button>
       <button
         onClick={() => editor.chain().focus().toggleItalic().run()}
-        className={cn('h-7 w-7 flex items-center justify-center rounded text-white/80 hover:text-white hover:bg-white/10 transition-colors', editor.isActive('italic') && 'bg-white/20 text-white')}
-        title="Italic"
+        className={cn('h-7 w-7 flex items-center justify-center rounded text-white/80 hover:text-white hover:bg-white/10 transition-colors',
+          editor.isActive('italic') && 'bg-white/20 text-white')}
+        title="Italic (⌘I)"
       >
         <Italic className="h-3.5 w-3.5" />
       </button>
       <button
         onClick={() => editor.chain().focus().toggleUnderline().run()}
-        className={cn('h-7 w-7 flex items-center justify-center rounded text-white/80 hover:text-white hover:bg-white/10 transition-colors', editor.isActive('underline') && 'bg-white/20 text-white')}
-        title="Underline"
+        className={cn('h-7 w-7 flex items-center justify-center rounded text-white/80 hover:text-white hover:bg-white/10 transition-colors',
+          editor.isActive('underline') && 'bg-white/20 text-white')}
+        title="Underline (⌘U)"
       >
         <Underline className="h-3.5 w-3.5" />
       </button>
       <button
         onClick={setLink}
-        className={cn('h-7 w-7 flex items-center justify-center rounded text-white/80 hover:text-white hover:bg-white/10 transition-colors', isLinkActive && 'bg-white/20 text-white')}
+        className={cn('h-7 w-7 flex items-center justify-center rounded text-white/80 hover:text-white hover:bg-white/10 transition-colors',
+          editor.isActive('link') && 'bg-white/20 text-white')}
         title="Link"
       >
         <LinkIcon className="h-3.5 w-3.5" />
       </button>
 
-      {/* Divider */}
-      <div className="h-4 w-px bg-white/20 mx-1" />
+      <div className="h-4 w-px bg-white/15 mx-0.5" />
 
       {/* Citation */}
       {onInsertCitation && (
         <button
           onClick={() => { onInsertCitation(); setVisible(false) }}
-          className="h-7 flex items-center gap-1 px-2 rounded text-white/80 hover:text-white hover:bg-white/10 transition-colors text-[11px] font-medium"
-          title="Insert citation at cursor"
+          className="h-7 flex items-center gap-1 px-2 rounded text-white/70 hover:text-white hover:bg-white/10 transition-colors text-[11px] font-medium"
+          title="Insert citation"
         >
           <BookOpen className="h-3.5 w-3.5" />
           Cite
         </button>
       )}
 
-      {/* Comment */}
       {onAddComment && (
         <button
           onClick={() => { onAddComment(); setVisible(false) }}
-          className="h-7 flex items-center gap-1 px-2 rounded text-white/80 hover:text-white hover:bg-white/10 transition-colors text-[11px] font-medium"
+          className="h-7 w-7 flex items-center justify-center rounded text-white/70 hover:text-white hover:bg-white/10 transition-colors"
           title="Add comment"
         >
           <MessageSquare className="h-3.5 w-3.5" />
         </button>
       )}
 
-      {/* Divider */}
-      <div className="h-4 w-px bg-white/20 mx-1" />
+      <div className="h-4 w-px bg-white/15 mx-0.5" />
 
       {/* AI actions */}
       {(['rephrase', 'shorten', 'expand'] as const).map(action => (
@@ -175,8 +240,8 @@ export function FloatingSelectionToolbar({ editor, onInsertCitation, onAddCommen
           key={action}
           onClick={() => handleAiAction(action)}
           disabled={!!aiLoading}
-          className="h-7 flex items-center gap-1 px-2 rounded text-purple-300 hover:text-purple-100 hover:bg-white/10 transition-colors text-[11px] font-medium disabled:opacity-50 capitalize"
-          title={`AI: ${action} selection`}
+          className="h-7 flex items-center gap-1 px-2 rounded text-purple-300 hover:text-purple-100 hover:bg-white/10 transition-colors text-[11px] font-medium disabled:opacity-40 capitalize"
+          title={`AI: ${action}`}
         >
           {aiLoading === action ? (
             <span className="h-3.5 w-3.5 rounded-full border-2 border-purple-300 border-t-transparent animate-spin" />

@@ -58,6 +58,7 @@ export default function DocumentPage() {
   const [rightPanel, setRightPanel] = useState<RightPanel>(null)
   const [showAbstractModal, setShowAbstractModal] = useState(false)
   const [showAnalysisModal, setShowAnalysisModal] = useState(false)
+  const [focusMode, setFocusMode] = useState(false)
 
   const triggerSaveRef = useRef<(() => Promise<void>) | null>(null)
   const insertContentRef = useRef<((html: string) => void) | null>(null)
@@ -142,8 +143,11 @@ export default function DocumentPage() {
   return (
     <div className="flex flex-col h-screen bg-bg-app">
 
-      {/* ── Slim nav bar ─────────────────────────────────────────────────── */}
-      <nav className="shrink-0 h-12 bg-bg-app flex items-center justify-between px-6 z-50">
+      {/* ── Slim nav bar — hidden in focus mode ──────────────────────────── */}
+      <nav className={cn(
+        'shrink-0 h-12 bg-bg-app flex items-center justify-between px-6 z-50 transition-all duration-normal',
+        focusMode && 'opacity-0 pointer-events-none h-0 overflow-hidden'
+      )}>
 
         {/* Left: back + truncated title */}
         <div className="flex items-center gap-2 min-w-0">
@@ -289,6 +293,7 @@ export default function DocumentPage() {
             triggerSaveRef={triggerSaveRef}
             insertContentRef={insertContentRef}
             readOnly={isReadOnly}
+            onFocusModeChange={setFocusMode}
           />
         </div>
 

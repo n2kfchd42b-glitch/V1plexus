@@ -55,22 +55,22 @@ export function DocumentOutline({ editor, collapsed, onToggle }: DocumentOutline
   return (
     <div
       className={cn(
-        'flex flex-col border-r border-slate-200 bg-slate-50 shrink-0 transition-all duration-200',
-        collapsed ? 'w-10' : 'w-52'
+        'flex flex-col border-r border-border-subtle bg-bg-app shrink-0 transition-all duration-normal',
+        collapsed ? 'w-10' : 'w-48'
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-4 border-b border-slate-200">
+      <div className="flex items-center justify-between px-2 py-3 border-b border-border-subtle">
         {!collapsed && (
           <div className="flex items-center gap-1.5 pl-1">
-            <AlignLeft className="h-3.5 w-3.5 text-slate-400" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Outline</span>
+            <AlignLeft className="h-3 w-3 text-text-tertiary" />
+            <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-text-tertiary">Outline</span>
           </div>
         )}
         <button
           onClick={onToggle}
           className={cn(
-            'h-6 w-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors',
+            'h-6 w-6 flex items-center justify-center rounded text-text-tertiary hover:text-text-primary hover:bg-bg-surface-hover transition-colors',
             collapsed && 'mx-auto'
           )}
           title={collapsed ? 'Expand outline' : 'Collapse outline'}
@@ -83,7 +83,7 @@ export function DocumentOutline({ editor, collapsed, onToggle }: DocumentOutline
       {!collapsed && (
         <div className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
           {headings.length === 0 ? (
-            <p className="text-[10px] text-slate-400 text-center pt-8 leading-relaxed px-3">
+            <p className="text-[10px] text-text-tertiary text-center pt-8 leading-relaxed px-3">
               Headings appear here as you write
             </p>
           ) : (
@@ -92,17 +92,17 @@ export function DocumentOutline({ editor, collapsed, onToggle }: DocumentOutline
                 key={h.id}
                 onClick={() => scrollToHeading(h.pos, h.id)}
                 className={cn(
-                  'w-full text-left text-[11px] py-1.5 px-2 rounded transition-colors truncate leading-snug',
-                  h.level === 1 && 'font-bold text-slate-900 pl-2',
-                  h.level === 2 && 'font-semibold text-slate-600 pl-4',
-                  h.level === 3 && 'font-medium text-slate-500 pl-6',
+                  'w-full text-left text-[11px] py-1.5 px-2 rounded-md transition-colors truncate leading-snug',
+                  h.level === 1 && 'font-semibold text-text-primary pl-2',
+                  h.level === 2 && 'font-medium text-text-secondary pl-4',
+                  h.level === 3 && 'text-text-tertiary pl-6',
                   activeId === h.id
-                    ? 'bg-[#E6F0FF] text-[#0052CC]'
-                    : 'hover:bg-slate-200 hover:text-slate-900'
+                    ? 'bg-accent-blue-subtle text-accent-blue'
+                    : 'hover:bg-bg-surface-hover hover:text-text-primary'
                 )}
                 title={h.text}
               >
-                {h.text || <span className="italic opacity-50">Untitled</span>}
+                {h.text || <span className="italic opacity-40">Untitled</span>}
               </button>
             ))
           )}
