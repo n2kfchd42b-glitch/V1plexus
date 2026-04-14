@@ -96,11 +96,11 @@ const COMMANDS: SlashCommand[] = [
         .insertContent([
           { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Introduction' }] },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Background' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Rationale' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Objectives' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
         ]).run()
     },
   },
@@ -112,13 +112,13 @@ const COMMANDS: SlashCommand[] = [
         .insertContent([
           { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Methods' }] },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Study Design' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Study Population' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Data Collection' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Statistical Analysis' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
         ]).run()
     },
   },
@@ -130,11 +130,11 @@ const COMMANDS: SlashCommand[] = [
         .insertContent([
           { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Results' }] },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Participant Characteristics' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Primary Outcomes' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Secondary Outcomes' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
         ]).run()
     },
   },
@@ -146,13 +146,13 @@ const COMMANDS: SlashCommand[] = [
         .insertContent([
           { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Discussion' }] },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Summary of Findings' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Interpretation' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Limitations' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Conclusion' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
         ]).run()
     },
   },
@@ -164,25 +164,25 @@ const COMMANDS: SlashCommand[] = [
         .insertContent([
           { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Research Protocol' }] },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: '1. Background & Rationale' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: '2. Objectives' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: '3. Study Design' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: '4. Eligibility Criteria' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: '5. Interventions' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: '6. Outcomes' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: '7. Sample Size & Power' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: '8. Statistical Analysis' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: '9. Ethics & Consent' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
           { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: '10. References' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+          { type: 'paragraph' },
         ]).run()
     },
   },
@@ -354,19 +354,19 @@ export function SlashCommandMenu({ editor, onInsertData, onInsertCitation, onGen
                   className={cn(
                     'w-full flex items-center gap-3 px-3 py-2 text-left transition-colors',
                     selectedIndex === globalIdx
-                      ? 'bg-blue-50 text-[var(--color-clinical-blue)]'
+                      ? 'bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)]'
                       : 'text-[var(--text-primary)] hover:bg-[var(--bg-app)]'
                   )}
                 >
                   <span className={cn(
                     'shrink-0 p-1.5 rounded-md',
-                    selectedIndex === globalIdx ? 'bg-blue-100 text-[var(--color-clinical-blue)]' : 'bg-[var(--bg-app)] text-[var(--text-secondary)]'
+                    selectedIndex === globalIdx ? 'bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)]' : 'bg-[var(--bg-app)] text-[var(--text-secondary)]'
                   )}>
                     {cmd.icon}
                   </span>
                   <div className="min-w-0">
                     <p className="text-xs font-medium leading-none">{cmd.label}</p>
-                    <p className={cn('text-[11px] mt-0.5', selectedIndex === globalIdx ? 'text-blue-400' : 'text-[var(--text-tertiary)]')}>
+                    <p className={cn('text-[11px] mt-0.5', selectedIndex === globalIdx ? 'text-[var(--accent-blue)]' : 'text-[var(--text-tertiary)]')}>
                       {cmd.description}
                     </p>
                   </div>

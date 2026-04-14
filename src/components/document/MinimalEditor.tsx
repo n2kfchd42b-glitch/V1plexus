@@ -227,7 +227,7 @@ export function MinimalEditor({
       {/* ── Writing area ────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto relative min-w-0">
 
-        <main className={cn('pb-48 px-6', focusMode ? 'pt-16' : 'pt-28')}>
+        <main className={cn('pb-48 px-6', focusMode ? 'pt-10' : 'pt-10')}>
           <div className="max-w-[720px] mx-auto relative">
             <article className="relative">
 
