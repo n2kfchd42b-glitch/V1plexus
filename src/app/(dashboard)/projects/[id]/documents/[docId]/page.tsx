@@ -6,9 +6,17 @@ import Link from 'next/link'
 import {
   ArrowLeft, Send, Loader2, AlertTriangle, Trash2,
   History, Users, FileText, Shield, FlaskConical, Languages,
+  MoreHorizontal, Share2, Download,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { CollaborativeEditor } from '@/components/document/CollaborativeEditor'
 import { SubmitForReviewModal } from '@/components/review/SubmitForReviewModal'
 import { ExportDropdown } from '@/components/export/ExportDropdown'
@@ -136,27 +144,28 @@ export default function DocumentPage() {
   const isReadOnly = document.status === 'approved'
 
   return (
-    <div className="flex flex-col h-screen bg-white">
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="shrink-0 h-14 border-b border-slate-200 bg-white px-6 flex items-center justify-between gap-3 shadow-sm">
-        {/* Left: back + title */}
+    <div className="flex flex-col h-screen bg-[var(--bg-app)]">
+      {/* ── Slim header ────────────────────────────────────────────────────── */}
+      <header className="shrink-0 h-12 bg-[var(--bg-surface)] border-b border-[var(--border-subtle)] px-4 flex items-center justify-between gap-3 z-10">
+        {/* Left: back + title + status */}
         <div className="flex items-center gap-2 min-w-0">
           <Link href={`/projects/${projectId}/documents`}>
-            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-slate-400 hover:text-slate-700">
+            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <div className="min-w-0">
-            <h1 className="text-sm font-bold text-slate-900 truncate leading-none tracking-tight">{document.title}</h1>
-            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 mt-0.5">v{document.current_version}</p>
-          </div>
-          <Badge className={cn('text-[10px] border px-1.5 py-0.5 shrink-0', statusColor(document.status))}>
+          <h1 className="text-sm font-semibold text-[var(--text-primary)] truncate tracking-tight leading-none">
+            {document.title}
+          </h1>
+          <Badge className={cn('text-[10px] border px-1.5 py-0.5 shrink-0 font-medium', statusColor(document.status))}>
             {statusLabel(document.status)}
           </Badge>
         </div>
 
-        {/* Right: pillar actions + core actions */}
+        {/* Right: export + ••• menu + submit */}
         <div className="flex items-center gap-1 shrink-0">
+
+          {/* Export */}
           <ExportDropdown
             documentId={docId}
             documentTitle={document.title}
@@ -164,108 +173,77 @@ export default function DocumentPage() {
             documentType={document.document_type}
           />
 
-          {/* Pillar 2: Abstract builder */}
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-[11px] gap-1 border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900 font-semibold"
-            onClick={() => setShowAbstractModal(true)}
-            title="Structured abstract builder"
-          >
-            <FileText className="h-3.5 w-3.5" />
-            Abstract
-          </Button>
-
-          {/* Pillar 3: Embed analysis */}
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-[11px] gap-1 border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900 font-semibold"
-            onClick={() => setShowAnalysisModal(true)}
-            title="Embed analysis run"
-          >
-            <FlaskConical className="h-3.5 w-3.5" />
-            Analysis
-          </Button>
-
-          <div className="h-5 w-px bg-slate-200 mx-1" />
-
-          {/* Pillar 1: Versions */}
-          <Button
-            size="sm"
-            variant={rightPanel === 'versions' ? 'default' : 'outline'}
-            className={cn('h-7 text-[11px] gap-1 font-semibold', rightPanel === 'versions' ? 'bg-[#0052CC] text-white border-[#0052CC]' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900')}
-            onClick={() => togglePanel('versions')}
-            title="Version history"
-          >
-            <History className="h-3.5 w-3.5" />
-            Versions
-          </Button>
-
-          {/* Pillar 5: Authors */}
-          <Button
-            size="sm"
-            variant={rightPanel === 'authors' ? 'default' : 'outline'}
-            className={cn('h-7 text-[11px] gap-1 font-semibold', rightPanel === 'authors' ? 'bg-[#0052CC] text-white border-[#0052CC]' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900')}
-            onClick={() => togglePanel('authors')}
-            title="Author contributions"
-          >
-            <Users className="h-3.5 w-3.5" />
-            Authors
-          </Button>
-
-          {/* Pillar 4: Security */}
-          <Button
-            size="sm"
-            variant={rightPanel === 'security' ? 'default' : 'outline'}
-            className={cn('h-7 text-[11px] gap-1 font-semibold', rightPanel === 'security' ? 'bg-[#0052CC] text-white border-[#0052CC]' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900')}
-            onClick={() => togglePanel('security')}
-            title="Security & ethics gate"
-          >
-            <Shield className="h-3.5 w-3.5" />
-          </Button>
-
-          {/* Pillar 6: Translation */}
-          <Button
-            size="sm"
-            variant={rightPanel === 'translation' ? 'default' : 'outline'}
-            className={cn('h-7 text-[11px] gap-1 font-semibold', rightPanel === 'translation' ? 'bg-[#0052CC] text-white border-[#0052CC]' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900')}
-            onClick={() => togglePanel('translation')}
-            title="AI translation"
-          >
-            <Languages className="h-3.5 w-3.5" />
-          </Button>
-
-          {canSubmit && (
-            <>
-              <div className="h-5 w-px bg-slate-200 mx-1" />
+          {/* ••• — all pillar features */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
-                size="sm"
-                className="h-7 text-[11px] gap-1.5 bg-[#0052CC] hover:bg-[#003D9B] text-white font-bold shadow-sm"
-                onClick={() => setShowSubmitModal(true)}
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               >
-                <Send className="h-3.5 w-3.5" />
-                Submit
+                <MoreHorizontal className="h-4 w-4" />
               </Button>
-            </>
-          )}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem onClick={() => setShowAbstractModal(true)}>
+                <FileText className="h-4 w-4 mr-2 text-[var(--text-tertiary)]" />
+                Abstract builder
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowAnalysisModal(true)}>
+                <FlaskConical className="h-4 w-4 mr-2 text-[var(--text-tertiary)]" />
+                Embed analysis
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => togglePanel('versions')}>
+                <History className="h-4 w-4 mr-2 text-[var(--text-tertiary)]" />
+                <span>Version history</span>
+                {rightPanel === 'versions' && (
+                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[var(--accent-blue)]" />
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => togglePanel('authors')}>
+                <Users className="h-4 w-4 mr-2 text-[var(--text-tertiary)]" />
+                <span>Author contributions</span>
+                {rightPanel === 'authors' && (
+                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[var(--accent-blue)]" />
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => togglePanel('security')}>
+                <Shield className="h-4 w-4 mr-2 text-[var(--text-tertiary)]" />
+                <span>Security & ethics</span>
+                {rightPanel === 'security' && (
+                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[var(--accent-blue)]" />
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => togglePanel('translation')}>
+                <Languages className="h-4 w-4 mr-2 text-[var(--text-tertiary)]" />
+                <span>Translation</span>
+                {rightPanel === 'translation' && (
+                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[var(--accent-blue)]" />
+                )}
+              </DropdownMenuItem>
+              {deleteState === 'idle' && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={handleDelete}
+                    className="text-[var(--status-error)] focus:text-[var(--status-error)] focus:bg-[var(--status-error-bg)]"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete document
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-          {deleteState === 'idle' && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-[var(--text-tertiary)] hover:text-red-500 hover:bg-red-50"
-              onClick={handleDelete}
-              title="Delete document"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          )}
+          {/* Delete confirm inline */}
           {deleteState === 'confirm' && (
-            <div className="flex items-center gap-1.5 border border-red-200 bg-red-50 rounded-lg px-2 py-1">
-              <AlertTriangle className="h-3.5 w-3.5 text-red-500 shrink-0" />
-              <span className="text-xs text-red-700 font-medium">Delete permanently?</span>
-              <Button size="sm" className="h-6 text-xs bg-red-600 hover:bg-red-700 text-white px-2" onClick={handleDelete}>
+            <div className="flex items-center gap-1.5 border border-[var(--border-status-error)] bg-[var(--status-error-bg)] rounded-lg px-2 py-1">
+              <AlertTriangle className="h-3.5 w-3.5 text-[var(--status-error)] shrink-0" />
+              <span className="text-xs text-[var(--status-error-text)] font-medium">Delete permanently?</span>
+              <Button size="sm" className="h-6 text-xs bg-[var(--status-error)] hover:bg-[var(--status-error-hover)] text-white px-2" onClick={handleDelete}>
                 Delete
               </Button>
               <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => setDeleteState('idle')}>
@@ -277,6 +255,21 @@ export default function DocumentPage() {
             <span className="text-xs text-[var(--text-tertiary)] flex items-center gap-1">
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> Deleting…
             </span>
+          )}
+
+          {/* Submit — primary CTA */}
+          {canSubmit && (
+            <>
+              <div className="h-5 w-px bg-[var(--border-default)] mx-0.5" />
+              <Button
+                size="sm"
+                className="h-7 text-[11px] gap-1.5 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white font-semibold"
+                onClick={() => setShowSubmitModal(true)}
+              >
+                <Send className="h-3 w-3" />
+                Submit
+              </Button>
+            </>
           )}
         </div>
       </header>

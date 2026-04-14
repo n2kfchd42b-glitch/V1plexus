@@ -11,7 +11,6 @@ import Link from '@tiptap/extension-link'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import { createClient } from '@/lib/supabase/client'
-import { EditorToolbar } from './EditorToolbar'
 import { DocumentOutline } from './DocumentOutline'
 import { CitationPanel } from './CitationPanel'
 import { DataPanel } from './DataPanel'
@@ -215,100 +214,93 @@ export function CollaborativeEditor({
   const showRight = !focusMode && rightPanel !== null
 
   return (
-    <div className="flex flex-col h-full bg-slate-100">
-      {/* ── Toolbar ─────────────────────────────────────────────────────── */}
-      {!readOnly && (
-        <div className="shrink-0 border-b border-slate-200 bg-white px-3 py-1.5 flex items-center gap-1.5 shadow-sm">
-          {/* Outline toggle */}
+    <div className="flex flex-col h-full bg-[var(--bg-app)]">
+      {/* ── Minimal icon strip ──────────────────────────────────────────── */}
+      {!readOnly && !focusMode && (
+        <div className="shrink-0 h-9 flex items-center px-3 bg-[var(--bg-surface)] border-b border-[var(--border-subtle)]">
+          {/* Left: outline toggle */}
           <button
             onClick={() => setOutlineCollapsed(p => !p)}
-            className="h-7 w-7 flex items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0"
-            title="Toggle outline"
+            className="h-6 w-6 flex items-center justify-center rounded text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] transition-colors"
+            title={outlineCollapsed ? 'Show outline' : 'Hide outline'}
           >
-            {outlineCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            {outlineCollapsed ? <PanelLeftOpen className="h-3.5 w-3.5" /> : <PanelLeftClose className="h-3.5 w-3.5" />}
           </button>
-
-          <div className="h-5 w-px bg-slate-200 mx-0.5" />
-
-          {/* Formatting toolbar — wrapped in a grouped pill */}
-          <div className="flex items-center bg-slate-50 border border-slate-200 rounded-md px-1 py-0.5">
-            <EditorToolbar editor={editor} onInsertData={() => togglePanel('data')} />
-          </div>
 
           <div className="flex-1" />
 
-          {/* Right: AI + panel toggles — grouped pill */}
-          <div className="flex items-center gap-1 shrink-0">
+          {/* Right: panel toggles + AI assist */}
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={() => togglePanel('citations')}
+              className={cn(
+                'h-6 w-6 flex items-center justify-center rounded transition-colors relative',
+                panelActive('citations')
+                  ? 'bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)]'
+                  : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]'
+              )}
+              title="Citations"
+            >
+              <BookOpen className="h-3.5 w-3.5" />
+              {citations.length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-[var(--accent-blue)] text-white text-[8px] font-black flex items-center justify-center leading-none">
+                  {citations.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => togglePanel('data')}
+              className={cn(
+                'h-6 w-6 flex items-center justify-center rounded transition-colors',
+                panelActive('data')
+                  ? 'bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)]'
+                  : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]'
+              )}
+              title="Data & charts"
+            >
+              <BarChart2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => togglePanel('grammar')}
+              className={cn(
+                'h-6 w-6 flex items-center justify-center rounded transition-colors',
+                panelActive('grammar')
+                  ? 'bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)]'
+                  : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]'
+              )}
+              title="Grammar check"
+            >
+              <SpellCheck className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => togglePanel('comments')}
+              className={cn(
+                'h-6 w-6 flex items-center justify-center rounded transition-colors',
+                panelActive('comments')
+                  ? 'bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)]'
+                  : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]'
+              )}
+              title="Comments"
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+            </button>
+
+            <div className="w-px h-3.5 bg-[var(--border-default)] mx-1.5" />
+
+            {/* AI assist icon */}
             {editor && (
               <AIAssistPopover editor={editor} documentId={documentId} open={aiOpen} onOpenChange={setAiOpen} />
             )}
+
+            {/* Generate — subtle text button */}
             <button
               onClick={() => setShowGenerateModal(true)}
-              className="h-7 flex items-center gap-1.5 px-3 rounded-md bg-purple-600 text-white text-[11px] font-bold hover:bg-purple-700 transition-colors shadow-sm"
-              title="Generate section with AI (⌘J)"
+              className="h-6 flex items-center gap-1 px-2 rounded text-[var(--text-tertiary)] hover:text-[var(--accent-blue)] hover:bg-[var(--accent-blue-subtle)] transition-colors text-[10px] font-semibold tracking-wide uppercase"
+              title="Generate with AI (⌘J)"
             >
-              <Sparkles className="h-3.5 w-3.5" />
+              <Sparkles className="h-3 w-3" />
               Generate
             </button>
-
-            <div className="h-5 w-px bg-slate-200 mx-0.5" />
-
-            {/* Panel toggles as a unified pill group */}
-            <div className="flex items-center bg-slate-50 border border-slate-200 rounded-md overflow-hidden">
-              <button
-                onClick={() => togglePanel('citations')}
-                className={cn('h-7 flex items-center gap-1.5 px-3 text-[11px] font-semibold transition-colors border-r border-slate-200',
-                  panelActive('citations')
-                    ? 'bg-[#0052CC] text-white'
-                    : 'text-slate-600 hover:bg-white hover:text-[#0052CC]'
-                )}
-                title="Citations panel"
-              >
-                <BookOpen className="h-3.5 w-3.5" />
-                Cite
-                {citations.length > 0 && (
-                  <span className={cn('px-1.5 py-px rounded-full text-[9px] font-black leading-none', panelActive('citations') ? 'bg-white text-[#0052CC]' : 'bg-[#0052CC] text-white')}>
-                    {citations.length}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => togglePanel('data')}
-                className={cn('h-7 flex items-center gap-1.5 px-3 text-[11px] font-semibold transition-colors border-r border-slate-200',
-                  panelActive('data')
-                    ? 'bg-emerald-600 text-white'
-                    : 'text-slate-600 hover:bg-white hover:text-emerald-700'
-                )}
-                title="Data panel"
-              >
-                <BarChart2 className="h-3.5 w-3.5" />
-                Data
-              </button>
-              <button
-                onClick={() => togglePanel('grammar')}
-                className={cn('h-7 flex items-center gap-1.5 px-3 text-[11px] font-semibold transition-colors border-r border-slate-200',
-                  panelActive('grammar')
-                    ? 'bg-amber-500 text-white'
-                    : 'text-slate-600 hover:bg-white hover:text-amber-700'
-                )}
-                title="Grammar check"
-              >
-                <SpellCheck className="h-3.5 w-3.5" />
-                Check
-              </button>
-              <button
-                onClick={() => togglePanel('comments')}
-                className={cn('h-7 flex items-center gap-1.5 px-3 text-[11px] font-semibold transition-colors',
-                  panelActive('comments')
-                    ? 'bg-slate-700 text-white'
-                    : 'text-slate-600 hover:bg-white hover:text-slate-900'
-                )}
-                title="Comments"
-              >
-                <MessageSquare className="h-3.5 w-3.5" />
-                Notes
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -326,9 +318,9 @@ export function CollaborativeEditor({
         )}
 
         {/* Center: Writing surface — paper-on-canvas */}
-        <div className="flex-1 overflow-y-auto relative bg-slate-100">
+        <div className="flex-1 overflow-y-auto relative bg-[var(--bg-app)]">
           {/* Paper card */}
-          <div className="max-w-[794px] mx-auto my-10 mb-20 bg-white rounded-sm shadow-[0_4px_32px_rgba(0,0,0,0.07),0_1px_4px_rgba(0,0,0,0.04)]">
+          <div className="max-w-[794px] mx-auto my-10 mb-20 bg-[var(--bg-surface)] rounded-sm shadow-[var(--shadow-md)]">
           {/* Slash command menu — positioned relative to editor container */}
           <div className="relative">
             <EditorContent
@@ -439,7 +431,7 @@ export function CollaborativeEditor({
 
         {/* Right: Context panel */}
         {showRight && (
-          <div className="w-[260px] shrink-0 border-l border-slate-200 bg-white flex flex-col overflow-hidden shadow-[-4px_0_20px_rgba(0,0,0,0.04)]">
+          <div className="w-[260px] shrink-0 bg-[var(--bg-surface)] flex flex-col overflow-hidden shadow-[var(--shadow-xl)]">
             {rightPanel === 'citations' && (
               <CitationPanel
                 citations={citations}
