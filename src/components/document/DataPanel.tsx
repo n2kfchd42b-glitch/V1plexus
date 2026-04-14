@@ -7,13 +7,30 @@ import { cn } from '@/lib/utils'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+const ANALYSIS_TYPE_LABELS: Record<string, string> = {
+  descriptive: 'Descriptive Statistics',
+  frequency: 'Frequency Tables',
+  chi_square: 'Chi-Square Test',
+  t_test: 'T-Test',
+  anova: 'ANOVA',
+  correlation: 'Correlation',
+  simple_regression: 'Simple Regression',
+  multiple_regression: 'Multiple Regression',
+  logistic_regression: 'Logistic Regression',
+  kaplan_meier: 'Kaplan-Meier',
+  cox_regression: 'Cox Regression',
+  time_series: 'Time Series',
+  pca: 'PCA',
+  meta_analysis: 'Meta-Analysis',
+}
+
 interface AnalysisTable {
   id: string
   title: string
   content: { headers: string[]; rows: unknown[][] }
   jobId: string
   jobTitle: string | null
-  engine: string
+  engine: string   // 'statistics' | 'r' | 'python'
   createdAt: string
 }
 
@@ -80,45 +97,72 @@ export function DataPanel({ projectId, onInsertTable, onInsertChart }: DataPanel
   useEffect(() => {
     async function loadTables() {
       setTablesLoading(true)
-      // Fetch saved analysis output tables for this project via job join
+      const collected: AnalysisTable[] = []
+
+      // ── Source 1: statistical analysis runs (analysis_runs.results.tables) ──
+      const { data: runs } = await supabase
+        .from('analysis_runs')
+        .select('id, title, analysis_type, results, created_at')
+        .eq('project_id', projectId)
+        .eq('status', 'completed')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(50)
+
+      for (const run of runs ?? []) {
+        const res = run.results as { tables?: Array<{ title: string; headers: string[]; rows: unknown[][] }> } | null
+        if (!res?.tables || !Array.isArray(res.tables)) continue
+        for (const t of res.tables) {
+          if (!Array.isArray(t.headers) || !Array.isArray(t.rows)) continue
+          collected.push({
+            id: `run::${run.id}::${t.title}`,
+            title: t.title,
+            content: { headers: t.headers, rows: t.rows },
+            jobId: run.id,
+            jobTitle: run.title ?? ANALYSIS_TYPE_LABELS[run.analysis_type] ?? run.analysis_type,
+            engine: 'statistics',
+            createdAt: run.created_at,
+          })
+        }
+      }
+
+      // ── Source 2: code workbench saved outputs (analysis_outputs) ──────────
       const { data: jobs } = await supabase
         .from('analysis_jobs')
-        .select('id, title, engine, project_id, created_at')
+        .select('id, title, engine, created_at')
         .eq('project_id', projectId)
         .eq('status', 'completed')
         .order('created_at', { ascending: false })
 
-      if (!jobs || jobs.length === 0) { setTables([]); setTablesLoading(false); return }
+      if (jobs && jobs.length > 0) {
+        const { data: outputs } = await supabase
+          .from('analysis_outputs')
+          .select('id, job_id, title, content, sort_order')
+          .in('job_id', jobs.map((j: { id: string }) => j.id))
+          .eq('output_type', 'table')
+          .order('sort_order', { ascending: true })
 
-      const { data: outputs } = await supabase
-        .from('analysis_outputs')
-        .select('id, job_id, title, content, sort_order')
-        .in('job_id', jobs.map((j: { id: string }) => j.id))
-        .eq('output_type', 'table')
-        .order('sort_order', { ascending: true })
+        const jobMap = new Map(
+          jobs.map((j: { id: string; title: string | null; engine: string; created_at: string }) => [j.id, j])
+        )
 
-      const jobMap = new Map(jobs.map((j: { id: string; title: string | null; engine: string; created_at: string }) => [j.id, j]))
-
-      const result: AnalysisTable[] = (outputs ?? []).map((o: {
-        id: string
-        job_id: string
-        title: string
-        content: { headers: string[]; rows: unknown[][] }
-        sort_order: number
-      }) => {
-        const job = jobMap.get(o.job_id) as { id: string; title: string | null; engine: string; created_at: string } | undefined
-        return {
-          id: o.id,
-          title: o.title,
-          content: o.content as { headers: string[]; rows: unknown[][] },
-          jobId: o.job_id,
-          jobTitle: job?.title ?? null,
-          engine: job?.engine ?? '',
-          createdAt: job?.created_at ?? '',
+        for (const o of outputs ?? []) {
+          const job = jobMap.get((o as { job_id: string }).job_id) as { id: string; title: string | null; engine: string; created_at: string } | undefined
+          const content = (o as { content: unknown }).content as { headers: string[]; rows: unknown[][] }
+          if (!content?.headers || !content?.rows) continue
+          collected.push({
+            id: `job::${(o as { id: string }).id}`,
+            title: (o as { title: string }).title,
+            content,
+            jobId: (o as { job_id: string }).job_id,
+            jobTitle: job?.title ?? null,
+            engine: job?.engine ?? '',
+            createdAt: job?.created_at ?? '',
+          })
         }
-      })
+      }
 
-      setTables(result)
+      setTables(collected)
       setTablesLoading(false)
     }
 
@@ -216,14 +260,21 @@ export function DataPanel({ projectId, onInsertTable, onInsertChart }: DataPanel
                   <Table2 className="h-4 w-4 text-accent-blue shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-text-primary truncate">{t.title}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                       {t.jobTitle && (
-                        <span className="text-[11px] text-text-tertiary truncate">{t.jobTitle}</span>
+                        <span className="text-[11px] text-text-tertiary truncate max-w-[130px]">{t.jobTitle}</span>
                       )}
-                      <span className="text-[10px] font-mono uppercase text-text-tertiary opacity-60">{t.engine}</span>
+                      <span className={cn(
+                        'text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded',
+                        t.engine === 'statistics'
+                          ? 'bg-phase-data/10 text-phase-data'
+                          : 'bg-bg-inset text-text-tertiary'
+                      )}>
+                        {t.engine === 'statistics' ? 'Stats' : t.engine}
+                      </span>
                     </div>
                     <p className="text-[10px] text-text-tertiary mt-0.5">
-                      {t.content.headers.length} columns · {t.content.rows.length} rows
+                      {t.content.headers.length} cols · {t.content.rows.length} rows
                     </p>
                   </div>
                   <ChevronRight className="h-3.5 w-3.5 text-text-tertiary shrink-0 opacity-0 group-hover:opacity-100" />
