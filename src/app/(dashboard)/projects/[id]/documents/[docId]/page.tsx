@@ -342,7 +342,7 @@ export default function DocumentPage() {
         onClose={() => setShowAnalysisModal(false)}
         documentId={docId}
         projectId={projectId}
-        onInsert={(html) => insertContentRef.current?.(html)}
+        onInsert={(html, _analysisRunId) => insertContentRef.current?.(html)}
       />
       </div>{/* end editor column */}
     </div>
