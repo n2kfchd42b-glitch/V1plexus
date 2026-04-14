@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   ArrowLeft, Send, Loader2, AlertTriangle, Trash2,
   History, Users, FileText, Shield, FlaskConical, Languages,
-  MoreHorizontal, Share2, Download,
+  MoreHorizontal,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -17,7 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { CollaborativeEditor } from '@/components/document/CollaborativeEditor'
+import { MinimalEditor } from '@/components/document/MinimalEditor'
 import { SubmitForReviewModal } from '@/components/review/SubmitForReviewModal'
 import { ExportDropdown } from '@/components/export/ExportDropdown'
 
@@ -56,23 +56,15 @@ export default function DocumentPage() {
   const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [deleteState, setDeleteState] = useState<DeleteState>('idle')
   const [rightPanel, setRightPanel] = useState<RightPanel>(null)
-
-  // ── Pillar 2: Abstract ──────────────────────────────────────────────────────
   const [showAbstractModal, setShowAbstractModal] = useState(false)
-
-  // ── Pillar 3: Analysis embed ────────────────────────────────────────────────
   const [showAnalysisModal, setShowAnalysisModal] = useState(false)
 
-  // Refs for editor interaction
   const triggerSaveRef = useRef<(() => Promise<void>) | null>(null)
   const insertContentRef = useRef<((html: string) => void) | null>(null)
 
   const supabase = createClient()
 
-  // ── Pillar 1: Versions ──────────────────────────────────────────────────────
   const { versions, fetchVersions, restoreVersion } = useDocumentVersions(docId)
-
-  // ── Pillar 5: Authors ───────────────────────────────────────────────────────
   const { authors, fetchAuthors } = useDocumentAuthors(docId)
 
   useEffect(() => {
@@ -91,6 +83,10 @@ export default function DocumentPage() {
 
   const handleSaveContent = (content: Record<string, unknown>) => {
     setDocument(prev => prev ? { ...prev, content } : prev)
+  }
+
+  const handleTitleSave = (title: string) => {
+    setDocument(prev => prev ? { ...prev, title } : prev)
   }
 
   const handleSubmitted = async () => {
@@ -134,8 +130,8 @@ export default function DocumentPage() {
 
   if (!document) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-5 w-5 animate-spin text-[var(--text-tertiary)]" />
+      <div className="flex items-center justify-center min-h-[400px] bg-bg-app">
+        <Loader2 className="h-5 w-5 animate-spin text-text-tertiary" />
       </div>
     )
   }
@@ -144,28 +140,33 @@ export default function DocumentPage() {
   const isReadOnly = document.status === 'approved'
 
   return (
-    <div className="flex flex-col h-screen bg-[var(--bg-app)]">
-      {/* ── Slim header ────────────────────────────────────────────────────── */}
-      <header className="shrink-0 h-12 bg-[var(--bg-surface)] border-b border-[var(--border-subtle)] px-4 flex items-center justify-between gap-3 z-10">
-        {/* Left: back + title + status */}
+    <div className="flex flex-col h-screen bg-bg-app">
+
+      {/* ── Slim nav bar ─────────────────────────────────────────────────── */}
+      <nav className="shrink-0 h-12 bg-bg-app flex items-center justify-between px-6 z-50">
+
+        {/* Left: back + truncated title */}
         <div className="flex items-center gap-2 min-w-0">
           <Link href={`/projects/${projectId}/documents`}>
-            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0 text-text-tertiary hover:text-text-primary"
+            >
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <h1 className="text-sm font-semibold text-[var(--text-primary)] truncate tracking-tight leading-none">
-            {document.title}
-          </h1>
+          <span className="text-sm font-semibold text-text-primary truncate tracking-tight leading-none font-manrope">
+            {document.title || 'Untitled'}
+          </span>
           <Badge className={cn('text-[10px] border px-1.5 py-0.5 shrink-0 font-medium', statusColor(document.status))}>
             {statusLabel(document.status)}
           </Badge>
         </div>
 
-        {/* Right: export + ••• menu + submit */}
+        {/* Right: export + ••• + submit */}
         <div className="flex items-center gap-1 shrink-0">
 
-          {/* Export */}
           <ExportDropdown
             documentId={docId}
             documentTitle={document.title}
@@ -173,54 +174,54 @@ export default function DocumentPage() {
             documentType={document.document_type}
           />
 
-          {/* ••• — all pillar features */}
+          {/* ••• menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                className="h-7 w-7 text-text-secondary hover:text-text-primary"
               >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuItem onClick={() => setShowAbstractModal(true)}>
-                <FileText className="h-4 w-4 mr-2 text-[var(--text-tertiary)]" />
+                <FileText className="h-4 w-4 mr-2 text-text-tertiary" />
                 Abstract builder
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setShowAnalysisModal(true)}>
-                <FlaskConical className="h-4 w-4 mr-2 text-[var(--text-tertiary)]" />
+                <FlaskConical className="h-4 w-4 mr-2 text-text-tertiary" />
                 Embed analysis
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => togglePanel('versions')}>
-                <History className="h-4 w-4 mr-2 text-[var(--text-tertiary)]" />
+                <History className="h-4 w-4 mr-2 text-text-tertiary" />
                 <span>Version history</span>
                 {rightPanel === 'versions' && (
-                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[var(--accent-blue)]" />
+                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-accent-blue" />
                 )}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => togglePanel('authors')}>
-                <Users className="h-4 w-4 mr-2 text-[var(--text-tertiary)]" />
+                <Users className="h-4 w-4 mr-2 text-text-tertiary" />
                 <span>Author contributions</span>
                 {rightPanel === 'authors' && (
-                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[var(--accent-blue)]" />
+                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-accent-blue" />
                 )}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => togglePanel('security')}>
-                <Shield className="h-4 w-4 mr-2 text-[var(--text-tertiary)]" />
+                <Shield className="h-4 w-4 mr-2 text-text-tertiary" />
                 <span>Security & ethics</span>
                 {rightPanel === 'security' && (
-                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[var(--accent-blue)]" />
+                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-accent-blue" />
                 )}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => togglePanel('translation')}>
-                <Languages className="h-4 w-4 mr-2 text-[var(--text-tertiary)]" />
+                <Languages className="h-4 w-4 mr-2 text-text-tertiary" />
                 <span>Translation</span>
                 {rightPanel === 'translation' && (
-                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[var(--accent-blue)]" />
+                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-accent-blue" />
                 )}
               </DropdownMenuItem>
               {deleteState === 'idle' && (
@@ -228,7 +229,7 @@ export default function DocumentPage() {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={handleDelete}
-                    className="text-[var(--status-error)] focus:text-[var(--status-error)] focus:bg-[var(--status-error-bg)]"
+                    className="text-status-error focus:text-status-error focus:bg-status-error-bg"
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
                     Delete document
@@ -238,12 +239,12 @@ export default function DocumentPage() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Delete confirm inline */}
+          {/* Delete confirm — inline */}
           {deleteState === 'confirm' && (
-            <div className="flex items-center gap-1.5 border border-[var(--border-status-error)] bg-[var(--status-error-bg)] rounded-lg px-2 py-1">
-              <AlertTriangle className="h-3.5 w-3.5 text-[var(--status-error)] shrink-0" />
-              <span className="text-xs text-[var(--status-error-text)] font-medium">Delete permanently?</span>
-              <Button size="sm" className="h-6 text-xs bg-[var(--status-error)] hover:bg-[var(--status-error-hover)] text-white px-2" onClick={handleDelete}>
+            <div className="flex items-center gap-1.5 border border-status-error/30 bg-status-error-bg rounded-lg px-2 py-1">
+              <AlertTriangle className="h-3.5 w-3.5 text-status-error shrink-0" />
+              <span className="text-xs text-status-error-text font-medium">Delete permanently?</span>
+              <Button size="sm" className="h-6 text-xs bg-status-error hover:bg-red-600 text-white px-2" onClick={handleDelete}>
                 Delete
               </Button>
               <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => setDeleteState('idle')}>
@@ -252,18 +253,17 @@ export default function DocumentPage() {
             </div>
           )}
           {deleteState === 'deleting' && (
-            <span className="text-xs text-[var(--text-tertiary)] flex items-center gap-1">
+            <span className="text-xs text-text-tertiary flex items-center gap-1">
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> Deleting…
             </span>
           )}
 
-          {/* Submit — primary CTA */}
           {canSubmit && (
             <>
-              <div className="h-5 w-px bg-[var(--border-default)] mx-0.5" />
+              <div className="h-4 w-px bg-border-default mx-0.5" />
               <Button
                 size="sm"
-                className="h-7 text-[11px] gap-1.5 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white font-semibold"
+                className="h-7 text-[11px] gap-1.5 bg-accent-blue hover:bg-blue-600 text-white font-semibold"
                 onClick={() => setShowSubmitModal(true)}
               >
                 <Send className="h-3 w-3" />
@@ -272,26 +272,27 @@ export default function DocumentPage() {
             </>
           )}
         </div>
-      </header>
+      </nav>
 
-      {/* ── Body: editor + right panels ────────────────────────────────────── */}
+      {/* ── Body: editor + pillar right panels ───────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
+
+        {/* Editor */}
         <div className="flex-1 overflow-hidden">
-          <CollaborativeEditor
+          <MinimalEditor
             documentId={docId}
             projectId={projectId}
-            currentProfile={profile}
+            initialTitle={document.title}
             initialContent={document.content}
             onSave={handleSaveContent}
+            onTitleSave={handleTitleSave}
             triggerSaveRef={triggerSaveRef}
             insertContentRef={insertContentRef}
-            onSubmitForReview={canSubmit ? () => setShowSubmitModal(true) : undefined}
             readOnly={isReadOnly}
-            documentType={document.document_type}
           />
         </div>
 
-        {/* Pillar 1: Version history panel */}
+        {/* Pillar right panels */}
         {rightPanel === 'versions' && (
           <VersionHistoryEnhanced
             versions={versions}
@@ -301,8 +302,6 @@ export default function DocumentPage() {
             onRestore={handleRestoreVersion}
           />
         )}
-
-        {/* Pillar 5: Authorship panel */}
         {rightPanel === 'authors' && (
           <AuthorshipPanel
             documentId={docId}
@@ -323,8 +322,6 @@ export default function DocumentPage() {
             onSave={fetchAuthors}
           />
         )}
-
-        {/* Pillar 4: Security & ethics panel */}
         {rightPanel === 'security' && (
           <DocumentSecurityPanel
             documentId={docId}
@@ -332,8 +329,6 @@ export default function DocumentPage() {
             onClose={() => setRightPanel(null)}
           />
         )}
-
-        {/* Pillar 6: Translation panel */}
         {rightPanel === 'translation' && (
           <TranslationPanel
             documentId={docId}
@@ -343,16 +338,12 @@ export default function DocumentPage() {
         )}
       </div>
 
-      {/* ── Modals ─────────────────────────────────────────────────────────── */}
-
-      {/* Pillar 2: Structured abstract */}
+      {/* ── Modals ──────────────────────────────────────────────────────── */}
       <StructuredAbstractModal
         isOpen={showAbstractModal}
         onClose={() => setShowAbstractModal(false)}
         onInsert={(text) => insertContentRef.current?.(text)}
       />
-
-      {/* Pillar 3: Analysis embed picker */}
       <AnalysisEmbedModal
         open={showAnalysisModal}
         onClose={() => setShowAnalysisModal(false)}
@@ -360,7 +351,6 @@ export default function DocumentPage() {
         projectId={projectId}
         onInsert={(html) => insertContentRef.current?.(html)}
       />
-
       <SubmitForReviewModal
         open={showSubmitModal}
         onClose={() => setShowSubmitModal(false)}
