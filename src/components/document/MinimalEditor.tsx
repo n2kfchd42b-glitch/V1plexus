@@ -10,6 +10,10 @@ import TextAlign from '@tiptap/extension-text-align'
 import Link from '@tiptap/extension-link'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
+import { Table } from '@tiptap/extension-table'
+import { TableRow } from '@tiptap/extension-table-row'
+import { TableHeader } from '@tiptap/extension-table-header'
+import { TableCell } from '@tiptap/extension-table-cell'
 import { createClient } from '@/lib/supabase/client'
 import { SlashCommandMenu } from './SlashCommandMenu'
 import { FloatingSelectionToolbar } from './FloatingSelectionToolbar'
@@ -119,6 +123,10 @@ export function MinimalEditor({
       Link.configure({ openOnClick: false }),
       TaskList,
       TaskItem.configure({ nested: true }),
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableHeader,
+      TableCell,
       DatasetTableExtension,
       ChartNodeExtension,
       TableBlockNodeExtension,
@@ -268,6 +276,11 @@ export function MinimalEditor({
                     '[&_.ProseMirror_h1]:font-manrope [&_.ProseMirror_h1]:font-extrabold [&_.ProseMirror_h1]:tracking-tight',
                     '[&_.ProseMirror_h2]:font-manrope [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:tracking-tight',
                     '[&_.ProseMirror_h3]:font-manrope [&_.ProseMirror_h3]:font-semibold',
+                    // Table styles
+                    '[&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:my-4 [&_.ProseMirror_table]:font-sans [&_.ProseMirror_table]:text-sm',
+                    '[&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-border-default [&_.ProseMirror_th]:px-3 [&_.ProseMirror_th]:py-2 [&_.ProseMirror_th]:bg-bg-inset [&_.ProseMirror_th]:text-left [&_.ProseMirror_th]:font-semibold [&_.ProseMirror_th]:text-text-secondary [&_.ProseMirror_th]:text-xs [&_.ProseMirror_th]:uppercase [&_.ProseMirror_th]:tracking-wide',
+                    '[&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-border-default [&_.ProseMirror_td]:px-3 [&_.ProseMirror_td]:py-1.5 [&_.ProseMirror_td]:text-text-primary [&_.ProseMirror_td]:text-[14px] [&_.ProseMirror_td]:font-mono [&_.ProseMirror_td]:tabular-nums',
+                    '[&_.ProseMirror_tr:nth-child(even)]:bg-bg-app',
                   )}
                 />
 
