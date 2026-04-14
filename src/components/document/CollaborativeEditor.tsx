@@ -444,11 +444,8 @@ export function CollaborativeEditor({
             {rightPanel === 'data' && (
               <DataPanel
                 projectId={projectId}
-                onInsertTable={({ datasetId, versionId, datasetName }) => {
-                  editor?.chain().focus().insertContent({
-                    type: 'datasetTable',
-                    attrs: { datasetId, versionId, datasetName },
-                  }).run()
+                onInsertTable={({ html }) => {
+                  editor?.chain().focus().insertContent(html).run()
                   togglePanel('data')
                 }}
                 onInsertChart={({ explorationId, chartTitle, chartType, chartConfig, datasetId, versionId }) => {
