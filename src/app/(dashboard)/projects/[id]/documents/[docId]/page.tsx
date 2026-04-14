@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { MinimalEditor } from '@/components/document/MinimalEditor'
+import { DocumentListPanel } from '@/components/document/DocumentListPanel'
 import { SubmitForReviewModal } from '@/components/review/SubmitForReviewModal'
 import { ExportDropdown } from '@/components/export/ExportDropdown'
 
@@ -141,7 +142,17 @@ export default function DocumentPage() {
   const isReadOnly = document.status === 'approved'
 
   return (
-    <div className="flex flex-col h-screen bg-bg-app">
+    <div className="flex h-screen bg-bg-app overflow-hidden">
+
+      {/* ── Left: document list panel ─────────────────────────────── */}
+      <DocumentListPanel
+        projectId={projectId}
+        selectedDocId={docId}
+        triggerSaveRef={triggerSaveRef}
+      />
+
+      {/* ── Right: editor column ──────────────────────────────────── */}
+      <div className="flex flex-col flex-1 overflow-hidden">
 
       {/* ── Slim nav bar — hidden in focus mode ──────────────────────────── */}
       <nav className={cn(
@@ -364,6 +375,7 @@ export default function DocumentPage() {
         currentProfile={profile}
         onSubmitted={handleSubmitted}
       />
+      </div>{/* end editor column */}
     </div>
   )
 }

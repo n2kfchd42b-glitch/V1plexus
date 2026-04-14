@@ -1,71 +1,55 @@
-import { redirect } from "next/navigation";
-import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { DocumentsGrid } from "@/components/document/DocumentsGrid";
-import { DocumentsActions } from "@/components/document/DocumentsActions";
-import { Plus, FileText } from "lucide-react";
+import { redirect } from "next/navigation"
+import { createClient } from "@/lib/supabase/server"
+import { DocumentListPanel } from "@/components/document/DocumentListPanel"
 
 export default async function DocumentsPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string }>
 }) {
-  const { id } = await params;
-  const supabase = await createClient();
+  const { id } = await params
+  const supabase = await createClient()
   const {
     data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  } = await supabase.auth.getUser()
+  if (!user) redirect("/login")
 
-  const [{ data: documents }, { data: project }] = await Promise.all([
-    supabase
-      .from("documents")
-      .select("*")
-      .eq("project_id", id)
-      .is("deleted_at", null)
-      .order("updated_at", { ascending: false }),
-    supabase
-      .from("projects")
-      .select("name")
-      .eq("id", id)
-      .single(),
-  ]);
+  const { data: documents } = await supabase
+    .from("documents")
+    .select("id")
+    .eq("project_id", id)
+    .is("deleted_at", null)
+    .order("updated_at", { ascending: false })
+    .limit(1)
 
+  // If there's an existing document, open it directly
+  if (documents && documents.length > 0) {
+    redirect(`/projects/${id}/documents/${documents[0].id}`)
+  }
+
+  // No documents yet — show the list panel with an empty state on the right
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      {/* ── Page header ───────────────────────────────────────────── */}
-      <div className="flex items-end justify-between mb-8">
-        <div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 leading-none">
-            Documents
-          </h1>
-          {project?.name && (
-            <p className="text-base font-medium text-slate-400 mt-1.5">
-              {project.name}
-            </p>
-          )}
-        </div>
-        <DocumentsActions projectId={id} />
+    <div className="flex h-screen bg-bg-app overflow-hidden">
+      <DocumentListPanel projectId={id} selectedDocId="" />
+      <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center">
+        <svg
+          className="h-10 w-10 text-text-tertiary opacity-30"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.5}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"
+          />
+        </svg>
+        <p className="text-sm font-medium text-text-secondary">No documents yet</p>
+        <p className="text-xs text-text-tertiary max-w-[200px]">
+          Create your first document using the panel on the left
+        </p>
       </div>
-
-      {!documents || documents.length === 0 ? (
-        <div className="bg-white border-2 border-dashed border-slate-200 rounded-xl p-12 text-center">
-          <FileText className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-          <h3 className="font-medium text-slate-700">No documents yet</h3>
-          <p className="text-sm text-slate-400 mt-1 mb-4">
-            Create your first document for this project
-          </p>
-          <Link
-            href={`/projects/${id}/documents/new`}
-            className="inline-flex items-center gap-1.5 bg-clinical-blue text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-clinical-deep"
-          >
-            <Plus className="h-4 w-4" />
-            Create document
-          </Link>
-        </div>
-      ) : (
-        <DocumentsGrid documents={documents} projectId={id} />
-      )}
     </div>
-  );
+  )
 }
