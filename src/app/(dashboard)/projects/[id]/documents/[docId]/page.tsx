@@ -264,6 +264,7 @@ export default function DocumentPage() {
         {/* Editor */}
         <div className="flex-1 overflow-hidden">
           <MinimalEditor
+            key={docId}
             documentId={docId}
             projectId={projectId}
             initialTitle={document.title}
