@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
-import { Manrope, Inter, Instrument_Serif } from "next/font/google"
+import { Manrope, Inter, Instrument_Serif, Lora } from "next/font/google"
 import { Analytics } from '@vercel/analytics/next'
 import { KeepaliveProvider } from '@/components/layout/KeepaliveProvider'
 import { ConnectionGuard } from '@/components/layout/ConnectionGuard'
@@ -27,6 +27,13 @@ const instrumentSerif = Instrument_Serif({
   display: "swap",
 })
 
+const lora = Lora({
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  variable: "--font-document",
+  display: "swap",
+})
+
 export const metadata: Metadata = {
   title: "PLEXUS Research Lab",
   description: "Institution-grade research management platform",
@@ -47,7 +54,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable} ${manrope.variable} ${inter.variable} ${instrumentSerif.variable}`}>
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable} ${manrope.variable} ${inter.variable} ${instrumentSerif.variable} ${lora.variable}`}>
       <head>
         <link
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"

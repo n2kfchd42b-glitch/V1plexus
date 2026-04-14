@@ -309,13 +309,14 @@ export function MinimalEditor({
                   editor={editor}
                   className={cn(
                     '[&_.ProseMirror]:min-h-[40vh]',
-                    '[&_.ProseMirror]:text-[17px]',
-                    '[&_.ProseMirror]:leading-[1.9]',
-                    '[&_.ProseMirror]:font-serif',
+                    '[&_.ProseMirror]:text-[16px]',
+                    '[&_.ProseMirror]:leading-[1.8]',
+                    '[&_.ProseMirror]:[font-family:var(--font-document)]',
                     '[&_.ProseMirror]:text-text-primary',
-                    '[&_.ProseMirror_h1]:font-manrope [&_.ProseMirror_h1]:font-extrabold [&_.ProseMirror_h1]:tracking-tight',
-                    '[&_.ProseMirror_h2]:font-manrope [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:tracking-tight',
-                    '[&_.ProseMirror_h3]:font-manrope [&_.ProseMirror_h3]:font-semibold',
+                    '[&_.ProseMirror_p]:mb-3',
+                    '[&_.ProseMirror_h1]:font-manrope [&_.ProseMirror_h1]:font-extrabold [&_.ProseMirror_h1]:tracking-tight [&_.ProseMirror_h1]:mt-8 [&_.ProseMirror_h1]:mb-3',
+                    '[&_.ProseMirror_h2]:font-manrope [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:tracking-tight [&_.ProseMirror_h2]:mt-6 [&_.ProseMirror_h2]:mb-2',
+                    '[&_.ProseMirror_h3]:font-manrope [&_.ProseMirror_h3]:font-semibold [&_.ProseMirror_h3]:mt-4 [&_.ProseMirror_h3]:mb-1.5',
                     // Table styles
                     '[&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:my-4 [&_.ProseMirror_table]:font-sans [&_.ProseMirror_table]:text-sm',
                     '[&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-border-default [&_.ProseMirror_th]:px-3 [&_.ProseMirror_th]:py-2 [&_.ProseMirror_th]:bg-bg-inset [&_.ProseMirror_th]:text-left [&_.ProseMirror_th]:font-semibold [&_.ProseMirror_th]:text-text-secondary [&_.ProseMirror_th]:text-xs [&_.ProseMirror_th]:uppercase [&_.ProseMirror_th]:tracking-wide',
