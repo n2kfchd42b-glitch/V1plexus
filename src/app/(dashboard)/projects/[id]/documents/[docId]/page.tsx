@@ -4,12 +4,11 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ArrowLeft, Send, Loader2, AlertTriangle, Trash2,
+  ArrowLeft, Loader2, AlertTriangle, Trash2,
   History, Users, FileText, Shield, FlaskConical, Languages,
   MoreHorizontal,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,7 +18,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { MinimalEditor } from '@/components/document/MinimalEditor'
 import { DocumentListPanel } from '@/components/document/DocumentListPanel'
-import { SubmitForReviewModal } from '@/components/review/SubmitForReviewModal'
 import { ExportDropdown } from '@/components/export/ExportDropdown'
 
 // ── Pillar 1 & 5 ──────────────────────────────────────────────────────────────
@@ -39,7 +37,7 @@ import { TranslationPanel } from '@/components/document/TranslationPanel'
 
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
-import { cn, statusColor, statusLabel } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { Document } from '@/types/database'
 import type { DocumentVersion } from '@/types/document-editor-pillars'
@@ -52,9 +50,8 @@ export default function DocumentPage() {
   const router = useRouter()
   const projectId = params.id as string
   const docId = params.docId as string
-  const { profile } = useAuth()
+  useAuth()
   const [document, setDocument] = useState<Document | null>(null)
-  const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [deleteState, setDeleteState] = useState<DeleteState>('idle')
   const [rightPanel, setRightPanel] = useState<RightPanel>(null)
   const [showAbstractModal, setShowAbstractModal] = useState(false)
@@ -89,15 +86,6 @@ export default function DocumentPage() {
 
   const handleTitleSave = (title: string) => {
     setDocument(prev => prev ? { ...prev, title } : prev)
-  }
-
-  const handleSubmitted = async () => {
-    const { data } = await supabase
-      .from('documents')
-      .select('*')
-      .eq('id', docId)
-      .single()
-    if (data) setDocument(data)
   }
 
   const handleRestoreVersion = async (version: DocumentVersion) => {
@@ -138,9 +126,6 @@ export default function DocumentPage() {
     )
   }
 
-  const canSubmit = profile?.id === document.created_by && document.status === 'draft'
-  const isReadOnly = document.status === 'approved'
-
   return (
     <div className="flex h-screen bg-bg-app overflow-hidden">
 
@@ -174,9 +159,6 @@ export default function DocumentPage() {
           <span className="text-sm font-semibold text-text-primary truncate tracking-tight leading-none font-manrope">
             {document.title || 'Untitled'}
           </span>
-          <Badge className={cn('text-[10px] border px-1.5 py-0.5 shrink-0 font-medium', statusColor(document.status))}>
-            {statusLabel(document.status)}
-          </Badge>
         </div>
 
         {/* Right: export + ••• + submit */}
@@ -273,19 +255,6 @@ export default function DocumentPage() {
             </span>
           )}
 
-          {canSubmit && (
-            <>
-              <div className="h-4 w-px bg-border-default mx-0.5" />
-              <Button
-                size="sm"
-                className="h-7 text-[11px] gap-1.5 bg-accent-blue hover:bg-blue-600 text-white font-semibold"
-                onClick={() => setShowSubmitModal(true)}
-              >
-                <Send className="h-3 w-3" />
-                Submit
-              </Button>
-            </>
-          )}
         </div>
       </nav>
 
@@ -303,7 +272,7 @@ export default function DocumentPage() {
             onTitleSave={handleTitleSave}
             triggerSaveRef={triggerSaveRef}
             insertContentRef={insertContentRef}
-            readOnly={isReadOnly}
+            readOnly={false}
             onFocusModeChange={setFocusMode}
           />
         </div>
@@ -366,14 +335,6 @@ export default function DocumentPage() {
         documentId={docId}
         projectId={projectId}
         onInsert={(html) => insertContentRef.current?.(html)}
-      />
-      <SubmitForReviewModal
-        open={showSubmitModal}
-        onClose={() => setShowSubmitModal(false)}
-        documentId={docId}
-        documentVersion={document.current_version}
-        currentProfile={profile}
-        onSubmitted={handleSubmitted}
       />
       </div>{/* end editor column */}
     </div>
