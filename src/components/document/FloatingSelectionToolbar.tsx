@@ -142,7 +142,7 @@ export function FloatingSelectionToolbar({ editor, onInsertCitation, onAddCommen
   return (
     <div
       ref={toolbarRef}
-      className="absolute z-40 flex items-center gap-0.5 bg-[#18181B] rounded-lg px-1.5 py-1 shadow-xl"
+      className="absolute z-40 flex items-center gap-0.5 bg-[var(--bg-sidebar)] rounded-lg px-1.5 py-1 shadow-xl"
       style={{ top: position.top, left: position.left }}
       onMouseDown={e => e.preventDefault()}
     >

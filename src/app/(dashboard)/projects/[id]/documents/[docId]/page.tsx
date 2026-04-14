@@ -241,7 +241,7 @@ export default function DocumentPage() {
             <div className="flex items-center gap-1.5 border border-status-error/30 bg-status-error-bg rounded-lg px-2 py-1">
               <AlertTriangle className="h-3.5 w-3.5 text-status-error shrink-0" />
               <span className="text-xs text-status-error-text font-medium">Delete permanently?</span>
-              <Button size="sm" className="h-6 text-xs bg-status-error hover:bg-red-600 text-white px-2" onClick={handleDelete}>
+              <Button size="sm" className="h-6 text-xs bg-status-error hover:bg-[var(--status-error-hover)] text-white px-2" onClick={handleDelete}>
                 Delete
               </Button>
               <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => setDeleteState('idle')}>

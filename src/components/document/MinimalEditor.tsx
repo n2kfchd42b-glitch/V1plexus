@@ -296,7 +296,7 @@ export function MinimalEditor({
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
             <button
               onClick={toggleFocus}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#18181B] text-white/60 text-[11px] font-manrope uppercase tracking-widest hover:text-white transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--bg-sidebar)] text-white/60 text-[11px] font-manrope uppercase tracking-widest hover:text-white transition-colors"
             >
               <Minimize2 className="h-3 w-3" />
               ESC — exit focus
