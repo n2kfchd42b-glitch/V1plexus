@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   Upload, Database, Archive, ArchiveRestore, Trash2,
-  ChevronsLeft, ChevronsRight,
+  ChevronsLeft, ChevronsRight, ArrowLeft,
 } from 'lucide-react'
 import { motion, type Variants } from 'framer-motion'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -80,7 +80,11 @@ export default function ProjectDataPage() {
 
   const handleSelect = (id: string) => {
     setSelectedId(id)
-    setPanelOpen(false)
+    // On desktop: collapse the list panel to give detail more space
+    // On mobile: the CSS already switches to showing detail full-width
+    if (window.innerWidth >= 768) {
+      setPanelOpen(false)
+    }
   }
 
   const handleUploadSuccess = (datasetId: string) => {
@@ -110,13 +114,24 @@ export default function ProjectDataPage() {
 
   if (authLoading || !user) return null
 
+  // On mobile: show only the list pane, or only the detail pane (not both)
+  const showMobileList   = !selectedId
+  const showMobileDetail = !!selectedId
+
   return (
-    <div className="flex flex-row bg-[var(--bg-app)] overflow-hidden h-[calc(100vh-4rem)]">
+    <div className="flex flex-col md:flex-row bg-[var(--bg-app)] overflow-hidden h-[calc(100vh-4rem)]">
 
       {/* ── LEFT PANEL ─────────────────────────────────────────────────────── */}
+      {/* Desktop: always visible (collapses to icon strip). Mobile: only when no dataset selected */}
       <div className={cn(
-        'flex flex-col border-r border-[var(--border-row)] bg-[var(--bg-surface)] shrink-0 overflow-hidden transition-all duration-200',
-        panelOpen ? 'w-64' : 'w-10'
+        'flex flex-col border-r border-[var(--border-row)] bg-[var(--bg-surface)] overflow-hidden transition-all duration-200',
+        // Mobile: full width when showing list, hidden when detail is open
+        showMobileList  ? 'flex' : 'hidden',
+        // Tablet/desktop: always shown, collapses to icon strip
+        'md:flex md:shrink-0',
+        panelOpen ? 'md:w-64' : 'md:w-10',
+        // Mobile takes full width
+        'w-full md:w-auto'
       )}>
         {panelOpen ? (
           <>
@@ -242,28 +257,46 @@ export default function ProjectDataPage() {
       </div>
 
       {/* ── RIGHT: detail or empty state ───────────────────────────────────── */}
-      <div className="flex-1 min-w-0 overflow-hidden">
-        {selectedId ? (
-          <DatasetDetailPanel
-            key={selectedId}
-            datasetId={selectedId}
-            projectId={projectId}
-            isArchived={!!selectedDataset?.archived_at}
-            onExpandPanel={() => setPanelOpen(true)}
-            onArchive={() => { if (selectedId) handleArchive(selectedId, !selectedDataset?.archived_at) }}
-            onDelete={() => { if (selectedId) handleDelete(selectedId) }}
-          />
-        ) : (
-          <div className="h-full flex flex-col items-center justify-center gap-3 text-center px-8">
-            <div className="w-12 h-12 rounded-xl bg-[var(--bg-inset)] flex items-center justify-center">
-              <Database className="h-5 w-5 text-[var(--text-tertiary)]" />
-            </div>
-            <p className="text-sm font-semibold text-[var(--text-secondary)]">Select a dataset</p>
-            <p className="text-xs text-[var(--text-tertiary)] max-w-xs leading-relaxed">
-              Choose a dataset from the panel to view schema, clean data, check quality, and explore.
-            </p>
-          </div>
+      {/* Mobile: only shown when a dataset is selected. Desktop: always shown */}
+      <div className={cn(
+        'flex-1 min-w-0 overflow-hidden flex flex-col',
+        showMobileDetail ? 'flex' : 'hidden',
+        'md:flex'
+      )}>
+        {/* Mobile back button */}
+        {selectedId && (
+          <button
+            onClick={() => { setSelectedId(null); setPanelOpen(true) }}
+            className="md:hidden flex items-center gap-2 px-4 h-11 border-b border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors flex-shrink-0"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to datasets
+          </button>
         )}
+
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {selectedId ? (
+            <DatasetDetailPanel
+              key={selectedId}
+              datasetId={selectedId}
+              projectId={projectId}
+              isArchived={!!selectedDataset?.archived_at}
+              onExpandPanel={() => setPanelOpen(true)}
+              onArchive={() => { if (selectedId) handleArchive(selectedId, !selectedDataset?.archived_at) }}
+              onDelete={() => { if (selectedId) handleDelete(selectedId) }}
+            />
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center gap-3 text-center px-8">
+              <div className="w-12 h-12 rounded-xl bg-[var(--bg-inset)] flex items-center justify-center">
+                <Database className="h-5 w-5 text-[var(--text-tertiary)]" />
+              </div>
+              <p className="text-sm font-semibold text-[var(--text-secondary)]">Select a dataset</p>
+              <p className="text-xs text-[var(--text-tertiary)] max-w-xs leading-relaxed">
+                Choose a dataset from the panel to view schema, clean data, check quality, and explore.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Upload dialog */}

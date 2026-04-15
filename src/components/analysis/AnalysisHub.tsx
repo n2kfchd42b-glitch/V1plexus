@@ -29,29 +29,31 @@ import { logAudit } from '@/lib/audit'
 import type { AnalysisRun, AnalysisType, DatasetColumn } from '@/types/database'
 import type { DataRow, AnalysisResult } from '@/lib/analysis/types'
 
-// Config components
-import { DescriptiveConfig } from './configs/DescriptiveConfig'
-import { FrequencyConfig } from './configs/FrequencyConfig'
-import { ChiSquareConfig } from './configs/ChiSquareConfig'
-import { TTestConfig } from './configs/TTestConfig'
-import { AnovaConfig } from './configs/AnovaConfig'
-import { CorrelationConfig } from './configs/CorrelationConfig'
-import { SimpleRegressionConfig } from './configs/SimpleRegressionConfig'
-import { MultipleRegressionConfig } from './configs/MultipleRegressionConfig'
-import { LogisticRegressionConfig } from './configs/LogisticRegressionConfig'
-import { MultinomialConfig } from './configs/MultinomialConfig'
-import { OrdinalConfig } from './configs/OrdinalConfig'
-import { PoissonConfig } from './configs/PoissonConfig'
-import { KaplanMeierConfig } from './configs/KaplanMeierConfig'
-import { CoxConfig } from './configs/CoxConfig'
-import { TimeSeriesConfig } from './configs/TimeSeriesConfig'
-import { PCAConfig } from './configs/PCAConfig'
-import { FactorAnalysisConfig } from './configs/FactorAnalysisConfig'
-import { ClusterConfig } from './configs/ClusterConfig'
-import { MetaAnalysisConfig } from './configs/MetaAnalysisConfig'
-import { SpatialConfig } from './configs/SpatialConfig'
-import { OutbreakConfig } from './configs/OutbreakConfig'
-import { SampleSizeConfig } from './configs/SampleSizeConfig'
+// Config components — lazy-loaded so only the active analysis type is bundled/fetched
+import dynamic from 'next/dynamic'
+
+const DescriptiveConfig       = dynamic(() => import('./configs/DescriptiveConfig').then(m => ({ default: m.DescriptiveConfig })))
+const FrequencyConfig         = dynamic(() => import('./configs/FrequencyConfig').then(m => ({ default: m.FrequencyConfig })))
+const ChiSquareConfig         = dynamic(() => import('./configs/ChiSquareConfig').then(m => ({ default: m.ChiSquareConfig })))
+const TTestConfig             = dynamic(() => import('./configs/TTestConfig').then(m => ({ default: m.TTestConfig })))
+const AnovaConfig             = dynamic(() => import('./configs/AnovaConfig').then(m => ({ default: m.AnovaConfig })))
+const CorrelationConfig       = dynamic(() => import('./configs/CorrelationConfig').then(m => ({ default: m.CorrelationConfig })))
+const SimpleRegressionConfig  = dynamic(() => import('./configs/SimpleRegressionConfig').then(m => ({ default: m.SimpleRegressionConfig })))
+const MultipleRegressionConfig = dynamic(() => import('./configs/MultipleRegressionConfig').then(m => ({ default: m.MultipleRegressionConfig })))
+const LogisticRegressionConfig = dynamic(() => import('./configs/LogisticRegressionConfig').then(m => ({ default: m.LogisticRegressionConfig })))
+const MultinomialConfig       = dynamic(() => import('./configs/MultinomialConfig').then(m => ({ default: m.MultinomialConfig })))
+const OrdinalConfig           = dynamic(() => import('./configs/OrdinalConfig').then(m => ({ default: m.OrdinalConfig })))
+const PoissonConfig           = dynamic(() => import('./configs/PoissonConfig').then(m => ({ default: m.PoissonConfig })))
+const KaplanMeierConfig       = dynamic(() => import('./configs/KaplanMeierConfig').then(m => ({ default: m.KaplanMeierConfig })))
+const CoxConfig               = dynamic(() => import('./configs/CoxConfig').then(m => ({ default: m.CoxConfig })))
+const TimeSeriesConfig        = dynamic(() => import('./configs/TimeSeriesConfig').then(m => ({ default: m.TimeSeriesConfig })))
+const PCAConfig               = dynamic(() => import('./configs/PCAConfig').then(m => ({ default: m.PCAConfig })))
+const FactorAnalysisConfig    = dynamic(() => import('./configs/FactorAnalysisConfig').then(m => ({ default: m.FactorAnalysisConfig })))
+const ClusterConfig           = dynamic(() => import('./configs/ClusterConfig').then(m => ({ default: m.ClusterConfig })))
+const MetaAnalysisConfig      = dynamic(() => import('./configs/MetaAnalysisConfig').then(m => ({ default: m.MetaAnalysisConfig })))
+const SpatialConfig           = dynamic(() => import('./configs/SpatialConfig').then(m => ({ default: m.SpatialConfig })))
+const OutbreakConfig          = dynamic(() => import('./configs/OutbreakConfig').then(m => ({ default: m.OutbreakConfig })))
+const SampleSizeConfig        = dynamic(() => import('./configs/SampleSizeConfig').then(m => ({ default: m.SampleSizeConfig })))
 
 interface Props { projectId: string }
 

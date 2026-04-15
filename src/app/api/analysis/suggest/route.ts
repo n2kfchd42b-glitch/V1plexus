@@ -127,7 +127,10 @@ Rules:
     const validTypes = new Set(ANALYSIS_CATALOGUE.map(a => a.type))
     const filtered = suggestions.filter(s => validTypes.has(s.type as string))
 
-    return NextResponse.json({ suggestions: filtered })
+    // Cache identical suggestions for 1 hour in the browser, 24 h on the CDN edge
+    return NextResponse.json({ suggestions: filtered }, {
+      headers: { 'Cache-Control': 'private, max-age=3600, stale-while-revalidate=86400' },
+    })
   } catch (err) {
     console.error('[analysis/suggest] Claude error:', err)
     return NextResponse.json({ error: 'Failed to generate suggestions', suggestions: [] }, { status: 500 })
