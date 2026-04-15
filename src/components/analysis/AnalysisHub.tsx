@@ -11,6 +11,12 @@ import { AssumptionCheckModal } from './AssumptionCheckModal'
 import type { AssumptionCheckResult } from '@/types/analysisIntegrity'
 import { ANALYSIS_TYPES } from './AnalysisTypePicker'
 import { ProjectDatasetSelector } from './ProjectDatasetSelector'
+import { AnalysisEntryPoint } from './AnalysisEntryPoint'
+import { GuidedFlow } from './GuidedFlow'
+import { DirectFlow } from './DirectFlow'
+import { profileFromDatasetColumns } from '@/lib/decision-engine/variableProfiler'
+import type { DatasetContext, AnalysisTypeId } from '@/lib/decision-engine/types'
+import type { ExecutableWorkflowStep } from '@/lib/decision-engine/index'
 import { HubResultsPreview } from './HubResultsPreview'
 import { AnalysisCharts } from './results/AnalysisCharts'
 import { createClient } from '@/lib/supabase/client'
@@ -269,10 +275,23 @@ export function AnalysisHub({ projectId }: Props) {
     setData([]); setColumns([]); setFileName('')
     setDatasetId(undefined); setVersionId(undefined)
     setResult(null); setSavedRunId(null); setApprovalBlock(null)
+    setDecisionMode(null)
   }
 
-  // Config panel collapse — triggered when analysis runs
+  // Config panel collapse — kept for assumption modal path
   const [configCollapsed, setConfigCollapsed] = useState(false)
+
+  // Decision engine mode
+  type DecisionMode = 'entry' | 'guided' | 'direct' | null
+  const [decisionMode, setDecisionMode] = useState<DecisionMode>(null)
+  const [decisionPreselect, setDecisionPreselect] = useState<AnalysisTypeId | null>(null)
+
+  // Sequential workflow progress
+  const [workflowProgress, setWorkflowProgress] = useState<{
+    total: number
+    current: number  // 0-indexed: which step is running
+    label: string
+  } | null>(null)
 
   // Analysis type accordion open groups
   const [openGroups, setOpenGroups] = useState<string[]>([])
@@ -315,6 +334,8 @@ export function AnalysisHub({ projectId }: Props) {
     setDatasetId(dsId); setVersionId(vsId); setResult(null); setSavedRunId(null)
     setApprovalBlock(null)
 
+    setDecisionMode('entry')
+
     if (dsId && vsId) {
       try {
         const res = await fetch(`/api/datasets/${dsId}/approval/status?version_id=${vsId}`)
@@ -344,6 +365,97 @@ export function AnalysisHub({ projectId }: Props) {
     } finally {
       setRunning(false)
     }
+  }
+
+  // ── Decision engine run — called by GuidedFlow and DirectFlow ──────────────
+  const runWithTypeAndConfig = async (
+    backendType: string,
+    backendConfig: Record<string, unknown>,
+  ) => {
+    const t = backendType as AnalysisType
+    setSelectedType(t)
+    setConfig(backendConfig)
+    setDecisionMode(null)
+    setRunning(true)
+    setResult(null)
+    setViewingRunId(null)
+    setConfigCollapsed(true)
+    try {
+      setResult(await runAnalysis(t, data, backendConfig))
+      setResultTab('results')
+    } catch (err) {
+      setResult({
+        type: t,
+        summary: { error: err instanceof Error ? err.message : 'Analysis failed' },
+        tables: [],
+        charts: [],
+        interpretation: 'Analysis failed.',
+      })
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  // ── Sequential workflow runner — called from GuidedFlow ────────────────────
+  const runWorkflowSequentially = async (steps: ExecutableWorkflowStep[]) => {
+    const executableSteps = steps.filter(s => s.executable_config)
+    if (executableSteps.length === 0) return
+
+    setDecisionMode(null)
+    setResult(null)
+    setViewingRunId(null)
+    setRunning(true)
+    setWorkflowProgress({ total: executableSteps.length, current: 0, label: executableSteps[0].name })
+
+    for (let i = 0; i < executableSteps.length; i++) {
+      const step = executableSteps[i]
+      const { backendType, config: stepConfig } = step.executable_config!
+
+      setWorkflowProgress({ total: executableSteps.length, current: i, label: step.name })
+
+      try {
+        const analysisResult = await runAnalysis(backendType as AnalysisType, data, stepConfig)
+
+        if (step.is_final) {
+          // Final analysis → show in hub
+          setSelectedType(backendType as AnalysisType)
+          setConfig(stepConfig)
+          setResult(analysisResult)
+          setResultTab('results')
+        } else {
+          // Intermediate → auto-save to history silently
+          if (profile && datasetId) {
+            const { data: savedRun } = await supabase.from('analysis_runs').insert({
+              project_id: projectId,
+              dataset_id: datasetId,
+              version_id: versionId ?? null,
+              analysis_type: backendType as AnalysisType,
+              title: `${step.name} — ${fileName} — ${new Date().toLocaleDateString()}`,
+              config: stepConfig,
+              results: analysisResult as unknown as Record<string, unknown>,
+              interpretation: analysisResult.interpretation,
+              status: 'completed',
+              created_by: profile.id,
+            }).select().single()
+            if (savedRun) {
+              setRuns(prev => [savedRun as AnalysisRun, ...prev])
+            }
+          }
+        }
+      } catch {
+        // Intermediate failures: keep going. Final failure: show error.
+        if (step.is_final) {
+          setResult({
+            type: backendType as AnalysisType,
+            summary: { error: 'Final analysis step failed. Check variable selections.' },
+            tables: [], charts: [], interpretation: 'Analysis failed.',
+          })
+        }
+      }
+    }
+
+    setRunning(false)
+    setWorkflowProgress(null)
   }
 
   const handleRun = async () => {
@@ -512,74 +624,8 @@ export function AnalysisHub({ projectId }: Props) {
         {/* ── LEFT: Input panel ─────────────────────────── */}
         <div
           className="relative flex-shrink-0 border-r border-[var(--border-row)] flex flex-col overflow-hidden"
-          style={{
-            background: 'var(--bg-surface)',
-            width: configCollapsed ? '160px' : '320px',
-            transition: 'width 220ms cubic-bezier(0.4,0,0.2,1)',
-          }}
+          style={{ background: 'var(--bg-surface)', width: '240px' }}
         >
-
-          {/* ── Half-collapsed summary strip (160px) ───────── */}
-          {configCollapsed && (
-            <div className="flex flex-col h-full overflow-hidden">
-              {/* Header */}
-              <div className="flex items-center justify-between px-3 py-2.5 border-b border-[var(--border-row)] flex-shrink-0"
-                style={{ background: 'var(--bg-app)' }}>
-                <span className="text-[11px] font-semibold uppercase tracking-[0.08em]"
-                  style={{ color: 'var(--text-tertiary)' }}>Configure</span>
-                <button
-                  onClick={() => setConfigCollapsed(false)}
-                  className="h-6 w-6 flex items-center justify-center rounded transition-colors"
-                  style={{ color: 'var(--text-tertiary)' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-row-hover)'; e.currentTarget.style.color = 'var(--text-primary)' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'var(--text-tertiary)' }}
-                  title="Expand"
-                >
-                  <ChevronRight className="h-3.5 w-3.5 rotate-180" />
-                </button>
-              </div>
-
-              {/* Mini config summary */}
-              <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
-                {/* Dataset */}
-                <div>
-                  <p className="text-[9px] uppercase tracking-[0.08em] mb-1" style={{ color: 'var(--text-tertiary)' }}>Dataset</p>
-                  {dataLoaded ? (
-                    <div className="flex items-center gap-1.5">
-                      <Database className="h-3 w-3 flex-shrink-0" style={{ color: 'var(--accent-blue)' }} />
-                      <span className="text-[11px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>{fileName}</span>
-                    </div>
-                  ) : (
-                    <span className="text-[11px] italic" style={{ color: 'var(--text-tertiary)' }}>None</span>
-                  )}
-                </div>
-
-                {/* Analysis type */}
-                <div>
-                  <p className="text-[9px] uppercase tracking-[0.08em] mb-1" style={{ color: 'var(--text-tertiary)' }}>Type</p>
-                  {selectedType ? (
-                    <span className="text-[11px] font-medium" style={{ color: 'var(--accent-blue)' }}>
-                      {ANALYSIS_TYPES.find(t => t.type === selectedType)?.label ?? selectedType}
-                    </span>
-                  ) : (
-                    <span className="text-[11px] italic" style={{ color: 'var(--text-tertiary)' }}>None</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Re-run button */}
-              <div className="px-3 py-3 border-t border-[var(--border-row)] flex-shrink-0">
-                <button
-                  onClick={handleRun}
-                  disabled={!canRun}
-                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-bold text-white disabled:opacity-30 disabled:cursor-not-allowed active:scale-[0.98] btn-primary"
-                >
-                  <Play className="h-3 w-3" />
-                  Run
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* History drawer — slides over the left panel */}
           {historyOpen && !configCollapsed && (
@@ -641,13 +687,10 @@ export function AnalysisHub({ projectId }: Props) {
             </motion.div>
           )}
 
-          {/* ── Expanded content (hidden when collapsed) ── */}
-          {!configCollapsed && <>
-
           {/* Scrollable input form */}
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
 
-            {/* 1. Dataset */}
+            {/* Dataset */}
             <div>
               <p className="subsection-label mb-2">Dataset</p>
 
@@ -747,154 +790,72 @@ export function AnalysisHub({ projectId }: Props) {
               )}
             </div>
 
-            {/* 2. Analysis type */}
-            <div>
-              <p className="subsection-label mb-2">Analysis Type</p>
-              {/* 2-column accordion grid: [Descriptive, Regression, Advanced] | [Tests, Survival, Epidemiology] */}
-              <div className="grid grid-cols-2 gap-1.5 items-start">
-                {[
-                  [ANALYSIS_GROUPS[0], ANALYSIS_GROUPS[2], ANALYSIS_GROUPS[4]],
-                  [ANALYSIS_GROUPS[1], ANALYSIS_GROUPS[3], ANALYSIS_GROUPS[5]],
-                ].map((col, ci) => (
-                  <div key={ci} className="flex flex-col gap-1.5">
-                    {col.map(group => {
-                      const isOpen     = openGroups.includes(group.id)
-                      const hasSelected = group.types.some(t => t.type === selectedType)
-                      return (
-                        <div
-                          key={group.id}
-                          className="rounded-md overflow-hidden"
-                          style={{
-                            border:     hasSelected
-                              ? '1px solid var(--accent-blue)'
-                              : '1px solid var(--border-default)',
-                            background: 'var(--bg-surface)',
-                          }}
-                        >
-                          {/* Card header */}
-                          <button
-                            onClick={() => toggleGroup(group.id)}
-                            className="w-full flex items-center justify-between px-2.5 py-2 text-left transition-colors"
-                            style={{ background: hasSelected ? 'var(--accent-blue-subtle)' : 'var(--bg-app)' }}
-                            onMouseEnter={e => { if (!hasSelected) e.currentTarget.style.background = 'var(--bg-row-hover)' }}
-                            onMouseLeave={e => { if (!hasSelected) e.currentTarget.style.background = hasSelected ? 'var(--accent-blue-subtle)' : 'var(--bg-app)' }}
-                          >
-                            <span className="text-[11px] font-semibold leading-tight"
-                              style={{ color: hasSelected ? 'var(--accent-blue)' : 'var(--accent-primary)' }}>
-                              {group.label}
-                            </span>
-                            <ChevronRight
-                              className="h-3 w-3 flex-shrink-0 transition-transform"
-                              style={{
-                                color: hasSelected ? 'var(--accent-blue)' : 'var(--text-tertiary)',
-                                transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
-                              }}
-                            />
-                          </button>
-
-                          {/* Expanded: type list */}
-                          {isOpen && (
-                            <div className="px-1.5 py-1.5 flex flex-col gap-1 border-t border-[var(--border-row)]">
-                              {group.types.map(({ type, label }) => {
-                                const isActive = selectedType === type
-                                return (
-                                  <button
-                                    key={type}
-                                    onClick={() => { handleTypeSelect(type); setOpenGroups(prev => prev.filter(g => g !== group.id)) }}
-                                    className="w-full text-left px-2 py-1.5 rounded text-[11px] font-medium transition-colors leading-tight"
-                                    style={isActive ? {
-                                      background: 'var(--accent-blue-subtle)',
-                                      color:      'var(--accent-blue)',
-                                    } : {
-                                      color: 'var(--text-secondary)',
-                                    }}
-                                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--bg-row-hover)' }}
-                                    onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = '' }}
-                                  >
-                                    {label}
-                                  </button>
-                                )
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                ))}
-              </div>
-              {selectedType && ANALYSIS_TYPES.find(t => t.type === selectedType)?.description && (
-                <p className="text-xs mt-2 leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
-                  {ANALYSIS_TYPES.find(t => t.type === selectedType)?.description}
-                </p>
-              )}
-            </div>
-
-            {/* 3. Configuration */}
-            {selectedType && (
-              <div>
-                <p className="subsection-label mb-3">Variables</p>
-
-                {/* Approval gate */}
-                {approvalBlock && (
-                  <div className="rounded px-3 py-2.5 space-y-1 mb-3"
-                    style={{ border: '1px solid var(--border-status-warning)', background: 'var(--status-warning-bg)' }}>
-                    <p className="text-xs font-medium" style={{ color: 'var(--status-warning-text)' }}>
-                      {approvalBlock.status === 'pending' ? 'Awaiting Approval'
-                        : approvalBlock.status === 'rejected' ? 'Approval Declined'
-                        : 'Approval Required'}
-                    </p>
-                    <p className="text-xs leading-relaxed" style={{ color: 'var(--status-warning-text)' }}>{approvalBlock.reason}</p>
-                  </div>
-                )}
-
-                {needsData && !dataLoaded ? (
-                  <p className="text-xs text-[var(--text-tertiary)] italic">Load a dataset above to configure this analysis.</p>
-                ) : (
-                  <div className="[&_[data-run-button]]:hidden">
-                    <ConfigComponent
-                      type={selectedType} config={config} onChange={setConfig}
-                      onRun={approvalBlock ? () => {} : handleRun}
-                      loading={running}
-                      columns={needsData ? columns : []}
-                    />
-                  </div>
-                )}
-              </div>
+            {/* New Analysis button — shown when dataset is loaded but engine is closed */}
+            {dataLoaded && !decisionMode && (
+              <button
+                onClick={() => setDecisionMode('entry')}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold text-white active:scale-[0.98] transition-all"
+                style={{ background: 'linear-gradient(135deg,var(--color-clinical-deep),var(--color-clinical-blue))' }}
+              >
+                <Play className="h-3.5 w-3.5" />
+                Run Analysis
+              </button>
             )}
 
           </div>
 
-          {/* Run button — sticky at the bottom */}
-          <div className="px-4 py-3 border-t border-[var(--border-row)] flex-shrink-0"
-            style={{ background: 'var(--bg-app)' }}>
-            <button
-              onClick={handleRun}
-              disabled={!canRun}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-bold text-white disabled:opacity-30 disabled:cursor-not-allowed active:scale-[0.98] btn-primary"
-            >
-              {running ? (
-                <>
-                  <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                  Running…
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4" />
-                  Run Analysis
-                </>
-              )}
-            </button>
-          </div>
-
-          </>}
-
         </div>
 
-        {/* ── RIGHT: Results panel ───────────────────────── */}
+        {/* ── RIGHT: Results / Engine panel ─────────────── */}
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
 
-          {viewingRunId && viewingRun ? (
+          {/* ── Decision engine — takes over right panel ── */}
+          {decisionMode !== null && dataLoaded && (() => {
+            const engineSchema = profileFromDatasetColumns(columns, data.length)
+            const engineContext: DatasetContext = {
+              dataset_id: datasetId ?? '',
+              version_id: versionId ?? '',
+              dataset_name: fileName,
+              row_count: data.length,
+              complete_cases: data.length,
+              schema: engineSchema,
+            }
+            return (
+              <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--bg-surface)' }}>
+                {decisionMode === 'entry' && (
+                  <AnalysisEntryPoint
+                    dataset={{ id: datasetId ?? '', name: fileName, source: '', row_count: data.length, version_id: versionId ?? '' }}
+                    onGuided={() => setDecisionMode('guided')}
+                    onDirect={() => setDecisionMode('direct')}
+                  />
+                )}
+                {decisionMode === 'guided' && (
+                  <GuidedFlow
+                    dataset={engineContext}
+                    schema={engineSchema}
+                    onRunWorkflow={runWorkflowSequentially}
+                    onSwitchToDirect={preselected => {
+                      setDecisionPreselect(preselected ?? null)
+                      setDecisionMode('direct')
+                    }}
+                    onBack={() => setDecisionMode('entry')}
+                  />
+                )}
+                {decisionMode === 'direct' && (
+                  <DirectFlow
+                    dataset={engineContext}
+                    schema={engineSchema}
+                    preselectedType={decisionPreselect ?? undefined}
+                    onRunAnalysis={runWithTypeAndConfig}
+                    onSwitchToGuided={() => setDecisionMode('guided')}
+                    onBack={() => setDecisionMode('entry')}
+                  />
+                )}
+              </div>
+            )
+          })()}
+
+          {decisionMode === null && (viewingRunId && viewingRun ? (
             /* ── Viewing a historical run ── */
             <div className="flex flex-col h-full">
               <div className="flex items-center justify-between px-6 py-3 border-b border-[var(--border-row)] flex-shrink-0">
@@ -929,17 +890,43 @@ export function AnalysisHub({ projectId }: Props) {
               </div>
             </div>
 
-          ) : running ? (
-            /* ── Running ── */
+          ) : decisionMode === null && running ? (
+            /* ── Running (single or workflow) ── */
             <div className="flex flex-col items-center justify-center h-full text-center px-8">
               <div className="w-8 h-8 rounded-full border-2 border-[var(--accent-blue)] border-t-transparent animate-spin mb-4" />
-              <p className="text-sm font-medium text-[var(--text-primary)]">Running analysis…</p>
-              <p className="text-xs text-[var(--text-tertiary)] mt-1">
-                {ANALYSIS_TYPES.find(t => t.type === selectedType)?.label ?? 'Processing'}
-              </p>
+              {workflowProgress ? (
+                <>
+                  <p className="text-sm font-medium text-[var(--text-primary)] mb-1">Running Analysis Workflow</p>
+                  <p className="text-xs mb-6" style={{ color: 'var(--text-tertiary)' }}>
+                    Step {workflowProgress.current + 1} of {workflowProgress.total}: {workflowProgress.label}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    {Array.from({ length: workflowProgress.total }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="w-2 h-2 rounded-full transition-colors"
+                        style={{
+                          background: i < workflowProgress.current
+                            ? 'var(--status-success)'
+                            : i === workflowProgress.current
+                              ? 'var(--accent-blue)'
+                              : 'var(--bg-inset)',
+                        }}
+                      />
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-[var(--text-primary)]">Running analysis…</p>
+                  <p className="text-xs text-[var(--text-tertiary)] mt-1">
+                    {ANALYSIS_TYPES.find(t => t.type === selectedType)?.label ?? 'Processing'}
+                  </p>
+                </>
+              )}
             </div>
 
-          ) : result && !result.summary?.error ? (
+          ) : decisionMode === null && result && !result.summary?.error ? (
             /* ── Fresh result ── */
             <div className="flex flex-col h-full">
               {/* Result header */}
@@ -1080,7 +1067,7 @@ export function AnalysisHub({ projectId }: Props) {
               </div>
             </div>
 
-          ) : result?.summary?.error ? (
+          ) : decisionMode === null && result?.summary?.error ? (
             /* ── Error ── */
             <div className="flex flex-col items-center justify-center h-full text-center px-8">
               <div className="rounded-lg border border-[var(--timeline-flagged)]/20 bg-red-50 px-6 py-5 max-w-md">
@@ -1098,15 +1085,19 @@ export function AnalysisHub({ projectId }: Props) {
               >
                 <BarChart2 className="h-7 w-7" style={{ color: 'var(--text-tertiary)' }} />
               </div>
-              <p className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Configure and run a new analysis</p>
+              <p className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
+                {dataLoaded ? 'Ready to analyse' : 'Select a dataset to begin'}
+              </p>
               <p className="text-xs max-w-[240px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
-                {runs.length > 0
-                  ? 'Select a dataset and analysis type on the left, or open History to view past results.'
-                  : 'Select a dataset and analysis type on the left, then click Run Analysis.'}
+                {dataLoaded
+                  ? 'Click "Run Analysis" on the left to start the guided or direct flow.'
+                  : runs.length > 0
+                    ? 'Pick a dataset on the left, or open History to revisit past results.'
+                    : 'Pick a dataset on the left to get started.'}
               </p>
               {runs.length > 0 && (
                 <button
-                  onClick={() => { setHistoryOpen(true); setConfigCollapsed(false) }}
+                  onClick={() => setHistoryOpen(true)}
                   className="mt-4 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
                   style={{ border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-row-hover)')}
@@ -1117,7 +1108,7 @@ export function AnalysisHub({ projectId }: Props) {
                 </button>
               )}
             </div>
-          )}
+          ))}
         </div>
 
       </div>
