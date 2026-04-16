@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, Fragment } from 'react'
 import {
   X, Table2, ChevronRight, ChevronLeft,
   CheckCircle2, Circle, FilePlus, FileText,
@@ -73,12 +73,12 @@ function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
   return (
     <div className="flex items-center gap-1">
       {steps.map((s, i) => (
-        <>
+        <Fragment key={s.n}>
           {i > 0 && (
-            <div key={`sep-${s.n}`} className="flex-1 h-px mx-1"
+            <div className="flex-1 h-px mx-1"
               style={{ background: step > s.n - 1 ? '#0052cc' : '#e4e4e7' }} />
           )}
-          <div key={s.n} className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5">
             <div
               className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all"
               style={{
@@ -95,7 +95,7 @@ function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
               {s.label}
             </span>
           </div>
-        </>
+        </Fragment>
       ))}
     </div>
   )
