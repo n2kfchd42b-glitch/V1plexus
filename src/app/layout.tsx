@@ -3,6 +3,7 @@ import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
 import { Manrope, Inter, Instrument_Serif, Lora } from "next/font/google"
 import { Analytics } from '@vercel/analytics/next'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import { KeepaliveProvider } from '@/components/layout/KeepaliveProvider'
 import { ConnectionGuard } from '@/components/layout/ConnectionGuard'
 import { AuthProvider } from '@/components/auth/AuthProvider'
@@ -70,6 +71,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </KeepaliveProvider>
         </AuthProvider>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   )
