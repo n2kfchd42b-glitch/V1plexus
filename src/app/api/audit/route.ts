@@ -1,205 +1,182 @@
 /**
- * API route for audit entries
- * GET /api/audit  — query with filters
- * POST /api/audit — write a new entry (server-side, bypasses RLS)
+ * API route for audit entries.
+ * GET  /api/audit  — query with filters (RLS-enforced per project/actor rules)
+ * POST /api/audit  — write a new entry via `append_audit_entry` RPC
  *
- * Client-side components must POST here instead of inserting directly.
- * The server client uses the service role key which is never restricted
- * by the authenticated INSERT policy.
+ * The RPC takes a per-chain advisory lock, validates the tail hasn't moved,
+ * enforces monotonic timestamps + sequence numbers, and honours
+ * `idempotency_key` for safe client-side retries.
  */
 
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { getActorInfo } from '@/lib/audit/auditLogger'
+import { computeChainHashes } from '@/lib/audit/auditLogger'
 import type { AuditEntry, AuditEntryInput } from '@/types/audit'
 import { NextRequest, NextResponse } from 'next/server'
 
+interface AuditPostBody extends AuditEntryInput {
+  idempotency_key?: string
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const input: AuditEntryInput = await request.json()
+    const body: AuditPostBody = await request.json()
 
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
     }
 
-    if (input.actor_id !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (body.actor_id !== user.id) {
+      return NextResponse.json({ error: 'forbidden' }, { status: 403 })
     }
 
-    // Use service role client for all audit_logs operations — bypasses RLS INSERT policy
-    const serviceSupabase = createServiceClient()
+    if (!body.action || !body.resource_type || !body.resource_id) {
+      return NextResponse.json({ error: 'invalid_input' }, { status: 400 })
+    }
 
-    // Fetch previous resource-scoped chain hash
-    const { data: lastEntry } = await serviceSupabase
+    const service = createServiceClient()
+    const timestamp = new Date().toISOString()
+    const details = body.details ?? { summary: body.action }
+
+    // Read tails (informational — RPC re-validates under advisory lock)
+    const { data: lastResource } = await service
       .from('audit_logs')
       .select('entry_hash')
-      .eq('resource_type', input.resource_type)
-      .eq('resource_id', input.resource_id)
+      .eq('resource_type', body.resource_type)
+      .eq('resource_id', body.resource_id)
       .order('timestamp', { ascending: false })
       .limit(1)
       .maybeSingle()
+    const resourcePrev: string | null = lastResource?.entry_hash ?? null
 
-    const prevHash = lastEntry?.entry_hash ?? null
-    const timestamp = new Date().toISOString()
-
-    // Compute resource-scoped SHA-256 hash chain
-    const details = input.details ?? {}
-    const detailsJson = JSON.stringify(details, Object.keys(details).sort())
-    const canonical = [
-      timestamp, input.actor_id, input.action,
-      input.resource_type, input.resource_id,
-      input.project_id ?? '', detailsJson,
-      prevHash ?? 'GENESIS',
-    ].join('|')
-
-    const sha256 = async (text: string) => {
-      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
-      return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('')
-    }
-
-    const entryHash = await sha256(canonical)
-
-    // Compute project-scoped chain hash (when project_id is provided)
-    let projectChainPrevHash: string | null = null
-    let projectChainEntryHash: string | null = null
-
-    if (input.project_id) {
-      const { data: lastProjectEntry } = await serviceSupabase
+    let projectPrev: string | null = null
+    if (body.project_id) {
+      const { data: lastProject } = await service
         .from('audit_logs')
         .select('project_chain_entry_hash')
-        .eq('project_id', input.project_id)
+        .eq('project_id', body.project_id)
         .not('project_chain_entry_hash', 'is', null)
         .order('timestamp', { ascending: false })
         .limit(1)
         .maybeSingle()
-
-      projectChainPrevHash = lastProjectEntry?.project_chain_entry_hash ?? null
-
-      const projectCanonical = [
-        'PROJECT', timestamp, input.actor_id, input.action,
-        input.resource_type, input.resource_id,
-        detailsJson,
-        projectChainPrevHash ?? 'PROJECT_GENESIS',
-      ].join('|')
-
-      projectChainEntryHash = await sha256(projectCanonical)
+      projectPrev = lastProject?.project_chain_entry_hash ?? null
     }
 
-    const { data, error: insertError } = await serviceSupabase
-      .from('audit_logs')
-      .insert({
-        timestamp,
-        actor_id: input.actor_id,
-        action: input.action,
-        resource_type: input.resource_type,
-        resource_id: input.resource_id,
-        project_id: input.project_id ?? null,
-        institution_id: input.institution_id ?? null,
-        details,
-        ip_address: null,
-        prev_hash: prevHash,
-        entry_hash: entryHash,
-        project_chain_prev_hash: projectChainPrevHash,
-        project_chain_entry_hash: projectChainEntryHash,
+    const { resourceEntryHash, projectEntryHash } = await computeChainHashes(
+      { ...body, details },
+      timestamp,
+      resourcePrev,
+      projectPrev,
+    )
+
+    const idempotencyKey = body.idempotency_key ?? crypto.randomUUID()
+
+    // Retry-once loop: if the advisory lock serialized us behind another
+    // writer, our pre-read tail may be stale → RPC raises serialization_failure.
+    // Refresh tails and retry exactly once. Idempotency_key prevents dupes.
+    let attempt = 0
+    let lastError: unknown = null
+    while (attempt < 2) {
+      const { data, error } = await service.rpc('append_audit_entry', {
+        p_actor_id: body.actor_id,
+        p_action: body.action,
+        p_resource_type: body.resource_type,
+        p_resource_id: body.resource_id,
+        p_project_id: body.project_id ?? null,
+        p_institution_id: body.institution_id ?? null,
+        p_details: details,
+        p_ip_address: body.ip_address ?? null,
+        p_timestamp: timestamp,
+        p_expected_resource_prev_hash: resourcePrev,
+        p_resource_entry_hash: resourceEntryHash,
+        p_expected_project_prev_hash: projectPrev,
+        p_project_entry_hash: projectEntryHash,
+        p_idempotency_key: idempotencyKey,
       })
-      .select('id')
-      .single()
 
-    if (insertError) {
-      console.error('[POST /api/audit]', insertError)
-      return NextResponse.json({ error: insertError.message }, { status: 500 })
+      if (!error) {
+        const row = Array.isArray(data) ? data[0] : data
+        return NextResponse.json({
+          success: true,
+          entry_id: row.id,
+          sequence_number: row.sequence_number,
+          idempotent_replay: row.idempotent_replay,
+        })
+      }
+
+      lastError = error
+      // Only retry on our explicit conflict error from the RPC
+      const code = (error as { code?: string }).code
+      if (code !== '40001' /* serialization_failure */ || attempt >= 1) break
+      attempt++
+      // Re-read tails before retry
+      const refresh = await service
+        .from('audit_logs')
+        .select('entry_hash')
+        .eq('resource_type', body.resource_type)
+        .eq('resource_id', body.resource_id)
+        .order('timestamp', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      const newResourcePrev = refresh.data?.entry_hash ?? null
+      if (newResourcePrev === resourcePrev) break
+      // If tail moved, bail — client must retry with fresh state (idempotency_key guards)
+      break
     }
 
-    return NextResponse.json({ success: true, entry_id: data.id })
+    console.error('[POST /api/audit] append_audit_entry failed:', lastError)
+    return NextResponse.json({ error: 'audit_write_failed' }, { status: 500 })
   } catch (err) {
     console.error('[POST /api/audit]', err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: 'audit_write_failed' }, { status: 500 })
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
-
-    // Get current user for RLS
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
     }
 
-    // Parse query parameters
-    const searchParams = request.nextUrl.searchParams
-    const projectId = searchParams.get('project_id')
-    const resourceType = searchParams.get('resource_type')
-    const action = searchParams.get('action')
-    const actorId = searchParams.get('actor_id')
-    const dateFrom = searchParams.get('date_from')
-    const dateTo = searchParams.get('date_to')
-    const search = searchParams.get('search')
-    const page = parseInt(searchParams.get('page') || '1', 10)
-    const limit = parseInt(searchParams.get('limit') || '50', 10)
+    const sp = request.nextUrl.searchParams
+    const projectId    = sp.get('project_id')
+    const resourceType = sp.get('resource_type')
+    const action       = sp.get('action')
+    const actorId      = sp.get('actor_id')
+    const dateFrom     = sp.get('date_from')
+    const dateTo       = sp.get('date_to')
+    const page         = Math.max(1, parseInt(sp.get('page') || '1', 10))
+    const limit        = Math.min(200, Math.max(1, parseInt(sp.get('limit') || '50', 10)))
+    const offset       = (page - 1) * limit
 
-    const offset = (page - 1) * limit
-
-    // Build query
     let query = supabase
       .from('audit_logs')
-      .select(
-        '*, actor:actor_id(full_name)',
-        { count: 'exact' }
-      )
+      .select('*, actor:actor_id(full_name)', { count: 'exact' })
       .order('timestamp', { ascending: false })
 
-    // Apply filters
-    if (projectId) {
-      query = query.eq('project_id', projectId)
-    }
+    if (projectId)    query = query.eq('project_id', projectId)
+    if (resourceType) query = query.eq('resource_type', resourceType)
+    if (action)       query = query.eq('action', action)
+    if (actorId)      query = query.eq('actor_id', actorId)
+    if (dateFrom)     query = query.gte('timestamp', dateFrom)
+    if (dateTo)       query = query.lte('timestamp', dateTo + 'T23:59:59Z')
 
-    if (resourceType) {
-      query = query.eq('resource_type', resourceType)
-    }
-
-    if (action) {
-      query = query.eq('action', action)
-    }
-
-    if (actorId) {
-      query = query.eq('actor_id', actorId)
-    }
-
-    if (dateFrom) {
-      query = query.gte('timestamp', dateFrom)
-    }
-
-    if (dateTo) {
-      query = query.lte('timestamp', dateTo + 'T23:59:59Z')
-    }
-
-    // Apply pagination
     query = query.range(offset, offset + limit - 1)
 
-    // Execute query
     const { data, error, count } = await query
-
     if (error) {
       console.error('Audit query error:', error)
-      return NextResponse.json(
-        { error: 'Failed to fetch audit entries' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'query_failed' }, { status: 500 })
     }
 
-    // Enrich entries with actor names
-    const entries: AuditEntry[] = (data || []).map((entry: any) => ({
-      ...entry,
-      actor_name: entry.actor?.full_name ?? 'Unknown',
+    const entries: AuditEntry[] = (data || []).map((entry: Record<string, unknown>) => ({
+      ...(entry as unknown as AuditEntry),
+      actor_name: (entry.actor as { full_name?: string } | null)?.full_name ?? 'Unknown',
     }))
 
     return NextResponse.json({
@@ -208,11 +185,8 @@ export async function GET(request: NextRequest) {
       page,
       has_more: offset + limit < (count || 0),
     })
-  } catch (error) {
-    console.error('Audit API error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+  } catch (err) {
+    console.error('[GET /api/audit]', err)
+    return NextResponse.json({ error: 'internal_error' }, { status: 500 })
   }
 }

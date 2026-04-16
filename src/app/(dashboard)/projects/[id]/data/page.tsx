@@ -93,20 +93,42 @@ export default function ProjectDataPage() {
   }
 
   const handleDelete = async (id: string) => {
+    const target = datasets.find(d => d.id === id)
     const { error } = await supabase.from('datasets').update({ deleted_at: new Date().toISOString() }).eq('id', id)
     if (error) { toast.error('Failed to delete dataset'); return }
     setDatasets(prev => prev.filter(d => d.id !== id))
     if (selectedId === id) { setSelectedId(null); setPanelOpen(true) }
-    logAudit('dataset.deleted', 'dataset', id, {}, projectId)
+    const res = await logAudit(
+      'dataset.deleted',
+      'dataset',
+      id,
+      {
+        summary: `Deleted dataset "${target?.name ?? id}"`,
+        operation: { soft_delete: true, dataset_name: target?.name ?? null },
+      },
+      projectId,
+    )
+    if (!res.success) toast.warning('Audit entry failed — retrying in background')
     toast.success('Dataset deleted')
   }
 
   const handleArchive = async (id: string, archive: boolean) => {
+    const target = datasets.find(d => d.id === id)
     const { error } = await supabase.from('datasets').update({ archived_at: archive ? new Date().toISOString() : null }).eq('id', id)
     if (error) { toast.error(archive ? 'Failed to archive' : 'Failed to unarchive'); return }
     setDatasets(prev => prev.filter(d => d.id !== id))
     if (selectedId === id) { setSelectedId(null); setPanelOpen(true) }
-    logAudit(archive ? 'dataset.archived' : 'dataset.unarchived', 'dataset', id, {}, projectId)
+    const res = await logAudit(
+      archive ? 'dataset.archived' : 'dataset.unarchived',
+      'dataset',
+      id,
+      {
+        summary: `${archive ? 'Archived' : 'Unarchived'} dataset "${target?.name ?? id}"`,
+        operation: { dataset_name: target?.name ?? null },
+      },
+      projectId,
+    )
+    if (!res.success) toast.warning('Audit entry failed — retrying in background')
     toast.success(archive ? 'Dataset archived' : 'Dataset unarchived')
   }
 

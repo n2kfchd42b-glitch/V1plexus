@@ -19,6 +19,11 @@ CREATE TABLE IF NOT EXISTS project_phases (
 
 ALTER TABLE project_phases ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "phases_owner_all" ON project_phases;
+DROP POLICY IF EXISTS "phases_member_select" ON project_phases;
+DROP POLICY IF EXISTS "phases_member_write" ON project_phases;
+DROP POLICY IF EXISTS "phases_member_update" ON project_phases;
+
 -- Project owner can do everything
 CREATE POLICY "phases_owner_all" ON project_phases
   FOR ALL

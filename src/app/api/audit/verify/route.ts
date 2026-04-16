@@ -1,11 +1,19 @@
 /**
- * API route for verifying audit chain integrity
+ * API route for verifying audit chain integrity.
  * GET /api/audit/verify
  *
  * Scoping:
- *   ?project_id=X                   → verify project-scoped chain (project_chain_entry_hash)
- *   ?resource_type=Y&resource_id=Z  → verify resource-scoped chain (entry_hash)
- *   ?project_id=X&resource_type=Y&resource_id=Z → verify resource-scoped chain within project
+ *   ?project_id=X                    → verify project-scoped chain
+ *   ?resource_type=Y&resource_id=Z   → verify resource-scoped chain
+ *   ?project_id=X&resource_type=Y&resource_id=Z → resource chain within project
+ *
+ * Verification walks the chain in batches (keyset-paginated) so arbitrarily
+ * long chains can be fully verified without silent truncation. Each entry is
+ * checked for:
+ *   - hash_mismatch       (recomputed hash differs from stored)
+ *   - chain_broken        (prev_hash does not reference the last verified tail)
+ *   - sequence_gap        (project chain: sequence numbers must be contiguous)
+ *   - timestamp_regression (monotonic ordering)
  */
 
 import { createClient } from '@/lib/supabase/server'
@@ -13,8 +21,10 @@ import { createHash } from 'crypto'
 import type { ChainVerificationResult, ChainViolation } from '@/types/audit'
 import { NextRequest, NextResponse } from 'next/server'
 
-function computeHash(canonicalString: string): string {
-  return createHash('sha256').update(canonicalString).digest('hex')
+const BATCH_SIZE = 5_000
+
+function sha256(text: string): string {
+  return createHash('sha256').update(text).digest('hex')
 }
 
 function buildResourceCanonical(
@@ -25,259 +35,233 @@ function buildResourceCanonical(
   resourceId: string,
   projectId: string | null,
   details: Record<string, unknown>,
-  prevHash: string | null
+  prevHash: string | null,
 ): string {
   const detailsJson = JSON.stringify(details, Object.keys(details).sort())
   return [
-    timestamp,
-    actorId || '',
-    action,
-    resourceType,
-    resourceId,
-    projectId || '',
-    detailsJson,
-    prevHash || 'GENESIS',
+    timestamp, actorId || '', action, resourceType, resourceId,
+    projectId || '', detailsJson, prevHash || 'GENESIS',
   ].join('|')
 }
 
-function buildProjectChainCanonical(
+function buildProjectCanonical(
   timestamp: string,
   actorId: string | null,
   action: string,
   resourceType: string,
   resourceId: string,
   details: Record<string, unknown>,
-  projectChainPrevHash: string | null
+  projectChainPrevHash: string | null,
 ): string {
   const detailsJson = JSON.stringify(details, Object.keys(details).sort())
   return [
-    'PROJECT',
-    timestamp,
-    actorId || '',
-    action,
-    resourceType,
-    resourceId,
-    detailsJson,
-    projectChainPrevHash || 'PROJECT_GENESIS',
+    'PROJECT', timestamp, actorId || '', action, resourceType, resourceId,
+    detailsJson, projectChainPrevHash || 'PROJECT_GENESIS',
   ].join('|')
+}
+
+interface AuditRow {
+  id: string
+  timestamp: string
+  actor_id: string | null
+  action: string
+  resource_type: string
+  resource_id: string
+  project_id: string | null
+  institution_id: string | null
+  details: Record<string, unknown> | null
+  ip_address: string | null
+  prev_hash: string | null
+  entry_hash: string
+  project_chain_prev_hash: string | null
+  project_chain_entry_hash: string | null
+  sequence_number: number | null
 }
 
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
     }
 
-    const searchParams = request.nextUrl.searchParams
-    const resourceType = searchParams.get('resource_type')
-    const resourceId = searchParams.get('resource_id')
-    const projectId = searchParams.get('project_id')
+    const sp = request.nextUrl.searchParams
+    const resourceType = sp.get('resource_type')
+    const resourceId   = sp.get('resource_id')
+    const projectId    = sp.get('project_id')
 
-    const ENTRY_LIMIT = 10_000
-
-    // When project_id is given without a specific resource, verify the project-scoped
-    // chain (project_chain_entry_hash). Resource chains are independent per resource,
-    // so sequential comparison across resources would always report false violations.
     const useProjectChain = !!projectId && !(resourceType && resourceId)
 
-    let query = supabase
-      .from('audit_logs')
-      .select('*')
-      .order('timestamp', { ascending: true })
-      .limit(ENTRY_LIMIT)
-
-    if (useProjectChain) {
-      // Only include entries that are part of the project chain
-      query = query
-        .eq('project_id', projectId)
-        .not('project_chain_entry_hash', 'is', null)
-    } else {
-      if (projectId) query = query.eq('project_id', projectId)
-      if (resourceType && resourceId) {
-        query = query.eq('resource_type', resourceType).eq('resource_id', resourceId)
-      }
-    }
-
-    const { data: entries, error } = await query
-
-    if (error) {
-      console.error('Verification query error:', error)
-      return NextResponse.json({ error: 'Failed to verify chain' }, { status: 500 })
-    }
-
-    if (!entries || entries.length === 0) {
-      const result: ChainVerificationResult = {
-        verified: true,
-        total_entries: 0,
-        valid_entries: 0,
-        chain_intact: true,
-        first_entry: null,
-        last_entry: null,
-        violations: [],
-      }
-      return NextResponse.json(result)
-    }
-
     const violations: ChainViolation[] = []
-    let validCount = 0
+    let firstEntry: AuditRow | null = null
+    let lastEntry: AuditRow | null = null
+    let total = 0
+    let valid = 0
+    let prevTailHash: string | null = null
+    let prevSequence: number | null = null
+    let prevTimestamp: string | null = null
 
-    for (let i = 0; i < entries.length; i++) {
-      const entry = entries[i]
+    // Keyset pagination cursor: (timestamp, id) strictly increasing.
+    let cursorTimestamp: string | null = null
+    let cursorId: string | null = null
+
+    while (true) {
+      let query = supabase
+        .from('audit_logs')
+        .select('*')
+        .order('timestamp', { ascending: true })
+        .order('id', { ascending: true })
+        .limit(BATCH_SIZE)
 
       if (useProjectChain) {
-        // Verify project-scoped chain
-        // Normalise timestamp: Postgres TIMESTAMPTZ returns "...+00:00" with
-        // microseconds, but the hash was computed from new Date().toISOString()
-        // which produces "...Z" with milliseconds. Re-parse to align the format.
-        const normalizedTimestamp = new Date(entry.timestamp).toISOString()
-        const expectedPrevHash = i === 0 ? null : entries[i - 1].project_chain_entry_hash
-        const canonical = buildProjectChainCanonical(
-          normalizedTimestamp,
-          entry.actor_id,
-          entry.action,
-          entry.resource_type,
-          entry.resource_id,
-          entry.details || {},
-          expectedPrevHash
-        )
-        const expectedHash = computeHash(canonical)
-
-        if (expectedHash !== entry.project_chain_entry_hash) {
-          violations.push({
-            entry_id: entry.id,
-            timestamp: entry.timestamp,
-            issue: 'hash_mismatch',
-            detail: `Project chain hash mismatch at entry ${i + 1}`,
-          })
-          continue
-        }
-
-        if (i === 0) {
-          if (entry.project_chain_prev_hash !== null) {
-            violations.push({
-              entry_id: entry.id,
-              timestamp: entry.timestamp,
-              issue: 'chain_broken',
-              detail: 'Genesis entry should have null project_chain_prev_hash',
-            })
-            continue
-          }
-        } else {
-          if (entry.project_chain_prev_hash !== entries[i - 1].project_chain_entry_hash) {
-            violations.push({
-              entry_id: entry.id,
-              timestamp: entry.timestamp,
-              issue: 'chain_broken',
-              detail: 'project_chain_prev_hash does not match previous entry',
-            })
-            continue
-          }
-        }
+        query = query.eq('project_id', projectId!).not('project_chain_entry_hash', 'is', null)
       } else {
-        // Verify resource-scoped chain (single resource — sequential comparison is valid)
-        const normalizedTimestamp = new Date(entry.timestamp).toISOString()
-        const expectedPrevHash = i === 0 ? null : entries[i - 1].entry_hash
-        const canonical = buildResourceCanonical(
-          normalizedTimestamp,
-          entry.actor_id,
-          entry.action,
-          entry.resource_type,
-          entry.resource_id,
-          entry.project_id,
-          entry.details || {},
-          expectedPrevHash
-        )
-        const expectedHash = computeHash(canonical)
-
-        if (expectedHash !== entry.entry_hash) {
-          violations.push({
-            entry_id: entry.id,
-            timestamp: entry.timestamp,
-            issue: 'hash_mismatch',
-            detail: `Hash mismatch: expected ${expectedHash}, got ${entry.entry_hash}`,
-          })
-          continue
-        }
-
-        if (i === 0) {
-          if (entry.prev_hash !== null) {
-            violations.push({
-              entry_id: entry.id,
-              timestamp: entry.timestamp,
-              issue: 'chain_broken',
-              detail: 'First entry should have null prev_hash',
-            })
-            continue
-          }
-        } else {
-          if (entry.prev_hash !== entries[i - 1].entry_hash) {
-            violations.push({
-              entry_id: entry.id,
-              timestamp: entry.timestamp,
-              issue: 'chain_broken',
-              detail: 'Chain broken: prev_hash does not match previous entry hash',
-            })
-            continue
-          }
-        }
+        if (projectId)                    query = query.eq('project_id', projectId)
+        if (resourceType && resourceId)   query = query.eq('resource_type', resourceType).eq('resource_id', resourceId)
       }
 
-      validCount++
+      if (cursorTimestamp && cursorId) {
+        // (timestamp, id) > (cursor) — emulate via `or` on tuple
+        query = query.or(
+          `timestamp.gt.${cursorTimestamp},and(timestamp.eq.${cursorTimestamp},id.gt.${cursorId})`,
+        )
+      }
+
+      const { data, error } = await query
+      if (error) {
+        console.error('Verification query error:', error)
+        return NextResponse.json({ error: 'verification_query_failed' }, { status: 500 })
+      }
+
+      const batch = (data ?? []) as AuditRow[]
+      if (batch.length === 0) break
+
+      for (const entry of batch) {
+        total++
+        if (!firstEntry) firstEntry = entry
+        lastEntry = entry
+
+        // Re-normalize timestamp: PG returns "...+00:00" with microseconds,
+        // but the hash was computed from new Date().toISOString() with ms + "Z".
+        const normalizedTs = new Date(entry.timestamp).toISOString()
+        const details = entry.details ?? {}
+
+        if (useProjectChain) {
+          const expectedHash = sha256(
+            buildProjectCanonical(
+              normalizedTs, entry.actor_id, entry.action,
+              entry.resource_type, entry.resource_id,
+              details, prevTailHash,
+            ),
+          )
+          if (expectedHash !== entry.project_chain_entry_hash) {
+            violations.push({
+              entry_id: entry.id,
+              timestamp: entry.timestamp,
+              issue: 'hash_mismatch',
+              detail: `Project chain hash mismatch at sequence ${entry.sequence_number ?? '?'}`,
+            })
+          } else if (entry.project_chain_prev_hash !== prevTailHash) {
+            violations.push({
+              entry_id: entry.id,
+              timestamp: entry.timestamp,
+              issue: 'chain_broken',
+              detail: 'project_chain_prev_hash does not match previous verified tail',
+            })
+          } else {
+            valid++
+          }
+          prevTailHash = entry.project_chain_entry_hash
+        } else {
+          const expectedHash = sha256(
+            buildResourceCanonical(
+              normalizedTs, entry.actor_id, entry.action,
+              entry.resource_type, entry.resource_id, entry.project_id,
+              details, prevTailHash,
+            ),
+          )
+          if (expectedHash !== entry.entry_hash) {
+            violations.push({
+              entry_id: entry.id,
+              timestamp: entry.timestamp,
+              issue: 'hash_mismatch',
+              detail: `Hash mismatch: expected ${expectedHash}, got ${entry.entry_hash}`,
+            })
+          } else if (entry.prev_hash !== prevTailHash) {
+            violations.push({
+              entry_id: entry.id,
+              timestamp: entry.timestamp,
+              issue: 'chain_broken',
+              detail: 'prev_hash does not match previous verified tail',
+            })
+          } else {
+            valid++
+          }
+          prevTailHash = entry.entry_hash
+        }
+
+        // Sequence continuity (project scope only — resource chain has no sequence)
+        if (useProjectChain && entry.sequence_number != null) {
+          if (prevSequence != null && entry.sequence_number !== prevSequence + 1) {
+            violations.push({
+              entry_id: entry.id,
+              timestamp: entry.timestamp,
+              issue: 'chain_broken',
+              detail: `sequence gap: expected ${prevSequence + 1}, got ${entry.sequence_number}`,
+            })
+          }
+          prevSequence = entry.sequence_number
+        }
+
+        // Monotonic timestamp
+        if (prevTimestamp && entry.timestamp < prevTimestamp) {
+          violations.push({
+            entry_id: entry.id,
+            timestamp: entry.timestamp,
+            issue: 'chain_broken',
+            detail: `timestamp regression: ${entry.timestamp} < ${prevTimestamp}`,
+          })
+        }
+        prevTimestamp = entry.timestamp
+      }
+
+      if (batch.length < BATCH_SIZE) break
+      const tail = batch[batch.length - 1]
+      cursorTimestamp = tail.timestamp
+      cursorId = tail.id
     }
 
-    const truncated = entries.length === ENTRY_LIMIT
-
     const result: ChainVerificationResult = {
-      verified: violations.length === 0 && !truncated,
-      total_entries: entries.length,
-      valid_entries: validCount,
+      verified: violations.length === 0,
+      total_entries: total,
+      valid_entries: valid,
       chain_intact: violations.every((v) => v.issue !== 'chain_broken'),
-      ...(truncated && { truncated: true, truncated_at: ENTRY_LIMIT }),
-      first_entry: entries[0]
-        ? {
-            id: entries[0].id,
-            timestamp: entries[0].timestamp,
-            actor_id: entries[0].actor_id,
-            action: entries[0].action,
-            resource_type: entries[0].resource_type,
-            resource_id: entries[0].resource_id,
-            project_id: entries[0].project_id,
-            institution_id: entries[0].institution_id,
-            details: entries[0].details,
-            ip_address: entries[0].ip_address,
-            prev_hash: entries[0].prev_hash,
-            entry_hash: entries[0].entry_hash,
-          }
-        : null,
-      last_entry: entries[entries.length - 1]
-        ? {
-            id: entries[entries.length - 1].id,
-            timestamp: entries[entries.length - 1].timestamp,
-            actor_id: entries[entries.length - 1].actor_id,
-            action: entries[entries.length - 1].action,
-            resource_type: entries[entries.length - 1].resource_type,
-            resource_id: entries[entries.length - 1].resource_id,
-            project_id: entries[entries.length - 1].project_id,
-            institution_id: entries[entries.length - 1].institution_id,
-            details: entries[entries.length - 1].details,
-            ip_address: entries[entries.length - 1].ip_address,
-            prev_hash: entries[entries.length - 1].prev_hash,
-            entry_hash: entries[entries.length - 1].entry_hash,
-          }
-        : null,
+      first_entry: firstEntry ? toEntryDTO(firstEntry) : null,
+      last_entry:  lastEntry  ? toEntryDTO(lastEntry)  : null,
       violations,
     }
 
     return NextResponse.json(result)
-  } catch (error) {
-    console.error('Verification error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  } catch (err) {
+    console.error('Verification error:', err)
+    return NextResponse.json({ error: 'verification_failed' }, { status: 500 })
+  }
+}
+
+function toEntryDTO(e: AuditRow) {
+  return {
+    id: e.id,
+    timestamp: e.timestamp,
+    actor_id: e.actor_id,
+    action: e.action as never,
+    resource_type: e.resource_type as never,
+    resource_id: e.resource_id,
+    project_id: e.project_id,
+    institution_id: e.institution_id,
+    details: (e.details ?? {}) as never,
+    ip_address: e.ip_address,
+    prev_hash: e.prev_hash,
+    entry_hash: e.entry_hash,
   }
 }

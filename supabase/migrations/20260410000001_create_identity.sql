@@ -25,6 +25,40 @@ CREATE TABLE IF NOT EXISTS institutions (
     active                BOOLEAN DEFAULT true
 );
 
+-- Tolerate a pre-existing institutions table from earlier migrations
+-- (001_initial.sql created it without these Phase 2 identity columns).
+-- When the CREATE TABLE above is skipped, these ALTERs backfill the schema.
+ALTER TABLE institutions ADD COLUMN IF NOT EXISTS short_name            TEXT;
+ALTER TABLE institutions ADD COLUMN IF NOT EXISTS email_domain          TEXT;
+ALTER TABLE institutions ADD COLUMN IF NOT EXISTS verification_tier     TEXT;
+ALTER TABLE institutions ADD COLUMN IF NOT EXISTS root_public_key       TEXT;
+ALTER TABLE institutions ADD COLUMN IF NOT EXISTS plexus_managed_ca     BOOLEAN DEFAULT true;
+ALTER TABLE institutions ADD COLUMN IF NOT EXISTS registration_document TEXT;
+ALTER TABLE institutions ADD COLUMN IF NOT EXISTS verified_at           TIMESTAMPTZ;
+ALTER TABLE institutions ADD COLUMN IF NOT EXISTS verified_by           UUID;
+ALTER TABLE institutions ADD COLUMN IF NOT EXISTS active                BOOLEAN DEFAULT true;
+
+-- Partial UNIQUE index allows multiple NULLs on unmigrated legacy rows
+-- while preserving uniqueness for newly written rows (mirrors the
+-- UNIQUE from the CREATE TABLE path).
+CREATE UNIQUE INDEX IF NOT EXISTS ux_institutions_email_domain_notnull
+    ON institutions (email_domain)
+    WHERE email_domain IS NOT NULL;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'institutions'::regclass
+      AND conname = 'institutions_verification_tier_check'
+  ) THEN
+    ALTER TABLE institutions
+      ADD CONSTRAINT institutions_verification_tier_check
+      CHECK (verification_tier IS NULL OR verification_tier IN (
+        'SELF_ATTESTED', 'DOMAIN_VERIFIED', 'OFFICIALLY_REGISTERED'
+      ));
+  END IF;
+END $$;
+
 -- ── identity_attestations ─────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS identity_attestations (

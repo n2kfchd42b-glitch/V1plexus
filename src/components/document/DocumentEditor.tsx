@@ -9,6 +9,8 @@ import LinkExtension from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { ArrowLeft, History } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { logAudit, logAuditBeacon } from "@/lib/audit";
+import { useAuth } from "@/hooks/useAuth";
 import { EditorToolbar } from "./EditorToolbar";
 import { AIAssistPopover } from "@/components/ai/AIAssistPopover";
 import { VersionHistory } from "./VersionHistory";
@@ -50,6 +52,7 @@ export function DocumentEditor({
 }) {
   const router = useRouter();
   const supabase = createClient();
+  const { user } = useAuth();
 
   const [title, setTitle] = useState(doc.title);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -60,6 +63,18 @@ export function DocumentEditor({
   const [words, setWords] = useState(doc.word_count);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Edit-session audit: one entry per meaningful editing session rather than
+  // per-autosave, so the ledger doesn't get flooded by keystroke-level writes.
+  // A session begins on the first change and closes on blur, explicit save,
+  // 5-minute idle, or page unload.
+  const sessionRef = useRef<{
+    startedAt: Date;
+    startWords: number;
+    changes: number;
+    logged: boolean;
+  } | null>(null);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -76,8 +91,57 @@ export function DocumentEditor({
       const json = editor.getJSON() as Json;
       setWords(wordCount(json));
       scheduleSave(json);
+      trackEditSession();
     },
   });
+
+  const trackEditSession = useCallback(() => {
+    if (!sessionRef.current) {
+      sessionRef.current = {
+        startedAt: new Date(),
+        startWords: words,
+        changes: 0,
+        logged: false,
+      };
+    }
+    sessionRef.current.changes++;
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = setTimeout(() => closeEditSession("idle"), 5 * 60 * 1000);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [words]);
+
+  const closeEditSession = useCallback(
+    async (reason: "blur" | "idle" | "save" | "unload") => {
+      const session = sessionRef.current;
+      if (!session || session.logged || session.changes === 0) return;
+      session.logged = true;
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = null;
+      }
+      const endedAt = new Date();
+      const details = {
+        summary: `Edited "${doc.title}"`,
+        operation: {
+          reason,
+          started_at: session.startedAt.toISOString(),
+          ended_at: endedAt.toISOString(),
+          duration_seconds: Math.round((endedAt.getTime() - session.startedAt.getTime()) / 1000),
+          change_count: session.changes,
+          words_before: session.startWords,
+          words_after: words,
+          word_delta: words - session.startWords,
+        },
+      };
+      if (reason === "unload" && user) {
+        logAuditBeacon(user.id, "document.edited", "document", doc.id, details, projectId);
+      } else {
+        await logAudit("document.edited", "document", doc.id, details, projectId);
+      }
+      sessionRef.current = null;
+    },
+    [doc.id, doc.title, projectId, user, words],
+  );
 
   const scheduleSave = useCallback(
     (content: Json) => {
@@ -103,7 +167,18 @@ export function DocumentEditor({
 
   async function handleTitleBlur() {
     if (title === doc.title) return;
+    const oldTitle = doc.title;
     await supabase.from("documents").update({ title }).eq("id", doc.id);
+    await logAudit(
+      "document.edited",
+      "document",
+      doc.id,
+      {
+        summary: `Renamed document "${oldTitle}" → "${title}"`,
+        operation: { change: "title", from: oldTitle, to: title },
+      },
+      projectId,
+    );
   }
 
   async function saveVersion(summary: string) {
@@ -134,6 +209,7 @@ export function DocumentEditor({
     }
     setCurrentVersion(nextVersion);
     setLastSaved(new Date());
+    await closeEditSession("save");
   }
 
   function handleRestoreVersion(version: DocumentVersion) {
@@ -149,11 +225,26 @@ export function DocumentEditor({
     setShowHistory(false);
   }
 
-  // Cleanup timer on unmount
+  // Cleanup timer on unmount + close any open edit session
   useEffect(() => {
-    return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
+    const handleVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        void closeEditSession("unload");
+      }
     };
+    const handleBeforeUnload = () => {
+      void closeEditSession("unload");
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      void closeEditSession("unload");
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

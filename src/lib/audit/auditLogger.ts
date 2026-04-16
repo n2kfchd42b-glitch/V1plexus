@@ -1,28 +1,50 @@
 /**
- * Central audit logger service
- * All audit entries go through this service
- * Implements SHA-256 hash chaining for immutable ledger
+ * Central audit logger service.
+ * All audit entries go through this service.
+ *
+ * Responsibilities:
+ *   - Compute the SHA-256 hash-chain segment for the entry (resource + project chain)
+ *   - Delegate the actual insert to the `append_audit_entry` RPC, which takes a
+ *     per-chain advisory lock, validates the prev-hash tail hasn't moved,
+ *     assigns a monotonic `sequence_number`, and honours `idempotency_key`
+ *   - Provide a sessionStorage-backed retry queue for transient client failures
+ *
+ * Failures never throw — audit is a side-effect, not a correctness dependency —
+ * but the return value now surfaces success/error so callers CAN react.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AuditEntryInput } from '@/types/audit'
 
-/**
- * Compute SHA-256 hash using Web Crypto API (works in both browser and Node.js 18+)
- */
-async function computeHash(canonicalString: string): Promise<string> {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(canonicalString)
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
+export interface AuditWriteResult {
+  success: boolean
+  entry_id?: string
+  sequence_number?: number
+  idempotent_replay?: boolean
+  error?: string
 }
 
-/**
- * Build canonical string for hashing (resource-scoped chain)
- * Format: [timestamp]|[actor_id]|[action]|[resource_type]|[resource_id]|[project_id]|[details JSON sorted]|[prev_hash or GENESIS]
- */
-function buildCanonicalString(
+const RETRY_QUEUE_KEY = 'plexus.audit.retry_queue_v1'
+const RETRY_QUEUE_MAX = 50
+
+interface QueuedEntry {
+  input: AuditEntryInput
+  idempotency_key: string
+  queued_at: string
+}
+
+// ── Hash helpers ────────────────────────────────────────────────────────────
+
+async function sha256Hex(canonical: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical))
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+function canonicalDetails(details: Record<string, unknown>): string {
+  return JSON.stringify(details, Object.keys(details).sort())
+}
+
+function buildResourceCanonical(
   timestamp: string,
   actorId: string,
   action: string,
@@ -30,86 +52,146 @@ function buildCanonicalString(
   resourceId: string,
   projectId: string | undefined,
   details: Record<string, unknown>,
-  prevHash: string | null
+  prevHash: string | null,
 ): string {
-  const detailsJson = JSON.stringify(details, Object.keys(details).sort())
-
   return [
-    timestamp,
-    actorId,
-    action,
-    resourceType,
-    resourceId,
-    projectId ?? '',
-    detailsJson,
-    prevHash ?? 'GENESIS',
+    timestamp, actorId, action, resourceType, resourceId,
+    projectId ?? '', canonicalDetails(details), prevHash ?? 'GENESIS',
   ].join('|')
 }
 
-/**
- * Build canonical string for the project-scoped chain
- * Format: PROJECT|[timestamp]|[actor_id]|[action]|[resource_type]|[resource_id]|[details JSON sorted]|[project_prev_hash or PROJECT_GENESIS]
- */
-function buildProjectChainCanonical(
+function buildProjectCanonical(
   timestamp: string,
   actorId: string,
   action: string,
   resourceType: string,
   resourceId: string,
   details: Record<string, unknown>,
-  projectChainPrevHash: string | null
+  projectPrevHash: string | null,
 ): string {
-  const detailsJson = JSON.stringify(details, Object.keys(details).sort())
   return [
-    'PROJECT',
-    timestamp,
-    actorId,
-    action,
-    resourceType,
-    resourceId,
-    detailsJson,
-    projectChainPrevHash ?? 'PROJECT_GENESIS',
+    'PROJECT', timestamp, actorId, action, resourceType, resourceId,
+    canonicalDetails(details), projectPrevHash ?? 'PROJECT_GENESIS',
   ].join('|')
 }
 
+// ── Retry queue (sessionStorage, browser only) ──────────────────────────────
+
+function readQueue(): QueuedEntry[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.sessionStorage.getItem(RETRY_QUEUE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as QueuedEntry[]
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function writeQueue(queue: QueuedEntry[]): void {
+  if (typeof window === 'undefined') return
+  try {
+    const trimmed = queue.slice(-RETRY_QUEUE_MAX)
+    window.sessionStorage.setItem(RETRY_QUEUE_KEY, JSON.stringify(trimmed))
+  } catch {
+    // sessionStorage may be unavailable (e.g. privacy mode) — drop silently.
+  }
+}
+
+function enqueueForRetry(input: AuditEntryInput, idempotency_key: string): void {
+  const queue = readQueue()
+  // Dedupe by idempotency_key
+  const existing = queue.findIndex((q) => q.idempotency_key === idempotency_key)
+  const entry: QueuedEntry = { input, idempotency_key, queued_at: new Date().toISOString() }
+  if (existing >= 0) queue[existing] = entry
+  else queue.push(entry)
+  writeQueue(queue)
+}
+
+export async function flushAuditRetryQueue(): Promise<{ flushed: number; remaining: number }> {
+  if (typeof window === 'undefined') return { flushed: 0, remaining: 0 }
+  const queue = readQueue()
+  if (queue.length === 0) return { flushed: 0, remaining: 0 }
+
+  const remaining: QueuedEntry[] = []
+  let flushed = 0
+  for (const item of queue) {
+    const res = await postToApi(item.input, item.idempotency_key)
+    if (res.success) flushed++
+    else remaining.push(item)
+  }
+  writeQueue(remaining)
+  return { flushed, remaining: remaining.length }
+}
+
+// ── API transport ───────────────────────────────────────────────────────────
+
+async function postToApi(
+  input: AuditEntryInput,
+  idempotency_key: string,
+): Promise<AuditWriteResult> {
+  try {
+    const res = await fetch('/api/audit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...input, idempotency_key }),
+      keepalive: true,
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      return { success: false, error: body.error ?? `HTTP ${res.status}` }
+    }
+    const data = await res.json()
+    return {
+      success: true,
+      entry_id: data.entry_id,
+      sequence_number: data.sequence_number,
+      idempotent_replay: data.idempotent_replay,
+    }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'network_error' }
+  }
+}
+
 /**
- * Write an audit entry to the ledger
- * Returns success status and entry ID if successful
- * Failures are logged but never thrown - audit failures must not crash operations
+ * Write an audit entry. Safe from both browser and server contexts.
+ * Client-side path: POSTs to /api/audit (with keepalive for nav-robustness) and
+ * queues failed writes in sessionStorage for later flush.
+ * Server-side path: calls the `append_audit_entry` RPC directly via service role.
  */
 export async function writeAuditEntry(
   input: AuditEntryInput,
-  supabaseClient: SupabaseClient
-): Promise<{
-  success: boolean
-  entry_id?: string
-  error?: string
-}> {
-  try {
-    // When called from browser-side code, route through the server API so the
-    // server Supabase client (service role) performs the insert — this bypasses
-    // the RLS policy that only allows service_role direct inserts.
-    const isBrowser = typeof window !== 'undefined'
-    if (isBrowser) {
-      const res = await fetch('/api/audit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body.error ?? `HTTP ${res.status}`)
-      }
-      return await res.json()
+  // Kept for API-compatibility with existing call sites; not used on the
+  // server path (service role client is constructed internally).
+  _supabaseClient?: SupabaseClient,
+  options?: { idempotency_key?: string },
+): Promise<AuditWriteResult> {
+  const idempotency_key = options?.idempotency_key ?? crypto.randomUUID()
+
+  // ── Browser path ──
+  if (typeof window !== 'undefined') {
+    // Opportunistically flush any previously-failed writes before the new one.
+    void flushAuditRetryQueue()
+
+    const res = await postToApi(input, idempotency_key)
+    if (!res.success) {
+      enqueueForRetry(input, idempotency_key)
+      console.error('Audit write failed (queued for retry):', res.error, 'Input:', input)
     }
+    return res
+  }
 
-    // Server-side path: always use service role client to bypass RLS INSERT policy.
-    // Dynamic import keeps service.ts out of the browser bundle.
+  // ── Server path ──
+  try {
     const { createServiceClient } = await import('@/lib/supabase/service')
-    const serviceClient = createServiceClient()
+    const service = createServiceClient()
 
-    // Fetch previous resource-scoped chain hash
-    const { data: lastEntry, error: fetchError } = await serviceClient
+    const timestamp = new Date().toISOString()
+    const details = input.details ?? {}
+
+    // Fetch tails (informational — the RPC re-validates under lock).
+    const { data: lastResource } = await service
       .from('audit_logs')
       .select('entry_hash')
       .eq('resource_type', input.resource_type)
@@ -117,31 +199,19 @@ export async function writeAuditEntry(
       .order('timestamp', { ascending: false })
       .limit(1)
       .maybeSingle()
+    const resourcePrev = lastResource?.entry_hash ?? null
 
-    if (fetchError) throw fetchError
-
-    const prevHash = lastEntry?.entry_hash ?? null
-    const timestamp = new Date().toISOString()
-
-    const canonical = buildCanonicalString(
-      timestamp,
-      input.actor_id,
-      input.action,
-      input.resource_type,
-      input.resource_id,
-      input.project_id,
-      input.details,
-      prevHash
+    const resourceCanonical = buildResourceCanonical(
+      timestamp, input.actor_id, input.action,
+      input.resource_type, input.resource_id, input.project_id,
+      details, resourcePrev,
     )
+    const resourceHash = await sha256Hex(resourceCanonical)
 
-    const entryHash = await computeHash(canonical)
-
-    // Fetch previous project-scoped chain hash (when project_id is present)
-    let projectChainPrevHash: string | null = null
-    let projectChainEntryHash: string | null = null
-
+    let projectPrev: string | null = null
+    let projectHash: string | null = null
     if (input.project_id) {
-      const { data: lastProjectEntry } = await serviceClient
+      const { data: lastProject } = await service
         .from('audit_logs')
         .select('project_chain_entry_hash')
         .eq('project_id', input.project_id)
@@ -149,73 +219,92 @@ export async function writeAuditEntry(
         .order('timestamp', { ascending: false })
         .limit(1)
         .maybeSingle()
-
-      projectChainPrevHash = lastProjectEntry?.project_chain_entry_hash ?? null
-
-      const projectCanonical = buildProjectChainCanonical(
-        timestamp,
-        input.actor_id,
-        input.action,
-        input.resource_type,
-        input.resource_id,
-        input.details,
-        projectChainPrevHash
+      projectPrev = lastProject?.project_chain_entry_hash ?? null
+      const projectCanonical = buildProjectCanonical(
+        timestamp, input.actor_id, input.action,
+        input.resource_type, input.resource_id,
+        details, projectPrev,
       )
-      projectChainEntryHash = await computeHash(projectCanonical)
+      projectHash = await sha256Hex(projectCanonical)
     }
 
-    const { data, error: insertError } = await serviceClient
-      .from('audit_logs')
-      .insert({
-        timestamp,
-        actor_id: input.actor_id,
-        action: input.action,
-        resource_type: input.resource_type,
-        resource_id: input.resource_id,
-        project_id: input.project_id ?? null,
-        institution_id: input.institution_id ?? null,
-        details: input.details,
-        ip_address: input.ip_address ?? null,
-        prev_hash: prevHash,
-        entry_hash: entryHash,
-        project_chain_prev_hash: projectChainPrevHash,
-        project_chain_entry_hash: projectChainEntryHash,
-      })
-      .select('id')
-      .single()
+    const { data, error } = await service.rpc('append_audit_entry', {
+      p_actor_id: input.actor_id,
+      p_action: input.action,
+      p_resource_type: input.resource_type,
+      p_resource_id: input.resource_id,
+      p_project_id: input.project_id ?? null,
+      p_institution_id: input.institution_id ?? null,
+      p_details: details,
+      p_ip_address: input.ip_address ?? null,
+      p_timestamp: timestamp,
+      p_expected_resource_prev_hash: resourcePrev,
+      p_resource_entry_hash: resourceHash,
+      p_expected_project_prev_hash: projectPrev,
+      p_project_entry_hash: projectHash,
+      p_idempotency_key: idempotency_key,
+    })
 
-    if (insertError) throw insertError
-
-    return { success: true, entry_id: data.id }
+    if (error) throw error
+    const row = Array.isArray(data) ? data[0] : data
+    return {
+      success: true,
+      entry_id: row.id,
+      sequence_number: row.sequence_number,
+      idempotent_replay: row.idempotent_replay,
+    }
   } catch (err) {
-    // Audit failures must NEVER crash the calling operation
     console.error('Audit write failed:', err, 'Input:', input)
-    return { success: false, error: String(err) }
+    return { success: false, error: err instanceof Error ? err.message : 'write_failed' }
   }
 }
 
 /**
- * Get actor name and initials from actor_id
+ * Compute the server-side canonical hashes a caller must pre-compute to
+ * invoke `append_audit_entry`. Shared between /api/audit POST and the
+ * server-side `writeAuditEntry` path so the canonical format stays identical.
  */
+export async function computeChainHashes(
+  input: AuditEntryInput,
+  timestamp: string,
+  resourcePrevHash: string | null,
+  projectPrevHash: string | null,
+): Promise<{ resourceEntryHash: string; projectEntryHash: string | null }> {
+  const details = input.details ?? {}
+  const resourceHash = await sha256Hex(
+    buildResourceCanonical(
+      timestamp, input.actor_id, input.action,
+      input.resource_type, input.resource_id, input.project_id,
+      details, resourcePrevHash,
+    ),
+  )
+  let projectHash: string | null = null
+  if (input.project_id) {
+    projectHash = await sha256Hex(
+      buildProjectCanonical(
+        timestamp, input.actor_id, input.action,
+        input.resource_type, input.resource_id,
+        details, projectPrevHash,
+      ),
+    )
+  }
+  return { resourceEntryHash: resourceHash, projectEntryHash: projectHash }
+}
+
+// ── Actor info (unchanged) ──────────────────────────────────────────────────
+
 export async function getActorInfo(
   actorId: string | null,
-  supabaseClient: SupabaseClient
+  supabaseClient: SupabaseClient,
 ): Promise<{ name: string; initials: string }> {
-  if (!actorId) {
-    return { name: 'Unknown', initials: 'U' }
-  }
-
+  if (!actorId) return { name: 'Unknown', initials: 'U' }
   try {
     const { data, error } = await supabaseClient
       .from('profiles')
       .select('full_name')
       .eq('id', actorId)
       .single()
-
-    if (error || !data) {
-      return { name: 'Unknown', initials: 'U' }
-    }
-
+    if (error || !data) return { name: 'Unknown', initials: 'U' }
     const name = data.full_name ?? 'Unknown'
     const initials = name
       .split(' ')
@@ -223,7 +312,6 @@ export async function getActorInfo(
       .join('')
       .toUpperCase()
       .slice(0, 2)
-
     return { name, initials }
   } catch {
     return { name: 'Unknown', initials: 'U' }

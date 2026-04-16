@@ -489,6 +489,23 @@ export function AnalysisHub({ projectId }: Props) {
             }).select().single()
             if (savedRun) {
               setRuns(prev => [savedRun as AnalysisRun, ...prev])
+              await logAudit(
+                'analysis.run.saved',
+                'analysis_run',
+                savedRun.id,
+                {
+                  summary: `Auto-saved intermediate step: ${step.name}`,
+                  operation: {
+                    step_name: step.name,
+                    intermediate: true,
+                    backend_type: backendType,
+                    config: stepConfig,
+                  },
+                  analysis_type: backendType,
+                  dataset_version_id: versionId ?? undefined,
+                },
+                projectId,
+              )
             }
           }
         }
@@ -568,7 +585,32 @@ export function AnalysisHub({ projectId }: Props) {
       interpretation: result.interpretation, status: 'completed', created_by: profile.id,
     }).select().single()
     if (run) {
-      await logAudit('analysis.run.saved', 'analysis_run', run.id, { type: selectedType, title: run.title, dataset_id: datasetId ?? null }, projectId)
+      await logAudit(
+        'analysis.run.saved',
+        'analysis_run',
+        run.id,
+        {
+          summary: `Saved analysis: ${run.title}`,
+          analysis_type: selectedType,
+          dataset_version_id: versionId ?? undefined,
+          operation: {
+            type: selectedType,
+            title: run.title,
+            dataset_id: datasetId ?? null,
+            variables: {
+              outcome: (config as Record<string, unknown>).outcome_variable ?? null,
+              exposure: (config as Record<string, unknown>).exposure_variable ?? null,
+              covariates: (config as Record<string, unknown>).covariate_variables ?? null,
+              time: (config as Record<string, unknown>).time_variable ?? null,
+              event: (config as Record<string, unknown>).event_variable ?? null,
+              group: (config as Record<string, unknown>).group_variable ?? null,
+              strat: (config as Record<string, unknown>).strat_variable ?? null,
+            },
+            config,
+          },
+        },
+        projectId,
+      )
 
       if (datasetId) {
         const s = result.summary ?? {}

@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/useAuth'
 import { useWorkspace } from '@/hooks/useWorkspace'
 import { createClient } from '@/lib/supabase/client'
+import { logAudit } from '@/lib/audit'
 import { cn, formatRelative, statusLabel } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { Project } from '@/types/database'
@@ -320,9 +321,20 @@ export default function ProjectsPage() {
     if (error) {
       if (original) setProjects(prev => prev.map(p => p.id === id ? original : p))
       toast.error('Failed to update project')
-    } else {
-      toast.success(status === 'archived' ? 'Project archived' : 'Project restored')
+      return
     }
+    const action = status === 'archived' ? 'project.archived' : 'project.updated'
+    await logAudit(
+      action,
+      'project',
+      id,
+      {
+        summary: `${status === 'archived' ? 'Archived' : 'Restored'} project "${original?.title ?? id}"`,
+        operation: { status_before: original?.status, status_after: status },
+      },
+      id,
+    )
+    toast.success(status === 'archived' ? 'Project archived' : 'Project restored')
   }
 
   const archivedCount = projects.filter(p => p.status === 'archived').length

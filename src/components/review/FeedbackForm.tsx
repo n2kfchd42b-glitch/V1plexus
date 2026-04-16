@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { createClient } from '@/lib/supabase/client'
+import { logAudit } from '@/lib/audit'
 import type { ReviewRequest, Profile } from '@/types/database'
 
 interface FeedbackFormProps {
@@ -38,11 +39,29 @@ export function FeedbackForm({ review, currentProfile, onUpdate }: FeedbackFormP
       })
       .eq('id', review.id)
 
-    // Update document status
+    // Update document status + audit the transition
+    const doc = await supabase.from('documents').select('project_id, title').eq('id', review.document_id).maybeSingle()
+    const projectId = doc.data?.project_id ?? undefined
+    const docTitle = doc.data?.title ?? review.document_id
+
     if (status === 'approved') {
       await supabase.from('documents').update({ status: 'approved' }).eq('id', review.document_id)
+      await logAudit('document.approved', 'document', review.document_id, {
+        summary: `Approved "${docTitle}"`,
+        operation: { review_id: review.id, feedback: feedback || null },
+        approval_note: feedback || undefined,
+      }, projectId)
     } else if (status === 'feedback_given') {
       await supabase.from('documents').update({ status: 'revision_requested' }).eq('id', review.document_id)
+      await logAudit('document.revision_requested', 'document', review.document_id, {
+        summary: `Requested revision on "${docTitle}"`,
+        operation: { review_id: review.id, feedback: feedback || null },
+      }, projectId)
+    } else if (status === 'rejected') {
+      await logAudit('document.rejected', 'document', review.document_id, {
+        summary: `Rejected "${docTitle}"`,
+        operation: { review_id: review.id, feedback: feedback || null },
+      }, projectId)
     }
 
     setSubmitting(false)
