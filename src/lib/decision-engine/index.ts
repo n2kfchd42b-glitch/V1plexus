@@ -33,6 +33,7 @@ export const ANALYSIS_TYPE_MAPPING: Record<AnalysisTypeId, AnalysisType> = {
   pearson_correlation: 'correlation',
   spearman_correlation: 'correlation',
   prevalence_estimation: 'frequency',
+  propensity_score_matching: 'psm',
 }
 
 // ─── BACKEND CONFIG BUILDER ───────────────────────────────────────────────────
@@ -48,6 +49,7 @@ export function buildBackendConfig(config: AnalysisConfig): Record<string, unkno
     time_variable,
     event_variable,
     group_variable,
+    strat_variable,
     confidence_level,
   } = config
 
@@ -109,6 +111,7 @@ export function buildBackendConfig(config: AnalysisConfig): Record<string, unkno
         timeVariable: time_variable ?? '',
         eventVariable: event_variable ?? '',
         groupVariable: exposure ?? group_variable ?? undefined,
+        stratVariable: strat_variable ?? undefined,
         confidenceLevel,
       }
 
@@ -130,6 +133,14 @@ export function buildBackendConfig(config: AnalysisConfig): Record<string, unkno
     case 'prevalence_estimation':
       return {
         variables: [outcome].filter(Boolean) as string[],
+      }
+
+    case 'propensity_score_matching':
+      return {
+        treatmentVariable: exposure ?? outcome ?? '',
+        covariates: covariates,
+        caliper: 0.2,
+        confidenceLevel,
       }
 
     default:
@@ -222,6 +233,7 @@ export function getRecommendation(
     time_variable: variables.time_variable?.name ?? null,
     event_variable: variables.event_variable?.name ?? null,
     group_variable: variables.group_variable?.name ?? null,
+    strat_variable: variables.strat_variable?.name ?? null,
     confidence_level: 0.95,
     reference_category: 'first',
   }

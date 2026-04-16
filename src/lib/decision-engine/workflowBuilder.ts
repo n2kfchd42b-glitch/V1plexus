@@ -84,7 +84,9 @@ export function buildWorkflow(
       {
         number: 2,
         name: 'Kaplan-Meier survival curves',
-        description: `Survival curves by ${exposure} group with log-rank test`,
+        description: variables.strat_variable
+          ? `Stratified KM curves by ${exposure} group, adjusted for ${variables.strat_variable.name}`
+          : `Survival curves by ${exposure} group with log-rank test`,
         badge: 'primary analysis',
         analysis_type: 'kaplan_meier',
       },
@@ -315,6 +317,41 @@ export function buildWorkflow(
         description: `Incidence rate ratios for ${outcome}`,
         badge: 'primary analysis',
         analysis_type: 'poisson_regression',
+      },
+    ],
+
+    propensity_score_matching: [
+      {
+        number: 1,
+        name: 'Descriptive Statistics (pre-matching)',
+        description: `Table 1 — covariate distribution by ${exposure} group before matching`,
+        badge: 'auto-generated',
+        analysis_type: 'descriptive_statistics',
+      },
+      {
+        number: 2,
+        name: 'Propensity score estimation',
+        description: `Logistic regression: P(${exposure}=1 | covariates). Scores estimated for all ${n.toLocaleString()} participants`,
+        badge: 'auto-generated',
+      },
+      {
+        number: 3,
+        name: '1:1 nearest-neighbour matching',
+        description: `Match treated to controls within 0.2 × SD(logit PS) caliper — balance via standardised mean differences`,
+        badge: 'primary analysis',
+        analysis_type: 'propensity_score_matching',
+      },
+      {
+        number: 4,
+        name: 'Love plot — covariate balance',
+        description: 'SMD before vs after matching for all covariates. Target: all SMD < 0.1',
+        badge: 'auto-generated',
+      },
+      {
+        number: 5,
+        name: 'Outcome analysis on matched cohort',
+        description: 'Run primary analysis (t-test, KM, Cox, or logistic) on matched pairs only',
+        badge: 'next step',
       },
     ],
   }

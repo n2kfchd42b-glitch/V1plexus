@@ -240,6 +240,23 @@ export const ANALYSIS_REGISTRY: Record<AnalysisTypeId, AnalysisTypeMetadata> = {
     min_sample_size: 30,
     reporting_guideline: 'STROBE',
   },
+
+  propensity_score_matching: {
+    id: 'propensity_score_matching',
+    name: 'Propensity Score Matching',
+    category: 'regression',
+    icon: '⚖️',
+    short_description: 'Balance confounders between treated and control groups',
+    when_to_use:
+      'Observational study with a binary treatment variable and known confounders. ' +
+      'Creates matched pairs with similar covariate profiles to emulate a randomised trial before outcome analysis.',
+    outcome_types: ['binary'],
+    predictor_types: ['continuous', 'binary', 'categorical'],
+    requires_grouping: false,
+    requires_time: false,
+    min_sample_size: 40,
+    reporting_guideline: 'STROBE',
+  },
 }
 
 export const ANALYSIS_CATEGORIES: { id: AnalysisCategory; label: string }[] = [

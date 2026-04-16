@@ -40,7 +40,7 @@ const DEFAULT_RENDER_CFG: RenderCfg = {
   gridColor: CHART_TOKENS.grid,
   showLegend: true,
   legendPos: 'bottom',
-  height: 340,
+  height: 160,
   showAxisLabels: false,
   xLabel: '',
   yLabel: '',
@@ -255,25 +255,16 @@ function ChartRenderer({
         <div className="flex-1 min-w-0">
           {/* Header */}
           <div
-            className="flex items-start justify-between px-7 pt-6 pb-3"
+            className="flex items-center justify-between px-4 pt-3 pb-2"
             style={{ borderBottom: `1px solid ${CHART_TOKENS.border}` }}
           >
             <div>
-              <p
-                className="text-[9px] font-bold uppercase tracking-[0.16em] mb-1"
-                style={{ color: chartColor(0), fontFamily: 'Manrope, sans-serif', letterSpacing: '0.16em' }}
-              >
-                Visualization
-              </p>
               <h4
-                className="font-bold text-[1.0rem] leading-snug"
+                className="text-xs font-semibold leading-snug"
                 style={{ color: CHART_TOKENS.text.primary, fontFamily: 'Manrope, sans-serif' }}
               >
                 {displayTitle}
               </h4>
-              <p className="text-[10px] mt-0.5" style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}>
-                Interactive · hover for details
-              </p>
             </div>
 
             <div className="flex items-center gap-1 mt-0.5 flex-shrink-0">
@@ -314,7 +305,7 @@ function ChartRenderer({
           </div>
 
           {/* Chart Body */}
-          <div className={`px-6 pb-6 pt-5 ${expanded ? 'min-h-[520px]' : ''}`} ref={chartAreaRef}>
+          <div className={`px-3 pb-3 pt-2 ${expanded ? 'min-h-[420px]' : ''}`} ref={chartAreaRef}>
             <ChartRenderContext.Provider value={renderCfg}>
               {type === 'histogram'         && <HistogramChart      data={data as { x0: number; x1: number; count: number }[]} expanded={expanded} />}
               {type === 'bar'               && <FrequencyBarChart   data={data as { value: string; count: number; percent: number | string }[]} expanded={expanded} />}
@@ -377,8 +368,8 @@ function ChartRenderer({
 const axisTick = AXIS_TICK_STYLE
 const gridStyle = GRID_STYLE
 
-function chartHeight(expanded: boolean, base = 300) {
-  return expanded ? Math.max(base, 500) : base
+function chartHeight(expanded: boolean, base = 160) {
+  return expanded ? Math.max(base, 400) : base
 }
 
 // ── SVG Gradients for area fills ─────────────────────────────
@@ -435,7 +426,7 @@ function HistogramChart({ data, expanded }: { data: { x0: number; x1: number; co
   const C = cfg.colors
   const d = data.map(b => ({ name: `${b.x0.toFixed(1)}`, count: b.count }))
   return (
-    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 280)}>
+    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 160)}>
       <BarChart data={d} barCategoryGap="3%">
         <ChartGradients />
         {cfg.showGrid && <CartesianGrid {...gridStyle} />}
@@ -458,7 +449,7 @@ function FrequencyBarChart({ data, expanded }: { data: { value: string; count: n
   const C = cfg.colors
   const top = data.slice(0, 20)
   return (
-    <ResponsiveContainer width="100%" height={Math.max(cfg.height ?? chartHeight(expanded, 200), top.length * 38)}>
+    <ResponsiveContainer width="100%" height={Math.max(cfg.height ?? chartHeight(expanded, 160), top.length * 28)}>
       <BarChart data={top} layout="vertical" margin={{ left: 8, right: 20 }}>
         {cfg.showGrid && <CartesianGrid {...gridStyle} horizontal={false} />}
         <XAxis type="number" tick={axisTick} {...axisLabelX(cfg)} />
@@ -491,7 +482,7 @@ function GroupedBarChart({ data, config, expanded }: { data: Record<string, unkn
   })
   const la = legendAlign(cfg.legendPos)
   return (
-    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 320)}>
+    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 160)}>
       <BarChart data={pivoted} barCategoryGap="20%" barGap={4}>
         {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="row" tick={axisTick} {...axisLabelX(cfg)} />
@@ -513,7 +504,7 @@ function ScatterRegressionChart({ data, config, expanded }: { data: Record<strin
   void config
   const lineData = data.map(d => ({ x: d.x, y: d.yHat })).sort((a, b) => (a.x as number) - (b.x as number))
   return (
-    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 340)}>
+    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 160)}>
       <ComposedChart>
         <ChartGradients />
         {cfg.showGrid && <CartesianGrid {...gridStyle} />}
@@ -533,7 +524,7 @@ function ResidualChart({ data, expanded }: { data: Record<string, unknown>[]; ex
   const cfg = useCfg()
   const C = cfg.colors
   return (
-    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 280)}>
+    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 160)}>
       <ScatterChart>
         {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="fitted" name="Fitted" tick={axisTick} {...axisLabelX(cfg, 'Fitted Values')} />
@@ -806,7 +797,7 @@ function FunnelPlot({ data, config, expanded }: { data: { es: number; se: number
   const C = cfg.colors
   const summaryES = (config.summaryES as number) ?? 0
   return (
-    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 300)}>
+    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 160)}>
       <ScatterChart>
         {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="es" name="Effect Size" tick={axisTick} {...axisLabelX(cfg, 'Effect Size')} />
@@ -826,7 +817,7 @@ function ROCCurve({ data, config, expanded }: { data: { fpr: number; tpr: number
   const auc = (config.auc as number)?.toFixed(3)
   return (
     <div>
-      <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 340)}>
+      <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 160)}>
         <AreaChart data={data}>
           <ChartGradients />
           {cfg.showGrid && <CartesianGrid {...gridStyle} />}
@@ -871,7 +862,7 @@ function KMCurve({ data, config, expanded }: { data: KMPoint[]; config: Record<s
   const la = legendAlign(cfg.legendPos)
   return (
     <div>
-      <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 360)}>
+      <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 180)}>
         <LineChart>
           {cfg.showGrid && <CartesianGrid {...gridStyle} />}
           <XAxis dataKey="time" type="number" tick={axisTick} {...axisLabelX(cfg, 'Time')} />
@@ -992,7 +983,7 @@ function TimeSeriesChart({ data, config, expanded }: { data: Record<string, unkn
   void config
   const la = legendAlign(cfg.legendPos)
   return (
-    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 320)}>
+    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 160)}>
       <ComposedChart data={data}>
         <ChartGradients />
         {cfg.showGrid && <CartesianGrid {...gridStyle} />}
@@ -1013,7 +1004,7 @@ function ScreePlot({ data, expanded }: { data: { component: number; eigenvalue: 
   const C = cfg.colors
   const la = legendAlign(cfg.legendPos)
   return (
-    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 280)}>
+    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 160)}>
       <ComposedChart data={data}>
         {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="component" tick={axisTick} {...axisLabelX(cfg, 'Component')} />
@@ -1038,7 +1029,7 @@ function ClusterScatter({ data, config, expanded }: { data: { pc1: number; pc2: 
   }))
   const la = legendAlign(cfg.legendPos)
   return (
-    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 320)}>
+    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 160)}>
       <ScatterChart>
         {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis type="number" dataKey="pc1" name="PC1" tick={axisTick} {...axisLabelX(cfg, 'PC1')} />
@@ -1061,7 +1052,7 @@ function PowerCurve({ data, config, expanded }: { data: { n: number; power: numb
   const targetN = (config.targetN as number)
   return (
     <div>
-      <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 280)}>
+      <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 160)}>
         <AreaChart data={data}>
           <ChartGradients />
           {cfg.showGrid && <CartesianGrid {...gridStyle} />}
@@ -1098,7 +1089,7 @@ function EpiCurve({ data, config, expanded }: { data: Record<string, unknown>[];
   const classifications = (config.classifications as string[]) ?? ['Case']
   const la = legendAlign(cfg.legendPos)
   return (
-    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 300)}>
+    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 160)}>
       <BarChart data={data} barCategoryGap="8%">
         {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="date" tick={{ ...axisTick, fontSize: 10 }} interval="preserveStartEnd" {...axisLabelX(cfg)} />
@@ -1129,7 +1120,7 @@ function ACFChart({ data, config, expanded }: { data: { lag: number; acf: number
   const n = (config.n as number) ?? 100
   const ci = 1.96 / Math.sqrt(n)
   return (
-    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 250)}>
+    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 160)}>
       <BarChart data={data}>
         {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="lag" tick={axisTick} {...axisLabelX(cfg, 'Lag')} />
@@ -1270,7 +1261,7 @@ function BoxPlot2Group({ data, expanded }: { data: Record<string, unknown>; expa
   if (!groups.length) return null
   const plotData = groups.map((g: { group: string; mean: number; sd: number }) => ({ name: g.group, mean: g.mean, error: g.sd }))
   return (
-    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 280)}>
+    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 160)}>
       <BarChart data={plotData} barCategoryGap="30%">
         {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="name" tick={axisTick} {...axisLabelX(cfg)} />
@@ -1292,7 +1283,7 @@ function BoxPlotGroups({ data, expanded }: { data: Record<string, unknown>; expa
   const groupData = (Array.isArray(data) ? data : (data.data as { group: string; mean: number; sd: number }[])) ?? []
   if (!groupData.length) return null
   return (
-    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 280)}>
+    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 160)}>
       <BarChart data={groupData} barCategoryGap="20%">
         {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="group" tick={axisTick} {...axisLabelX(cfg)} />

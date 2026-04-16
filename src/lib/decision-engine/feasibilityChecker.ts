@@ -103,6 +103,37 @@ export function checkFeasibility(
     }
   }
 
+  // ─── PSM: BINARY TREATMENT + ≥1 COVARIATE ───────────────────────────────
+  if (analysis_type === 'propensity_score_matching') {
+    checks.push({
+      id: 'psm_treatment',
+      label: 'Treatment variable',
+      status: variables.exposure ? 'pass' : 'fail',
+      value: variables.exposure ? variables.exposure.name : 'Not selected',
+      detail: !variables.exposure ? 'PSM requires a binary treatment/exposure variable.' : undefined,
+    })
+    checks.push({
+      id: 'psm_covariates',
+      label: 'Covariates for balancing',
+      status: variables.covariates.length > 0 ? 'pass' : 'fail',
+      value: variables.covariates.length > 0
+        ? `${variables.covariates.length} covariate(s) selected`
+        : 'None selected',
+      detail: variables.covariates.length === 0
+        ? 'At least one covariate is required to estimate propensity scores.'
+        : undefined,
+    })
+    if (variables.exposure?.type !== 'binary') {
+      checks.push({
+        id: 'psm_binary',
+        label: 'Treatment is binary',
+        status: variables.exposure ? 'warn' : 'na',
+        value: variables.exposure ? `Type: ${variables.exposure.type}` : '—',
+        detail: 'PSM requires a binary (0/1) treatment variable.',
+      })
+    }
+  }
+
   // ─── SURVIVAL: TIME + EVENT VARIABLES ────────────────────────────────────
   if (analysis_type === 'kaplan_meier' || analysis_type === 'cox_ph') {
     checks.push({

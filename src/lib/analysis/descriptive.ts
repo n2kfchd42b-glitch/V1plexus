@@ -11,7 +11,11 @@ export interface DescriptiveConfig {
 }
 
 export function runDescriptive(data: DataRow[], config: DescriptiveConfig): AnalysisResult {
-  const { variables } = config
+  // When no variables are specified, describe all columns in the dataset
+  const variables = config.variables?.length > 0
+    ? config.variables
+    : data.length > 0 ? Object.keys(data[0]) : []
+
   const tables: ResultTable[] = []
   const chartData: unknown[] = []
 
@@ -65,20 +69,33 @@ export function runDescriptive(data: DataRow[], config: DescriptiveConfig): Anal
     }
   }
 
-  // Categorical summary table
+  // Categorical summary table — one row per category level (Table 1 style)
   if (catVars.length > 0) {
-    const headers = ['Variable', 'N', 'Missing', 'Unique Values', 'Mode', 'Mode Freq (%)']
-    const rows: (string | number | null)[][] = catVars.map(v => {
+    const headers = ['Variable', 'Category', 'N', '%', 'Missing']
+    const rows: (string | number | null)[][] = []
+    for (const v of catVars) {
       const vals = getCategoricalValues(data, v)
       const missing = countMissing(data, v)
       const freq = countFrequencies(vals)
-      let modeVal = '', modeCount = 0
-      for (const [val, count] of freq) {
-        if (count > modeCount) { modeCount = count; modeVal = val }
-      }
-      const modePct = vals.length > 0 ? (modeCount / vals.length * 100).toFixed(1) : '0'
-      return [v, vals.length, missing, freq.size, modeVal, `${modeCount} (${modePct}%)`]
-    })
+      const sorted = [...freq.entries()].sort((a, b) => {
+        // Numeric-sort if both keys are numeric strings, else alpha
+        const an = Number(a[0]), bn = Number(b[0])
+        if (!isNaN(an) && !isNaN(bn)) return an - bn
+        return a[0].localeCompare(b[0])
+      })
+      sorted.forEach(([category, count], i) => {
+        const pct = vals.length > 0 ? (count / vals.length * 100).toFixed(1) : '0'
+        // First row: show variable name and missing count
+        // Continuation rows: blank variable name, indented category label
+        rows.push([
+          i === 0 ? v : '',
+          i === 0 ? category : `  ${category}`,
+          count,
+          `${pct}%`,
+          i === 0 ? missing : '',
+        ])
+      })
+    }
     tables.push({ id: 'categorical_summary', title: 'Categorical Variable Summary', headers, rows })
 
     // Bar chart data for each categorical var

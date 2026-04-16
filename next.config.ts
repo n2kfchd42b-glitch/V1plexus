@@ -11,6 +11,11 @@ const nextConfig: NextConfig = {
     formats: ['image/avif', 'image/webp'],
   },
 
+  // Pin Turbopack to the correct workspace root (prevents lockfile confusion)
+  turbopack: {
+    root: __dirname,
+  },
+
   // Tree-shake large libraries so only used exports are bundled
   experimental: {
     optimizePackageImports: [

@@ -22,15 +22,12 @@ export function decideAnalysisType(
 
   // ─── DESCRIBE ─────────────────────────────────────────────────────────────
   if (intent === 'describe') {
+    const primary = outcomeType === 'binary' ? 'prevalence_estimation' : 'descriptive_statistics'
     return {
-      primary:
-        outcomeType === 'binary' ? 'prevalence_estimation' : 'descriptive_statistics',
-      alternatives: [
-        {
-          id: 'descriptive_statistics',
-          reason: 'Always run descriptive statistics first regardless of primary analysis',
-        },
-      ],
+      primary,
+      alternatives: primary === 'prevalence_estimation'
+        ? [{ id: 'descriptive_statistics', reason: 'Always run descriptive statistics alongside prevalence estimation' }]
+        : [],
     }
   }
 
@@ -102,6 +99,7 @@ export function decideAnalysisType(
         return {
           primary: 'logistic_regression',
           alternatives: [
+            { id: 'propensity_score_matching', reason: 'Balance confounders via matched cohort before outcome analysis — preferred for observational causal inference' },
             { id: 'chi_square', reason: 'Unadjusted association without covariates' },
           ],
         }
@@ -313,6 +311,11 @@ export function generateReasoning(
     poisson_regression:
       `${outcome} is a count variable. ` +
       `Poisson regression models the rate of events per unit of exposure time.`,
+
+    propensity_score_matching:
+      `You have a binary treatment (${exposure}) and ${n_cov} confounder(s) to control for across ${n} participants. ` +
+      `Propensity score matching will balance covariate distributions between treated and control groups — ` +
+      `creating a pseudo-randomised cohort before your primary outcome analysis.`,
   }
 
   return (

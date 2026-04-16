@@ -352,6 +352,7 @@ export type AnalysisType =
   | 'spatial_analysis'
   | 'outbreak_investigation'
   | 'sample_size'
+  | 'psm'
 
 export interface AnalysisRun {
   id: string

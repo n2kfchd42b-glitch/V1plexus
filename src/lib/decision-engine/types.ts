@@ -36,6 +36,7 @@ export type VariableSelection = {
   time_variable: EngineColumnSchema | null
   event_variable: EngineColumnSchema | null
   group_variable: EngineColumnSchema | null
+  strat_variable: EngineColumnSchema | null
 }
 
 export type DatasetContext = {
@@ -65,6 +66,7 @@ export type AnalysisTypeId =
   | 'pearson_correlation'
   | 'spearman_correlation'
   | 'prevalence_estimation'
+  | 'propensity_score_matching'
 
 export type FeasibilityStatus = 'pass' | 'warn' | 'fail' | 'na'
 
@@ -125,6 +127,7 @@ export type AnalysisConfig = {
   time_variable: string | null
   event_variable: string | null
   group_variable: string | null
+  strat_variable: string | null
   confidence_level: 0.90 | 0.95 | 0.99
   reference_category: 'first' | 'last' | null
 }

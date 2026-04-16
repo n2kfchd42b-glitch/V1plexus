@@ -15,8 +15,12 @@ import { AnalysisEntryPoint } from './AnalysisEntryPoint'
 import { GuidedFlow } from './GuidedFlow'
 import { DirectFlow } from './DirectFlow'
 import { profileFromDatasetColumns } from '@/lib/decision-engine/variableProfiler'
-import type { DatasetContext, AnalysisTypeId } from '@/lib/decision-engine/types'
+import { ANALYSIS_TYPE_MAPPING, buildBackendConfig, buildExecutableWorkflow } from '@/lib/decision-engine/index'
+import { ANALYSIS_REGISTRY } from '@/lib/decision-engine/analysisRegistry'
+import type { DatasetContext, AnalysisTypeId, EngineColumnSchema, AnalysisConfig, ResearchIntent, AnalysisRecommendation } from '@/lib/decision-engine/types'
 import type { ExecutableWorkflowStep } from '@/lib/decision-engine/index'
+import { DecisionVariableSelector } from './DecisionVariableSelector'
+import { MultiDecisionVariableSelector } from './MultiDecisionVariableSelector'
 import { HubResultsPreview } from './HubResultsPreview'
 import { AnalysisCharts } from './results/AnalysisCharts'
 import { createClient } from '@/lib/supabase/client'
@@ -277,6 +281,7 @@ export function AnalysisHub({ projectId }: Props) {
     setData([]); setColumns([]); setFileName('')
     setDatasetId(undefined); setVersionId(undefined)
     setResult(null); setSavedRunId(null); setApprovalBlock(null)
+    resetEngineVars()
     setDecisionMode(null)
   }
 
@@ -287,6 +292,41 @@ export function AnalysisHub({ projectId }: Props) {
   type DecisionMode = 'entry' | 'guided' | 'direct' | null
   const [decisionMode, setDecisionMode] = useState<DecisionMode>(null)
   const [decisionPreselect, setDecisionPreselect] = useState<AnalysisTypeId | null>(null)
+
+  // ── Engine variable state (lifted from GuidedFlow / DirectFlow) ──────────────
+  const [engineIntent, setEngineIntent] = useState<ResearchIntent | null>(null)
+  const [engineSelectedType, setEngineSelectedType] = useState<AnalysisTypeId | null>(null)
+  const [engineOutcome, setEngineOutcome] = useState<EngineColumnSchema | null>(null)
+  const [engineExposure, setEngineExposure] = useState<EngineColumnSchema | null>(null)
+  const [engineCovariates, setEngineCovariates] = useState<EngineColumnSchema[]>([])
+  const [engineTimeVar, setEngineTimeVar] = useState<EngineColumnSchema | null>(null)
+  const [engineEventVar, setEngineEventVar] = useState<EngineColumnSchema | null>(null)
+  const [engineGroupVar, setEngineGroupVar] = useState<EngineColumnSchema | null>(null)
+  const [engineStratVar, setEngineStratVar] = useState<EngineColumnSchema | null>(null)
+  const [engineConfidenceLevel, setEngineConfidenceLevel] = useState<0.90 | 0.95 | 0.99>(0.95)
+  const [engineDescriptiveVars, setEngineDescriptiveVars] = useState<string[]>([])
+
+  // Lifted recommendation state (from GuidedFlow)
+  const [engineRecommendation, setEngineRecommendation] = useState<AnalysisRecommendation | null>(null)
+
+
+  // Stale result state — result exists but user is reconfiguring
+  const [resultIsStale, setResultIsStale] = useState(false)
+  const [lastDecisionMode, setLastDecisionMode] = useState<'guided' | 'direct' | null>(null)
+
+  const resetEngineVars = () => {
+    setEngineIntent(null)
+    setEngineSelectedType(null)
+    setEngineOutcome(null)
+    setEngineExposure(null)
+    setEngineCovariates([])
+    setEngineTimeVar(null)
+    setEngineEventVar(null)
+    setEngineGroupVar(null)
+    setEngineStratVar(null)
+    setEngineDescriptiveVars([])
+    setEngineRecommendation(null)
+  }
 
   // Sequential workflow progress
   const [workflowProgress, setWorkflowProgress] = useState<{
@@ -335,7 +375,7 @@ export function AnalysisHub({ projectId }: Props) {
     setData(rows); setColumns(cols); setFileName(name)
     setDatasetId(dsId); setVersionId(vsId); setResult(null); setSavedRunId(null)
     setApprovalBlock(null)
-
+    resetEngineVars()
     setDecisionMode('entry')
 
     if (dsId && vsId) {
@@ -377,7 +417,9 @@ export function AnalysisHub({ projectId }: Props) {
     const t = backendType as AnalysisType
     setSelectedType(t)
     setConfig(backendConfig)
+    setLastDecisionMode(decisionMode === 'guided' || decisionMode === 'direct' ? decisionMode : lastDecisionMode)
     setDecisionMode(null)
+    setResultIsStale(false)
     setRunning(true)
     setResult(null)
     setViewingRunId(null)
@@ -403,7 +445,9 @@ export function AnalysisHub({ projectId }: Props) {
     const executableSteps = steps.filter(s => s.executable_config)
     if (executableSteps.length === 0) return
 
+    setLastDecisionMode(decisionMode === 'guided' || decisionMode === 'direct' ? decisionMode : lastDecisionMode)
     setDecisionMode(null)
+    setResultIsStale(false)
     setResult(null)
     setViewingRunId(null)
     setRunning(true)
@@ -411,7 +455,11 @@ export function AnalysisHub({ projectId }: Props) {
 
     for (let i = 0; i < executableSteps.length; i++) {
       const step = executableSteps[i]
-      const { backendType, config: stepConfig } = step.executable_config!
+      const { backendType, config: rawConfig } = step.executable_config!
+      // Inject user-selected descriptive variables for descriptive steps
+      const stepConfig = backendType === 'descriptive' && engineDescriptiveVars.length > 0
+        ? { ...rawConfig, variables: engineDescriptiveVars }
+        : rawConfig
 
       setWorkflowProgress({ total: executableSteps.length, current: i, label: step.name })
 
@@ -458,6 +506,29 @@ export function AnalysisHub({ projectId }: Props) {
 
     setRunning(false)
     setWorkflowProgress(null)
+  }
+
+  // ── DirectFlow run — builds config from lifted engine state ─────────────────
+  const handleEngineDirectRun = () => {
+    if (!engineSelectedType) return
+    const config: AnalysisConfig = {
+      analysis_type: engineSelectedType,
+      dataset_id: engineContext.dataset_id,
+      version_id: engineContext.version_id,
+      outcome_variable: engineOutcome?.name ?? null,
+      exposure_variable: engineExposure?.name ?? null,
+      // For descriptive_statistics: use engineDescriptiveVars as the variable list
+      covariate_variables: engineIsDesc ? engineDescriptiveVars : engineCovariates.map(c => c.name),
+      time_variable: engineTimeVar?.name ?? null,
+      event_variable: engineEventVar?.name ?? null,
+      group_variable: engineGroupVar?.name ?? null,
+      strat_variable: engineStratVar?.name ?? null,
+      confidence_level: engineConfidenceLevel,
+      reference_category: 'first',
+    }
+    const backendType = ANALYSIS_TYPE_MAPPING[engineSelectedType]
+    const backendConfig = buildBackendConfig(config)
+    runWithTypeAndConfig(backendType, backendConfig)
   }
 
   const handleRun = async () => {
@@ -526,6 +597,47 @@ export function AnalysisHub({ projectId }: Props) {
   const needsData  = selectedType !== 'sample_size'
   const dataLoaded = data.length > 0
   const canRun     = !!selectedType && !running && !approvalBlock && (needsData ? dataLoaded : true)
+
+  // ── Decision engine derived ──────────────────────────────
+  const engineSchema = useMemo(
+    () => dataLoaded ? profileFromDatasetColumns(columns, data.length) : [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataLoaded, columns.length, data.length],
+  )
+  const engineContext = useMemo<DatasetContext>(() => ({
+    dataset_id: datasetId ?? '',
+    version_id: versionId ?? '',
+    dataset_name: fileName,
+    row_count: data.length,
+    complete_cases: data.length,
+    schema: engineSchema,
+  }), [datasetId, versionId, fileName, data.length, engineSchema])
+
+  const engineExcluded = [engineOutcome, engineExposure, ...engineCovariates, engineTimeVar, engineEventVar, engineGroupVar, engineStratVar]
+    .filter(Boolean).map(v => v!.name)
+
+  const engineMeta        = engineSelectedType ? ANALYSIS_REGISTRY[engineSelectedType] : null
+  const engineIsSurvival  = engineSelectedType === 'kaplan_meier' || engineSelectedType === 'cox_ph'
+  const engineIsCorr      = engineSelectedType === 'pearson_correlation' || engineSelectedType === 'spearman_correlation'
+  const engineIsCat       = engineSelectedType === 'chi_square' || engineSelectedType === 'fisher_exact'
+  const engineIsDesc      = engineSelectedType === 'descriptive_statistics'
+
+  const canEngineDirectRun = (() => {
+    if (!engineSelectedType) return false
+    if (engineIsDesc) return true
+    if (engineSelectedType === 'prevalence_estimation') return !!engineOutcome
+    if (engineIsSurvival) return !!engineTimeVar && !!engineEventVar
+    if (engineIsCorr || engineIsCat) return !!engineOutcome && !!engineExposure
+    if (engineMeta?.requires_grouping) return !!engineOutcome && !!(engineExposure ?? engineGroupVar)
+    return !!engineOutcome
+  })()
+
+  const canEngineGuidedAnalyse = !!engineIntent && (
+    engineIntent === 'describe' ? true :
+    engineIntent === 'survive' ? (!!engineTimeVar && !!engineEventVar) :
+    !!engineOutcome
+  )
+
 
   const viewingRun    = viewingRunId ? runs.find(r => r.id === viewingRunId) ?? null : null
   const viewingResult = viewingRun?.results as unknown as AnalysisResult | null | undefined
@@ -625,8 +737,8 @@ export function AnalysisHub({ projectId }: Props) {
 
         {/* ── LEFT: Input panel ─────────────────────────── */}
         <div
-          className="relative flex-shrink-0 border-r border-[var(--border-row)] flex flex-col overflow-hidden"
-          style={{ background: 'var(--bg-surface)', width: '240px' }}
+          className="relative flex-shrink-0 border-r border-[var(--border-row)] flex flex-col overflow-hidden transition-all duration-200"
+          style={{ background: 'var(--bg-surface)', width: decisionMode ? '300px' : '260px' }}
         >
 
           {/* History drawer — slides over the left panel */}
@@ -658,10 +770,13 @@ export function AnalysisHub({ projectId }: Props) {
                       const ds   = run.dataset as { name: string } | null
                       const isViewing = viewingRunId === run.id
                       return (
-                        <button
+                        <div
                           key={run.id}
+                          role="button"
+                          tabIndex={0}
                           onClick={() => { setViewingRunId(run.id); setHistoryOpen(false) }}
-                          className={`group w-full text-left flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border-row)] last:border-0 transition-colors ${
+                          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { setViewingRunId(run.id); setHistoryOpen(false) } }}
+                          className={`group w-full text-left flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border-row)] last:border-0 transition-colors cursor-pointer ${
                             isViewing ? 'bg-[var(--bg-row-active)]' : 'hover:bg-[var(--bg-row-hover)]'
                           }`}
                         >
@@ -680,7 +795,7 @@ export function AnalysisHub({ projectId }: Props) {
                           >
                             <X className="h-3 w-3" />
                           </button>
-                        </button>
+                        </div>
                       )
                     })}
                   </div>
@@ -697,24 +812,16 @@ export function AnalysisHub({ projectId }: Props) {
               <p className="subsection-label mb-2">Dataset</p>
 
               {dataLoaded ? (
-                /* ── Selected state: just the chosen dataset + change link ── */
                 <div
                   className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-md"
-                  style={{
-                    border:      '1px solid var(--accent-blue)',
-                    borderLeft:  '3px solid var(--accent-blue)',
-                    background:  'var(--accent-blue-subtle)',
-                  }}
+                  style={{ border: '1px solid var(--accent-blue)', borderLeft: '3px solid var(--accent-blue)', background: 'var(--accent-blue-subtle)' }}
                 >
-                  <div className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0"
-                    style={{ background: 'rgba(59,130,246,0.15)' }}>
+                  <div className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(59,130,246,0.15)' }}>
                     <Database className="h-3 w-3" style={{ color: 'var(--accent-blue)' }} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{fileName}</p>
-                    <p className="data-mono-xs" style={{ color: 'var(--text-tertiary)' }}>
-                      {data.length.toLocaleString()} rows · {columns.length} cols
-                    </p>
+                    <p className="data-mono-xs" style={{ color: 'var(--text-tertiary)' }}>{data.length.toLocaleString()} rows · {columns.length} cols</p>
                   </div>
                   <button
                     onClick={clearDataset}
@@ -723,68 +830,40 @@ export function AnalysisHub({ projectId }: Props) {
                     onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.background = 'var(--bg-row-hover)' }}
                     onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.background = '' }}
                   >
-                    <X className="h-3 w-3" />
-                    Change
+                    <X className="h-3 w-3" />Change
                   </button>
                 </div>
               ) : datasetsLoading ? (
-                /* ── Loading skeleton ── */
-                <div className="space-y-1.5">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className="skeleton h-10 rounded-md" />
-                  ))}
-                </div>
+                <div className="space-y-1.5">{[1, 2, 3].map(i => <div key={i} className="skeleton h-10 rounded-md" />)}</div>
               ) : projectDatasets.length === 0 ? (
-                /* ── Empty state ── */
-                <div className="flex flex-col items-center text-center px-3 py-4 rounded-md"
-                  style={{ border: '1px dashed var(--border-strong)' }}>
+                <div className="flex flex-col items-center text-center px-3 py-4 rounded-md" style={{ border: '1px dashed var(--border-strong)' }}>
                   <Database className="h-5 w-5 mb-1.5" style={{ color: 'var(--text-tertiary)' }} />
                   <p className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>No datasets yet</p>
-                  <Link
-                    href={`/projects/${projectId}/data`}
-                    className="text-[11px] mt-1 hover:underline"
-                    style={{ color: 'var(--accent-blue)' }}
-                  >
-                    Go to Data Hub →
-                  </Link>
+                  <Link href={`/projects/${projectId}/data`} className="text-[11px] mt-1 hover:underline" style={{ color: 'var(--accent-blue)' }}>Go to Data Hub →</Link>
                 </div>
               ) : (
-                /* ── Dataset list — one tap to select ── */
                 <div className="flex flex-col gap-1">
-                  <p className="text-[11px] mb-1" style={{ color: 'var(--text-tertiary)' }}>
-                    Click a dataset to load it for analysis
-                  </p>
+                  <p className="text-[11px] mb-1" style={{ color: 'var(--text-tertiary)' }}>Click a dataset to load it for analysis</p>
                   {projectDatasets.map(ds => {
                     const isLoading = datasetLoadingId === ds.id
                     const v = ds.latestVersion
                     return (
-                      <button
-                        key={ds.id}
-                        onClick={() => selectDataset(ds)}
-                        disabled={!!datasetLoadingId}
+                      <button key={ds.id} onClick={() => selectDataset(ds)} disabled={!!datasetLoadingId}
                         className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-left transition-colors disabled:opacity-60"
                         style={{ border: '1px solid var(--border-default)', background: 'var(--bg-app)' }}
                         onMouseEnter={e => { if (!datasetLoadingId) e.currentTarget.style.background = 'var(--bg-row-hover)' }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-app)' }}
                       >
-                        <div className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0"
-                          style={{ background: 'var(--bg-inset)' }}>
+                        <div className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0" style={{ background: 'var(--bg-inset)' }}>
                           <Database className="h-3 w-3" style={{ color: 'var(--text-tertiary)' }} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{ds.name}</p>
-                          {v ? (
-                            <p className="data-mono-xs" style={{ color: 'var(--text-tertiary)' }}>
-                              {v.row_count?.toLocaleString() ?? '—'} rows · {v.column_count ?? '—'} cols
-                            </p>
-                          ) : (
-                            <p className="text-[11px] italic" style={{ color: 'var(--text-tertiary)' }}>No version</p>
-                          )}
+                          {v
+                            ? <p className="data-mono-xs" style={{ color: 'var(--text-tertiary)' }}>{v.row_count?.toLocaleString() ?? '—'} rows · {v.column_count ?? '—'} cols</p>
+                            : <p className="text-[11px] italic" style={{ color: 'var(--text-tertiary)' }}>No version</p>}
                         </div>
-                        {isLoading && (
-                          <div className="h-3.5 w-3.5 rounded-full border-2 border-t-transparent flex-shrink-0 animate-spin"
-                            style={{ borderColor: 'var(--accent-blue)', borderTopColor: 'transparent' }} />
-                        )}
+                        {isLoading && <div className="h-3.5 w-3.5 rounded-full border-2 border-t-transparent flex-shrink-0 animate-spin" style={{ borderColor: 'var(--accent-blue)', borderTopColor: 'transparent' }} />}
                       </button>
                     )
                   })}
@@ -792,8 +871,47 @@ export function AnalysisHub({ projectId }: Props) {
               )}
             </div>
 
-            {/* New Analysis button — shown when dataset is loaded but engine is closed */}
-            {dataLoaded && !decisionMode && (
+            {/* ── Breadcrumb stepper ── */}
+            {dataLoaded && (
+              <div className="flex items-center gap-1 -mt-1">
+                {([
+                  { key: 'dataset',  label: 'Dataset',    done: true,              active: !decisionMode && !result },
+                  { key: 'mode',     label: 'Mode',       done: !!decisionMode || !!result, active: decisionMode === 'entry' },
+                  { key: 'vars',     label: 'Variables',  done: (decisionMode === 'guided' || decisionMode === 'direct') || !!result, active: decisionMode === 'guided' || decisionMode === 'direct' },
+                  { key: 'result',   label: 'Result',     done: !!result && !resultIsStale, active: !!result && !decisionMode },
+                ] as { key: string; label: string; done: boolean; active: boolean }[]).map((step, idx) => (
+                  <div key={step.key} className="flex items-center">
+                    <div
+                      className="flex items-center gap-1"
+                      style={{ opacity: step.done || step.active ? 1 : 0.35 }}
+                    >
+                      <span
+                        className="w-2 h-2 rounded-full flex-shrink-0 transition-colors"
+                        style={{
+                          background: step.done && !step.active
+                            ? 'var(--status-success)'
+                            : step.active
+                              ? 'var(--accent-blue)'
+                              : 'var(--border-strong)',
+                        }}
+                      />
+                      <span
+                        className="text-[10px] font-medium"
+                        style={{ color: step.active ? 'var(--accent-blue)' : step.done ? 'var(--text-secondary)' : 'var(--text-tertiary)' }}
+                      >
+                        {step.label}
+                      </span>
+                    </div>
+                    {idx < 3 && (
+                      <span className="mx-1 text-[10px]" style={{ color: 'var(--text-tertiary)' }}>›</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Run Analysis button — when loaded, no decision mode, no result */}
+            {dataLoaded && !decisionMode && !result && (
               <button
                 onClick={() => setDecisionMode('entry')}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold text-white active:scale-[0.98] transition-all"
@@ -804,7 +922,252 @@ export function AnalysisHub({ projectId }: Props) {
               </button>
             )}
 
+            {/* Adjust / New Analysis — when result exists and not in decision mode */}
+            {dataLoaded && !decisionMode && result && !running && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setResultIsStale(true)
+                    setDecisionMode(lastDecisionMode ?? 'entry')
+                  }}
+                  className="flex-1 py-2 rounded-lg text-xs font-semibold border transition-colors"
+                  style={{ border: '1px solid var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-surface)' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-row-hover)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-surface)' }}
+                >
+                  Adjust
+                </button>
+                <button
+                  onClick={() => {
+                    resetEngineVars()
+                    setResult(null)
+                    setSavedRunId(null)
+                    setResultIsStale(false)
+                    setDecisionMode('entry')
+                  }}
+                  className="flex-1 py-2 rounded-lg text-xs font-bold text-white active:scale-[0.98] transition-all"
+                  style={{ background: 'linear-gradient(135deg,var(--color-clinical-deep),var(--color-clinical-blue))' }}
+                >
+                  New Analysis
+                </button>
+              </div>
+            )}
+
+            {/* ── Variable configuration panel ────────────── */}
+            {(decisionMode === 'guided' || decisionMode === 'direct') && dataLoaded && engineSchema.length > 0 && (
+              <div>
+                <div className="h-px mb-4" style={{ background: 'var(--border-row)' }} />
+                <p className="subsection-label mb-3">Variables</p>
+
+                {/* ── DIRECT FLOW ── */}
+                {decisionMode === 'direct' && (
+                  !engineSelectedType ? (
+                    <p className="text-xs leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+                      Choose an analysis type on the right to configure variables.
+                    </p>
+                  ) : engineIsDesc ? (
+                    /* Multi-variable select for descriptive statistics */
+                    <div className="space-y-2">
+                      <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+                        Leave all unchecked to describe every variable
+                      </p>
+                      <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-default)' }}>
+                        <div className="max-h-52 overflow-y-auto">
+                          {engineSchema.filter(c => c.type !== 'id' && c.type !== 'text').map(col => {
+                            const checked = engineDescriptiveVars.includes(col.name)
+                            const TYPE_BG: Record<string, string> = {
+                              continuous: 'var(--accent-blue-subtle)', binary: 'var(--status-success-bg)',
+                              categorical: 'var(--bg-inset)', date: 'var(--status-warning-bg)', time_to_event: 'var(--status-error-bg)',
+                            }
+                            const TYPE_TX: Record<string, string> = {
+                              continuous: 'var(--accent-blue-hover)', binary: 'var(--status-success-text)',
+                              categorical: 'var(--phase-data)', date: 'var(--status-warning-text)', time_to_event: 'var(--status-error-hover)',
+                            }
+                            return (
+                              <label key={col.name}
+                                className="flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors border-b last:border-0"
+                                style={{ borderColor: 'var(--border-row)', background: checked ? 'var(--accent-blue-subtle)' : undefined }}
+                                onMouseEnter={e => { if (!checked) (e.currentTarget as HTMLElement).style.background = 'var(--bg-row-hover)' }}
+                                onMouseLeave={e => { if (!checked) (e.currentTarget as HTMLElement).style.background = '' }}
+                              >
+                                <input type="checkbox" checked={checked}
+                                  onChange={e => setEngineDescriptiveVars(prev =>
+                                    e.target.checked ? [...prev, col.name] : prev.filter(n => n !== col.name)
+                                  )}
+                                  className="rounded flex-shrink-0 accent-[var(--accent-blue)]"
+                                />
+                                <span className="text-xs font-medium truncate flex-1" style={{ color: 'var(--text-primary)' }}>{col.name}</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0"
+                                  style={{ background: TYPE_BG[col.type] ?? 'var(--bg-inset)', color: TYPE_TX[col.type] ?? 'var(--text-tertiary)' }}>
+                                  {col.type}
+                                </span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </div>
+                      {engineDescriptiveVars.length > 0 && (
+                        <button onClick={() => setEngineDescriptiveVars([])} className="text-[11px] transition-colors"
+                          style={{ color: 'var(--text-tertiary)' }}
+                          onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-blue)' }}
+                          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)' }}
+                        >
+                          Clear ({engineDescriptiveVars.length} selected)
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {engineIsSurvival ? (
+                        <>
+                          <DecisionVariableSelector label="Time Variable" required schema={engineSchema} allowedTypes={['continuous', 'date']} value={engineTimeVar} onChange={setEngineTimeVar} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineTimeVar?.name)} />
+                          <DecisionVariableSelector label="Event Indicator (1=event, 0=censored)" required schema={engineSchema} allowedTypes={['binary', 'continuous']} value={engineEventVar} onChange={setEngineEventVar} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineEventVar?.name)} />
+                          {engineSelectedType === 'kaplan_meier' && (
+                            <DecisionVariableSelector label="Group Variable (optional)" schema={engineSchema} allowedTypes={['binary', 'categorical']} value={engineGroupVar} onChange={setEngineGroupVar} placeholder="Leave empty for single curve" row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineGroupVar?.name)} />
+                          )}
+                          {engineSelectedType === 'cox_ph' && (
+                            <DecisionVariableSelector label="Exposure / Primary Predictor" schema={engineSchema} allowedTypes={['binary', 'categorical', 'continuous']} value={engineExposure} onChange={setEngineExposure} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineExposure?.name)} />
+                          )}
+                          <DecisionVariableSelector label="Stratify by (optional)" schema={engineSchema} allowedTypes={['binary', 'categorical']} value={engineStratVar} onChange={setEngineStratVar} placeholder="Adjust for a known confounder" row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineStratVar?.name)} />
+                        </>
+                      ) : (engineIsCorr || engineIsCat) ? (
+                        <>
+                          <DecisionVariableSelector label={engineIsCat ? 'Variable 1 (Outcome)' : 'Variable 1'} required schema={engineSchema} allowedTypes={engineMeta && engineMeta.outcome_types.length > 0 ? engineMeta.outcome_types : undefined} value={engineOutcome} onChange={setEngineOutcome} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineOutcome?.name)} />
+                          <DecisionVariableSelector label={engineIsCat ? 'Variable 2 (Exposure)' : 'Variable 2'} required schema={engineSchema} allowedTypes={engineMeta && engineMeta.predictor_types.length > 0 ? engineMeta.predictor_types : undefined} value={engineExposure} onChange={setEngineExposure} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineExposure?.name)} />
+                        </>
+                      ) : (
+                        <>
+                          {engineSelectedType !== 'prevalence_estimation' && (
+                            <DecisionVariableSelector label="Outcome Variable" required schema={engineSchema} allowedTypes={engineMeta && engineMeta.outcome_types.length > 0 ? engineMeta.outcome_types : undefined} value={engineOutcome} onChange={setEngineOutcome} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineOutcome?.name)} />
+                          )}
+                          <DecisionVariableSelector
+                            label={engineMeta?.requires_grouping ? 'Group Variable' : 'Exposure / Predictor'}
+                            required={!!engineMeta?.requires_grouping}
+                            schema={engineSchema}
+                            allowedTypes={engineMeta && engineMeta.predictor_types.length > 0 ? engineMeta.predictor_types : undefined}
+                            value={engineExposure} onChange={setEngineExposure} row_count={data.length}
+                            excludeNames={engineExcluded.filter(n => n !== engineExposure?.name)}
+                          />
+                          {/* Covariates — regression types + cox_ph */}
+                          {(['logistic_regression', 'linear_regression', 'poisson_regression', 'cox_ph'] as AnalysisTypeId[]).includes(engineSelectedType) && (
+                            <MultiDecisionVariableSelector
+                              label="Covariates (optional)"
+                              schema={engineSchema}
+                              value={engineCovariates}
+                              onChange={setEngineCovariates}
+                              row_count={data.length}
+                              excludeNames={engineExcluded.filter(n => !engineCovariates.some(c => c.name === n))}
+                            />
+                          )}
+                        </>
+                      )}
+                      {/* Confidence level */}
+                      {!engineIsCat && (
+                        <div>
+                          <p className="text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Confidence Level</p>
+                          <div className="flex gap-1.5">
+                            {([0.90, 0.95, 0.99] as const).map(lvl => (
+                              <button key={lvl} type="button" onClick={() => setEngineConfidenceLevel(lvl)}
+                                className="flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors"
+                                style={{
+                                  background: engineConfidenceLevel === lvl ? 'var(--accent-blue)' : 'var(--bg-surface)',
+                                  color: engineConfidenceLevel === lvl ? '#fff' : 'var(--text-secondary)',
+                                  border: `1px solid ${engineConfidenceLevel === lvl ? 'var(--accent-blue)' : 'var(--border-default)'}`,
+                                }}
+                              >{Math.round(lvl * 100)}%</button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                )}
+
+                {/* ── GUIDED FLOW ── */}
+                {decisionMode === 'guided' && (
+                  !engineIntent ? (
+                    <p className="text-xs leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+                      Choose your research question on the right to configure variables.
+                    </p>
+                  ) : engineIntent === 'describe' ? (
+                    /* Multi-variable select for describe intent */
+                    <div className="space-y-2">
+                      <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Leave all unchecked to describe every variable</p>
+                      <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-default)' }}>
+                        <div className="max-h-52 overflow-y-auto">
+                          {engineSchema.filter(c => c.type !== 'id' && c.type !== 'text').map(col => {
+                            const checked = engineDescriptiveVars.includes(col.name)
+                            const TYPE_BG: Record<string, string> = {
+                              continuous: 'var(--accent-blue-subtle)', binary: 'var(--status-success-bg)',
+                              categorical: 'var(--bg-inset)', date: 'var(--status-warning-bg)', time_to_event: 'var(--status-error-bg)',
+                            }
+                            const TYPE_TX: Record<string, string> = {
+                              continuous: 'var(--accent-blue-hover)', binary: 'var(--status-success-text)',
+                              categorical: 'var(--phase-data)', date: 'var(--status-warning-text)', time_to_event: 'var(--status-error-hover)',
+                            }
+                            return (
+                              <label key={col.name}
+                                className="flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors border-b last:border-0"
+                                style={{ borderColor: 'var(--border-row)', background: checked ? 'var(--accent-blue-subtle)' : undefined }}
+                                onMouseEnter={e => { if (!checked) (e.currentTarget as HTMLElement).style.background = 'var(--bg-row-hover)' }}
+                                onMouseLeave={e => { if (!checked) (e.currentTarget as HTMLElement).style.background = '' }}
+                              >
+                                <input type="checkbox" checked={checked}
+                                  onChange={e => setEngineDescriptiveVars(prev =>
+                                    e.target.checked ? [...prev, col.name] : prev.filter(n => n !== col.name)
+                                  )}
+                                  className="rounded flex-shrink-0 accent-[var(--accent-blue)]"
+                                />
+                                <span className="text-xs font-medium truncate flex-1" style={{ color: 'var(--text-primary)' }}>{col.name}</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0"
+                                  style={{ background: TYPE_BG[col.type] ?? 'var(--bg-inset)', color: TYPE_TX[col.type] ?? 'var(--text-tertiary)' }}>
+                                  {col.type}
+                                </span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </div>
+                      {engineDescriptiveVars.length > 0 && (
+                        <button onClick={() => setEngineDescriptiveVars([])} className="text-[11px] transition-colors" style={{ color: 'var(--text-tertiary)' }}
+                          onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-blue)' }}
+                          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)' }}
+                        >Clear ({engineDescriptiveVars.length} selected)</button>
+                      )}
+                    </div>
+                  ) : engineIntent === 'survive' ? (
+                    <div className="space-y-3">
+                      <DecisionVariableSelector label="Time Variable" required schema={engineSchema} allowedTypes={['continuous', 'date']} value={engineTimeVar} onChange={setEngineTimeVar} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineTimeVar?.name)} />
+                      <DecisionVariableSelector label="Event Indicator (1=event, 0=censored)" required schema={engineSchema} allowedTypes={['binary', 'continuous']} value={engineEventVar} onChange={setEngineEventVar} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineEventVar?.name)} />
+                      <DecisionVariableSelector label="Group Variable (optional)" schema={engineSchema} allowedTypes={['binary', 'categorical']} value={engineExposure} onChange={setEngineExposure} placeholder="Leave empty for single curve" row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineExposure?.name)} />
+                      <DecisionVariableSelector label="Stratify by (optional)" schema={engineSchema} allowedTypes={['binary', 'categorical']} value={engineStratVar} onChange={setEngineStratVar} placeholder="Adjust for a known confounder" row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineStratVar?.name)} />
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <DecisionVariableSelector label="Outcome Variable" required schema={engineSchema} value={engineOutcome} onChange={setEngineOutcome} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineOutcome?.name)} />
+                      <DecisionVariableSelector
+                        label={engineIntent === 'compare' ? 'Group Variable' : 'Exposure / Predictor'}
+                        schema={engineSchema} value={engineExposure} onChange={setEngineExposure} row_count={data.length}
+                        excludeNames={engineExcluded.filter(n => n !== engineExposure?.name)}
+                      />
+                      {(engineIntent === 'predict' || engineIntent === 'associate') && (
+                        <MultiDecisionVariableSelector
+                          label="Covariates (optional)"
+                          schema={engineSchema}
+                          value={engineCovariates}
+                          onChange={setEngineCovariates}
+                          row_count={data.length}
+                          excludeNames={engineExcluded.filter(n => !engineCovariates.some(c => c.name === n))}
+                        />
+                      )}
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+
           </div>
+
 
         </div>
 
@@ -812,50 +1175,52 @@ export function AnalysisHub({ projectId }: Props) {
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
 
           {/* ── Decision engine — takes over right panel ── */}
-          {decisionMode !== null && dataLoaded && (() => {
-            const engineSchema = profileFromDatasetColumns(columns, data.length)
-            const engineContext: DatasetContext = {
-              dataset_id: datasetId ?? '',
-              version_id: versionId ?? '',
-              dataset_name: fileName,
-              row_count: data.length,
-              complete_cases: data.length,
-              schema: engineSchema,
-            }
-            return (
-              <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--bg-surface)' }}>
-                {decisionMode === 'entry' && (
-                  <AnalysisEntryPoint
-                    dataset={{ id: datasetId ?? '', name: fileName, source: '', row_count: data.length, version_id: versionId ?? '' }}
-                    onGuided={() => setDecisionMode('guided')}
-                    onDirect={() => setDecisionMode('direct')}
-                  />
-                )}
-                {decisionMode === 'guided' && (
-                  <GuidedFlow
-                    dataset={engineContext}
-                    schema={engineSchema}
-                    onRunWorkflow={runWorkflowSequentially}
-                    onSwitchToDirect={preselected => {
-                      setDecisionPreselect(preselected ?? null)
-                      setDecisionMode('direct')
-                    }}
-                    onBack={() => setDecisionMode('entry')}
-                  />
-                )}
-                {decisionMode === 'direct' && (
-                  <DirectFlow
-                    dataset={engineContext}
-                    schema={engineSchema}
-                    preselectedType={decisionPreselect ?? undefined}
-                    onRunAnalysis={runWithTypeAndConfig}
-                    onSwitchToGuided={() => setDecisionMode('guided')}
-                    onBack={() => setDecisionMode('entry')}
-                  />
-                )}
-              </div>
-            )
-          })()}
+          {decisionMode !== null && dataLoaded && (
+            <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--bg-surface)' }}>
+              {decisionMode === 'entry' && (
+                <AnalysisEntryPoint
+                  dataset={{ id: datasetId ?? '', name: fileName, source: '', row_count: data.length, version_id: versionId ?? '' }}
+                  onGuided={() => setDecisionMode('guided')}
+                  onDirect={() => setDecisionMode('direct')}
+                />
+              )}
+              {decisionMode === 'guided' && (
+                <GuidedFlow
+                  dataset={engineContext}
+                  intent={engineIntent}
+                  onIntentChange={setEngineIntent}
+                  outcome={engineOutcome}
+                  exposure={engineExposure}
+                  covariates={engineCovariates}
+                  timeVar={engineTimeVar}
+                  eventVar={engineEventVar}
+                  groupVar={engineGroupVar}
+                  stratVar={engineStratVar}
+                  canAnalyse={canEngineGuidedAnalyse}
+                  recommendation={engineRecommendation}
+                  onRecommendation={setEngineRecommendation}
+                  onRunWorkflow={runWorkflowSequentially}
+                  onSwitchToDirect={preselected => {
+                    if (preselected) setEngineSelectedType(preselected)
+                    setDecisionPreselect(preselected ?? null)
+                    setDecisionMode('direct')
+                  }}
+                  onBack={() => setDecisionMode('entry')}
+                />
+              )}
+              {decisionMode === 'direct' && (
+                <DirectFlow
+                  dataset={engineContext}
+                  selectedType={engineSelectedType}
+                  onSelectType={type => { setEngineSelectedType(type) }}
+                  canRun={canEngineDirectRun}
+                  onRun={handleEngineDirectRun}
+                  onSwitchToGuided={() => setDecisionMode('guided')}
+                  onBack={() => setDecisionMode('entry')}
+                />
+              )}
+            </div>
+          )}
 
           {decisionMode === null && (viewingRunId && viewingRun ? (
             /* ── Viewing a historical run ── */
@@ -930,7 +1295,16 @@ export function AnalysisHub({ projectId }: Props) {
 
           ) : decisionMode === null && result && !result.summary?.error ? (
             /* ── Fresh result ── */
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-full" style={{ opacity: resultIsStale ? 0.55 : 1, transition: 'opacity 0.2s' }}>
+              {/* Stale banner */}
+              {resultIsStale && (
+                <div
+                  className="flex items-center justify-between px-4 py-2 flex-shrink-0 text-xs"
+                  style={{ background: 'var(--status-warning-bg)', borderBottom: '1px solid var(--border-status-warning)', color: 'var(--status-warning-text)' }}
+                >
+                  <span>Previous result — reconfigure in the left panel and run again.</span>
+                </div>
+              )}
               {/* Result header */}
               <div className="px-5 pt-4 pb-0 flex-shrink-0" style={{ background: 'var(--bg-surface)' }}>
                 {/* Title + actions row */}
@@ -1050,15 +1424,21 @@ export function AnalysisHub({ projectId }: Props) {
                               </tr>
                             </thead>
                             <tbody>
-                              {table.rows.map((row, j) => (
-                                <tr key={j} className="border-b border-[var(--border-row)] last:border-0 hover:bg-[var(--bg-row-hover)] transition-colors">
+                              {table.rows.map((row, j) => {
+                                // A continuation row in the categorical table has an empty string in col 0
+                                const isContinuation = table.id === 'categorical_summary' && row[0] === ''
+                                return (
+                                <tr key={j} className={`border-b border-[var(--border-row)] last:border-0 transition-colors ${isContinuation ? '' : 'hover:bg-[var(--bg-row-hover)]'}`}
+                                  style={isContinuation ? { background: 'var(--bg-app)' } : undefined}
+                                >
                                   {row.map((cell, k) => (
-                                    <td key={k} className="px-3 py-2 text-[var(--text-primary)] whitespace-nowrap font-mono">
-                                      {cell === null ? <span className="text-[var(--text-tertiary)]">—</span> : String(cell)}
+                                    <td key={k} className={`px-3 py-2 whitespace-nowrap font-mono ${isContinuation && k === 0 ? '' : 'text-[var(--text-primary)]'} ${isContinuation && k === 1 ? 'text-[var(--text-secondary)]' : ''}`}>
+                                      {cell === null ? <span className="text-[var(--text-tertiary)]">—</span> : cell === '' ? '' : String(cell)}
                                     </td>
                                   ))}
                                 </tr>
-                              ))}
+                                )
+                              })}
                             </tbody>
                           </table>
                         </div>
@@ -1172,24 +1552,15 @@ function getKeyFindings(result: AnalysisResult, analysisType: string): Finding[]
 
   switch (analysisType) {
     case 'descriptive': {
-      const t = tables.find(t => t.id === 'numeric_summary')
-      if (t && t.rows.length > 0) {
-        const r = t.rows[0]
-        add('Variable', r[0] !== null ? String(r[0]) : null)
-        add('N', r[1] !== null ? String(r[1]) : null)
-        add('Mean', r[3] !== null ? String(r[3]) : null)
-        add('Std Dev', r[4] !== null ? String(r[4]) : null)
-      } else {
-        const ct = tables.find(t => t.id === 'categorical_summary')
-        if (ct && ct.rows.length > 0) {
-          const r = ct.rows[0]
-          add('Variable', r[0] !== null ? String(r[0]) : null)
-          add('N', r[1] !== null ? String(r[1]) : null)
-          add('Unique', r[3] !== null ? String(r[3]) : null)
-          add('Mode', r[4] !== null ? String(r[4]) : null)
-        } else {
-          add('N', get('n')); add('Numeric Vars', get('numericVars')); add('Cat Vars', get('catVars'))
-        }
+      add('N', get('n'))
+      const nv = get('numericVars'); const cv = get('catVars')
+      if (nv !== null) add('Numeric Vars', nv)
+      if (cv !== null) add('Cat Vars', cv)
+      const nt = tables.find(t => t.id === 'numeric_summary')
+      if (nt && nt.rows.length > 0) {
+        const r = nt.rows[0]
+        if (r[3] !== null) add('Mean', String(r[3]))
+        if (r[4] !== null) add('SD', String(r[4]))
       }
       break
     }

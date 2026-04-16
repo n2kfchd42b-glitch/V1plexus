@@ -23,7 +23,7 @@ export interface ChartEditorConfig {
 export const DEFAULT_CHART_EDITOR_CONFIG: ChartEditorConfig = {
   width: 'full',
   custom_width_px: null,
-  height_px: 340,
+  height_px: 160,
   dataset_colors: ['#3fb8b0', '#d4a853', '#e05c7a', '#8b7cf8', '#6cb68c', '#e8944a'],
   background_opacity: 0.45,
   x_axis_label: '',

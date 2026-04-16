@@ -10,6 +10,7 @@ import { runSimpleRegression, runMultipleRegression, runLogisticRegression, runP
 import { runKaplanMeier, runCoxRegression } from './survival'
 import { runTimeSeries, runPCA, runClusterAnalysis } from './multivariate'
 import { runMetaAnalysis, runOutbreakInvestigation, runSampleSize } from './special'
+import { runPSM } from './psm'
 import {
   classifyVariables,
   autoEncodeDataset,
@@ -117,6 +118,8 @@ export async function runAnalysis(
         return runOutbreakInvestigation(data, config as unknown as Parameters<typeof runOutbreakInvestigation>[1])
       case 'sample_size':
         return runSampleSize(config as unknown as Parameters<typeof runSampleSize>[0])
+      case 'psm':
+        return runPSM(data, config as unknown as Parameters<typeof runPSM>[1])
       default:
         return { type: analysisType, summary: {}, tables: [], charts: [], interpretation: 'Analysis type not implemented.' }
     }

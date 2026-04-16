@@ -21,9 +21,13 @@ export function DescriptiveConfig({ config, onChange, onRun, loading, columns }:
         value={variables}
         onChange={v => onChange({ ...config, variables: v })}
         columns={columns}
-        required
       />
-      <AnalysisRunButton onClick={onRun} loading={loading} disabled={variables.length === 0} />
+      {variables.length === 0 && (
+        <p className="text-[11px]" style={{ color: 'var(--text-tertiary)', marginTop: '-8px' }}>
+          Leave empty to describe all variables
+        </p>
+      )}
+      <AnalysisRunButton onClick={onRun} loading={loading} />
     </div>
   )
 }
