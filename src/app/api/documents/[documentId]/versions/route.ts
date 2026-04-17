@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { hasProjectAccess } from '@/lib/supabase/projectAccess'
 import { NextRequest, NextResponse } from 'next/server'
 import { logAudit } from '@/lib/audit'
 
@@ -39,22 +40,7 @@ export async function GET(
       )
     }
 
-    // Check project membership
-    const { data: member } = await supabase
-      .from('project_members')
-      .select('user_id')
-      .eq('project_id', doc.project_id)
-      .eq('user_id', user.id)
-      .single()
-
-    const { data: owner } = await supabase
-      .from('projects')
-      .select('owner_id')
-      .eq('id', doc.project_id)
-      .eq('owner_id', user.id)
-      .single()
-
-    if (!member && !owner) {
+    if (!await hasProjectAccess(supabase, doc.project_id, user.id)) {
       return NextResponse.json(
         { error: 'Access denied' },
         { status: 403 }
@@ -155,21 +141,7 @@ export async function POST(
     }
 
     // Check authorization (only project members/owner)
-    const { data: member } = await supabase
-      .from('project_members')
-      .select('user_id')
-      .eq('project_id', doc.project_id)
-      .eq('user_id', user.id)
-      .single()
-
-    const { data: owner } = await supabase
-      .from('projects')
-      .select('owner_id')
-      .eq('id', doc.project_id)
-      .eq('owner_id', user.id)
-      .single()
-
-    if (!member && !owner) {
+    if (!await hasProjectAccess(supabase, doc.project_id, user.id)) {
       return NextResponse.json(
         { error: 'Access denied' },
         { status: 403 }

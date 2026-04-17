@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { hasProjectAccess } from '@/lib/supabase/projectAccess'
 
 /**
  * POST /api/analysis/assumption-checks/[checkId]/acknowledge
@@ -36,14 +37,7 @@ export async function POST(
     }
 
     // Verify user can access this project
-    const { data: projectMember } = await supabase
-      .from('project_members')
-      .select('id')
-      .eq('project_id', checkRecord.project_id)
-      .eq('user_id', user.id)
-      .single()
-
-    if (!projectMember && checkRecord.requested_by !== user.id) {
+    if (!await hasProjectAccess(supabase, checkRecord.project_id, user.id) && checkRecord.requested_by !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

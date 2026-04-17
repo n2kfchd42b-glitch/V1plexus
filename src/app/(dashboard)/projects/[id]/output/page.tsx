@@ -320,13 +320,7 @@ export default function OutputPage() {
       })
       if (!res.ok) throw new Error(await res.text())
       const data = await res.json()
-      // Fetch the full token record
-      const { data: tokens } = await supabase
-        .from('verification_tokens')
-        .select('*')
-        .eq('token', data.token)
-        .single()
-      setActiveToken(tokens as VerificationToken)
+      setActiveToken(data.record as VerificationToken)
       toast.success('Verification token created')
     } catch (err) {
       console.error(err)

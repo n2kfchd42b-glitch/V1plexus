@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { hasProjectAccess } from '@/lib/supabase/projectAccess'
 import { createServiceClient } from '@/lib/supabase/service'
 import type { QualityReport, QualityFlag, QualityDimensions } from '@/types/qualityIntelligence'
 import type { DataRow, ColumnSchema } from '@/types/database'

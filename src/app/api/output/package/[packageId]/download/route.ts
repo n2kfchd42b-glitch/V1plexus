@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { hasProjectAccess } from '@/lib/supabase/projectAccess'
 
 /**
  * GET /api/output/package/[packageId]/download
@@ -30,15 +31,7 @@ export async function GET(
       return NextResponse.json({ error: 'Package not found' }, { status: 404 })
     }
 
-    // Verify project membership
-    const { data: member } = await supabase
-      .from('project_members')
-      .select('id')
-      .eq('project_id', pkg.project_id)
-      .eq('user_id', user.id)
-      .single()
-
-    if (!member) {
+    if (!await hasProjectAccess(supabase, pkg.project_id, user.id)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

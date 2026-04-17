@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { hasProjectAccess } from '@/lib/supabase/projectAccess'
 import type { ReentrySession } from '@/types/analysisIntegrity'
 
 /**
@@ -39,14 +40,7 @@ export async function POST(
     }
 
     // Verify user can access this project
-    const { data: projectMember } = await supabase
-      .from('project_members')
-      .select('id')
-      .eq('project_id', dataset.project_id)
-      .eq('user_id', user.id)
-      .single()
-
-    if (!projectMember) {
+    if (!await hasProjectAccess(supabase, dataset.project_id, user.id)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -131,14 +125,7 @@ export async function GET(
     }
 
     // Verify user can access project
-    const { data: projectMember } = await supabase
-      .from('project_members')
-      .select('id')
-      .eq('project_id', dataset.project_id)
-      .eq('user_id', user.id)
-      .single()
-
-    if (!projectMember) {
+    if (!await hasProjectAccess(supabase, dataset.project_id, user.id)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

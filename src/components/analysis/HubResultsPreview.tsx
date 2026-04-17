@@ -6,6 +6,8 @@ import { ArrowRight, Database } from 'lucide-react'
 import { AnimatePresence } from 'framer-motion'
 import { AnalysisCharts } from './results/AnalysisCharts'
 import { ReasoningPrompt } from './ReasoningPrompt'
+import { createClient } from '@/lib/supabase/client'
+import { logAudit } from '@/lib/audit'
 import { generatePlainLanguageSummary } from '@/lib/analysis/plainLanguage'
 import { formatRelative } from '@/lib/utils'
 import type { AnalysisResult } from '@/lib/analysis/types'
@@ -89,8 +91,17 @@ export function HubResultsPreview({ run, result, projectId }: Props) {
       <AnimatePresence>
         {showPrompt && (
           <ReasoningPrompt
-            runId={run.id}
-            projectId={projectId}
+            onSaveNote={async (text) => {
+              const supabase = createClient()
+              const { error } = await supabase
+                .from('analysis_runs')
+                .update({ user_reasoning: text })
+                .eq('id', run.id)
+              if (!error) {
+                void logAudit('analysis.reasoning_added', 'analysis_run', run.id, { length: text.length }, projectId)
+              }
+              setPromptDismissed(true)
+            }}
             onDismiss={() => setPromptDismissed(true)}
           />
         )}

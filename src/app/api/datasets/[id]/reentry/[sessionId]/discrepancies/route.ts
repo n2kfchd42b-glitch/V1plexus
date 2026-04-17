@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { hasProjectAccess } from '@/lib/supabase/projectAccess'
 
 /**
  * GET /api/datasets/[id]/reentry/[sessionId]/discrepancies
@@ -42,14 +43,7 @@ export async function GET(
       session.initiated_by === user.id || session.reentry_assigned_to === user.id
     
     if (!isInvolved) {
-      const { data: projectMember } = await supabase
-        .from('project_members')
-        .select('id')
-        .eq('project_id', session.project_id)
-        .eq('user_id', user.id)
-        .single()
-
-      if (!projectMember) {
+      if (!await hasProjectAccess(supabase, session.project_id, user.id)) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }

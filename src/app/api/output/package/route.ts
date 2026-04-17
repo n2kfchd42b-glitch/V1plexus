@@ -24,16 +24,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify project membership
-    const { data: member } = await supabase
-      .from('project_members')
-      .select('id')
-      .eq('project_id', project_id)
-      .eq('user_id', user.id)
+    // Verify project access (owner or member)
+    const { data: project } = await supabase
+      .from('projects')
+      .select('owner_id')
+      .eq('id', project_id)
       .single()
 
-    if (!member) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (project?.owner_id !== user.id) {
+      const { data: member } = await supabase
+        .from('project_members')
+        .select('id')
+        .eq('project_id', project_id)
+        .eq('user_id', user.id)
+        .single()
+      if (!member) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
     }
 
     let analyticsUrl = process.env.ANALYTICS_API_URL || 'http://localhost:8000'

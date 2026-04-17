@@ -127,7 +127,13 @@ export async function POST(request: NextRequest) {
       break
     }
 
-    console.error('[POST /api/audit] append_audit_entry failed:', lastError)
+    const e = lastError as { message?: string; code?: string; details?: string; hint?: string } | null
+    console.error('[POST /api/audit] append_audit_entry failed:', {
+      message: e?.message,
+      code: e?.code,
+      details: e?.details,
+      hint: e?.hint,
+    })
     return NextResponse.json({ error: 'audit_write_failed' }, { status: 500 })
   } catch (err) {
     console.error('[POST /api/audit]', err)

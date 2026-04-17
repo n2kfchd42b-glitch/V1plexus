@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { hasProjectAccess } from '@/lib/supabase/projectAccess'
 
 /**
  * PATCH /api/output/checklist/[checklistId]/items/[itemId]
@@ -30,14 +31,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Checklist not found' }, { status: 404 })
     }
 
-    const { data: member } = await supabase
-      .from('project_members')
-      .select('id')
-      .eq('project_id', checklist.project_id)
-      .eq('user_id', user.id)
-      .single()
-
-    if (!member) {
+    if (!await hasProjectAccess(supabase, checklist.project_id, user.id)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

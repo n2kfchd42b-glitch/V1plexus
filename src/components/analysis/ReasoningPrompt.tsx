@@ -2,34 +2,34 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { createClient } from '@/lib/supabase/client'
-import { logAudit } from '@/lib/audit'
 
 interface Props {
-  runId: string
-  projectId: string
+  onSaveNote: (text: string) => Promise<void> | void
   onDismiss: () => void
+  requireReasoning?: boolean
+  saveLabel?: string
+  dismissLabel?: string
 }
 
 const MAX_CHARS = 400
 
-export function ReasoningPrompt({ runId, projectId, onDismiss }: Props) {
+export function ReasoningPrompt({
+  onSaveNote,
+  onDismiss,
+  requireReasoning = true,
+  saveLabel = 'Save note',
+  dismissLabel = 'Skip',
+}: Props) {
   const [text, setText]     = useState('')
   const [saving, setSaving] = useState(false)
 
+  const canSave = requireReasoning ? !!text.trim() : true
+
   const handleSave = async () => {
-    if (!text.trim()) return
+    if (!canSave) return
     setSaving(true)
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('analysis_runs')
-      .update({ user_reasoning: text.trim() })
-      .eq('id', runId)
-    if (!error) {
-      logAudit('analysis.reasoning_added', 'analysis_run', runId, { length: text.trim().length }, projectId)
-    }
+    await onSaveNote(text.trim())
     setSaving(false)
-    onDismiss()
   }
 
   return (
@@ -65,14 +65,14 @@ export function ReasoningPrompt({ runId, projectId, onDismiss }: Props) {
           onClick={onDismiss}
           className="px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
         >
-          Skip
+          {dismissLabel}
         </button>
         <button
           onClick={handleSave}
-          disabled={!text.trim() || saving}
+          disabled={!canSave || saving}
           className="px-3 py-1.5 text-xs font-medium rounded text-white disabled:opacity-40 btn-primary"
         >
-          {saving ? 'Saving…' : 'Save note'}
+          {saving ? 'Saving…' : saveLabel}
         </button>
       </div>
     </motion.div>

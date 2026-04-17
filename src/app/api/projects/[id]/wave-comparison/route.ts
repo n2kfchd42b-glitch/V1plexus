@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { hasProjectAccess } from '@/lib/supabase/projectAccess'
 import type { WaveConsistencyReport } from '@/types/qualityIntelligence'
 
 /**
@@ -31,14 +32,7 @@ export async function POST(
     }
 
     // Verify user can access this project
-    const { data: projectMember } = await supabase
-      .from('project_members')
-      .select('id')
-      .eq('project_id', projectId)
-      .eq('user_id', user.id)
-      .single()
-
-    if (!projectMember) {
+    if (!await hasProjectAccess(supabase, projectId, user.id)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

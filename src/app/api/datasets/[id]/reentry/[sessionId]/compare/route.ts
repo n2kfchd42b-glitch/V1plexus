@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { hasProjectAccess } from '@/lib/supabase/projectAccess'
 
 /**
  * POST /api/datasets/[id]/reentry/[sessionId]/compare
@@ -36,14 +37,7 @@ export async function POST(
     // Verify user is initiator or assigned
     if (session.initiated_by !== user.id && session.reentry_assigned_to !== user.id) {
       // Check project membership
-      const { data: projectMember } = await supabase
-        .from('project_members')
-        .select('id')
-        .eq('project_id', session.project_id)
-        .eq('user_id', user.id)
-        .single()
-
-      if (!projectMember) {
+      if (!await hasProjectAccess(supabase, session.project_id, user.id)) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }

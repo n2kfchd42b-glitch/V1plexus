@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { generateVerificationToken } from '@/lib/verification/tokenService'
 import { writeAuditEntry } from '@/lib/audit/auditLogger'
 import { checkRateLimit } from '@/lib/rateLimit'
@@ -38,16 +39,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify user has project access
-    const { data: member } = await supabase
-      .from('project_members')
-      .select('id')
-      .eq('project_id', project_id)
-      .eq('user_id', user.id)
+    // Verify user has project access (owner or member)
+    const { data: project } = await supabase
+      .from('projects')
+      .select('id, owner_id')
+      .eq('id', project_id)
       .single()
 
-    if (!member) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const isOwner = project?.owner_id === user.id
+
+    if (!isOwner) {
+      const { data: member } = await supabase
+        .from('project_members')
+        .select('id')
+        .eq('project_id', project_id)
+        .eq('user_id', user.id)
+        .single()
+
+      if (!member) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
     }
 
     const token = generateVerificationToken()
@@ -74,14 +85,20 @@ export async function POST(request: NextRequest) {
       tokenRecord.restricted_to_email = restricted_to_email
     }
 
-    const { data: inserted, error: insertError } = await supabase
+    const service = createServiceClient()
+    const { data: inserted, error: insertError } = await service
       .from('verification_tokens')
       .insert(tokenRecord)
       .select()
       .single()
 
     if (insertError) {
-      console.error('[POST /api/verify/token] insert error', insertError)
+      console.error('[POST /api/verify/token] insert error', {
+        message: insertError.message,
+        code: insertError.code,
+        details: insertError.details,
+        hint: insertError.hint,
+      })
       return NextResponse.json({ error: 'Failed to create token' }, { status: 500 })
     }
 
@@ -115,6 +132,7 @@ export async function POST(request: NextRequest) {
       expires_at: expiresAt.toISOString(),
       access_level,
       id: inserted.id,
+      record: inserted,
     })
   } catch (err) {
     console.error('[POST /api/verify/token]', err)

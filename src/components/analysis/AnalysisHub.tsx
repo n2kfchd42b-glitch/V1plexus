@@ -1,10 +1,11 @@
 "use client"
 
 import { useEffect, useState, useMemo } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   BarChart2, CheckCircle2, ChevronRight, Clock, X, Database, Table2, Play,
 } from 'lucide-react'
+import { ReasoningPrompt } from './ReasoningPrompt'
 import Link from 'next/link'
 import { HubTableGeneratorModal } from './HubTableGeneratorModal'
 import { AssumptionCheckModal } from './AssumptionCheckModal'
@@ -211,6 +212,7 @@ export function AnalysisHub({ projectId }: Props) {
   const [result, setResult]     = useState<AnalysisResult | null>(null)
   const [savedRunId, setSavedRunId] = useState<string | null>(null)
   const [resultTab, setResultTab] = useState<'results' | 'tables'>('results')
+  const [promptDismissed, setPromptDismissed] = useState(false)
 
   // Modals
   const [hubTableModalOpen, setHubTableModalOpen] = useState(false)
@@ -280,7 +282,7 @@ export function AnalysisHub({ projectId }: Props) {
   const clearDataset = () => {
     setData([]); setColumns([]); setFileName('')
     setDatasetId(undefined); setVersionId(undefined)
-    setResult(null); setSavedRunId(null); setApprovalBlock(null)
+    setResult(null); setSavedRunId(null); setApprovalBlock(null); setPromptDismissed(false)
     resetEngineVars()
     setDecisionMode(null)
   }
@@ -373,7 +375,7 @@ export function AnalysisHub({ projectId }: Props) {
 
   const handleData = async (rows: DataRow[], cols: DatasetColumn[], name: string, dsId?: string, vsId?: string) => {
     setData(rows); setColumns(cols); setFileName(name)
-    setDatasetId(dsId); setVersionId(vsId); setResult(null); setSavedRunId(null)
+    setDatasetId(dsId); setVersionId(vsId); setResult(null); setSavedRunId(null); setPromptDismissed(false)
     setApprovalBlock(null)
     resetEngineVars()
     setDecisionMode('entry')
@@ -392,12 +394,12 @@ export function AnalysisHub({ projectId }: Props) {
   }
 
   const handleTypeSelect = (type: AnalysisType) => {
-    setSelectedType(type); setConfig({}); setResult(null); setSavedRunId(null)
+    setSelectedType(type); setConfig({}); setResult(null); setSavedRunId(null); setPromptDismissed(false)
   }
 
   const executeAnalysis = async () => {
     if (!selectedType) return
-    setRunning(true); setResult(null); setViewingRunId(null)
+    setRunning(true); setResult(null); setSavedRunId(null); setViewingRunId(null); setPromptDismissed(false)
     setConfigCollapsed(true) // collapse config panel to make room for results
     try {
       setResult(await runAnalysis(selectedType, data, config))
@@ -422,7 +424,9 @@ export function AnalysisHub({ projectId }: Props) {
     setResultIsStale(false)
     setRunning(true)
     setResult(null)
+    setSavedRunId(null)
     setViewingRunId(null)
+    setPromptDismissed(false)
     setConfigCollapsed(true)
     try {
       setResult(await runAnalysis(t, data, backendConfig))
@@ -449,6 +453,7 @@ export function AnalysisHub({ projectId }: Props) {
     setDecisionMode(null)
     setResultIsStale(false)
     setResult(null)
+    setSavedRunId(null)
     setViewingRunId(null)
     setRunning(true)
     setWorkflowProgress({ total: executableSteps.length, current: 0, label: executableSteps[0].name })
@@ -472,6 +477,7 @@ export function AnalysisHub({ projectId }: Props) {
           setConfig(stepConfig)
           setResult(analysisResult)
           setResultTab('results')
+          setPromptDismissed(false)
         } else {
           // Intermediate → auto-save to history silently
           if (profile && datasetId) {
@@ -573,16 +579,18 @@ export function AnalysisHub({ projectId }: Props) {
     await executeAnalysis()
   }
 
-  const handleSave = async () => {
+  const handleSave = async (reasoning?: string) => {
     if (!result || !profile || !selectedType) return
     if (approvalBlock) return
     const typeInfo = ANALYSIS_TYPES.find(t => t.type === selectedType)
+    const trimmedReasoning = reasoning?.trim() || null
     const { data: run } = await supabase.from('analysis_runs').insert({
       project_id: projectId, dataset_id: datasetId ?? null, version_id: versionId ?? null,
       analysis_type: selectedType,
       title: `${typeInfo?.label ?? selectedType} — ${new Date().toLocaleDateString()}`,
       config, results: result as unknown as Record<string, unknown>,
       interpretation: result.interpretation, status: 'completed', created_by: profile.id,
+      user_reasoning: trimmedReasoning,
     }).select().single()
     if (run) {
       await logAudit(
@@ -593,6 +601,7 @@ export function AnalysisHub({ projectId }: Props) {
           summary: `Saved analysis: ${run.title}`,
           analysis_type: selectedType,
           dataset_version_id: versionId ?? undefined,
+          user_reasoning: trimmedReasoning,
           operation: {
             type: selectedType,
             title: run.title,
@@ -607,6 +616,7 @@ export function AnalysisHub({ projectId }: Props) {
               strat: (config as Record<string, unknown>).strat_variable ?? null,
             },
             config,
+            user_reasoning: trimmedReasoning,
           },
         },
         projectId,
@@ -1349,7 +1359,7 @@ export function AnalysisHub({ projectId }: Props) {
               )}
               {/* Result header */}
               <div className="px-5 pt-4 pb-0 flex-shrink-0" style={{ background: 'var(--bg-surface)' }}>
-                {/* Title + actions row */}
+                {/* Title row */}
                 <div className="flex items-start gap-3 mb-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold leading-snug" style={{ color: 'var(--text-primary)' }}>
@@ -1359,22 +1369,23 @@ export function AnalysisHub({ projectId }: Props) {
                     <p className="data-mono-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
                       {data.length > 0 ? `${data.length.toLocaleString()} observations` : ''}
                       {result && ' · Completed just now'}
+                      {savedRunId && ' · Saved to ledger'}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <button
-                      onClick={handleSave}
-                      disabled={!!savedRunId}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                      style={{ border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-row-hover)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = '')}
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" style={{ color: savedRunId ? 'var(--status-success)' : undefined }} />
-                      {savedRunId ? 'Saved' : 'Add to Report'}
-                    </button>
-                  </div>
                 </div>
+
+                {/* Reasoning prompt — shown inline after a fresh run, gated by reason to commit */}
+                <AnimatePresence>
+                  {!savedRunId && !promptDismissed && !resultIsStale && (
+                    <ReasoningPrompt
+                      onSaveNote={async (text) => {
+                        await handleSave(text)
+                        setPromptDismissed(true)
+                      }}
+                      onDismiss={() => setPromptDismissed(true)}
+                    />
+                  )}
+                </AnimatePresence>
                 {/* Tabs */}
                 <div className="flex items-center gap-0">
                   {(['results', 'tables'] as const).map(tab => (
