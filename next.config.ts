@@ -1,9 +1,16 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
+import withSerwistInit from '@serwist/next'
+
+const withSerwist = withSerwistInit({
+  swSrc: 'src/app/sw.ts',
+  swDest: 'public/sw.js',
+  // Disable in development — service workers interfere with hot reloading
+  disable: process.env.NODE_ENV === 'development',
+})
 
 const nextConfig: NextConfig = {
   compress: true,
 
-  // Disable source maps in production — reduces bundle size
   productionBrowserSourceMaps: false,
 
   images: {
@@ -33,7 +40,6 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  // Cache static assets aggressively in production
   async headers() {
     return [
       {
@@ -48,8 +54,20 @@ const nextConfig: NextConfig = {
           { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
         ],
       },
+      {
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+        ],
+      },
+      {
+        source: '/manifest.json',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=3600' },
+        ],
+      },
     ]
   },
-};
+}
 
-export default nextConfig;
+export default withSerwist(nextConfig)

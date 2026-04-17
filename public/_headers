@@ -1,0 +1,19 @@
+# Service worker — never cache (must always be fresh so updates propagate)
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Workbox runtime chunks — never cache
+/workbox-*.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Manifest — short TTL
+/manifest.json
+  Cache-Control: public, max-age=3600
+
+# Icons — immutable (only change on rebrand)
+/icons/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Next.js static assets — immutable (content-hashed by Next.js)
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable

@@ -12,3 +12,12 @@ export async function GET() {
     return Response.json({ status: 'unavailable', timestamp: Date.now() }, { status: 503 })
   }
 }
+
+// Lightweight connectivity probe used by useOnlineStatus — always returns 200
+// so offline detection is not affected by analytics service availability
+export async function HEAD() {
+  return new Response(null, {
+    status: 200,
+    headers: { 'Cache-Control': 'no-store' },
+  })
+}

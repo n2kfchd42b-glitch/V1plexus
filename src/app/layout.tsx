@@ -8,6 +8,8 @@ import { KeepaliveProvider } from '@/components/layout/KeepaliveProvider'
 import { ConnectionGuard } from '@/components/layout/ConnectionGuard'
 import { AuthProvider } from '@/components/auth/AuthProvider'
 import { SupabaseLockSuppressor } from '@/components/SupabaseLockSuppressor'
+import { OfflineStatusBar } from '@/components/layout/OfflineStatusBar'
+import { InstallPrompt } from '@/components/layout/InstallPrompt'
 import "./globals.css"
 
 const manrope = Manrope({
@@ -48,7 +50,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: "#1B3A5C",
+  themeColor: "#003d9b",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -62,8 +64,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
           rel="stylesheet"
         />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
       </head>
       <body className={GeistSans.className}>
+        <OfflineStatusBar />
         <AuthProvider>
           <KeepaliveProvider>
             <ConnectionGuard>
@@ -74,6 +78,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SupabaseLockSuppressor />
         <Analytics />
         <SpeedInsights />
+        <InstallPrompt />
       </body>
     </html>
   )
