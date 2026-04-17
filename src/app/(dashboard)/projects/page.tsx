@@ -12,14 +12,13 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/useAuth'
 import { useWorkspace } from '@/hooks/useWorkspace'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { createClient } from '@/lib/supabase/client'
 import {
-  getAllProjects,
-  getDatasetProjectIds,
-  getAnalysisRunProjectIds,
   createProject,
   updateProjectStatus,
 } from '@/lib/data'
+import { getProjectsOffline } from '@/lib/offline'
 import { logAudit } from '@/lib/audit'
 import { cn, formatRelative, statusLabel } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -236,7 +235,9 @@ export default function ProjectsPage() {
   const [description, setDescription]  = useState('')
   const [creating, setCreating]         = useState(false)
   const [loading, setLoading]           = useState(true)
+  const [isStale, setIsStale]           = useState(false)
 
+  const { isOnline } = useOnlineStatus()
   const supabase = useMemo(() => createClient(), [])
 
   // Open create dialog if ?new=1
@@ -248,31 +249,17 @@ export default function ProjectsPage() {
     if (authLoading) return
     if (!profile) { setLoading(false); return }
 
-    const projectsResult = await getAllProjects(supabase)
-    if (projectsResult.status === 'error' || !projectsResult.data.length) {
+    const result = await getProjectsOffline(supabase)
+
+    if (!result.data) {
       setLoading(false)
       return
     }
 
-    const projectRows = projectsResult.data
-    const ids = projectRows.map(p => p.id)
-    const [datasetsResult, runsResult] = await Promise.all([
-      getDatasetProjectIds(supabase, ids),
-      getAnalysisRunProjectIds(supabase, ids),
-    ])
-
-    const datasetCountMap: Record<string, number> = {}
-    const runCountMap:     Record<string, number> = {}
-    for (const d of datasetsResult.data) datasetCountMap[d.project_id] = (datasetCountMap[d.project_id] ?? 0) + 1
-    for (const r of runsResult.data)     runCountMap[r.project_id]     = (runCountMap[r.project_id]     ?? 0) + 1
-
-    setProjects(projectRows.map(p => ({
-      ...p,
-      dataset_count: datasetCountMap[p.id] ?? 0,
-      run_count:     runCountMap[p.id]     ?? 0,
-    })))
+    setProjects(result.data as unknown as ProjectWithCounts[])
+    setIsStale(result.source === 'cache')
     setLoading(false)
-  }, [profile, authLoading]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profile, authLoading, supabase]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchProjects() }, [fetchProjects])
 
@@ -350,6 +337,22 @@ export default function ProjectsPage() {
 
       {/* Hero banner */}
       <HeroBanner projects={projects} loading={loading} />
+
+      {/* Cached data indicator */}
+      {isStale && !isOnline && (
+        <div className="flex items-center gap-1.5 px-6 pb-1">
+          <span
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium"
+            style={{
+              background: 'rgba(180,83,9,0.08)',
+              color: '#b45309',
+              border: '1px solid rgba(180,83,9,0.2)',
+            }}
+          >
+            Cached data · connect to refresh
+          </span>
+        </div>
+      )}
 
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-6 pb-3">

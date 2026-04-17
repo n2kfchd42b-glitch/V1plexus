@@ -11,15 +11,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { DatasetUpload } from '@/components/data/DatasetUpload'
 import { DatasetDetailPanel } from '@/components/data/DatasetDetailPanel'
 import { useAuth } from '@/hooks/useAuth'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { createClient } from '@/lib/supabase/client'
 import {
-  getActiveProjectDatasets,
-  getArchivedProjectDatasets,
   countArchivedProjectDatasets,
-  getVersionsByDatasetIds,
   softDeleteDataset,
   setDatasetArchived,
 } from '@/lib/data'
+import {
+  getActiveProjectDatasetsOffline,
+  getArchivedProjectDatasetsOffline,
+  getVersionsByDatasetIdsOffline,
+} from '@/lib/offline'
 import { toast } from 'sonner'
 import { logAudit } from '@/lib/audit'
 import { cn } from '@/lib/utils'
@@ -46,6 +49,9 @@ export default function ProjectDataPage() {
   const [showUpload,    setShowUpload]    = useState(false)
   const [selectedId,    setSelectedId]    = useState<string | null>(null)
   const [panelOpen,     setPanelOpen]     = useState(true)
+  const [isStale,       setIsStale]       = useState(false)
+
+  const { isOnline } = useOnlineStatus()
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/login')
@@ -57,20 +63,22 @@ export default function ProjectDataPage() {
     try {
       const [datasetsResult, archivedCountResult] = await Promise.all([
         showArchived
-          ? getArchivedProjectDatasets(supabase, projectId)
-          : getActiveProjectDatasets(supabase, projectId),
+          ? getArchivedProjectDatasetsOffline(supabase, projectId)
+          : getActiveProjectDatasetsOffline(supabase, projectId),
         countArchivedProjectDatasets(supabase, projectId),
       ])
 
       setArchivedCount(archivedCountResult.data ?? 0)
+      setIsStale(datasetsResult.source === 'cache')
+
       if (!datasetsResult.data?.length) { setDatasets([]); return }
 
-      const datasetList: Dataset[] = datasetsResult.data
-      const versionsResult = await getVersionsByDatasetIds(supabase, datasetList.map(d => d.id))
+      const datasetList: Dataset[] = datasetsResult.data as unknown as Dataset[]
+      const versionsResult = await getVersionsByDatasetIdsOffline(supabase, datasetList.map(d => d.id))
 
       const latestMap = new Map<string, DatasetVersion>()
-      for (const v of versionsResult.data) {
-        if (!latestMap.has(v.dataset_id)) latestMap.set(v.dataset_id, v)
+      for (const v of (versionsResult.data ?? [])) {
+        if (!latestMap.has(v.dataset_id)) latestMap.set(v.dataset_id, v as unknown as DatasetVersion)
       }
       setDatasets(datasetList.map(ds => ({ ...ds, latest_version: latestMap.get(ds.id) ?? undefined })))
     } finally {
@@ -167,6 +175,20 @@ export default function ProjectDataPage() {
                 {!listLoading && (
                   <p className="text-[10px] text-[var(--text-tertiary)]">
                     {datasets.length} {showArchived ? 'archived' : 'active'}
+                    {isStale && !isOnline && (
+                      <span
+                        className="ml-1.5 inline-flex items-center px-1.5 rounded-full"
+                        style={{
+                          background: 'rgba(180,83,9,0.08)',
+                          color: '#b45309',
+                          border: '1px solid rgba(180,83,9,0.2)',
+                          fontSize: 9,
+                          fontWeight: 600,
+                        }}
+                      >
+                        cached
+                      </span>
+                    )}
                   </p>
                 )}
               </div>

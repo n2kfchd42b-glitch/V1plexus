@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "SERWIST_SUPPRESS_TURBOPACK_WARNING=1 next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -62,7 +62,8 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
-    "dexie-react-hooks": "^4.2.0",
+    "dexie": "^4.4.2",
+    "dexie-react-hooks": "^4.4.0",
     "framer-motion": "^12.38.0",
     "geist": "^1.7.0",
     "idb-keyval": "^6.2.2",

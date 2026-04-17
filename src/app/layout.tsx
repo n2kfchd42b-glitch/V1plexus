@@ -10,6 +10,8 @@ import { AuthProvider } from '@/components/auth/AuthProvider'
 import { SupabaseLockSuppressor } from '@/components/SupabaseLockSuppressor'
 import { OfflineStatusBar } from '@/components/layout/OfflineStatusBar'
 import { InstallPrompt } from '@/components/layout/InstallPrompt'
+import { SyncProvider } from '@/components/layout/SyncProvider'
+import { SyncStatusIndicator } from '@/components/layout/SyncStatusIndicator'
 import "./globals.css"
 
 const manrope = Manrope({
@@ -68,12 +70,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={GeistSans.className}>
         <OfflineStatusBar />
+        <SyncStatusIndicator />
         <AuthProvider>
-          <KeepaliveProvider>
-            <ConnectionGuard>
-              {children}
-            </ConnectionGuard>
-          </KeepaliveProvider>
+          <SyncProvider>
+            <KeepaliveProvider>
+              <ConnectionGuard>
+                {children}
+              </ConnectionGuard>
+            </KeepaliveProvider>
+          </SyncProvider>
         </AuthProvider>
         <SupabaseLockSuppressor />
         <Analytics />
