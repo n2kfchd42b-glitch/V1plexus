@@ -119,6 +119,27 @@ export type LocalProfile = {
   _synced_at: string
 }
 
+// ─── Analysis job queue ───────────────────────────────────────────────────────
+// Holds analyses queued while offline or while the network request failed.
+// Jobs are dispatched in order when connectivity returns.
+
+export type AnalysisJob = {
+  id: string                          // PK (client-generated UUID)
+  project_id: string                  // Index
+  dataset_id: string
+  version_id: string
+  analysis_type: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  config: any
+  status: 'queued' | 'dispatching' | 'running' | 'completed' | 'failed'
+  run_id: string | null
+  error: string | null
+  queued_at: string
+  dispatched_at: string | null
+  completed_at: string | null
+  created_by: string | null
+}
+
 // ─── Sync queue ───────────────────────────────────────────────────────────────
 
 export type SyncQueueItem = {
@@ -142,6 +163,7 @@ export class PlexusOfflineDB extends Dexie {
   dataset_branches!: Table<LocalDatasetBranch>
   dataset_explorations!: Table<LocalDatasetExploration>
   analysis_runs!: Table<LocalAnalysisRun>
+  analysis_jobs!: Table<AnalysisJob>
   documents!: Table<LocalDocument>
   profiles!: Table<LocalProfile>
   sync_queue!: Table<SyncQueueItem>
@@ -156,6 +178,19 @@ export class PlexusOfflineDB extends Dexie {
       dataset_branches:     'id, dataset_id, is_default',
       dataset_explorations: 'id, dataset_id, version_id',
       analysis_runs:        'id, project_id, dataset_id, status',
+      documents:            'id, project_id, status, _local_draft',
+      profiles:             'id',
+      sync_queue:           '++id, table_name, status, created_at',
+    })
+
+    this.version(2).stores({
+      projects:             'id, owner_id, status, updated_at',
+      datasets:             'id, project_id, archived_at, updated_at',
+      dataset_versions:     'id, dataset_id, version_number',
+      dataset_branches:     'id, dataset_id, is_default',
+      dataset_explorations: 'id, dataset_id, version_id',
+      analysis_runs:        'id, project_id, dataset_id, status',
+      analysis_jobs:        'id, project_id, status, queued_at',
       documents:            'id, project_id, status, _local_draft',
       profiles:             'id',
       sync_queue:           '++id, table_name, status, created_at',

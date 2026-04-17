@@ -25,6 +25,7 @@ export async function saveDocumentOffline(
     title?: string
     status?: string
     current_version?: number
+    word_count?: number
   }
 ): Promise<WriteResult> {
   const db = getDB()

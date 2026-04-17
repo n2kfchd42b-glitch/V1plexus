@@ -9,7 +9,16 @@ export type {
   LocalDocument,
   LocalProfile,
   SyncQueueItem,
+  AnalysisJob,
 } from './db'
+
+export {
+  queueAnalysis,
+  dispatchQueuedJobs,
+  getProjectJobs,
+  getPendingJobCount,
+  clearCompletedJobs,
+} from './analysisQueue'
 
 export type { OfflineResult } from './offlineData'
 export {

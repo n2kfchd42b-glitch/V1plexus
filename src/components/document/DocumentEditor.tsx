@@ -16,8 +16,9 @@ import { AIAssistPopover } from "@/components/ai/AIAssistPopover";
 import { VersionHistory } from "./VersionHistory";
 import { SaveVersionButton } from "./SaveVersionButton";
 import { DocumentStatusBadge } from "./DocumentStatusBadge";
-import { formatRelativeTime } from "@/lib/utils";
 import { TableBlockNodeExtension } from "./extensions/TableBlockNode";
+import { useDocumentAutoSave } from "@/hooks/useDocumentAutoSave";
+import { SaveStateIndicator } from "@/components/documents/SaveStateIndicator";
 import type { Document, DocumentVersion, Json } from "@/lib/types/database";
 
 function getTextContent(json: Json): string {
@@ -55,14 +56,15 @@ export function DocumentEditor({
   const { user } = useAuth();
 
   const [title, setTitle] = useState(doc.title);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [saving, setSaving] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [versions, setVersions] = useState<DocumentVersion[]>(initialVersions);
   const [currentVersion, setCurrentVersion] = useState(doc.current_version);
   const [words, setWords] = useState(doc.word_count);
 
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { updateContent, saveState, lastSaved, saveNow } = useDocumentAutoSave(
+    doc.id,
+    doc.content
+  );
 
   // Edit-session audit: one entry per meaningful editing session rather than
   // per-autosave, so the ledger doesn't get flooded by keystroke-level writes.
@@ -89,8 +91,9 @@ export function DocumentEditor({
       : undefined,
     onUpdate: ({ editor }) => {
       const json = editor.getJSON() as Json;
-      setWords(wordCount(json));
-      scheduleSave(json);
+      const wc = wordCount(json);
+      setWords(wc);
+      updateContent(json, wc);
       trackEditSession();
     },
   });
@@ -143,28 +146,6 @@ export function DocumentEditor({
     [doc.id, doc.title, projectId, user, words],
   );
 
-  const scheduleSave = useCallback(
-    (content: Json) => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => {
-        autoSave(content);
-      }, 3000);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
-
-  async function autoSave(content: Json) {
-    setSaving(true);
-    const wc = wordCount(content);
-    await supabase
-      .from("documents")
-      .update({ content, word_count: wc, updated_at: new Date().toISOString() })
-      .eq("id", doc.id);
-    setSaving(false);
-    setLastSaved(new Date());
-  }
-
   async function handleTitleBlur() {
     if (title === doc.title) return;
     const oldTitle = doc.title;
@@ -208,7 +189,7 @@ export function DocumentEditor({
       setVersions((prev) => [...prev, versionData]);
     }
     setCurrentVersion(nextVersion);
-    setLastSaved(new Date());
+    saveNow();
     await closeEditSession("save");
   }
 
@@ -240,7 +221,6 @@ export function DocumentEditor({
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("beforeunload", handleBeforeUnload);
-      if (saveTimer.current) clearTimeout(saveTimer.current);
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
       void closeEditSession("unload");
     };
@@ -311,13 +291,7 @@ export function DocumentEditor({
       <div className="flex items-center gap-4 px-6 py-2 border-t border-slate-200 text-xs text-slate-400 bg-slate-50">
         <span>Words: {words.toLocaleString()}</span>
         <span>·</span>
-        <span>
-          {saving
-            ? "Saving…"
-            : lastSaved
-            ? `Last saved: ${formatRelativeTime(lastSaved)}`
-            : "Not yet saved"}
-        </span>
+        <SaveStateIndicator state={saveState} lastSaved={lastSaved} onRetry={saveNow} />
         <span>·</span>
         <DocumentStatusBadge status={doc.status} />
         <span>·</span>
