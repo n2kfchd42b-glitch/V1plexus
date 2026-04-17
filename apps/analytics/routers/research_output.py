@@ -93,14 +93,14 @@ async def post_generate_checklist(
         resp = supabase.table('reporting_checklists').insert(checklist_data).execute()
         checklist_id = resp.data[0]['id']
 
-        # Write audit entry
-        supabase.table('audit_logs').insert({
-            'actor_id': current_user,
-            'action': 'document.checklist.generated',
-            'resource_type': 'dataset',
-            'resource_id': req.dataset_id,
-            'project_id': req.project_id,
-            'details': {
+        # Write audit entry via immutable ledger RPC
+        supabase.rpc('append_audit_entry', {
+            'p_actor_id': current_user,
+            'p_action': 'document.checklist.generated',
+            'p_resource_type': 'dataset',
+            'p_resource_id': req.dataset_id,
+            'p_project_id': req.project_id,
+            'p_details': {
                 'summary': (
                     f"{req.guideline} reporting checklist generated: "
                     f"{checklist_data['auto_populated']} auto-populated, "
@@ -214,14 +214,14 @@ async def post_generate_methods(
             supabase_client=supabase,
         )
 
-        # Write audit entry
-        supabase.table('audit_logs').insert({
-            'actor_id': current_user,
-            'action': 'document.generated',
-            'resource_type': 'dataset',
-            'resource_id': req.version_id,
-            'project_id': req.project_id,
-            'details': {
+        # Write audit entry via immutable ledger RPC
+        supabase.rpc('append_audit_entry', {
+            'p_actor_id': current_user,
+            'p_action': 'document.generated',
+            'p_resource_type': 'dataset',
+            'p_resource_id': req.version_id,
+            'p_project_id': req.project_id,
+            'p_details': {
                 'summary': f"Methods statement generated ({result['word_count']} words)",
                 'operation': {
                     'version_id': req.version_id,
@@ -371,14 +371,14 @@ async def post_create_verification_token(
 
         supabase.table('verification_tokens').insert(token_record).execute()
 
-        # Write audit entry
-        supabase.table('audit_logs').insert({
-            'actor_id': current_user,
-            'action': 'dataset.verification.token_created',
-            'resource_type': 'dataset',
-            'resource_id': req.dataset_id,
-            'project_id': req.project_id,
-            'details': {
+        # Write audit entry via immutable ledger RPC
+        supabase.rpc('append_audit_entry', {
+            'p_actor_id': current_user,
+            'p_action': 'dataset.verification.token_created',
+            'p_resource_type': 'dataset',
+            'p_resource_id': req.dataset_id,
+            'p_project_id': req.project_id,
+            'p_details': {
                 'summary': f'Verification token created: {token}',
                 'operation': {
                     'token': token,

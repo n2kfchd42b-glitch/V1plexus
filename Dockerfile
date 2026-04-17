@@ -15,7 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY apps/__init__.py apps/__init__.py
 COPY apps/analytics/ apps/analytics/
 
-# Railway injects PORT; fall back to 8000 locally
-ENV PORT=8000
+# Fly.io sets PORT=8080 via fly.toml; fall back to 8080 locally
+ENV PORT=8080
 
 CMD uvicorn apps.analytics.main:app --host 0.0.0.0 --port $PORT --workers 1 --timeout-keep-alive 30

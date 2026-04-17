@@ -7,6 +7,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next'
 import { KeepaliveProvider } from '@/components/layout/KeepaliveProvider'
 import { ConnectionGuard } from '@/components/layout/ConnectionGuard'
 import { AuthProvider } from '@/components/auth/AuthProvider'
+import { SupabaseLockSuppressor } from '@/components/SupabaseLockSuppressor'
 import "./globals.css"
 
 const manrope = Manrope({
@@ -70,6 +71,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </ConnectionGuard>
           </KeepaliveProvider>
         </AuthProvider>
+        <SupabaseLockSuppressor />
         <Analytics />
         <SpeedInsights />
       </body>

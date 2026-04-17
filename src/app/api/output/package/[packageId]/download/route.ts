@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { hasProjectAccess } from '@/lib/supabase/projectAccess'
 
 /**
@@ -20,8 +21,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Look up the package record
-    const { data: pkg, error: pkgError } = await supabase
+    // Use service client to bypass RLS on output_packages (owner check done explicitly below)
+    const service = createServiceClient()
+    const { data: pkg, error: pkgError } = await service
       .from('output_packages')
       .select('id, storage_path, status, project_id')
       .eq('id', packageId)
@@ -42,8 +44,8 @@ export async function GET(
       )
     }
 
-    // Generate signed URL valid for 1 hour
-    const { data: signed, error: signedError } = await supabase
+    // Generate signed URL via service client (has storage admin access)
+    const { data: signed, error: signedError } = await service
       .storage
       .from('research-packages')
       .createSignedUrl(pkg.storage_path, 3600)

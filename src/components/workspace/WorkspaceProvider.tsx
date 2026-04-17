@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type {
   Workspace,
@@ -55,8 +55,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [assignedStudents, setAssignedStudents] = useState<SupervisorAssignment[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = useMemo(() => createClient(), [])
+  const fetchingRef = useRef(false)
 
   const fetchWorkspaces = useCallback(async (userId: string) => {
+    if (fetchingRef.current) return
+    fetchingRef.current = true
     setLoading(true)
     try {
       // Fetch workspaces + memberships — abort after 8 s so loading always clears
@@ -72,7 +75,12 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
       clearTimeout(abortTimer)
       if (wsMembershipError) {
-        console.error('[WorkspaceProvider] workspace_memberships error:', wsMembershipError)
+        const isAbort = wsMembershipError.message?.includes('AbortError') ||
+          wsMembershipError.message?.includes('Lock') ||
+          wsMembershipError.message?.includes('abort')
+        if (!isAbort) {
+          console.error('[WorkspaceProvider] workspace_memberships error:', wsMembershipError)
+        }
         // Don't early-return — fall through to finally so loading clears.
         // activeWorkspace stays null, which is fine (dashboard handles it).
       }
@@ -129,10 +137,14 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
       setSupervisorAssignment((saResult.data as SupervisorAssignment | null) ?? null)
       setAssignedStudents(((studentsResult.data ?? []) as SupervisorAssignment[]))
-    } catch (err) {
-      console.error('[WorkspaceProvider] fetchWorkspaces error:', err)
-      // loading clears in finally — dashboard won't be stuck waiting
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      const isAbort = msg.includes('AbortError') || msg.includes('Lock') || msg.includes('abort') || msg.includes('stolen')
+      if (!isAbort) {
+        console.error('[WorkspaceProvider] fetchWorkspaces error:', err)
+      }
     } finally {
+      fetchingRef.current = false
       setLoading(false)
     }
   }, [supabase])

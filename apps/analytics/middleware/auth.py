@@ -1,12 +1,13 @@
 """
 JWT auth middleware for FastAPI analytics endpoints.
-Extracts the Supabase user ID from the Bearer token.
+Validates the Supabase Bearer token using the Supabase admin client,
+which handles both HS256 and RS256 tokens transparently.
 """
 
 import os
 from fastapi import HTTPException, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import jwt
+from supabase import create_client
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -15,30 +16,27 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Security(_bearer),
 ) -> str:
     """
-    FastAPI dependency — returns a dict with 'sub' (user ID) from the token.
+    FastAPI dependency — returns the user ID from the Supabase token.
     Raises HTTP 401 if no valid token is present or token is expired/invalid.
     """
     if credentials is None:
         raise HTTPException(status_code=401, detail="Missing authorization token")
 
     token = credentials.credentials
-    jwt_secret = os.getenv("SUPABASE_JWT_SECRET", "")
+    supabase_url = os.getenv("SUPABASE_URL", "")
+    service_key = os.getenv("SUPABASE_SERVICE_KEY", "")
 
-    if not jwt_secret:
-        raise HTTPException(status_code=500, detail="Auth not configured: SUPABASE_JWT_SECRET missing")
+    if not supabase_url or not service_key:
+        raise HTTPException(status_code=500, detail="Auth not configured: SUPABASE_URL or SUPABASE_SERVICE_KEY missing")
 
     try:
-        payload = jwt.decode(
-            token,
-            jwt_secret,
-            algorithms=["HS256"],
-            options={"verify_aud": False},
-        )
-        user_id: str = payload.get("sub", "")
+        client = create_client(supabase_url, service_key)
+        response = client.auth.get_user(token)
+        user_id = response.user.id if response.user else None
         if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token: missing sub")
+            raise HTTPException(status_code=401, detail="Invalid token: could not resolve user")
         return user_id
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired — please sign in again")
-    except jwt.InvalidTokenError as exc:
+    except HTTPException:
+        raise
+    except Exception as exc:
         raise HTTPException(status_code=401, detail=f"Invalid token: {exc}")

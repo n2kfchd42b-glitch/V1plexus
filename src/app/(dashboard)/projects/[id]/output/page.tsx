@@ -128,17 +128,15 @@ export default function OutputPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedVersionId, activeGuideline])
 
-  // Fetch existing packages
+  // Fetch existing packages via API (service client bypasses RLS for project owners)
   useEffect(() => {
     if (!selectedVersionId) return
     ;(async () => {
-      const { data } = await supabase
-        .from('output_packages')
-        .select('*')
-        .eq('version_id', selectedVersionId)
-        .order('generated_at', { ascending: false })
-        .limit(5)
-      setPackages((data || []) as OutputPackage[])
+      const res = await fetch(`/api/output/package?version_id=${selectedVersionId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setPackages((data || []) as OutputPackage[])
+      }
     })()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedVersionId])

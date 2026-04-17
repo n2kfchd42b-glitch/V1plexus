@@ -150,7 +150,7 @@ def generate_audit_summary_content(audit_entries: List[Dict]) -> str:
     for entry in audit_entries[:50]:
         action = entry.get("action", "")
         actor = entry.get("actor_id", "")[:8]
-        created = entry.get("created_at", "")[:19]
+        created = entry.get("timestamp", "")[:19]
         details = entry.get("details") or {}
         summary = details.get("summary") or ""
         rows += f"""<tr>
@@ -262,10 +262,10 @@ async def generate_output_package(
         version = version_resp.data or {}
 
         quality_resp = (
-            supabase_client.table("data_quality_reports")
+            supabase_client.table("dataset_quality_reports")
             .select("*")
-            .eq("version_id", version_id)
-            .order("created_at", desc=True)
+            .eq("dataset_id", dataset_id)
+            .order("computed_at", desc=True)
             .limit(1)
             .execute()
         )
@@ -275,7 +275,7 @@ async def generate_output_package(
             supabase_client.table("audit_logs")
             .select("*")
             .eq("resource_id", dataset_id)
-            .order("created_at", desc=False)
+            .order("timestamp", desc=False)
             .execute()
         )
         audit_entries = audit_resp.data or []
@@ -395,17 +395,26 @@ async def generate_output_package(
         # Upload to Supabase Storage
         storage_path = f"packages/{project_id}/{package_id}.zip"
         try:
+            # Ensure bucket exists
+            try:
+                supabase_client.storage.create_bucket(
+                    "research-packages",
+                    options={"public": False},
+                )
+            except Exception:
+                pass  # bucket already exists
+
             supabase_client.storage.from_("research-packages").upload(
                 storage_path,
                 zip_bytes,
                 {"content-type": "application/zip"},
             )
-        except Exception:
-            # Bucket may not exist yet; update status to failed in that case
+        except Exception as upload_exc:
+            print(f"[package_generator] Storage upload failed for {package_id}: {upload_exc}", flush=True)
             supabase_client.table("output_packages").update({
                 "status": "failed",
                 "package_hash": package_hash,
-                "manifest": {"files": manifest_files, "error": "storage_upload_failed"},
+                "manifest": {"files": manifest_files, "error": f"storage_upload_failed: {upload_exc}"},
             }).eq("id", package_id).execute()
             return
 
@@ -422,31 +431,36 @@ async def generate_output_package(
             },
         }).eq("id", package_id).execute()
 
-        # Write audit entry
-        supabase_client.table("audit_logs").insert({
-            "actor_id": generated_by,
-            "action": "dataset.package.generated",
-            "resource_type": "dataset",
-            "resource_id": dataset_id,
-            "project_id": project_id,
-            "details": {
-                "summary": f"Output package generated: {len(include_components)} components",
-                "operation": {
-                    "package_id": package_id,
-                    "components": include_components,
-                    "guideline": guideline,
-                    "package_hash": package_hash,
-                    "storage_path": storage_path,
+        # Write audit entry via the immutable ledger RPC (handles entry_hash chain)
+        try:
+            supabase_client.rpc("append_audit_entry", {
+                "p_actor_id": generated_by,
+                "p_action": "dataset.package.generated",
+                "p_resource_type": "dataset",
+                "p_resource_id": dataset_id,
+                "p_project_id": project_id,
+                "p_details": {
+                    "summary": f"Output package generated: {len(include_components)} components",
+                    "operation": {
+                        "package_id": package_id,
+                        "components": include_components,
+                        "guideline": guideline,
+                        "package_hash": package_hash,
+                        "storage_path": storage_path,
+                    },
                 },
-            },
-        }).execute()
+            }).execute()
+        except Exception as audit_exc:
+            print(f"[package_generator] Audit log failed (non-fatal): {audit_exc}", flush=True)
 
     except Exception as exc:
-        # Mark as failed
+        print(f"[package_generator] Background task failed for {package_id}: {exc}", flush=True)
+        import traceback
+        traceback.print_exc()
         try:
             supabase_client.table("output_packages").update({
                 "status": "failed",
                 "manifest": {"error": str(exc)},
             }).eq("id", package_id).execute()
-        except Exception:
-            pass
+        except Exception as db_exc:
+            print(f"[package_generator] Could not update status to failed: {db_exc}", flush=True)

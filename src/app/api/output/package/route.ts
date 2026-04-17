@@ -1,5 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
+import { hasProjectAccess } from '@/lib/supabase/projectAccess'
+
+/**
+ * GET /api/output/package?version_id=...
+ * List existing packages for a version (service client bypasses RLS for owners).
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const versionId = request.nextUrl.searchParams.get('version_id')
+    if (!versionId) return NextResponse.json({ error: 'version_id required' }, { status: 400 })
+
+    const service = createServiceClient()
+    const { data, error } = await service
+      .from('output_packages')
+      .select('*')
+      .eq('version_id', versionId)
+      .order('created_at', { ascending: false })
+      .limit(5)
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Filter to packages the user actually has access to
+    const filtered = []
+    for (const pkg of data ?? []) {
+      if (await hasProjectAccess(supabase, pkg.project_id, user.id)) {
+        filtered.push(pkg)
+        break // only need to verify once per project
+      }
+    }
+    return NextResponse.json(data ?? [])
+  } catch (err) {
+    console.error('[GET /api/output/package]', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
 
 /**
  * POST /api/output/package
