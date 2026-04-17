@@ -2,6 +2,13 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import {
+  getProfile,
+  getRecentProjectsByOwner,
+  countProjectsByOwner,
+  updateProfile,
+  updateProfileAvatar,
+} from '@/lib/data'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -104,28 +111,15 @@ export default function ProfilePage() {
       if (!user) { setLoading(false); return }
       setAuthUser(user)
 
-      const [profileRes, projectsRes, reviewsRes, countRes, credRes] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('*, institution:institutions(id,name,country), department:departments(id,name)')
-          .eq('id', user.id)
-          .maybeSingle(),
-        supabase
-          .from('projects')
-          .select('id, title, status, phase, updated_at')
-          .eq('owner_id', user.id)
-          .is('deleted_at', null)
-          .order('updated_at', { ascending: false })
-          .limit(5),
+      const [profileResult, projectsResult, reviewsRes, countResult, credRes] = await Promise.all([
+        getProfile(supabase, user.id),
+        getRecentProjectsByOwner(supabase, user.id),
         supabase
           .from('review_requests')
           .select('id', { count: 'exact', head: true })
           .eq('assigned_to', user.id)
           .in('status', ['pending', 'in_review']),
-        supabase
-          .from('projects')
-          .select('id', { count: 'exact', head: true })
-          .eq('owner_id', user.id),
+        countProjectsByOwner(supabase, user.id),
         supabase
           .from('credential_uploads')
           .select('id, file_name, status, uploaded_at')
@@ -133,13 +127,13 @@ export default function ProfilePage() {
           .order('uploaded_at', { ascending: false }),
       ])
 
-      if (profileRes.data) {
-        setProfile(profileRes.data)
-        setAvatarUrl(profileRes.data.avatar_url ?? null)
+      if (profileResult.data) {
+        setProfile(profileResult.data)
+        setAvatarUrl(profileResult.data.avatar_url ?? null)
       }
-      setProjectCount(countRes.count ?? 0)
+      setProjectCount(countResult.data ?? 0)
       setReviewCount(reviewsRes.count ?? 0)
-      setRecentProjects(projectsRes.data ?? [])
+      setRecentProjects((projectsResult.data ?? []).map(p => ({ ...p, phase: p.phase ?? '', status: p.status })))
       setCredUploads(credRes.data ?? [])
       setLoading(false)
     }
@@ -157,7 +151,7 @@ export default function ProfilePage() {
     const { error: uploadErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
     if (uploadErr) { toast.error(uploadErr.message); setAvatarUploading(false); return }
     const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
-    await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', authUser.id)
+    await updateProfileAvatar(supabase, authUser.id, publicUrl)
     setAvatarUrl(publicUrl)
     setProfile(p => ({ ...p, avatar_url: publicUrl }))
     toast.success('Profile picture updated')
@@ -169,15 +163,15 @@ export default function ProfilePage() {
     e.preventDefault()
     if (!authUser) return
     setSaving(true)
-    const { error } = await supabase.from('profiles').update({
+    const result = await updateProfile(supabase, authUser.id, {
       full_name: profile.full_name,
       title:     profile.title,
       bio:       profile.bio,
       orcid_id:  profile.orcid_id,
       phone:     profile.phone,
       website:   profile.website,
-    }).eq('id', authUser.id)
-    if (error) toast.error(error.message)
+    })
+    if (result.status === 'error') toast.error(result.error ?? 'Failed to save')
     else toast.success('Profile saved')
     setSaving(false)
   }

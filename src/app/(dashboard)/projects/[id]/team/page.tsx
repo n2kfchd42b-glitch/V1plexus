@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
+import { getProjectWithOwner, searchProfiles } from '@/lib/data'
 import { cn, getInitials, formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -74,13 +75,13 @@ export default function ProjectTeamPage() {
   const inEmailInviteMode = !!inviteEmail
 
   const fetchMembers = useCallback(async () => {
-    const [{ data: projectData }, { data: membersData }, { data: invitesData }] = await Promise.all([
-      supabase.from('projects').select('owner_id, title, owner:profiles!owner_id(*)').eq('id', projectId).single(),
+    const [projectResult, { data: membersData }, { data: invitesData }] = await Promise.all([
+      getProjectWithOwner(supabase, projectId),
       supabase.from('project_members').select('*, user:profiles!user_id(*)').eq('project_id', projectId).order('joined_at'),
       supabase.from('project_invitations').select('id, email, role, created_at, status').eq('project_id', projectId).eq('status', 'pending'),
     ])
-    if (projectData?.owner) setOwner(projectData.owner as unknown as Profile)
-    if (projectData?.title) setProjectTitle(projectData.title)
+    if (projectResult.data?.owner) setOwner(projectResult.data.owner as Profile)
+    if (projectResult.data?.title) setProjectTitle(projectResult.data.title)
     if (membersData) setMembers(membersData as MemberWithProfile[])
     if (invitesData) setPendingInvites(invitesData)
     setLoading(false)
@@ -92,14 +93,9 @@ export default function ProjectTeamPage() {
   useEffect(() => {
     if (!searchQuery.trim() || inEmailInviteMode) { setSearchResults([]); return }
     const timeout = setTimeout(async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .or(`full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`)
-        .neq('id', owner?.id ?? '')
-        .limit(8)
+      const result = await searchProfiles(supabase, `full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`, owner?.id ?? '')
       const memberIds = new Set(members.map(m => m.user_id))
-      setSearchResults((data ?? []).filter(p => !memberIds.has(p.id)))
+      setSearchResults((result.data ?? []).filter(p => !memberIds.has(p.id)))
     }, 300)
     return () => clearTimeout(timeout)
   }, [searchQuery, members, owner, supabase, inEmailInviteMode])

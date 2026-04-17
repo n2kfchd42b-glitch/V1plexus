@@ -26,6 +26,13 @@ import { loadVersionData } from '@/lib/data/storage'
 import { detectDuplicates } from '@/lib/data/operations'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
+import {
+  getDataset,
+  getDatasetVersions,
+  getDatasetBranchesOrdered,
+  getDatasetExplorations,
+  deleteDatasetExploration,
+} from '@/lib/data'
 import type {
   Dataset, DatasetVersion, DatasetBranch, ParsedDataset,
   DatasetExploration, ChartType, ChartConfig, ColumnSchema,
@@ -192,19 +199,19 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
       setChartsLoading(true)
       setError(null)
       try {
-        const [datasetRes, versionsRes, branchesRes, chartsRes] = await Promise.all([
-          supabase.from('datasets').select('*').eq('id', datasetId).single(),
-          supabase.from('dataset_versions').select('*').eq('dataset_id', datasetId).order('version_number', { ascending: false }),
-          supabase.from('dataset_branches').select('*').eq('dataset_id', datasetId).order('is_default', { ascending: false }),
-          supabase.from('dataset_explorations').select('*').eq('dataset_id', datasetId).order('created_at', { ascending: false }),
+        const [datasetResult, versionsResult, branchesResult, chartsResult] = await Promise.all([
+          getDataset(supabase, datasetId),
+          getDatasetVersions(supabase, datasetId),
+          getDatasetBranchesOrdered(supabase, datasetId),
+          getDatasetExplorations(supabase, datasetId),
         ])
-        if (datasetRes.error) throw new Error(datasetRes.error.message)
-        if (datasetRes.data) setDataset(datasetRes.data)
-        const versionList: DatasetVersion[] = versionsRes.data ?? []
-        const branchList:  DatasetBranch[]  = branchesRes.data ?? []
+        if (datasetResult.status === 'error') throw new Error(datasetResult.error ?? 'Failed to load dataset')
+        if (datasetResult.data) setDataset(datasetResult.data)
+        const versionList: DatasetVersion[] = versionsResult.data
+        const branchList:  DatasetBranch[]  = branchesResult.data
         setVersions(versionList)
         setBranches(branchList)
-        setSavedCharts((chartsRes.data as DatasetExploration[]) ?? [])
+        setSavedCharts(chartsResult.data)
         const defaultBranch = branchList.find(b => b.is_default) ?? branchList[0]
         if (defaultBranch) {
           setActiveBranchId(defaultBranch.id)
@@ -239,7 +246,7 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
 
   async function handleDeleteChart(id: string) {
     setDeletingId(id)
-    await supabase.from('dataset_explorations').delete().eq('id', id)
+    await deleteDatasetExploration(supabase, id)
     setSavedCharts(prev => prev.filter(c => c.id !== id))
     setDeletingId(null)
   }

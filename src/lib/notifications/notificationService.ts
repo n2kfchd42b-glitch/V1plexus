@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { createNotification } from '@/lib/data'
 
 /**
  * Send a notification to a user.
@@ -14,7 +15,7 @@ export async function sendNotification(
   supabase: SupabaseClient
 ): Promise<void> {
   try {
-    await supabase.from('notifications').insert({
+    await createNotification(supabase, {
       user_id,
       type,
       title,

@@ -27,6 +27,12 @@ import { AnalysisCharts } from './results/AnalysisCharts'
 import { createClient } from '@/lib/supabase/client'
 import { loadVersionData } from '@/lib/data/storage'
 import { runAnalysis } from '@/lib/analysis/engine'
+import {
+  getProjectAnalysisRuns,
+  createAnalysisRun,
+  softDeleteAnalysisRun,
+  getProjectMeta,
+} from '@/lib/data'
 import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'sonner'
 import { formatRelative } from '@/lib/utils'
@@ -344,29 +350,23 @@ export function AnalysisHub({ projectId }: Props) {
 
 
   useEffect(() => {
-    supabase.from('analysis_runs')
-      .select('*, dataset:datasets(id, name)')
-      .eq('project_id', projectId).is('deleted_at', null)
-      .order('created_at', { ascending: false }).limit(50)
-      .then(({ data }) => {
-        if (data) setRuns(data as AnalysisRun[])
+    getProjectAnalysisRuns(supabase, projectId)
+      .then(result => {
+        setRuns(result.data as AnalysisRun[])
         setLoading(false)
       })
   }, [projectId, supabase])
 
   useEffect(() => {
-    supabase.from('projects')
-      .select('title, description, methodology, research_objectives')
-      .eq('id', projectId).maybeSingle()
-      .then(({ data }) => { if (data) setProject(data as ProjectMeta) })
+    getProjectMeta(supabase, projectId)
+      .then(result => { if (result.data) setProject(result.data as ProjectMeta) })
   }, [projectId, supabase])
 
   // ── Engine functions (unchanged) ────────────────────────
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from('analysis_runs')
-      .update({ deleted_at: new Date().toISOString() }).eq('id', id)
-    if (error) { toast.error('Failed to delete analysis'); return }
+    const result = await softDeleteAnalysisRun(supabase, id)
+    if (result.status === 'error') { toast.error('Failed to delete analysis'); return }
     setRuns(prev => prev.filter(r => r.id !== id))
     if (viewingRunId === id) setViewingRunId(null)
     await logAudit('analysis.run.deleted', 'analysis_run', id, {}, projectId)
@@ -481,7 +481,7 @@ export function AnalysisHub({ projectId }: Props) {
         } else {
           // Intermediate → auto-save to history silently
           if (profile && datasetId) {
-            const { data: savedRun } = await supabase.from('analysis_runs').insert({
+            const runResult = await createAnalysisRun(supabase, {
               project_id: projectId,
               dataset_id: datasetId,
               version_id: versionId ?? null,
@@ -492,7 +492,8 @@ export function AnalysisHub({ projectId }: Props) {
               interpretation: analysisResult.interpretation,
               status: 'completed',
               created_by: profile.id,
-            }).select().single()
+            })
+            const savedRun = runResult.data
             if (savedRun) {
               setRuns(prev => [savedRun as AnalysisRun, ...prev])
               await logAudit(
@@ -584,14 +585,15 @@ export function AnalysisHub({ projectId }: Props) {
     if (approvalBlock) return
     const typeInfo = ANALYSIS_TYPES.find(t => t.type === selectedType)
     const trimmedReasoning = reasoning?.trim() || null
-    const { data: run } = await supabase.from('analysis_runs').insert({
+    const runResult = await createAnalysisRun(supabase, {
       project_id: projectId, dataset_id: datasetId ?? null, version_id: versionId ?? null,
       analysis_type: selectedType,
       title: `${typeInfo?.label ?? selectedType} — ${new Date().toLocaleDateString()}`,
       config, results: result as unknown as Record<string, unknown>,
       interpretation: result.interpretation, status: 'completed', created_by: profile.id,
       user_reasoning: trimmedReasoning,
-    }).select().single()
+    })
+    const run = runResult.data
     if (run) {
       await logAudit(
         'analysis.run.saved',

@@ -12,6 +12,14 @@ import { DatasetUpload } from '@/components/data/DatasetUpload'
 import { DatasetDetailPanel } from '@/components/data/DatasetDetailPanel'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
+import {
+  getActiveProjectDatasets,
+  getArchivedProjectDatasets,
+  countArchivedProjectDatasets,
+  getVersionsByDatasetIds,
+  softDeleteDataset,
+  setDatasetArchived,
+} from '@/lib/data'
 import { toast } from 'sonner'
 import { logAudit } from '@/lib/audit'
 import { cn } from '@/lib/utils'
@@ -47,26 +55,21 @@ export default function ProjectDataPage() {
     if (!user) return
     setListLoading(true)
     try {
-      const query = showArchived
-        ? supabase.from('datasets').select('*').eq('project_id', projectId).is('deleted_at', null).not('archived_at', 'is', null).order('updated_at', { ascending: false })
-        : supabase.from('datasets').select('*').eq('project_id', projectId).is('deleted_at', null).is('archived_at', null).order('updated_at', { ascending: false })
-
-      const [datasetsRes, archivedRes] = await Promise.all([
-        query,
-        supabase.from('datasets').select('id', { count: 'exact', head: true }).eq('project_id', projectId).is('deleted_at', null).not('archived_at', 'is', null),
+      const [datasetsResult, archivedCountResult] = await Promise.all([
+        showArchived
+          ? getArchivedProjectDatasets(supabase, projectId)
+          : getActiveProjectDatasets(supabase, projectId),
+        countArchivedProjectDatasets(supabase, projectId),
       ])
 
-      setArchivedCount(archivedRes.count ?? 0)
-      if (!datasetsRes.data?.length) { setDatasets([]); return }
+      setArchivedCount(archivedCountResult.data ?? 0)
+      if (!datasetsResult.data?.length) { setDatasets([]); return }
 
-      const datasetList: Dataset[] = datasetsRes.data
-      const versionsRes = await supabase
-        .from('dataset_versions').select('*')
-        .in('dataset_id', datasetList.map(d => d.id))
-        .order('version_number', { ascending: false })
+      const datasetList: Dataset[] = datasetsResult.data
+      const versionsResult = await getVersionsByDatasetIds(supabase, datasetList.map(d => d.id))
 
       const latestMap = new Map<string, DatasetVersion>()
-      for (const v of (versionsRes.data ?? []) as DatasetVersion[]) {
+      for (const v of versionsResult.data) {
         if (!latestMap.has(v.dataset_id)) latestMap.set(v.dataset_id, v)
       }
       setDatasets(datasetList.map(ds => ({ ...ds, latest_version: latestMap.get(ds.id) ?? undefined })))
@@ -94,8 +97,8 @@ export default function ProjectDataPage() {
 
   const handleDelete = async (id: string) => {
     const target = datasets.find(d => d.id === id)
-    const { error } = await supabase.from('datasets').update({ deleted_at: new Date().toISOString() }).eq('id', id)
-    if (error) { toast.error('Failed to delete dataset'); return }
+    const result = await softDeleteDataset(supabase, id)
+    if (result.status === 'error') { toast.error('Failed to delete dataset'); return }
     setDatasets(prev => prev.filter(d => d.id !== id))
     if (selectedId === id) { setSelectedId(null); setPanelOpen(true) }
     const res = await logAudit(
@@ -114,8 +117,8 @@ export default function ProjectDataPage() {
 
   const handleArchive = async (id: string, archive: boolean) => {
     const target = datasets.find(d => d.id === id)
-    const { error } = await supabase.from('datasets').update({ archived_at: archive ? new Date().toISOString() : null }).eq('id', id)
-    if (error) { toast.error(archive ? 'Failed to archive' : 'Failed to unarchive'); return }
+    const result = await setDatasetArchived(supabase, id, archive)
+    if (result.status === 'error') { toast.error(archive ? 'Failed to archive' : 'Failed to unarchive'); return }
     setDatasets(prev => prev.filter(d => d.id !== id))
     if (selectedId === id) { setSelectedId(null); setPanelOpen(true) }
     const res = await logAudit(

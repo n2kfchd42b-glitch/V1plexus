@@ -36,6 +36,7 @@ import { DocumentSecurityPanel } from '@/components/document/DocumentSecurityPan
 import { TranslationPanel } from '@/components/document/TranslationPanel'
 
 import { createClient } from '@/lib/supabase/client'
+import { getDocument, softDeleteDocument } from '@/lib/data'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { Document } from '@/types/database'
@@ -67,12 +68,8 @@ export default function DocumentPage() {
 
   useEffect(() => {
     const fetchDoc = async () => {
-      const { data } = await supabase
-        .from('documents')
-        .select('*')
-        .eq('id', docId)
-        .single()
-      if (data) setDocument(data)
+      const result = await getDocument(supabase, docId)
+      if (result.data) setDocument(result.data)
     }
     fetchDoc()
     fetchVersions()
@@ -90,8 +87,8 @@ export default function DocumentPage() {
   const handleRestoreVersion = async (version: DocumentVersion) => {
     const restored = await restoreVersion(version.id)
     if (restored) {
-      const { data } = await supabase.from('documents').select('*').eq('id', docId).single()
-      if (data) setDocument(data)
+      const result = await getDocument(supabase, docId)
+      if (result.data) setDocument(result.data)
       await fetchVersions()
     }
   }
@@ -100,11 +97,8 @@ export default function DocumentPage() {
     if (deleteState === 'idle') { setDeleteState('confirm'); return }
     if (deleteState === 'confirm') {
       setDeleteState('deleting')
-      const { error } = await supabase
-        .from('documents')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', docId)
-      if (error) {
+      const result = await softDeleteDocument(supabase, docId)
+      if (result.status === 'error') {
         toast.error('Failed to delete document')
         setDeleteState('idle')
       } else {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { getProject, updateProject, updateProjectStatus, updateProjectShareToken, softDeleteProject } from '@/lib/data'
 import { toast } from 'sonner'
 import { Trash2, Save, ChevronDown, Link2, Copy, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -50,12 +51,9 @@ export default function ProjectSettingsPage() {
 
   useEffect(() => {
     const fetchProject = async () => {
-      const { data } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('id', projectId)
-        .single()
-      if (data) {
+      const result = await getProject(supabase, projectId)
+      if (result.data) {
+        const data = result.data
         setProject(data)
         setTitle(data.title ?? '')
         setDescription(data.description ?? '')
@@ -76,8 +74,8 @@ export default function ProjectSettingsPage() {
   const handleGenerateShareLink = async () => {
     setShareLoading(true)
     const token = crypto.randomUUID()
-    const { error } = await supabase.from('projects').update({ share_token: token }).eq('id', projectId)
-    if (error) { toast.error('Failed to generate link'); setShareLoading(false); return }
+    const result = await updateProjectShareToken(supabase, projectId, token)
+    if (result.status === 'error') { toast.error('Failed to generate link'); setShareLoading(false); return }
     setProject(prev => prev ? { ...prev, share_token: token } : prev)
     logAudit('project.share_link.generated', 'project', projectId, {}, projectId)
     toast.success('Share link generated')
@@ -86,8 +84,8 @@ export default function ProjectSettingsPage() {
 
   const handleRevokeShareLink = async () => {
     setShareLoading(true)
-    const { error } = await supabase.from('projects').update({ share_token: null }).eq('id', projectId)
-    if (error) { toast.error('Failed to revoke link'); setShareLoading(false); return }
+    const result = await updateProjectShareToken(supabase, projectId, null)
+    if (result.status === 'error') { toast.error('Failed to revoke link'); setShareLoading(false); return }
     setProject(prev => prev ? { ...prev, share_token: null } : prev)
     logAudit('project.share_link.revoked', 'project', projectId, {}, projectId)
     toast.success('Share link revoked')
@@ -105,18 +103,15 @@ export default function ProjectSettingsPage() {
   const handleSave = async () => {
     if (!title.trim()) { toast.error('Project title is required'); return }
     setSaving(true)
-    const { error } = await supabase
-      .from('projects')
-      .update({
-        title: title.trim(),
-        description: description.trim() || null,
-        status,
-        phase: phase || null,
-        start_date: startDate || null,
-        end_date: endDate || null,
-      })
-      .eq('id', projectId)
-    if (error) {
+    const result = await updateProject(supabase, projectId, {
+      title: title.trim(),
+      description: description.trim() || null,
+      status,
+      phase: (phase || null) as Project['phase'] | null,
+      start_date: startDate || null,
+      end_date: endDate || null,
+    })
+    if (result.status === 'error') {
       toast.error('Failed to save changes')
     } else {
       toast.success('Project settings saved')
@@ -127,11 +122,8 @@ export default function ProjectSettingsPage() {
   }
 
   const handleArchive = async () => {
-    const { error } = await supabase
-      .from('projects')
-      .update({ status: 'archived' })
-      .eq('id', projectId)
-    if (error) { toast.error('Failed to archive project'); return }
+    const result = await updateProjectStatus(supabase, projectId, 'archived')
+    if (result.status === 'error') { toast.error('Failed to archive project'); return }
     logAudit('project.archived', 'project', projectId, { title: project?.title }, projectId)
     toast.success('Project archived')
     setStatus('archived')
@@ -142,11 +134,8 @@ export default function ProjectSettingsPage() {
       toast.error('Project title does not match')
       return
     }
-    const { error } = await supabase
-      .from('projects')
-      .update({ deleted_at: new Date().toISOString() })
-      .eq('id', projectId)
-    if (error) { toast.error('Failed to delete project'); return }
+    const result = await softDeleteProject(supabase, projectId)
+    if (result.status === 'error') { toast.error('Failed to delete project'); return }
     logAudit('project.deleted', 'project', projectId, { title: project?.title }, projectId)
     toast.success('Project deleted')
     router.push('/projects')

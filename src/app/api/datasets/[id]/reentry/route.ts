@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { hasProjectAccess } from '@/lib/supabase/projectAccess'
+import { insertAuditLog } from '@/lib/data'
 import type { ReentrySession } from '@/types/analysisIntegrity'
 
 /**
@@ -68,7 +69,7 @@ export async function POST(
     }
 
     // Write audit entry
-    await supabase.from('audit_logs').insert({
+    await insertAuditLog(supabase, {
       actor_id: user.id,
       action: 'dataset.reentry.initiated',
       resource_type: 'dataset',

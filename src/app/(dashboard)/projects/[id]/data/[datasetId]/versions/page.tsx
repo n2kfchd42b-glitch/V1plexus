@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, GitCommit, Plus, Minus, ArrowRight } from 'lucide-r
 import { Button } from '@/components/ui/button'
 import { VersionTimeline } from '@/components/data/VersionTimeline'
 import { createClient } from '@/lib/supabase/client'
+import { getDataset, getDatasetVersions, getDatasetBranchesOrdered } from '@/lib/data'
 import { useAuth } from '@/hooks/useAuth'
 import { format } from 'date-fns'
 import type { Dataset, DatasetVersion, DatasetBranch, ColumnSchema, CleaningOperation } from '@/types/database'
@@ -89,24 +90,16 @@ export default function VersionsPage() {
       setLoading(true)
       setError(null)
       try {
-        const [dsRes, vRes, bRes] = await Promise.all([
-          supabase.from('datasets').select('*').eq('id', datasetId).single(),
-          supabase
-            .from('dataset_versions')
-            .select('*')
-            .eq('dataset_id', datasetId)
-            .order('version_number', { ascending: false }),
-          supabase
-            .from('dataset_branches')
-            .select('*')
-            .eq('dataset_id', datasetId)
-            .order('is_default', { ascending: false }),
+        const [dsResult, vResult, bResult] = await Promise.all([
+          getDataset(supabase, datasetId),
+          getDatasetVersions(supabase, datasetId),
+          getDatasetBranchesOrdered(supabase, datasetId),
         ])
-        if (dsRes.error) throw dsRes.error
-        setDataset(dsRes.data)
+        if (dsResult.status === 'error') throw new Error(dsResult.error ?? 'Failed to load dataset')
+        setDataset(dsResult.data)
 
-        const vList: DatasetVersion[] = vRes.data ?? []
-        const bList: DatasetBranch[] = bRes.data ?? []
+        const vList: DatasetVersion[] = vResult.data
+        const bList: DatasetBranch[] = bResult.data
         setVersions(vList)
         setBranches(bList)
 

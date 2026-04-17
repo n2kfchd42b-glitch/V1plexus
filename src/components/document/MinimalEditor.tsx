@@ -15,6 +15,7 @@ import { TableRow } from '@tiptap/extension-table-row'
 import { TableHeader } from '@tiptap/extension-table-header'
 import { TableCell } from '@tiptap/extension-table-cell'
 import { createClient } from '@/lib/supabase/client'
+import { saveDocumentContent, updateDocumentTitle } from '@/lib/data'
 import { SlashCommandMenu } from './SlashCommandMenu'
 import { FloatingSelectionToolbar } from './FloatingSelectionToolbar'
 import { DocumentOutline } from './DocumentOutline'
@@ -127,11 +128,8 @@ export function MinimalEditor({
       const plain = extractText(content).trim()
       const wc = plain ? plain.split(/\s+/).filter(Boolean).length : 0
       setWordCount(wc)
-      const { error } = await supabase
-        .from('documents')
-        .update({ content, word_count: wc, updated_at: new Date().toISOString() })
-        .eq('id', documentId)
-      if (error) throw error
+      const result = await saveDocumentContent(supabase, documentId, content, wc)
+      if (result.status === 'error') throw new Error(result.error ?? 'Save failed')
       setLastSaved(new Date())
       onSave?.(content)
     } catch {
@@ -221,7 +219,7 @@ export function MinimalEditor({
   const handleTitleBlur = async () => {
     setTitleFocused(false)
     if (title !== initialTitle) {
-      await supabase.from('documents').update({ title }).eq('id', documentId)
+      await updateDocumentTitle(supabase, documentId, title)
       onTitleSave?.(title)
     }
   }

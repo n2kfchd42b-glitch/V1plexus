@@ -17,6 +17,7 @@ import {
 import { loadVersionData } from '@/lib/data/storage'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
+import { getDataset, getDatasetVersions, getDatasetBranchesOrdered, createDatasetExploration } from '@/lib/data'
 import type {
   Dataset,
   DatasetVersion,
@@ -70,25 +71,17 @@ export default function DatasetExplorePage() {
       setMetaLoading(true)
       setError(null)
       try {
-        const [datasetRes, versionsRes, branchesRes] = await Promise.all([
-          supabase.from('datasets').select('*').eq('id', datasetId).single(),
-          supabase
-            .from('dataset_versions')
-            .select('*')
-            .eq('dataset_id', datasetId)
-            .order('version_number', { ascending: false }),
-          supabase
-            .from('dataset_branches')
-            .select('*')
-            .eq('dataset_id', datasetId)
-            .order('is_default', { ascending: false }),
+        const [datasetResult, versionsResult, branchesResult] = await Promise.all([
+          getDataset(supabase, datasetId),
+          getDatasetVersions(supabase, datasetId),
+          getDatasetBranchesOrdered(supabase, datasetId),
         ])
 
-        if (datasetRes.error) throw new Error(datasetRes.error.message)
-        if (datasetRes.data) setDataset(datasetRes.data)
+        if (datasetResult.status === 'error') throw new Error(datasetResult.error ?? 'Failed to load dataset')
+        if (datasetResult.data) setDataset(datasetResult.data)
 
-        const versionList: DatasetVersion[] = versionsRes.data ?? []
-        const branchList: DatasetBranch[] = branchesRes.data ?? []
+        const versionList: DatasetVersion[] = versionsResult.data
+        const branchList: DatasetBranch[] = branchesResult.data
 
         setVersions(versionList)
 
@@ -173,7 +166,7 @@ export default function DatasetExplorePage() {
     if (!pendingSave || !user || !activeVersionId) return
     setSaving(true)
     try {
-      const { error } = await supabase.from('dataset_explorations').insert({
+      const result = await createDatasetExploration(supabase, {
         dataset_id: datasetId,
         version_id: activeVersionId,
         title: chartTitle.trim() || `${pendingSave.chartType} chart`,
@@ -181,7 +174,7 @@ export default function DatasetExplorePage() {
         config: { ...pendingSave.config, title: chartTitle.trim() || pendingSave.config.title },
         created_by: user.id,
       })
-      if (error) throw new Error(error.message)
+      if (result.status === 'error') throw new Error(result.error ?? 'Failed to save chart')
 
       setSaveDialogOpen(false)
       setPendingSave(null)

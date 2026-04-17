@@ -13,6 +13,13 @@ import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/useAuth'
 import { useWorkspace } from '@/hooks/useWorkspace'
 import { createClient } from '@/lib/supabase/client'
+import {
+  getAllProjects,
+  getDatasetProjectIds,
+  getAnalysisRunProjectIds,
+  createProject,
+  updateProjectStatus,
+} from '@/lib/data'
 import { logAudit } from '@/lib/audit'
 import { cn, formatRelative, statusLabel } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -241,25 +248,23 @@ export default function ProjectsPage() {
     if (authLoading) return
     if (!profile) { setLoading(false); return }
 
-    const { data: projectRows } = await supabase
-      .from('projects')
-      .select('*')
-      .is('deleted_at', null)
-      .order('updated_at', { ascending: false })
-      .limit(200)
+    const projectsResult = await getAllProjects(supabase)
+    if (projectsResult.status === 'error' || !projectsResult.data.length) {
+      setLoading(false)
+      return
+    }
 
-    if (!projectRows) { setLoading(false); return }
-
+    const projectRows = projectsResult.data
     const ids = projectRows.map(p => p.id)
-    const [{ data: datasets }, { data: runs }] = await Promise.all([
-      supabase.from('datasets').select('project_id').in('project_id', ids),
-      supabase.from('analysis_runs').select('project_id').in('project_id', ids),
+    const [datasetsResult, runsResult] = await Promise.all([
+      getDatasetProjectIds(supabase, ids),
+      getAnalysisRunProjectIds(supabase, ids),
     ])
 
     const datasetCountMap: Record<string, number> = {}
     const runCountMap:     Record<string, number> = {}
-    for (const d of datasets ?? []) datasetCountMap[d.project_id] = (datasetCountMap[d.project_id] ?? 0) + 1
-    for (const r of runs ?? [])     runCountMap[r.project_id]     = (runCountMap[r.project_id]     ?? 0) + 1
+    for (const d of datasetsResult.data) datasetCountMap[d.project_id] = (datasetCountMap[d.project_id] ?? 0) + 1
+    for (const r of runsResult.data)     runCountMap[r.project_id]     = (runCountMap[r.project_id]     ?? 0) + 1
 
     setProjects(projectRows.map(p => ({
       ...p,
@@ -289,23 +294,19 @@ export default function ProjectsPage() {
     setProjects(prev => [optimistic, ...prev])
     setTitle(''); setDescription(''); setShowNew(false)
 
-    const { data, error } = await supabase
-      .from('projects')
-      .insert({
-        title: optimistic.title,
-        description: optimistic.description,
-        owner_id: profile.id,
-        ...(activeWorkspace ? { workspace_id: activeWorkspace.id } : {}),
-      })
-      .select()
-      .single()
+    const result = await createProject(supabase, {
+      title: optimistic.title,
+      description: optimistic.description,
+      owner_id: profile.id,
+      ...(activeWorkspace ? { workspace_id: activeWorkspace.id } : {}),
+    })
 
-    if (error) {
+    if (result.status === 'error') {
       setProjects(prev => prev.filter(p => p.id !== tempId))
       toast.error('Failed to create project')
-    } else if (data) {
+    } else if (result.data) {
       setProjects(prev => prev.map(p => p.id === tempId
-        ? { ...data, dataset_count: 0, run_count: 0 }
+        ? { ...result.data!, dataset_count: 0, run_count: 0 }
         : p
       ))
       toast.success('Project created')
@@ -317,8 +318,8 @@ export default function ProjectsPage() {
   const handleArchive = async (id: string, status: Project['status']) => {
     const original = projects.find(p => p.id === id)
     setProjects(prev => prev.map(p => p.id === id ? { ...p, status } : p))
-    const { error } = await supabase.from('projects').update({ status }).eq('id', id)
-    if (error) {
+    const result = await updateProjectStatus(supabase, id, status)
+    if (result.status === 'error') {
       if (original) setProjects(prev => prev.map(p => p.id === id ? original : p))
       toast.error('Failed to update project')
       return

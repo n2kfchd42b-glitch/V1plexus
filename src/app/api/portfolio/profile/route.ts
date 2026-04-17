@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkUsernameAvailability, updateProfile, insertAuditLog } from '@/lib/data'
 import type { UpdateProfileRequest } from '@/types/portfolio'
 
 export async function PATCH(request: NextRequest) {
@@ -34,14 +35,9 @@ export async function PATCH(request: NextRequest) {
       }
 
       // Check if already taken by another user
-      const { data: existingUser } = await supabase
-        .from('profiles')
-        .select('id')
-        .ilike('username', username)
-        .neq('id', user.id)
-        .single()
+      const usernameResult = await checkUsernameAvailability(supabase, username, user.id)
 
-      if (existingUser) {
+      if (usernameResult.data) {
         return NextResponse.json(
           { error: 'Username already taken' },
           { status: 422 }
@@ -123,15 +119,10 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Update profile
-    const { data: updatedProfile, error: updateError } = await supabase
-      .from('profiles')
-      .update(updateData)
-      .eq('id', user.id)
-      .select('*')
-      .single()
+    const profileResult = await updateProfile(supabase, user.id, updateData)
 
-    if (updateError) {
-      console.error('Update error:', updateError)
+    if (profileResult.status === 'error') {
+      console.error('Update error:', profileResult.error)
       return NextResponse.json(
         { error: 'Failed to update profile' },
         { status: 500 }
@@ -140,7 +131,7 @@ export async function PATCH(request: NextRequest) {
 
     // Write audit entry — non-blocking, must not fail the save
     try {
-      await supabase.from('audit_logs').insert({
+      await insertAuditLog(supabase, {
         actor_id: user.id,
         action: 'profile.updated',
         resource_type: 'profile',
@@ -157,7 +148,7 @@ export async function PATCH(request: NextRequest) {
       // audit log failure must never block the save
     }
 
-    return NextResponse.json(updatedProfile)
+    return NextResponse.json(profileResult.data)
   } catch (error) {
     console.error('Error updating profile:', error)
     return NextResponse.json(

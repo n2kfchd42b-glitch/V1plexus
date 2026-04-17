@@ -6,6 +6,13 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import {
+  verifyDatasetAccess,
+  getLatestQualityReport,
+  createPublication,
+  getUserPublications,
+  insertAuditLog,
+} from '@/lib/data'
 import type { AddPublicationRequest, CrossRefWork } from '@/types/portfolio'
 
 async function fetchCrossRefMetadata(doi: string): Promise<Partial<AddPublicationRequest> | null> {
@@ -91,14 +98,9 @@ export async function POST(request: NextRequest) {
 
     if (body.dataset_id && body.version_id) {
       // Verify user can access dataset
-      const { data: dataset } = await supabase
-        .from('datasets')
-        .select('id')
-        .eq('id', body.dataset_id)
-        .eq('uploaded_by', user.id)
-        .single()
+      const datasetResult = await verifyDatasetAccess(supabase, body.dataset_id, user.id)
 
-      if (!dataset) {
+      if (!datasetResult.data) {
         return NextResponse.json(
           { error: 'Dataset not found or access denied' },
           { status: 403 }
@@ -106,16 +108,9 @@ export async function POST(request: NextRequest) {
       }
 
       // Fetch DQI score
-      const { data: qualityReport } = await supabase
-        .from('dataset_quality_reports')
-        .select('overall_score')
-        .eq('version_id', body.version_id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-
-      if (qualityReport) {
-        dqiScore = qualityReport.overall_score
+      const qualityResult = await getLatestQualityReport(supabase, body.version_id)
+      if (qualityResult.data) {
+        dqiScore = qualityResult.data.overall_score
       }
 
       // Check for supervisor approval
@@ -158,30 +153,28 @@ export async function POST(request: NextRequest) {
     }
 
     // Create publication record
-    const { data: publication, error: insertError } = await supabase
-      .from('portfolio_publications')
-      .insert({
-        ...publicationData,
-        dataset_id: body.dataset_id || null,
-        version_id: body.version_id || null,
-        dqi_score: dqiScore,
-        supervisor_approved: supervised,
-        assumption_checks_conducted: assumptionChecks,
-        reentry_conducted: reentryValidated,
-      })
-      .select('*')
-      .single()
+    const pubResult = await createPublication(supabase, {
+      ...publicationData,
+      dataset_id: body.dataset_id || null,
+      version_id: body.version_id || null,
+      dqi_score: dqiScore,
+      supervisor_approved: supervised,
+      assumption_checks_conducted: assumptionChecks,
+      reentry_conducted: reentryValidated,
+    })
 
-    if (insertError) {
-      console.error('Insert error:', insertError)
+    if (pubResult.status === 'error') {
+      console.error('Insert error:', pubResult.error)
       return NextResponse.json(
         { error: 'Failed to add publication' },
         { status: 500 }
       )
     }
 
+    const publication = pubResult.data!
+
     // Write audit entry
-    await supabase.from('audit_logs').insert({
+    await insertAuditLog(supabase, {
       actor_id: user.id,
       action: 'portfolio.publication.added',
       resource_type: 'portfolio_publication',
@@ -218,21 +211,17 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch all publications for user
-    const { data: publications, error: fetchError } = await supabase
-      .from('portfolio_publications')
-      .select('*')
-      .eq('profile_id', user.id)
-      .order('year', { ascending: false })
+    const pubsResult = await getUserPublications(supabase, user.id)
 
-    if (fetchError) {
-      console.error('Fetch error:', fetchError)
+    if (pubsResult.status === 'error') {
+      console.error('Fetch error:', pubsResult.error)
       return NextResponse.json(
         { error: 'Failed to fetch publications' },
         { status: 500 }
       )
     }
 
-    return NextResponse.json(publications)
+    return NextResponse.json(pubsResult.data)
   } catch (error) {
     console.error('Error fetching publications:', error)
     return NextResponse.json(

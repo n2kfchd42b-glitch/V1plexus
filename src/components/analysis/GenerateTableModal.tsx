@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import { getProjectDocuments, createDocument } from '@/lib/data'
 import { useAuth } from '@/hooks/useAuth'
 import { logAudit } from '@/lib/audit'
 import {
@@ -355,10 +356,10 @@ export function GenerateTableModal({ result, projectId, runTitle, onClose }: Pro
   // Fetch documents when insert mode selected
   useEffect(() => {
     if (saveMode !== 'insert' || documents.length > 0) return
-    supabase.from('documents').select('id, title').eq('project_id', projectId)
-      .is('deleted_at', null).order('updated_at', { ascending: false })
-      .then(({ data }) => {
-        if (data) {
+    getProjectDocuments(supabase, projectId)
+      .then(result => {
+        if (result.data.length > 0) {
+          const data = result.data
           setDocuments(data as { id: string; title: string }[])
           if (data.length > 0) setSelectedDocId(data[0].id)
         }
@@ -449,15 +450,16 @@ export function GenerateTableModal({ result, projectId, runTitle, onClose }: Pro
           type: 'doc',
           content: [{ type: 'tableBlock', attrs: { tableSpec: JSON.stringify(spec) } }],
         }
-        const { data: newDoc, error } = await supabase.from('documents').insert({
+        const docResult = await createDocument(supabase, {
           project_id: projectId,
           title: tableName,
           content: docContent,
           status: 'draft',
           word_count: 0,
           current_version: 1,
-        }).select('id').single()
-        if (error) throw error
+        })
+        if (docResult.status === 'error') throw new Error(docResult.error ?? 'Failed to create document')
+        const newDoc = docResult.data
         if (newDoc && user) {
           logAudit('document.created', 'document', newDoc.id, { title: tableName, type: 'table' }, projectId)
         }

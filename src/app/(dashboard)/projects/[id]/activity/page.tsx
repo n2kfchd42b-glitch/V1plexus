@@ -7,6 +7,7 @@ import { ArrowLeft, Activity } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AuditLogViewer } from '@/components/audit/AuditLogViewer'
 import { createClient } from '@/lib/supabase/client'
+import { getProject } from '@/lib/data'
 import type { Project } from '@/types/database'
 
 export default function ProjectActivityPage() {
@@ -16,8 +17,9 @@ export default function ProjectActivityPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    supabase.from('projects').select('*').eq('id', projectId).single()
-      .then(({ data }) => { if (data) setProject(data) })
+    getProject(supabase, projectId).then(result => {
+      if (result.data) setProject(result.data)
+    })
   }, [projectId, supabase])
 
   return (

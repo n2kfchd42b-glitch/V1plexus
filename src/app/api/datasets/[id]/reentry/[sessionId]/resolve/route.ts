@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { insertAuditLog } from '@/lib/data'
 
 /**
  * POST /api/datasets/[id]/reentry/[sessionId]/resolve
@@ -63,7 +64,7 @@ export async function POST(
     }
 
     // Write audit entry
-    await supabase.from('audit_logs').insert({
+    await insertAuditLog(supabase, {
       actor_id: user.id,
       action: 'dataset.reentry.discrepancy.resolved',
       resource_type: 'dataset',

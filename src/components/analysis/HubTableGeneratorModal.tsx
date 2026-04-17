@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import { getCompletedProjectAnalysisRuns, getProjectDocuments, createDocument } from '@/lib/data'
 import { useAuth } from '@/hooks/useAuth'
 import { logAudit } from '@/lib/audit'
 import {
@@ -432,14 +433,9 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
   // ── Load runs on mount ────────────────────────────────────────────────────────
   useEffect(() => {
     setRunsLoading(true)
-    supabase.from('analysis_runs')
-      .select('*')
-      .eq('project_id', projectId)
-      .eq('status', 'completed')
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (data) setAllRuns(data as RunWithResult[])
+    getCompletedProjectAnalysisRuns(supabase, projectId)
+      .then(result => {
+        setAllRuns(result.data as RunWithResult[])
         setRunsLoading(false)
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -448,13 +444,10 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
   // ── Load documents for insert mode ───────────────────────────────────────────
   useEffect(() => {
     if (saveMode !== 'insert' || documents.length > 0) return
-    supabase.from('documents').select('id, title').eq('project_id', projectId)
-      .is('deleted_at', null).order('updated_at', { ascending: false })
-      .then(({ data }) => {
-        if (data) {
-          setDocuments(data as { id: string; title: string }[])
-          if (data.length > 0) setSelectedDocId(data[0].id)
-        }
+    getProjectDocuments(supabase, projectId)
+      .then(result => {
+        setDocuments(result.data)
+        if (result.data.length > 0) setSelectedDocId(result.data[0].id)
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saveMode])
@@ -630,15 +623,16 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
           type: 'doc',
           content: [{ type: 'tableBlock', attrs: { tableSpec: JSON.stringify(spec) } }],
         }
-        const { data: newDoc, error } = await supabase.from('documents').insert({
+        const docResult = await createDocument(supabase, {
           project_id: projectId,
           title: tableName,
           content: docContent,
           status: 'draft',
           word_count: 0,
           current_version: 1,
-        }).select('id').single()
-        if (error) throw error
+        })
+        if (docResult.status === 'error') throw new Error(docResult.error ?? 'Failed to create document')
+        const newDoc = docResult.data
         if (newDoc && user) {
           logAudit('document.created', 'document', newDoc.id, { title: tableName, type: 'table' }, projectId)
         }

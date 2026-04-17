@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { SlidersHorizontal, Download, Save, BookOpen, ChevronDown, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import { createDatasetExploration } from '@/lib/data'
 import type { ChartEditorConfig, LegendPosition } from '@/lib/chartEditorConfig'
 import { CHART_TYPES_WITH_FILL, CHART_TYPES_WITH_AXES } from '@/lib/chartEditorConfig'
 import { CHART_TOKENS, chartColor, chartColorMid, chartColorDim } from '@/lib/charts/design-tokens'
@@ -174,16 +175,16 @@ export function ChartEditor({
         config.show_title && config.chart_title
           ? config.chart_title
           : analysisTitle ?? chartTitle ?? 'Chart'
-      const { error } = await supabase.from('dataset_explorations').insert({
+      const result = await createDatasetExploration(supabase, {
         dataset_id:     datasetId,
         version_id:     versionId ?? null,
         title,
-        chart_type:     chartType,
+        chart_type:     chartType as import('@/types/database').ChartType,
         config:         { chart_data: chartData, editor_config: config },
         thumbnail_path: null,
         created_by:     user?.id ?? null,
       })
-      if (error) throw error
+      if (result.status === 'error') throw new Error(result.error ?? 'Failed to save')
       toast.success('Chart saved to Dataset Explorations')
     } catch {
       toast.error('Failed to save exploration')

@@ -6,6 +6,16 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import {
+  verifyDatasetAccessWithName,
+  getLatestQualityReport,
+  getLatestAuditHash,
+  getVerificationToken,
+  createVerificationToken,
+  createCertificate,
+  getUserCertificates,
+  insertAuditLog,
+} from '@/lib/data'
 import type { AddCertificateRequest } from '@/types/portfolio'
 
 export async function POST(request: NextRequest) {
@@ -30,30 +40,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify user can access dataset
-    const { data: dataset } = await supabase
-      .from('datasets')
-      .select('id, name')
-      .eq('id', body.dataset_id)
-      .eq('uploaded_by', user.id)
-      .single()
+    const datasetResult = await verifyDatasetAccessWithName(supabase, body.dataset_id, user.id)
 
-    if (!dataset) {
+    if (!datasetResult.data) {
       return NextResponse.json(
         { error: 'Dataset not found or access denied' },
         { status: 403 }
       )
     }
 
-    // Fetch quality report for DQI score
-    const { data: qualityReport } = await supabase
-      .from('dataset_quality_reports')
-      .select('overall_score')
-      .eq('version_id', body.version_id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
+    const dataset = datasetResult.data
 
-    // Check integrity markers
+    // Fetch quality report for DQI score
+    const qualityResult = await getLatestQualityReport(supabase, body.version_id)
+
+    // Check integrity markers — these tables are collaboration tier, query directly
     const { data: approval } = await supabase
       .from('dataset_approval_requests')
       .select('id')
@@ -77,73 +78,53 @@ export async function POST(request: NextRequest) {
       .limit(1)
       .single()
 
-    // Check for chain verification (simplified - assumes all datasets have audit records)
-    const { data: auditEntries } = await supabase
-      .from('audit_logs')
-      .select('entry_hash')
-      .eq('resource_id', body.dataset_id)
-      .order('timestamp', { ascending: false })
-      .limit(1)
-      .single()
-
-    const chainVerified = !!auditEntries?.entry_hash
+    // Check for chain verification
+    const auditHashResult = await getLatestAuditHash(supabase, body.dataset_id)
+    const chainVerified = !!auditHashResult.data?.entry_hash
 
     // Create or get verification token
     let verificationToken = null
-    const { data: existingToken } = await supabase
-      .from('verification_tokens')
-      .select('id, token')
-      .eq('dataset_id', body.dataset_id)
-      .eq('version_id', body.version_id)
-      .limit(1)
-      .single()
+    const existingTokenResult = await getVerificationToken(supabase, body.dataset_id, body.version_id)
 
-    if (existingToken) {
-      verificationToken = existingToken.id
+    if (existingTokenResult.data) {
+      verificationToken = existingTokenResult.data.id
     } else {
-      const { data: newToken } = await supabase
-        .from('verification_tokens')
-        .insert({
-          dataset_id: body.dataset_id,
-          version_id: body.version_id,
-          created_by: user.id,
-        })
-        .select('id')
-        .single()
-
-      verificationToken = newToken?.id || null
+      const newTokenResult = await createVerificationToken(supabase, {
+        dataset_id: body.dataset_id,
+        version_id: body.version_id,
+        created_by: user.id,
+      })
+      verificationToken = newTokenResult.data?.id || null
     }
 
     // Create certificate
-    const { data: certificate, error: insertError } = await supabase
-      .from('portfolio_certificates')
-      .insert({
-        profile_id: user.id,
-        dataset_id: body.dataset_id,
-        version_id: body.version_id,
-        verification_token_id: verificationToken,
-        display_title: body.display_title || null,
-        context_note: body.context_note || null,
-        dqi_score_snapshot: qualityReport?.overall_score || null,
-        supervisor_approved: !!approval,
-        assumption_checks_conducted: !!assumptions,
-        reentry_conducted: !!reentry,
-        chain_verified: chainVerified,
-        is_public: body.is_public !== false,
-      })
-      .select('*')
-      .single()
+    const certResult = await createCertificate(supabase, {
+      profile_id: user.id,
+      dataset_id: body.dataset_id,
+      version_id: body.version_id,
+      verification_token_id: verificationToken,
+      display_title: body.display_title || null,
+      context_note: body.context_note || null,
+      dqi_score_snapshot: qualityResult.data?.overall_score || null,
+      supervisor_approved: !!approval,
+      assumption_checks_conducted: !!assumptions,
+      reentry_conducted: !!reentry,
+      chain_verified: chainVerified,
+      is_public: body.is_public !== false,
+    })
 
-    if (insertError) {
-      console.error('Insert error:', insertError)
+    if (certResult.status === 'error') {
+      console.error('Insert error:', certResult.error)
       return NextResponse.json(
         { error: 'Failed to add certificate' },
         { status: 500 }
       )
     }
 
+    const certificate = certResult.data!
+
     // Write audit entry
-    await supabase.from('audit_logs').insert({
+    await insertAuditLog(supabase, {
       actor_id: user.id,
       action: 'portfolio.certificate.added',
       resource_type: 'portfolio_certificate',
@@ -180,26 +161,17 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch all certificates for user
-    const { data: certificates, error: fetchError } = await supabase
-      .from('portfolio_certificates')
-      .select(
-        `
-        *,
-        datasets(name, source)
-      `
-      )
-      .eq('profile_id', user.id)
-      .order('created_at', { ascending: false })
+    const certsResult = await getUserCertificates(supabase, user.id)
 
-    if (fetchError) {
-      console.error('Fetch error:', fetchError)
+    if (certsResult.status === 'error') {
+      console.error('Fetch error:', certsResult.error)
       return NextResponse.json(
         { error: 'Failed to fetch certificates' },
         { status: 500 }
       )
     }
 
-    return NextResponse.json(certificates || [])
+    return NextResponse.json(certsResult.data)
   } catch (error) {
     console.error('Error fetching certificates:', error)
     return NextResponse.json(

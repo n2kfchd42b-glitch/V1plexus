@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
+import { getProfileName, updateProfile } from '@/lib/data'
 import { toast } from 'sonner'
 
 const INSTITUTION_TYPES = [
@@ -57,7 +58,7 @@ export function InstitutionCreateForm() {
 
     // ── Stage 1: fetch profile + check personal workspace in parallel ──
     const [profileRes, existingPersonalRes] = await Promise.all([
-      supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
+      getProfileName(supabase, user.id),
       supabase.from('workspaces').select('id').eq('owner_id', user.id).eq('type', 'personal').maybeSingle(),
     ])
 
@@ -122,11 +123,11 @@ export function InstitutionCreateForm() {
                 : null
             ),
       // Mark profile as set up
-      supabase.from('profiles').update({
+      updateProfile(supabase, user.id, {
         workspace_setup_completed: true,
         onboarding_completed: true,
         institution_id: instId,
-      }).eq('id', user.id),
+      }),
     ])
 
     if (typeof window !== 'undefined') {

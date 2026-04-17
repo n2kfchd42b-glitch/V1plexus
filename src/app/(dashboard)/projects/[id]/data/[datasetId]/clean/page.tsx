@@ -9,6 +9,7 @@ import { CleaningWorkbench } from '@/components/cleaning/CleaningWorkbench'
 import { loadVersionData } from '@/lib/data/storage'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
+import { getDataset, getDatasetVersions, getDatasetBranches } from '@/lib/data'
 import type { Dataset, DatasetVersion, DatasetBranch, DataRow, ColumnSchema } from '@/types/database'
 
 export default function CleanPage() {
@@ -38,17 +39,17 @@ export default function CleanPage() {
       setLoading(true)
       setError(null)
       try {
-        const [datasetRes, versionsRes, branchesRes] = await Promise.all([
-          supabase.from('datasets').select('*').eq('id', datasetId).single(),
-          supabase.from('dataset_versions').select('*').eq('dataset_id', datasetId).order('version_number', { ascending: false }),
-          supabase.from('dataset_branches').select('*').eq('dataset_id', datasetId),
+        const [datasetResult, versionsResult, branchesResult] = await Promise.all([
+          getDataset(supabase, datasetId),
+          getDatasetVersions(supabase, datasetId),
+          getDatasetBranches(supabase, datasetId),
         ])
 
-        if (datasetRes.error) throw new Error(datasetRes.error.message)
-        setDataset(datasetRes.data)
+        if (datasetResult.status === 'error') throw new Error(datasetResult.error ?? 'Failed to load dataset')
+        setDataset(datasetResult.data)
 
-        const versions: DatasetVersion[] = versionsRes.data ?? []
-        const branches: DatasetBranch[] = branchesRes.data ?? []
+        const versions: DatasetVersion[] = versionsResult.data
+        const branches: DatasetBranch[] = branchesResult.data
 
         // Get the default/main branch's current head version
         const defaultBranch = branches.find(b => b.is_default) ?? branches[0]
