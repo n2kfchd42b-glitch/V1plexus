@@ -36,6 +36,19 @@ import type {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SC = SupabaseClient<any>
 
+// ─── Timeout helper ───────────────────────────────────────────────────────────
+// navigator.onLine can lag behind reality — the network may be down while the
+// flag still reports true. Without a timeout, Supabase fetches hang for up to
+// 2 minutes before failing, blocking the cache fallback path.
+function withTimeout<T>(promise: Promise<T>, ms = 5000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Network timeout')), ms)
+    ),
+  ])
+}
+
 // ─── Return type ─────────────────────────────────────────────────────────────
 
 export type OfflineResult<T> = {
@@ -54,7 +67,7 @@ export async function getProjectsOffline(
 
   if (navigator.onLine) {
     try {
-      const projectsResult = await getAllProjects(supabase)
+      const projectsResult = await withTimeout(getAllProjects(supabase))
       if (projectsResult.status === 'error') {
         throw new Error(projectsResult.error ?? 'Failed to fetch projects')
       }
@@ -63,10 +76,10 @@ export async function getProjectsOffline(
       if (!rows.length) return { data: [], error: null, source: 'network' }
 
       const ids = rows.map(p => p.id)
-      const [datasetsResult, runsResult] = await Promise.all([
+      const [datasetsResult, runsResult] = await withTimeout(Promise.all([
         getDatasetProjectIds(supabase, ids),
         getAnalysisRunProjectIds(supabase, ids),
-      ])
+      ]))
 
       const datasetCountMap: Record<string, number> = {}
       const runCountMap: Record<string, number> = {}
@@ -115,14 +128,14 @@ export async function getProjectOffline(
 
   if (navigator.onLine) {
     try {
-      const result = await getProject(supabase, id)
+      const result = await withTimeout(getProject(supabase, id))
       if (result.status === 'error' || !result.data) throw new Error(result.error ?? 'Not found')
 
       const p = result.data
-      const [datasetsResult, runsResult] = await Promise.all([
+      const [datasetsResult, runsResult] = await withTimeout(Promise.all([
         getDatasetProjectIds(supabase, [id]),
         getAnalysisRunProjectIds(supabase, [id]),
-      ])
+      ]))
 
       const local: LocalProject = {
         id: p.id,
@@ -163,7 +176,7 @@ export async function getActiveProjectDatasetsOffline(
 
   if (navigator.onLine) {
     try {
-      const result = await getActiveProjectDatasets(supabase, projectId)
+      const result = await withTimeout(getActiveProjectDatasets(supabase, projectId))
       if (result.status === 'error') throw new Error(result.error ?? 'Failed')
 
       const locals: LocalDataset[] = (result.data ?? []).map(d => ({
@@ -212,7 +225,7 @@ export async function getArchivedProjectDatasetsOffline(
 
   if (navigator.onLine) {
     try {
-      const result = await getArchivedProjectDatasets(supabase, projectId)
+      const result = await withTimeout(getArchivedProjectDatasets(supabase, projectId))
       if (result.status === 'error') throw new Error(result.error ?? 'Failed')
 
       const locals: LocalDataset[] = (result.data ?? []).map(d => ({
@@ -261,7 +274,7 @@ export async function getDatasetOffline(
 
   if (navigator.onLine) {
     try {
-      const result = await getDataset(supabase, id)
+      const result = await withTimeout(getDataset(supabase, id))
       if (result.status === 'error' || !result.data) throw new Error(result.error ?? 'Not found')
 
       const d = result.data
@@ -306,7 +319,7 @@ export async function getVersionsByDatasetIdsOffline(
 
   if (navigator.onLine) {
     try {
-      const result = await getVersionsByDatasetIds(supabase, datasetIds)
+      const result = await withTimeout(getVersionsByDatasetIds(supabase, datasetIds))
       if (result.status === 'error') throw new Error(result.error ?? 'Failed')
 
       const locals: LocalDatasetVersion[] = (result.data ?? []).map(v => ({
@@ -359,7 +372,7 @@ export async function getDatasetBranchesOffline(
 
   if (navigator.onLine) {
     try {
-      const result = await getDatasetBranches(supabase, datasetId)
+      const result = await withTimeout(getDatasetBranches(supabase, datasetId))
       if (result.status === 'error') throw new Error(result.error ?? 'Failed')
 
       const locals: LocalDatasetBranch[] = (result.data ?? []).map(b => ({
@@ -399,7 +412,7 @@ export async function getDatasetExplorationsOffline(
 
   if (navigator.onLine) {
     try {
-      const result = await getDatasetExplorations(supabase, datasetId)
+      const result = await withTimeout(getDatasetExplorations(supabase, datasetId))
       if (result.status === 'error') throw new Error(result.error ?? 'Failed')
 
       const locals: LocalDatasetExploration[] = (result.data ?? []).map(e => ({
@@ -441,7 +454,7 @@ export async function getProjectAnalysisRunsOffline(
 
   if (navigator.onLine) {
     try {
-      const result = await getProjectAnalysisRuns(supabase, projectId)
+      const result = await withTimeout(getProjectAnalysisRuns(supabase, projectId))
       if (result.status === 'error') throw new Error(result.error ?? 'Failed')
 
       const locals: LocalAnalysisRun[] = (result.data ?? []).map(r => ({
@@ -485,7 +498,7 @@ export async function getCompletedProjectAnalysisRunsOffline(
 
   if (navigator.onLine) {
     try {
-      const result = await getCompletedProjectAnalysisRuns(supabase, projectId)
+      const result = await withTimeout(getCompletedProjectAnalysisRuns(supabase, projectId))
       if (result.status === 'error') throw new Error(result.error ?? 'Failed')
 
       const locals: LocalAnalysisRun[] = (result.data ?? []).map(r => ({
@@ -536,7 +549,7 @@ export async function getProjectDocumentsOffline(
 
   if (navigator.onLine) {
     try {
-      const result = await getProjectDocuments(supabase, projectId)
+      const result = await withTimeout(getProjectDocuments(supabase, projectId))
       if (result.status === 'error') throw new Error(result.error ?? 'Failed')
 
       // Update title in any documents already cached for this project
@@ -575,7 +588,7 @@ export async function getDocumentOffline(
 
   if (navigator.onLine) {
     try {
-      const result = await getDocument(supabase, id)
+      const result = await withTimeout(getDocument(supabase, id))
       if (result.status === 'error' || !result.data) throw new Error(result.error ?? 'Not found')
 
       const d = result.data
@@ -620,7 +633,7 @@ export async function getProfileOffline(
 
   if (navigator.onLine) {
     try {
-      const result = await getProfile(supabase, id)
+      const result = await withTimeout(getProfile(supabase, id))
       if (result.status === 'error' || !result.data) throw new Error(result.error ?? 'Not found')
 
       const p = result.data
