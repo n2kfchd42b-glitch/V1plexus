@@ -1,2 +1,5 @@
 import { redirect } from 'next/navigation'
-export default function Page() { redirect('/projects') }
+
+// Institution-level audit is not yet deployed.
+// Redirect individual users to their personal activity trail.
+export default function Page() { redirect('/audit') }

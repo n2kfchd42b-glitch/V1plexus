@@ -10,7 +10,6 @@ import {
   type DuplicateReport, type DuplicateAction, type DuplicateResolution,
 } from '@/lib/data/operations'
 import { saveCleanedVersion } from '@/lib/data/storage'
-import { createClient } from '@/lib/supabase/client'
 import { auditDuplicateResolution } from '@/lib/audit/auditHelpers'
 import { JustificationModal } from '@/components/dataset-hub/JustificationModal'
 import type { JustificationCategory } from '@/types/audit'
@@ -292,9 +291,8 @@ export function DuplicateReviewModal({
         operations: [{ type: 'remove_duplicates', columns: [report.idColumn] }],
         createdBy,
       })
-      const supabase = createClient()
       await auditDuplicateResolution(
-        { supabaseClient: supabase, userId: createdBy, projectId },
+        { userId: createdBy, projectId },
         {
           versionId,
           versionNumber: version.version_number + 1,

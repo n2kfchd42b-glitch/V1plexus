@@ -10,8 +10,6 @@ import {
   BookOpen, FolderOpen, CheckCircle2, AlertTriangle,
 } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils'
-import type { AuditLog } from '@/types/database'
-
 interface GenesisBlock {
   id: string
   timestamp: string
@@ -31,11 +29,6 @@ interface LedgerStats {
 interface ProjectAuditLedgerProps {
   projectId: string
   projectTitle: string
-}
-
-async function sha256(text: string): Promise<string> {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
 export function ProjectAuditLedger({ projectId, projectTitle }: ProjectAuditLedgerProps) {
@@ -90,53 +83,13 @@ export function ProjectAuditLedger({ projectId, projectTitle }: ProjectAuditLedg
     setVerifyStatus('checking')
     setVerifyDetail(null)
     try {
-      // Fetch all project entries in chronological order
-      const { data: entries } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .eq('project_id', projectId)
-        .not('project_chain_entry_hash', 'is', null)
-        .order('timestamp', { ascending: true })
-
-      if (!entries || entries.length === 0) {
-        setVerifyStatus('valid')
-        setVerifyDetail({ total: 0, violations: 0 })
-        return
-      }
-
-      let violations = 0
-      for (let i = 0; i < entries.length; i++) {
-        const entry = entries[i] as AuditLog & {
-          project_chain_prev_hash: string | null
-          project_chain_entry_hash: string | null
-        }
-        const details = (entry.details ?? {}) as Record<string, unknown>
-        const detailsJson = JSON.stringify(details, Object.keys(details).sort())
-        const expectedPrev = i === 0 ? null : (entries[i - 1] as typeof entry).project_chain_entry_hash
-        // Normalise timestamp: Postgres TIMESTAMPTZ returns "...+00:00" with
-        // microseconds, but the hash was computed from new Date().toISOString()
-        // which produces "...Z". Re-parse to align the format.
-        const normalizedTimestamp = new Date(entry.timestamp).toISOString()
-
-        const canonical = [
-          'PROJECT',
-          normalizedTimestamp,
-          entry.actor_id ?? '',
-          entry.action,
-          entry.resource_type,
-          entry.resource_id,
-          detailsJson,
-          expectedPrev ?? 'PROJECT_GENESIS',
-        ].join('|')
-
-        const computed = await sha256(canonical)
-
-        if (computed !== entry.project_chain_entry_hash) { violations++; continue }
-        if (entry.project_chain_prev_hash !== expectedPrev) { violations++ }
-      }
-
-      setVerifyDetail({ total: entries.length, violations })
-      setVerifyStatus(violations === 0 ? 'valid' : 'invalid')
+      // Delegate to the server-side verify route, which is version-aware and
+      // handles batched keyset pagination — avoids pulling all rows to the browser.
+      const res = await fetch(`/api/audit/verify?project_id=${encodeURIComponent(projectId)}`)
+      if (!res.ok) throw new Error(`verify returned ${res.status}`)
+      const result = await res.json()
+      setVerifyDetail({ total: result.total_entries, violations: result.violations?.length ?? 0 })
+      setVerifyStatus(result.verified ? 'valid' : 'invalid')
     } catch {
       setVerifyStatus('invalid')
     }

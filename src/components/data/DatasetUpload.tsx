@@ -10,7 +10,6 @@ import { Badge } from '@/components/ui/badge'
 import { parseFile } from '@/lib/data/parser'
 import { uploadDataset } from '@/lib/data/storage'
 import { useAuth } from '@/hooks/useAuth'
-import { createClient } from '@/lib/supabase/client'
 import { auditDatasetImport } from '@/lib/audit/auditHelpers'
 import type { ParsedDataset, ColumnType } from '@/types/database'
 
@@ -79,9 +78,8 @@ export function DatasetUpload({ projectId, onSuccess, onCancel }: DatasetUploadP
         uploadedBy: user.id,
         parsedData: parsed,
       })
-      const supabase = createClient()
       await auditDatasetImport(
-        { supabaseClient: supabase, userId: user.id, projectId },
+        { userId: user.id, projectId },
         {
           datasetId,
           datasetName: name || file.name,

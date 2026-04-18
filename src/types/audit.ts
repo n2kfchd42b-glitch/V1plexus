@@ -17,6 +17,8 @@ export type AuditAction =
   | 'dataset.imputation.mice'
   | 'dataset.duplicates.resolved'
   | 'dataset.reentry.validated'
+  | 'dataset.reentry.initiated'
+  | 'dataset.reentry.discrepancy.resolved'
   | 'dataset.exploration.created'
   | 'dataset.approved'
   | 'dataset.approval.requested'
@@ -30,6 +32,7 @@ export type AuditAction =
   | 'analysis.run.completed'
   | 'analysis.run.failed'
   | 'analysis.assumption.acknowledged'
+  | 'analysis.reasoning_added'
   // Output operations
   | 'output.checklist.generated'
   | 'output.methods.generated'
@@ -41,6 +44,11 @@ export type AuditAction =
   | 'document.generated'
   | 'document.exported'
   | 'document.submitted'
+  | 'document.approved'
+  | 'document.revision_requested'
+  | 'document.rejected'
+  | 'document.version_saved'
+  | 'document.version_restored'
   // Project operations
   | 'project.created'
   | 'project.updated'
@@ -48,7 +56,14 @@ export type AuditAction =
   | 'project.deleted'
   | 'project.member.added'
   | 'project.member.removed'
+  | 'project.member.invited'
+  | 'project.share_link.generated'
+  | 'project.share_link.revoked'
   | 'progress.note'
+  // Profile & portfolio operations
+  | 'profile.updated'
+  | 'portfolio.certificate.added'
+  | 'portfolio.publication.added'
   // Auth operations
   | 'auth.login'
   | 'auth.logout'
@@ -59,10 +74,14 @@ export type ResourceType =
   | 'dataset_version'
   | 'dataset_branch'
   | 'dataset_exploration'
+  | 'dataset_lineage'
+  | 'dataset_approval_request'
   | 'analysis_run'
   | 'document'
   | 'project'
   | 'profile'
+  | 'portfolio_certificate'
+  | 'portfolio_publication'
 
 export type JustificationCategory =
   | 'equipment_failure'

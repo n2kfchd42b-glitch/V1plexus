@@ -3,16 +3,13 @@
  * Pre-configured audit entries for common operations
  */
 
-import { writeAuditEntry, getActorInfo } from './auditLogger'
-import type { SupabaseClient } from '@supabase/supabase-js'
-import type { AuditDetails } from '@/types/audit'
+import { writeAuditEntry } from './auditLogger'
+import type { AuditDetails, JustificationCategory } from '@/types/audit'
 
 export interface WriteAuditOptions {
-  supabaseClient: SupabaseClient
   userId: string
   projectId?: string
   institutionId?: string
-  ipAddress?: string
 }
 
 /**
@@ -20,7 +17,6 @@ export interface WriteAuditOptions {
  */
 export async function auditDatasetImport(
   {
-    supabaseClient,
     userId,
     projectId,
     institutionId,
@@ -47,18 +43,15 @@ export async function auditDatasetImport(
     },
   }
 
-  return writeAuditEntry(
-    {
-      actor_id: userId,
-      action: 'dataset.imported',
-      resource_type: 'dataset',
-      resource_id: data.datasetId,
-      project_id: projectId,
-      institution_id: institutionId,
-      details,
-    },
-    supabaseClient
-  )
+  return writeAuditEntry({
+    actor_id: userId,
+    action: 'dataset.imported',
+    resource_type: 'dataset',
+    resource_id: data.datasetId,
+    project_id: projectId,
+    institution_id: institutionId,
+    details,
+  })
 }
 
 /**
@@ -66,7 +59,6 @@ export async function auditDatasetImport(
  */
 export async function auditDatasetVersionCommit(
   {
-    supabaseClient,
     userId,
     projectId,
     institutionId,
@@ -80,14 +72,14 @@ export async function auditDatasetVersionCommit(
     commitMessage: string
     fileHash: string
     justification: string
-    justificationCategory?: string
-    operations?: any[]
+    justificationCategory?: JustificationCategory
+    operations?: Record<string, unknown>[]
   }
 ) {
   const details: AuditDetails = {
     summary: data.commitMessage,
     justification: data.justification,
-    justification_category: data.justificationCategory as any,
+    justification_category: data.justificationCategory,
     operation: data.operations ? { operations: data.operations } : undefined,
     version_before: data.parentVersionNumber,
     version_after: data.versionNumber,
@@ -96,18 +88,15 @@ export async function auditDatasetVersionCommit(
     file_hash: data.fileHash,
   }
 
-  return writeAuditEntry(
-    {
-      actor_id: userId,
-      action: 'dataset.version.committed',
-      resource_type: 'dataset_version',
-      resource_id: data.versionId,
-      project_id: projectId,
-      institution_id: institutionId,
-      details,
-    },
-    supabaseClient
-  )
+  return writeAuditEntry({
+    actor_id: userId,
+    action: 'dataset.version.committed',
+    resource_type: 'dataset_version',
+    resource_id: data.versionId,
+    project_id: projectId,
+    institution_id: institutionId,
+    details,
+  })
 }
 
 /**
@@ -115,7 +104,6 @@ export async function auditDatasetVersionCommit(
  */
 export async function auditAnalysisCompletion(
   {
-    supabaseClient,
     userId,
     projectId,
     institutionId,
@@ -140,18 +128,15 @@ export async function auditAnalysisCompletion(
     },
   }
 
-  return writeAuditEntry(
-    {
-      actor_id: userId,
-      action: 'analysis.run.completed',
-      resource_type: 'analysis_run',
-      resource_id: data.runId,
-      project_id: projectId,
-      institution_id: institutionId,
-      details,
-    },
-    supabaseClient
-  )
+  return writeAuditEntry({
+    actor_id: userId,
+    action: 'analysis.run.completed',
+    resource_type: 'analysis_run',
+    resource_id: data.runId,
+    project_id: projectId,
+    institution_id: institutionId,
+    details,
+  })
 }
 
 /**
@@ -159,7 +144,6 @@ export async function auditAnalysisCompletion(
  */
 export async function auditDocumentGeneration(
   {
-    supabaseClient,
     userId,
     projectId,
     institutionId,
@@ -182,18 +166,15 @@ export async function auditDocumentGeneration(
     },
   }
 
-  return writeAuditEntry(
-    {
-      actor_id: userId,
-      action: 'document.generated',
-      resource_type: 'document',
-      resource_id: data.documentId,
-      project_id: projectId,
-      institution_id: institutionId,
-      details,
-    },
-    supabaseClient
-  )
+  return writeAuditEntry({
+    actor_id: userId,
+    action: 'document.generated',
+    resource_type: 'document',
+    resource_id: data.documentId,
+    project_id: projectId,
+    institution_id: institutionId,
+    details,
+  })
 }
 
 /**
@@ -201,7 +182,6 @@ export async function auditDocumentGeneration(
  */
 export async function auditDuplicateResolution(
   {
-    supabaseClient,
     userId,
     projectId,
     institutionId,
@@ -231,18 +211,15 @@ export async function auditDuplicateResolution(
     version_after: data.versionNumber,
   }
 
-  return writeAuditEntry(
-    {
-      actor_id: userId,
-      action: 'dataset.duplicates.resolved',
-      resource_type: 'dataset_version',
-      resource_id: data.versionId,
-      project_id: projectId,
-      institution_id: institutionId,
-      details,
-    },
-    supabaseClient
-  )
+  return writeAuditEntry({
+    actor_id: userId,
+    action: 'dataset.duplicates.resolved',
+    resource_type: 'dataset_version',
+    resource_id: data.versionId,
+    project_id: projectId,
+    institution_id: institutionId,
+    details,
+  })
 }
 
 /**
@@ -250,7 +227,6 @@ export async function auditDuplicateResolution(
  */
 export async function auditMiceImputation(
   {
-    supabaseClient,
     userId,
     projectId,
     institutionId,
@@ -278,16 +254,13 @@ export async function auditMiceImputation(
     version_after: data.versionNumber,
   }
 
-  return writeAuditEntry(
-    {
-      actor_id: userId,
-      action: 'dataset.imputation.mice',
-      resource_type: 'dataset_version',
-      resource_id: data.versionId,
-      project_id: projectId,
-      institution_id: institutionId,
-      details,
-    },
-    supabaseClient
-  )
+  return writeAuditEntry({
+    actor_id: userId,
+    action: 'dataset.imputation.mice',
+    resource_type: 'dataset_version',
+    resource_id: data.versionId,
+    project_id: projectId,
+    institution_id: institutionId,
+    details,
+  })
 }

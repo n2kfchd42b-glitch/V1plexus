@@ -40,8 +40,26 @@ async function sha256Hex(canonical: string): Promise<string> {
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-function canonicalDetails(details: Record<string, unknown>): string {
+// v0 (legacy): JSON.stringify with array replacer — only emits top-level keys,
+// so nested objects like `details.operation` are serialized as {}.
+// Used only by the verify route when re-computing hashes for old entries.
+export function canonicalDetailsV0(details: Record<string, unknown>): string {
   return JSON.stringify(details, Object.keys(details).sort())
+}
+
+// v1: true recursive key sort — all nested content is committed to the hash.
+// All new entries use this canonical.
+export function canonicalDetailsV1(details: Record<string, unknown>): string {
+  function sortRecursive(obj: unknown): unknown {
+    if (obj === null || typeof obj !== 'object') return obj
+    if (Array.isArray(obj)) return (obj as unknown[]).map(sortRecursive)
+    const o = obj as Record<string, unknown>
+    return Object.keys(o).sort().reduce<Record<string, unknown>>((acc, k) => {
+      acc[k] = sortRecursive(o[k])
+      return acc
+    }, {})
+  }
+  return JSON.stringify(sortRecursive(details))
 }
 
 function buildResourceCanonical(
@@ -56,7 +74,7 @@ function buildResourceCanonical(
 ): string {
   return [
     timestamp, actorId, action, resourceType, resourceId,
-    projectId ?? '', canonicalDetails(details), prevHash ?? 'GENESIS',
+    projectId ?? '', canonicalDetailsV1(details), prevHash ?? 'GENESIS',
   ].join('|')
 }
 
@@ -71,7 +89,7 @@ function buildProjectCanonical(
 ): string {
   return [
     'PROJECT', timestamp, actorId, action, resourceType, resourceId,
-    canonicalDetails(details), projectPrevHash ?? 'PROJECT_GENESIS',
+    canonicalDetailsV1(details), projectPrevHash ?? 'PROJECT_GENESIS',
   ].join('|')
 }
 
@@ -243,6 +261,7 @@ export async function writeAuditEntry(
       p_expected_project_prev_hash: projectPrev,
       p_project_entry_hash: projectHash,
       p_idempotency_key: idempotency_key,
+      p_canonical_version: 1,
     })
 
     if (error) throw error

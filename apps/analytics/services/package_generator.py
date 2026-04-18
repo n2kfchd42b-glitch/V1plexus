@@ -7,10 +7,13 @@ import hashlib
 import io
 import os
 import random
+import secrets
 import string
 import zipfile
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
+
+from .audit_service import AuditService
 
 
 # ---------------------------------------------------------------------------
@@ -46,7 +49,7 @@ def create_verification_token(
 def _generate_token_string() -> str:
     year = datetime.now(timezone.utc).year
     chars = string.ascii_uppercase + string.digits
-    random_part = "".join(random.choices(chars, k=5))
+    random_part = "".join(secrets.choice(chars) for _ in range(5))
     return f"PLX-VRF-{year}-{random_part}"
 
 
@@ -99,7 +102,7 @@ def generate_checklist_content(
 <td style="padding:8px; border:1px solid #e5e7eb;">{item.get('item_number','')}</td>
 <td style="padding:8px; border:1px solid #e5e7eb;">{item.get('requirement','')}</td>
 <td style="padding:8px; border:1px solid #e5e7eb; color:{status_color};">{item.get('status','').replace('_',' ').title()}</td>
-<td style="padding:8px; border:1px solid #e5e7eb;">{response[:200]}</td>
+<td style="padding:8px; border:1px solid #e5e7eb;">{response}</td>
 </tr>"""
 
     return f"""<!DOCTYPE html>
@@ -147,17 +150,18 @@ def generate_quality_pdf_content(quality_report: Optional[Dict]) -> str:
 
 def generate_audit_summary_content(audit_entries: List[Dict]) -> str:
     rows = ""
-    for entry in audit_entries[:50]:
+    for entry in audit_entries:
         action = entry.get("action", "")
-        actor = entry.get("actor_id", "")[:8]
+        actor_id = entry.get("actor_id", "") or ""
+        actor_display = actor_id[:8] + ("…" if len(actor_id) > 8 else "")
         created = entry.get("timestamp", "")[:19]
         details = entry.get("details") or {}
         summary = details.get("summary") or ""
         rows += f"""<tr>
 <td style="padding:6px; border:1px solid #e5e7eb;">{created}</td>
 <td style="padding:6px; border:1px solid #e5e7eb;">{action}</td>
-<td style="padding:6px; border:1px solid #e5e7eb;">{actor}...</td>
-<td style="padding:6px; border:1px solid #e5e7eb;">{summary[:100]}</td>
+<td style="padding:6px; border:1px solid #e5e7eb;">{actor_display}</td>
+<td style="padding:6px; border:1px solid #e5e7eb;">{summary}</td>
 </tr>"""
 
     return f"""<!DOCTYPE html>
@@ -165,7 +169,7 @@ def generate_audit_summary_content(audit_entries: List[Dict]) -> str:
 <head><meta charset="utf-8"><title>Audit Trail Summary</title></head>
 <body style="font-family: sans-serif; max-width: 1000px; margin: 40px auto; padding: 20px;">
 <h1>PLEXUS Audit Trail Summary</h1>
-<p>Showing {min(len(audit_entries), 50)} of {len(audit_entries)} audit entries.</p>
+<p>{len(audit_entries)} audit entries recorded for this project.</p>
 <table style="width:100%; border-collapse:collapse; font-size:13px;">
 <thead><tr style="background:#f3f4f6;">
 <th style="padding:6px; border:1px solid #e5e7eb; text-align:left;">Timestamp</th>
@@ -230,7 +234,7 @@ def generate_verification_content(token: str, package_hash: str) -> str:
 <h1>PLEXUS Verification Information</h1>
 <p><strong>Verification Token:</strong> <code style="font-family: monospace;">{token}</code></p>
 <p><strong>Package Hash:</strong> <code style="font-family: monospace;">{package_hash[:32]}...</code></p>
-<p>To verify this research record, visit: <strong>https://plexus.research/verify?token={token}</strong></p>
+<p>To verify this research record, visit: <strong>https://plexus.science/verify?token={token}</strong></p>
 <p><em>This token provides third-party access to the verified audit chain for this dataset.</em></p>
 </body>
 </html>"""
@@ -274,7 +278,7 @@ async def generate_output_package(
         audit_resp = (
             supabase_client.table("audit_logs")
             .select("*")
-            .eq("resource_id", dataset_id)
+            .eq("project_id", project_id)
             .order("timestamp", desc=False)
             .execute()
         )
@@ -431,27 +435,36 @@ async def generate_output_package(
             },
         }).eq("id", package_id).execute()
 
-        # Write audit entry via the immutable ledger RPC (handles entry_hash chain)
-        try:
-            supabase_client.rpc("append_audit_entry", {
-                "p_actor_id": generated_by,
-                "p_action": "dataset.package.generated",
-                "p_resource_type": "dataset",
-                "p_resource_id": dataset_id,
-                "p_project_id": project_id,
-                "p_details": {
-                    "summary": f"Output package generated: {len(include_components)} components",
-                    "operation": {
-                        "package_id": package_id,
-                        "components": include_components,
-                        "guideline": guideline,
-                        "package_hash": package_hash,
-                        "storage_path": storage_path,
-                    },
+        # Write audit entry via AuditService (uses append_audit_entry RPC with
+        # correct canonical, advisory lock, idempotency, and sequence number).
+        audit_svc = AuditService(supabase_client)
+        audit_svc.write_entry(
+            actor_id=generated_by,
+            action="output.package.generated",
+            resource_type="dataset_version",
+            resource_id=version_id,
+            project_id=project_id,
+            details={
+                "summary": f"Output package generated: {len(include_components)} components",
+                "operation": {
+                    "package_id": package_id,
+                    "components": include_components,
+                    "guideline": guideline,
+                    "package_hash": package_hash,
+                    "storage_path": storage_path,
+                    "verification_token": token,
                 },
-            }).execute()
-        except Exception as audit_exc:
-            print(f"[package_generator] Audit log failed (non-fatal): {audit_exc}", flush=True)
+            },
+        )
+
+        # Snapshot the project chain Merkle root to create an external commitment
+        # anchor for this moment in the audit trail.
+        try:
+            supabase_client.rpc(
+                "snapshot_audit_merkle_root", {"p_project_id": project_id}
+            ).execute()
+        except Exception as merkle_exc:
+            print(f"[package_generator] Merkle snapshot failed (non-fatal): {merkle_exc}", flush=True)
 
     except Exception as exc:
         print(f"[package_generator] Background task failed for {package_id}: {exc}", flush=True)

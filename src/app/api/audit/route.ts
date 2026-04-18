@@ -40,46 +40,45 @@ export async function POST(request: NextRequest) {
     const service = createServiceClient()
     const timestamp = new Date().toISOString()
     const details = body.details ?? { summary: body.action }
-
-    // Read tails (informational — RPC re-validates under advisory lock)
-    const { data: lastResource } = await service
-      .from('audit_logs')
-      .select('entry_hash')
-      .eq('resource_type', body.resource_type)
-      .eq('resource_id', body.resource_id)
-      .order('timestamp', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    const resourcePrev: string | null = lastResource?.entry_hash ?? null
-
-    let projectPrev: string | null = null
-    if (body.project_id) {
-      const { data: lastProject } = await service
-        .from('audit_logs')
-        .select('project_chain_entry_hash')
-        .eq('project_id', body.project_id)
-        .not('project_chain_entry_hash', 'is', null)
-        .order('timestamp', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      projectPrev = lastProject?.project_chain_entry_hash ?? null
-    }
-
-    const { resourceEntryHash, projectEntryHash } = await computeChainHashes(
-      { ...body, details },
-      timestamp,
-      resourcePrev,
-      projectPrev,
-    )
-
     const idempotencyKey = body.idempotency_key ?? crypto.randomUUID()
 
-    // Retry-once loop: if the advisory lock serialized us behind another
-    // writer, our pre-read tail may be stale → RPC raises serialization_failure.
-    // Refresh tails and retry exactly once. Idempotency_key prevents dupes.
+    // Retry-once loop: tails are re-read on each attempt so that a
+    // serialization_failure (advisory-lock conflict) can be retried with
+    // fresh prev-hashes. Same idempotency_key prevents double-writes if the
+    // first attempt committed before the exception was raised.
     let attempt = 0
     let lastError: unknown = null
     while (attempt < 2) {
+      const { data: lastResource } = await service
+        .from('audit_logs')
+        .select('entry_hash')
+        .eq('resource_type', body.resource_type)
+        .eq('resource_id', body.resource_id)
+        .order('timestamp', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      const resourcePrev: string | null = lastResource?.entry_hash ?? null
+
+      let projectPrev: string | null = null
+      if (body.project_id) {
+        const { data: lastProject } = await service
+          .from('audit_logs')
+          .select('project_chain_entry_hash')
+          .eq('project_id', body.project_id)
+          .not('project_chain_entry_hash', 'is', null)
+          .order('timestamp', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        projectPrev = lastProject?.project_chain_entry_hash ?? null
+      }
+
+      const { resourceEntryHash, projectEntryHash } = await computeChainHashes(
+        { ...body, details },
+        timestamp,
+        resourcePrev,
+        projectPrev,
+      )
+
       const { data, error } = await service.rpc('append_audit_entry', {
         p_actor_id: body.actor_id,
         p_action: body.action,
@@ -95,6 +94,7 @@ export async function POST(request: NextRequest) {
         p_expected_project_prev_hash: projectPrev,
         p_project_entry_hash: projectEntryHash,
         p_idempotency_key: idempotencyKey,
+        p_canonical_version: 1,
       })
 
       if (!error) {
@@ -108,23 +108,10 @@ export async function POST(request: NextRequest) {
       }
 
       lastError = error
-      // Only retry on our explicit conflict error from the RPC
       const code = (error as { code?: string }).code
-      if (code !== '40001' /* serialization_failure */ || attempt >= 1) break
+      const isRetryable = code === '40001' /* serialization_failure */ || code === '55P03' /* lock_not_available */
+      if (!isRetryable || attempt >= 1) break
       attempt++
-      // Re-read tails before retry
-      const refresh = await service
-        .from('audit_logs')
-        .select('entry_hash')
-        .eq('resource_type', body.resource_type)
-        .eq('resource_id', body.resource_id)
-        .order('timestamp', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      const newResourcePrev = refresh.data?.entry_hash ?? null
-      if (newResourcePrev === resourcePrev) break
-      // If tail moved, bail — client must retry with fresh state (idempotency_key guards)
-      break
     }
 
     const e = lastError as { message?: string; code?: string; details?: string; hint?: string } | null
@@ -152,10 +139,12 @@ export async function GET(request: NextRequest) {
     const sp = request.nextUrl.searchParams
     const projectId    = sp.get('project_id')
     const resourceType = sp.get('resource_type')
+    const resourceId   = sp.get('resource_id')
     const action       = sp.get('action')
     const actorId      = sp.get('actor_id')
     const dateFrom     = sp.get('date_from')
     const dateTo       = sp.get('date_to')
+    const search       = sp.get('search')?.trim() || null
     const page         = Math.max(1, parseInt(sp.get('page') || '1', 10))
     const limit        = Math.min(200, Math.max(1, parseInt(sp.get('limit') || '50', 10)))
     const offset       = (page - 1) * limit
@@ -165,12 +154,21 @@ export async function GET(request: NextRequest) {
       .select('*, actor:actor_id(full_name)', { count: 'exact' })
       .order('timestamp', { ascending: false })
 
-    if (projectId)    query = query.eq('project_id', projectId)
-    if (resourceType) query = query.eq('resource_type', resourceType)
-    if (action)       query = query.eq('action', action)
-    if (actorId)      query = query.eq('actor_id', actorId)
-    if (dateFrom)     query = query.gte('timestamp', dateFrom)
-    if (dateTo)       query = query.lte('timestamp', dateTo + 'T23:59:59Z')
+    if (projectId)              query = query.eq('project_id', projectId)
+    if (resourceType)           query = query.eq('resource_type', resourceType)
+    if (resourceId)             query = query.eq('resource_id', resourceId)
+    if (action)                 query = query.eq('action', action)
+    if (actorId)                query = query.eq('actor_id', actorId)
+    if (dateFrom)               query = query.gte('timestamp', dateFrom)
+    // dateTo is treated as an inclusive date boundary; if a bare date (YYYY-MM-DD)
+    // is supplied, cap it at end-of-day UTC. If a full ISO string is given, use as-is.
+    if (dateTo) {
+      const upperBound = /^\d{4}-\d{2}-\d{2}$/.test(dateTo)
+        ? dateTo + 'T23:59:59.999Z'
+        : dateTo
+      query = query.lte('timestamp', upperBound)
+    }
+    if (search)                 query = query.ilike('details->>summary', `%${search}%`)
 
     query = query.range(offset, offset + limit - 1)
 
@@ -180,10 +178,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'query_failed' }, { status: 500 })
     }
 
-    const entries: AuditEntry[] = (data || []).map((entry: Record<string, unknown>) => ({
-      ...(entry as unknown as AuditEntry),
-      actor_name: (entry.actor as { full_name?: string } | null)?.full_name ?? 'Unknown',
-    }))
+    const entries: AuditEntry[] = (data || []).map((entry: Record<string, unknown>) => {
+      const fullName = (entry.actor as { full_name?: string } | null)?.full_name ?? 'Unknown'
+      const initials = fullName === 'Unknown' ? 'U'
+        : fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+      return {
+        ...(entry as unknown as AuditEntry),
+        actor_name: fullName,
+        actor_initials: initials,
+      }
+    })
 
     return NextResponse.json({
       entries,

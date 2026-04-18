@@ -1,12 +1,23 @@
 """
-FastAPI audit service for Python backend
-Writes audit entries from analytics microservice
+FastAPI audit service for Python backend.
+
+All writes go through the append_audit_entry RPC so every Python-sourced
+entry is:
+  - Serialized under a per-chain advisory lock (no race conditions)
+  - Assigned a monotonic sequence_number
+  - Marked hardened = TRUE (subject to chain integrity constraints)
+  - Protected by idempotency_key (safe to retry)
+
+Hash canonical exactly mirrors auditLogger.ts so JS verification passes
+on all Python-written entries.
 """
 
 import hashlib
 import json
+import uuid
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
+
 from pydantic import BaseModel
 
 
@@ -22,18 +33,36 @@ class AuditEntryData(BaseModel):
 
 
 class AuditService:
-    """Service for writing audit entries from FastAPI backend"""
+    """Service for writing audit entries from the FastAPI backend."""
 
     def __init__(self, supabase_client):
-        """
-        Initialize with Supabase client
-        
-        Args:
-            supabase_client: Initialized Supabase client
-        """
         self.supabase = supabase_client
 
-    def _compute_hash(
+    # ── Canonical details serialization ──────────────────────────────────────
+
+    @staticmethod
+    def _canonical_details(details: Dict[str, Any]) -> str:
+        """
+        Python equivalent of canonicalDetailsV1 in auditLogger.ts.
+
+        Recursively sorts all dict keys at every nesting level, then serializes
+        with compact separators. Produces byte-for-byte identical output to the
+        JS v1 canonical so entries written here pass the verification route.
+
+        All entries from this service are written with canonical_version=1.
+        """
+        def _sort_recursive(obj: Any) -> Any:
+            if isinstance(obj, dict):
+                return {k: _sort_recursive(v) for k, v in sorted(obj.items())}
+            if isinstance(obj, list):
+                return [_sort_recursive(item) for item in obj]
+            return obj
+
+        return json.dumps(_sort_recursive(details), separators=(',', ':'), ensure_ascii=False)
+
+    # ── Hash computation ──────────────────────────────────────────────────────
+
+    def _compute_resource_hash(
         self,
         timestamp: str,
         actor_id: str,
@@ -44,23 +73,7 @@ class AuditService:
         details: Dict[str, Any],
         prev_hash: Optional[str],
     ) -> str:
-        """
-        Compute SHA-256 hash using canonical string representation
-
-        Args:
-            timestamp: ISO format timestamp
-            actor_id: User ID
-            action: Action type
-            resource_type: Type of resource affected
-            resource_id: ID of resource affected
-            project_id: Optional project ID
-            details: Details dict (will be sorted for determinism)
-            prev_hash: Previous entry hash in chain
-
-        Returns:
-            SHA-256 hex digest
-        """
-        details_json = json.dumps(details, sort_keys=True, default=str)
+        """Resource-scoped hash. Must match buildResourceCanonical in auditLogger.ts."""
         canonical = "|".join([
             timestamp,
             actor_id or "",
@@ -68,7 +81,7 @@ class AuditService:
             resource_type,
             resource_id,
             project_id or "",
-            details_json,
+            self._canonical_details(details),
             prev_hash or "GENESIS",
         ])
         return hashlib.sha256(canonical.encode()).hexdigest()
@@ -83,12 +96,7 @@ class AuditService:
         details: Dict[str, Any],
         project_chain_prev_hash: Optional[str],
     ) -> str:
-        """
-        Compute SHA-256 hash for the project-scoped chain.
-        Canonical format mirrors the TypeScript buildProjectChainCanonical:
-        PROJECT|timestamp|actor_id|action|resource_type|resource_id|details_json|prev_hash
-        """
-        details_json = json.dumps(details, sort_keys=True, default=str)
+        """Project-scoped chain hash. Must match buildProjectCanonical in auditLogger.ts."""
         canonical = "|".join([
             "PROJECT",
             timestamp,
@@ -96,10 +104,40 @@ class AuditService:
             action,
             resource_type,
             resource_id,
-            details_json,
+            self._canonical_details(details),
             project_chain_prev_hash or "PROJECT_GENESIS",
         ])
         return hashlib.sha256(canonical.encode()).hexdigest()
+
+    # ── Chain tail helpers ────────────────────────────────────────────────────
+
+    def _fetch_resource_tail(self, resource_type: str, resource_id: str) -> Optional[str]:
+        result = (
+            self.supabase.table("audit_logs")
+            .select("entry_hash")
+            .eq("resource_type", resource_type)
+            .eq("resource_id", resource_id)
+            .order("timestamp", desc=True)
+            .order("id", desc=True)
+            .limit(1)
+            .execute()
+        )
+        return result.data[0]["entry_hash"] if result.data else None
+
+    def _fetch_project_chain_tail(self, project_id: str) -> Optional[str]:
+        result = (
+            self.supabase.table("audit_logs")
+            .select("project_chain_entry_hash")
+            .eq("project_id", project_id)
+            .not_.is_("project_chain_entry_hash", "null")
+            .order("timestamp", desc=True)
+            .order("id", desc=True)
+            .limit(1)
+            .execute()
+        )
+        return result.data[0]["project_chain_entry_hash"] if result.data else None
+
+    # ── Core write ────────────────────────────────────────────────────────────
 
     def write_entry(
         self,
@@ -112,111 +150,89 @@ class AuditService:
         institution_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Write an audit entry to the ledger
-        
-        Args:
-            actor_id: User making the action
-            action: Action being performed
-            resource_type: Type of resource affected
-            resource_id: ID of resource affected
-            details: Details of the action (must include 'summary' key)
-            project_id: Optional project ID
-            institution_id: Optional institution ID
-            
-        Returns:
-            Dict with success status and entry_id if successful
-            Failures are never raised - audit failures don't crash operations
+        Write an audit entry via the append_audit_entry RPC.
+
+        The RPC takes a per-chain advisory lock, validates the tail hasn't
+        moved, assigns a monotonic sequence_number, and marks the row
+        hardened = TRUE. Retries once on serialization_failure (40001) or
+        lock_not_available (55P03) with freshly-read tails and the same
+        idempotency_key to prevent double-writes.
+
+        Failures never raise — audit is a side-effect, not a correctness
+        dependency — but the return dict always includes success + error.
         """
         try:
-            # Get previous hash for this resource
-            result = (
-                self.supabase.table("audit_logs")
-                .select("entry_hash")
-                .eq("resource_type", resource_type)
-                .eq("resource_id", resource_id)
-                .order("timestamp", desc=True)
-                .limit(1)
-                .execute()
-            )
-
-            prev_hash = None
-            if result.data:
-                prev_hash = result.data[0]["entry_hash"]
-
-            # Build timestamp
             timestamp = datetime.now(timezone.utc).isoformat()
+            idempotency_key = str(uuid.uuid4())
 
-            # Compute resource-scoped hash
-            entry_hash = self._compute_hash(
-                timestamp,
-                actor_id,
-                action,
-                resource_type,
-                resource_id,
-                project_id or "",
-                details,
-                prev_hash or "GENESIS",
+            resource_prev = self._fetch_resource_tail(resource_type, resource_id)
+            project_prev = (
+                self._fetch_project_chain_tail(project_id) if project_id else None
             )
 
-            # Compute project-scoped chain hash (when project_id is present)
-            project_chain_prev_hash = None
-            project_chain_entry_hash = None
-
-            if project_id:
-                proj_result = (
-                    self.supabase.table("audit_logs")
-                    .select("project_chain_entry_hash")
-                    .eq("project_id", project_id)
-                    .not_.is_("project_chain_entry_hash", "null")
-                    .order("timestamp", desc=True)
-                    .limit(1)
-                    .execute()
+            def _call_rpc(res_prev: Optional[str], proj_prev: Optional[str]) -> Any:
+                res_hash = self._compute_resource_hash(
+                    timestamp, actor_id, action, resource_type, resource_id,
+                    project_id, details, res_prev,
                 )
-                if proj_result.data:
-                    project_chain_prev_hash = proj_result.data[0]["project_chain_entry_hash"]
-
-                project_chain_entry_hash = self._compute_project_chain_hash(
-                    timestamp,
-                    actor_id,
-                    action,
-                    resource_type,
-                    resource_id,
-                    details,
-                    project_chain_prev_hash,
+                proj_hash = (
+                    self._compute_project_chain_hash(
+                        timestamp, actor_id, action, resource_type, resource_id,
+                        details, proj_prev,
+                    )
+                    if project_id else None
                 )
+                return self.supabase.rpc("append_audit_entry", {
+                    "p_actor_id":                    actor_id,
+                    "p_action":                      action,
+                    "p_resource_type":               resource_type,
+                    "p_resource_id":                 resource_id,
+                    "p_project_id":                  project_id,
+                    "p_institution_id":              institution_id,
+                    "p_details":                     details,
+                    "p_ip_address":                  None,
+                    "p_timestamp":                   timestamp,
+                    "p_expected_resource_prev_hash": res_prev,
+                    "p_resource_entry_hash":         res_hash,
+                    "p_expected_project_prev_hash":  proj_prev,
+                    "p_project_entry_hash":          proj_hash,
+                    "p_idempotency_key":             idempotency_key,
+                    "p_canonical_version":           1,
+                }).execute()
 
-            # Insert audit entry
-            insert_result = (
-                self.supabase.table("audit_logs")
-                .insert({
-                    "timestamp": timestamp,
-                    "actor_id": actor_id,
-                    "action": action,
-                    "resource_type": resource_type,
-                    "resource_id": resource_id,
-                    "project_id": project_id,
-                    "institution_id": institution_id,
-                    "details": details,
-                    "prev_hash": prev_hash,
-                    "entry_hash": entry_hash,
-                    "project_chain_prev_hash": project_chain_prev_hash,
-                    "project_chain_entry_hash": project_chain_entry_hash,
-                })
-                .execute()
-            )
+            # First attempt
+            try:
+                result = _call_rpc(resource_prev, project_prev)
+            except Exception as first_err:
+                code = getattr(first_err, 'code', '') or str(first_err)
+                if any(c in code for c in ('40001', '55P03', 'serialization_failure', 'lock_not_available')):
+                    # Chain tail moved or lock contention — re-read tails and retry once.
+                    # The same idempotency_key prevents a double-write if the first
+                    # attempt actually committed before the exception was raised.
+                    resource_prev = self._fetch_resource_tail(resource_type, resource_id)
+                    project_prev = (
+                        self._fetch_project_chain_tail(project_id) if project_id else None
+                    )
+                    result = _call_rpc(resource_prev, project_prev)
+                else:
+                    raise
 
-            return {
-                "success": True,
-                "entry_id": insert_result.data[0]["id"],
-            }
+            rows = result.data if isinstance(result.data, list) else ([result.data] if result.data else [])
+            if rows and rows[0]:
+                row = rows[0]
+                return {
+                    "success": True,
+                    "entry_id": row.get("id"),
+                    "sequence_number": row.get("sequence_number"),
+                    "idempotent_replay": row.get("idempotent_replay", False),
+                }
+            return {"success": False, "error": "append_audit_entry returned no data"}
 
         except Exception as e:
-            # Never crash calling operation - log and return error
-            print(f"Audit write failed: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-            }
+            print(f"Audit write failed: {e}", flush=True)
+            return {"success": False, "error": str(e)}
+
+    # ── Typed convenience methods ─────────────────────────────────────────────
 
     def write_analysis_completion(
         self,
@@ -229,22 +245,6 @@ class AuditService:
         n_observations: int,
         duration_seconds: float,
     ) -> Dict[str, Any]:
-        """
-        Write audit entry for analysis completion
-        
-        Args:
-            actor_id: User who ran the analysis
-            analysis_run_id: ID of the analysis run
-            analysis_type: Type of analysis performed
-            dataset_version_id: Dataset version used
-            dataset_id: Dataset ID
-            project_id: Project ID
-            n_observations: Number of observations analyzed
-            duration_seconds: Duration of analysis
-            
-        Returns:
-            Result dict with success status
-        """
         return self.write_entry(
             actor_id=actor_id,
             action="analysis.run.completed",
@@ -252,7 +252,9 @@ class AuditService:
             resource_id=analysis_run_id,
             project_id=project_id,
             details={
-                "summary": f"{analysis_type} completed on dataset",
+                "summary": f"{analysis_type} analysis completed on dataset",
+                "analysis_type": analysis_type,
+                "dataset_version_id": dataset_version_id,
                 "operation": {
                     "analysis_type": analysis_type,
                     "dataset_id": dataset_id,
@@ -274,22 +276,6 @@ class AuditService:
         n_iterations: int,
         rows_affected: int,
     ) -> Dict[str, Any]:
-        """
-        Write audit entry for MICE imputation
-        
-        Args:
-            actor_id: User who ran imputation
-            version_id: New version ID
-            dataset_id: Dataset ID
-            project_id: Project ID
-            columns_imputed: List of imputed columns
-            justification: Researcher justification
-            n_iterations: Number of MICE iterations
-            rows_affected: Number of rows affected
-            
-        Returns:
-            Result dict with success status
-        """
         return self.write_entry(
             actor_id=actor_id,
             action="dataset.imputation.mice",

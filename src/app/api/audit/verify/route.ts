@@ -18,6 +18,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createHash } from 'crypto'
+import { canonicalDetailsV0, canonicalDetailsV1 } from '@/lib/audit/auditLogger'
 import type { ChainVerificationResult, ChainViolation } from '@/types/audit'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -25,6 +26,10 @@ const BATCH_SIZE = 5_000
 
 function sha256(text: string): string {
   return createHash('sha256').update(text).digest('hex')
+}
+
+function pickCanonical(details: Record<string, unknown>, version: number): string {
+  return version >= 1 ? canonicalDetailsV1(details) : canonicalDetailsV0(details)
 }
 
 function buildResourceCanonical(
@@ -36,11 +41,11 @@ function buildResourceCanonical(
   projectId: string | null,
   details: Record<string, unknown>,
   prevHash: string | null,
+  canonicalVersion: number,
 ): string {
-  const detailsJson = JSON.stringify(details, Object.keys(details).sort())
   return [
     timestamp, actorId || '', action, resourceType, resourceId,
-    projectId || '', detailsJson, prevHash || 'GENESIS',
+    projectId || '', pickCanonical(details, canonicalVersion), prevHash || 'GENESIS',
   ].join('|')
 }
 
@@ -52,11 +57,11 @@ function buildProjectCanonical(
   resourceId: string,
   details: Record<string, unknown>,
   projectChainPrevHash: string | null,
+  canonicalVersion: number,
 ): string {
-  const detailsJson = JSON.stringify(details, Object.keys(details).sort())
   return [
     'PROJECT', timestamp, actorId || '', action, resourceType, resourceId,
-    detailsJson, projectChainPrevHash || 'PROJECT_GENESIS',
+    pickCanonical(details, canonicalVersion), projectChainPrevHash || 'PROJECT_GENESIS',
   ].join('|')
 }
 
@@ -76,6 +81,7 @@ interface AuditRow {
   project_chain_prev_hash: string | null
   project_chain_entry_hash: string | null
   sequence_number: number | null
+  canonical_version: number | null
 }
 
 export async function GET(request: NextRequest) {
@@ -146,13 +152,14 @@ export async function GET(request: NextRequest) {
         // but the hash was computed from new Date().toISOString() with ms + "Z".
         const normalizedTs = new Date(entry.timestamp).toISOString()
         const details = entry.details ?? {}
+        const canonVer = entry.canonical_version ?? 0
 
         if (useProjectChain) {
           const expectedHash = sha256(
             buildProjectCanonical(
               normalizedTs, entry.actor_id, entry.action,
               entry.resource_type, entry.resource_id,
-              details, prevTailHash,
+              details, prevTailHash, canonVer,
             ),
           )
           if (expectedHash !== entry.project_chain_entry_hash) {
@@ -178,7 +185,7 @@ export async function GET(request: NextRequest) {
             buildResourceCanonical(
               normalizedTs, entry.actor_id, entry.action,
               entry.resource_type, entry.resource_id, entry.project_id,
-              details, prevTailHash,
+              details, prevTailHash, canonVer,
             ),
           )
           if (expectedHash !== entry.entry_hash) {

@@ -19,20 +19,44 @@ interface AuditFiltersProps {
 }
 
 const ACTIONS = [
+  // Dataset
   'dataset.imported', 'dataset.deleted', 'dataset.archived', 'dataset.unarchived',
-  'dataset.version.committed', 'dataset.duplicates.resolved', 'dataset.reentry.validated',
-  'dataset.imputation.mice', 'dataset.approved',
-  'dataset.approval.requested', 'dataset.approval.rejected', 'dataset.approval.revision_requested',
-  'dataset.verification.token_created',
-  'analysis.run.saved', 'analysis.run.deleted', 'analysis.run.completed', 'analysis.run.failed',
-  'analysis.assumption.acknowledged',
+  'dataset.version.created', 'dataset.version.committed',
+  'dataset.branch.created', 'dataset.branch.merged',
+  'dataset.rows.dropped', 'dataset.column.recoded', 'dataset.imputation.mice',
+  'dataset.duplicates.resolved',
+  'dataset.reentry.validated', 'dataset.reentry.initiated', 'dataset.reentry.discrepancy.resolved',
+  'dataset.exploration.created',
+  'dataset.approved', 'dataset.approval.requested', 'dataset.approval.rejected',
+  'dataset.approval.revision_requested', 'dataset.verification.token_created',
+  // Analysis
+  'analysis.run.saved', 'analysis.run.deleted', 'analysis.run.started',
+  'analysis.run.completed', 'analysis.run.failed',
+  'analysis.assumption.acknowledged', 'analysis.reasoning_added',
+  // Output
   'output.checklist.generated', 'output.methods.generated', 'output.package.generated',
-  'document.created', 'document.deleted', 'document.edited', 'document.generated', 'document.exported', 'document.submitted',
+  // Document
+  'document.created', 'document.deleted', 'document.edited', 'document.generated',
+  'document.exported', 'document.submitted', 'document.approved',
+  'document.revision_requested', 'document.rejected',
+  'document.version_saved', 'document.version_restored',
+  // Project
   'project.created', 'project.updated', 'project.archived', 'project.deleted',
-  'project.member.added', 'project.member.removed',
+  'project.member.added', 'project.member.removed', 'project.member.invited',
+  'project.share_link.generated', 'project.share_link.revoked',
+  'progress.note',
+  // Profile & portfolio
+  'profile.updated', 'portfolio.certificate.added', 'portfolio.publication.added',
+  // Auth
+  'auth.login', 'auth.logout', 'auth.password.changed',
 ]
 
-const RESOURCE_TYPES = ['dataset', 'dataset_version', 'analysis_run', 'document', 'project', 'profile']
+const RESOURCE_TYPES = [
+  'dataset', 'dataset_version', 'dataset_branch', 'dataset_exploration',
+  'dataset_lineage', 'dataset_approval_request',
+  'analysis_run', 'document', 'project', 'profile',
+  'portfolio_certificate', 'portfolio_publication',
+]
 
 export function AuditFilters({ filters, onChange }: AuditFiltersProps) {
   const update = (patch: Partial<AuditFilterValues>) => onChange({ ...filters, ...patch })
