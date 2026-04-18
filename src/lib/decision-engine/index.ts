@@ -20,6 +20,7 @@ import type { AnalysisType } from '@/types/database'
 export const ANALYSIS_TYPE_MAPPING: Record<AnalysisTypeId, AnalysisType> = {
   descriptive_statistics: 'descriptive',
   logistic_regression: 'logistic_regression',
+  multinomial_regression: 'multinomial_regression',
   linear_regression: 'multiple_regression',
   poisson_regression: 'poisson_regression',
   chi_square: 'chi_square',
@@ -62,6 +63,7 @@ export function buildBackendConfig(config: AnalysisConfig): Record<string, unkno
     }
 
     case 'logistic_regression':
+    case 'multinomial_regression':
       return {
         outcome: outcome ?? '',
         predictors: [exposure, ...covariates].filter(Boolean) as string[],
@@ -70,8 +72,8 @@ export function buildBackendConfig(config: AnalysisConfig): Record<string, unkno
 
     case 'linear_regression':
       return {
-        outcome: outcome ?? '',
-        predictors: [exposure, ...covariates].filter(Boolean) as string[],
+        dependent: outcome ?? '',
+        independents: [exposure, ...covariates].filter(Boolean) as string[],
         confidenceLevel,
       }
 
@@ -124,10 +126,14 @@ export function buildBackendConfig(config: AnalysisConfig): Record<string, unkno
       }
 
     case 'pearson_correlation':
+      return {
+        variables: [outcome, exposure].filter(Boolean) as string[],
+        method: 'pearson',
+      }
     case 'spearman_correlation':
       return {
-        variable1: outcome ?? '',
-        variable2: exposure ?? '',
+        variables: [outcome, exposure].filter(Boolean) as string[],
+        method: 'spearman',
       }
 
     case 'prevalence_estimation':
@@ -160,7 +166,7 @@ export function validateConfig(config: AnalysisConfig): string[] {
   }
 
   if (
-    ['logistic_regression', 'linear_regression', 'poisson_regression'].includes(
+    ['logistic_regression', 'multinomial_regression', 'linear_regression', 'poisson_regression'].includes(
       config.analysis_type,
     ) &&
     !config.outcome_variable
@@ -187,6 +193,7 @@ export function validateConfig(config: AnalysisConfig): string[] {
 function getStrobeItems(type: AnalysisTypeId): string[] {
   const STROBE_MAP: Partial<Record<AnalysisTypeId, string[]>> = {
     logistic_regression: ['6a', '12a', '12c', '13', '16'],
+    multinomial_regression: ['6a', '12a', '12c', '13', '16'],
     linear_regression: ['6a', '12a', '12c', '13', '16'],
     kaplan_meier: ['6a', '12b', '12c', '13', '15'],
     cox_ph: ['6a', '12a', '12b', '12c', '13', '16'],

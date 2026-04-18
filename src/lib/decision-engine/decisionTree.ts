@@ -33,18 +33,12 @@ export function decideAnalysisType(
 
   // ─── SURVIVE ──────────────────────────────────────────────────────────────
   if (intent === 'survive' || has_time) {
+    const survivePrimary = n_covariates > 0 ? 'cox_ph' : 'kaplan_meier'
     return {
-      primary: n_covariates > 0 ? 'cox_ph' : 'kaplan_meier',
-      alternatives: [
-        {
-          id: 'kaplan_meier',
-          reason: 'Unadjusted survival curves — run before Cox regression',
-        },
-        {
-          id: 'cox_ph',
-          reason: 'Adjusted hazard ratios controlling for covariates',
-        },
-      ],
+      primary: survivePrimary,
+      alternatives: survivePrimary === 'cox_ph'
+        ? [{ id: 'kaplan_meier', reason: 'Unadjusted survival curves — always run before Cox regression' }]
+        : [{ id: 'cox_ph', reason: 'Add covariates to get adjusted hazard ratios' }],
     }
   }
 
@@ -58,8 +52,15 @@ export function decideAnalysisType(
       return {
         primary: 'logistic_regression',
         alternatives: [
-          { id: 'chi_square', reason: 'Univariable association before regression' },
-          { id: 'prevalence_estimation', reason: 'If you only need crude prevalence' },
+          { id: 'prevalence_estimation', reason: 'If you only need crude prevalence without predictors' },
+        ],
+      }
+    }
+    if (outcomeType === 'categorical') {
+      return {
+        primary: 'multinomial_regression',
+        alternatives: [
+          { id: 'descriptive_statistics', reason: 'If you only need category frequencies' },
         ],
       }
     }
@@ -70,6 +71,10 @@ export function decideAnalysisType(
           {
             id: 'pearson_correlation',
             reason: 'If only one continuous predictor and no adjustment needed',
+          },
+          {
+            id: 'poisson_regression',
+            reason: 'If outcome is a count variable (number of events/episodes)',
           },
         ],
       }
@@ -87,6 +92,35 @@ export function decideAnalysisType(
       (outcomeType === 'binary' || outcomeType === 'categorical') &&
       (exposureType === 'binary' || exposureType === 'categorical')
     ) {
+      // Categorical outcome (3+ classes) needs multinomial regression, not logistic
+      if (outcomeType === 'categorical') {
+        if (complete_cases < 40) {
+          return {
+            primary: 'chi_square',
+            alternatives: [
+              { id: 'fisher_exact', reason: 'If any expected cell frequency < 5' },
+              { id: 'multinomial_regression', reason: 'If you want adjusted relative risk ratios' },
+            ],
+          }
+        }
+        if (n_covariates > 0) {
+          return {
+            primary: 'multinomial_regression',
+            alternatives: [
+              { id: 'chi_square', reason: 'Unadjusted association without covariates' },
+            ],
+          }
+        }
+        return {
+          primary: 'chi_square',
+          alternatives: [
+            { id: 'fisher_exact', reason: 'If expected cell frequencies < 5' },
+            { id: 'multinomial_regression', reason: 'If you want to adjust for covariates' },
+          ],
+        }
+      }
+
+      // Binary outcome
       if (complete_cases < 40) {
         return {
           primary: 'fisher_exact',
@@ -115,6 +149,16 @@ export function decideAnalysisType(
 
     // Both continuous
     if (outcomeType === 'continuous' && exposureType === 'continuous') {
+      // With covariates, correlation cannot adjust — use regression
+      if (n_covariates > 0) {
+        return {
+          primary: 'linear_regression',
+          alternatives: [
+            { id: 'pearson_correlation', reason: 'Unadjusted association without covariates' },
+            { id: 'spearman_correlation', reason: 'If either variable is non-normally distributed and no adjustment needed' },
+          ],
+        }
+      }
       return {
         primary: 'pearson_correlation',
         alternatives: [
@@ -135,12 +179,7 @@ export function decideAnalysisType(
       if (n_covariates > 0) {
         return {
           primary: 'linear_regression',
-          alternatives: [
-            {
-              id: 'independent_t_test',
-              reason: 'If only one binary predictor and no adjustment',
-            },
-          ],
+          alternatives: [],
         }
       }
       const groups = variables.exposure?.unique_count ?? 2
@@ -168,11 +207,16 @@ export function decideAnalysisType(
     if (outcomeType === 'binary' && exposureType === 'continuous') {
       return {
         primary: 'logistic_regression',
+        alternatives: [],
+      }
+    }
+
+    // Categorical outcome (3+ classes), continuous exposure
+    if (outcomeType === 'categorical' && exposureType === 'continuous') {
+      return {
+        primary: 'multinomial_regression',
         alternatives: [
-          {
-            id: 'pearson_correlation',
-            reason: 'Point-biserial correlation for quick association',
-          },
+          { id: 'descriptive_statistics', reason: 'If you only need distribution summaries by category' },
         ],
       }
     }
@@ -194,6 +238,9 @@ export function decideAnalysisType(
           primary: 'independent_t_test',
           alternatives: [
             { id: 'mann_whitney', reason: 'If outcome is non-normally distributed' },
+            ...(n_covariates > 0
+              ? [{ id: 'linear_regression' as const, reason: 'Adjust for covariates via ANCOVA (linear regression with group as predictor)' }]
+              : []),
           ],
         }
       }
@@ -204,6 +251,9 @@ export function decideAnalysisType(
             id: 'kruskal_wallis',
             reason: 'If normality or equal variance assumption is violated',
           },
+          ...(n_covariates > 0
+            ? [{ id: 'linear_regression' as const, reason: 'Adjust for covariates via ANCOVA (linear regression with group as predictor)' }]
+            : []),
         ],
       }
     }
@@ -258,6 +308,12 @@ export function generateReasoning(
       `${n_cov > 0 ? `${n_cov} covariate${n_cov > 1 ? 's' : ''} to control for` : 'a binary exposure'}. ` +
       `Logistic regression is appropriate for this combination with ${n} complete cases. ` +
       `Results will be reported as adjusted odds ratios (aOR) with 95% confidence intervals.`,
+
+    multinomial_regression:
+      `Your outcome (${outcome}) is categorical with multiple unordered classes. ` +
+      `${n_cov > 0 ? `With ${n_cov} covariate${n_cov > 1 ? 's' : ''} to control for, multinomial` : 'Multinomial'} ` +
+      `logistic regression models each class simultaneously against a reference category across ${n} complete cases. ` +
+      `Results will be reported as relative risk ratios (RRR) with 95% confidence intervals per class.`,
 
     linear_regression:
       `Your outcome (${outcome}) is continuous and you want to examine predictors across ${n} participants. ` +

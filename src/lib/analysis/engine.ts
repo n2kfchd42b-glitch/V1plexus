@@ -6,7 +6,7 @@ import type { AnalysisType } from '@/types/database'
 import { runDescriptive } from './descriptive'
 import { runFrequency } from './frequencies'
 import { runChiSquare, runTTest, runAnova, runCorrelation } from './tests'
-import { runSimpleRegression, runMultipleRegression, runLogisticRegression, runPoissonRegression } from './regression'
+import { runSimpleRegression, runMultipleRegression, runLogisticRegression, runMultinomialRegression, runPoissonRegression } from './regression'
 import { runKaplanMeier, runCoxRegression } from './survival'
 import { runTimeSeries, runPCA, runClusterAnalysis } from './multivariate'
 import { runMetaAnalysis, runOutbreakInvestigation, runSampleSize } from './special'
@@ -52,17 +52,8 @@ export async function runAnalysis(
         return runMultipleRegression(data, config as unknown as Parameters<typeof runMultipleRegression>[1])
       case 'logistic_regression':
         return runLogisticRegression(data, config as unknown as Parameters<typeof runLogisticRegression>[1])
-      case 'multinomial_regression': {
-        // Approximation: one-vs-rest binary logistic regressions
-        const mnRes = runLogisticRegression(data, config as unknown as Parameters<typeof runLogisticRegression>[1])
-        return {
-          ...mnRes,
-          interpretation: '⚠️ Approximation: results shown are from a binary logistic regression (one-vs-rest). '
-            + 'True multinomial logistic regression requires simultaneous MLE across all outcome categories. '
-            + 'Treat relative risk ratios and confidence intervals as indicative only.\n\n'
-            + (mnRes.interpretation ?? '')
-        }
-      }
+      case 'multinomial_regression':
+        return runMultinomialRegression(data, config as unknown as Parameters<typeof runMultinomialRegression>[1])
       case 'ordinal_regression': {
         // Approximation: binary logistic instead of proportional odds
         const orRes = runLogisticRegression(data, config as unknown as Parameters<typeof runLogisticRegression>[1])

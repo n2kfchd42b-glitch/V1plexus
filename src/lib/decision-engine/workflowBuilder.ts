@@ -45,6 +45,35 @@ export function buildWorkflow(
       },
     ],
 
+    multinomial_regression: [
+      {
+        number: 1,
+        name: 'Descriptive Statistics (Table 1)',
+        description: `Characterise all ${n.toLocaleString()} participants by ${exposure} group`,
+        badge: 'auto-generates Table 1',
+        analysis_type: 'descriptive_statistics',
+      },
+      {
+        number: 2,
+        name: 'Outcome category frequencies',
+        description: `Distribution of ${outcome} categories — n (%) per class`,
+        badge: 'auto-generated',
+      },
+      {
+        number: 3,
+        name: 'Multinomial logistic regression',
+        description: `Relative risk ratios for ${outcome} categories vs reference, controlling for ${cov_list}`,
+        badge: 'primary analysis',
+        analysis_type: 'multinomial_regression',
+      },
+      {
+        number: 4,
+        name: 'Assumption checks',
+        description: 'Multicollinearity (VIF), complete separation per outcome class',
+        badge: 'auto-run by PLEXUS',
+      },
+    ],
+
     linear_regression: [
       {
         number: 1,

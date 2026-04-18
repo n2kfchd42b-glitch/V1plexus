@@ -30,6 +30,7 @@ interface Props {
   recommendation: AnalysisRecommendation | null
   onRecommendation: (rec: AnalysisRecommendation | null) => void
   onRunWorkflow: (steps: ExecutableWorkflowStep[]) => void
+  onRunAlternative: (id: AnalysisTypeId) => void
   onSwitchToDirect: (preselectedType?: AnalysisTypeId) => void
   onBack: () => void
 }
@@ -40,7 +41,7 @@ export function GuidedFlow({
   outcome, exposure, covariates, timeVar, eventVar, groupVar, stratVar,
   canAnalyse,
   recommendation, onRecommendation,
-  onRunWorkflow, onSwitchToDirect, onBack,
+  onRunWorkflow, onRunAlternative, onSwitchToDirect, onBack,
 }: Props) {
   const [thinking, setThinking] = useState(false)
 
@@ -146,6 +147,7 @@ export function GuidedFlow({
                 recommendation={recommendation}
                 onRun={handleRun}
                 onConfigureManually={() => onSwitchToDirect(recommendation.primary)}
+                onRunAlternative={onRunAlternative}
               />
             </div>
             <button

@@ -33,6 +33,22 @@ export const ANALYSIS_REGISTRY: Record<AnalysisTypeId, AnalysisTypeMetadata> = {
     reporting_guideline: 'STROBE',
   },
 
+  multinomial_regression: {
+    id: 'multinomial_regression',
+    name: 'Multinomial Logistic Regression',
+    category: 'regression',
+    icon: '🎯',
+    short_description: 'Categorical outcome with 3+ classes, multiple predictors',
+    when_to_use:
+      'When your outcome has 3 or more unordered categories (e.g. disease type A/B/C) and you want relative risk ratios across all classes simultaneously.',
+    outcome_types: ['categorical'],
+    predictor_types: ['continuous', 'binary', 'categorical'],
+    requires_grouping: false,
+    requires_time: false,
+    min_sample_size: 60,
+    reporting_guideline: 'STROBE',
+  },
+
   linear_regression: {
     id: 'linear_regression',
     name: 'Linear Regression',

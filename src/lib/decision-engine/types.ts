@@ -53,6 +53,7 @@ export type DatasetContext = {
 export type AnalysisTypeId =
   | 'descriptive_statistics'
   | 'logistic_regression'
+  | 'multinomial_regression'
   | 'linear_regression'
   | 'poisson_regression'
   | 'chi_square'

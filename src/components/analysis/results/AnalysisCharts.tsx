@@ -87,6 +87,7 @@ const FULL_WIDTH_CHART_TYPES = new Set([
   'km_curve', 'time_series', 'heatmap', 'biplot',
   'epi_curve', 'mosaic', 'roc_curve', 'forest_meta',
   'forest_or', 'forest_hr', 'forest_irr', 'coefficient_plot',
+  'forest_rrr', 'scatter_matrix',
 ])
 
 export function AnalysisCharts({ charts, runId, datasetId, versionId, analysisType, savedConfig }: Props) {
@@ -170,6 +171,7 @@ const SUPPORTED_CHART_TYPES = new Set([
   'funnel_plot', 'roc_curve', 'km_curve', 'heatmap', 'time_series',
   'scree_plot', 'cluster_scatter', 'power_curve', 'epi_curve', 'acf_plot',
   'biplot', 'boxplot_2group', 'boxplot_groups', 'mosaic',
+  'forest_rrr', 'paired_diff', 'silhouette_plot', 'scatter_matrix',
 ])
 
 // ── Chart Wrapper ────────────────────────────────────────────
@@ -331,6 +333,10 @@ function ChartRenderer({
               {type === 'boxplot_2group'    && <BoxPlot2Group      data={data as unknown as Record<string, unknown>} expanded={expanded} />}
               {type === 'boxplot_groups'    && <BoxPlotGroups      data={data as unknown as Record<string, unknown>} expanded={expanded} />}
               {type === 'mosaic'            && <MosaicPlot         data={data as Record<string, unknown>[]} config={config} expanded={expanded} />}
+              {type === 'forest_rrr'        && <ForestRRR          data={data as ForestRRRPoint[]} config={config ?? {}} expanded={expanded} />}
+              {type === 'paired_diff'       && <PairedDiffChart    data={data as number[]} expanded={expanded} />}
+              {type === 'silhouette_plot'   && <SilhouettePlot     data={data as SilhouettePoint[]} expanded={expanded} />}
+              {type === 'scatter_matrix'    && <ScatterMatrix      data={data as ScatterPair[]} config={config ?? {}} expanded={expanded} />}
             </ChartRenderContext.Provider>
           </div>
         </div>
@@ -1303,4 +1309,180 @@ function MosaicPlot({ data, config, expanded }: { data: Record<string, unknown>[
   const cats1 = (config.cats1 as string[]) ?? []
   const cats2 = (config.cats2 as string[]) ?? []
   return <GroupedBarChart data={data} config={{ rowCats: cats1, colCats: cats2 }} expanded={expanded} />
+}
+
+// ── Multinomial Forest (RRR per outcome category) ─────────────
+interface ForestRRRPoint { name: string; category: string; rrr: number; ciLow: number; ciHigh: number; p: string }
+
+function ForestRRR({ data, config }: { data: ForestRRRPoint[]; config: Record<string, unknown>; expanded: boolean }) {
+  const reference = (config.reference as string) ?? 'reference'
+  const categories = [...new Set(data.map(d => d.category))]
+
+  if (categories.length === 0) {
+    return <p className="text-xs py-4 text-center" style={{ color: CHART_TOKENS.text.muted }}>No chart data</p>
+  }
+
+  return (
+    <div className="space-y-6">
+      {categories.map((cat, ci) => {
+        const rows: ForestRow[] = data
+          .filter(d => d.category === cat)
+          .map(d => ({ name: d.name, value: d.rrr, ciLow: d.ciLow, ciHigh: d.ciHigh, p: d.p }))
+        return (
+          <div key={cat}>
+            <div
+              className="text-[10px] font-bold uppercase tracking-[0.12em] mb-3 pb-1.5"
+              style={{ color: chartColor(ci), borderBottom: `1px solid ${CHART_TOKENS.border}`, fontFamily: 'Manrope, sans-serif' }}
+            >
+              {cat} vs {reference}
+            </div>
+            <ForestPlotTable rows={rows} nullLine={1} effectLabel="RRR" isRatio />
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Paired Difference Histogram ───────────────────────────────
+function PairedDiffChart({ data, expanded }: { data: number[]; expanded: boolean }) {
+  const cfg = useCfg()
+  const C = cfg.colors
+  const diffs = (Array.isArray(data) ? data : []).filter((d): d is number => typeof d === 'number' && !isNaN(d))
+  if (diffs.length === 0) return <p className="text-xs py-4 text-center" style={{ color: CHART_TOKENS.text.muted }}>No data</p>
+
+  const minVal = Math.min(...diffs)
+  const maxVal = Math.max(...diffs)
+  const nBins = Math.min(30, Math.max(8, Math.round(Math.sqrt(diffs.length))))
+  const binWidth = (maxVal - minVal) / nBins || 1
+  const bins = Array.from({ length: nBins }, (_, i) => ({
+    name: (minVal + i * binWidth).toFixed(2),
+    count: 0,
+    x0: minVal + i * binWidth,
+  }))
+  diffs.forEach(d => {
+    const idx = Math.min(Math.floor((d - minVal) / binWidth), nBins - 1)
+    bins[idx].count++
+  })
+  const diffMean = diffs.reduce((s, d) => s + d, 0) / diffs.length
+
+  return (
+    <div>
+      <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 160)}>
+        <BarChart data={bins} barCategoryGap="3%">
+          <ChartGradients />
+          {cfg.showGrid && <CartesianGrid {...gridStyle} />}
+          <XAxis dataKey="name" tick={axisTick} {...axisLabelX(cfg, 'Difference')} />
+          <YAxis tick={axisTick} {...axisLabelY(cfg, 'Count')} />
+          <ReferenceLine x={bins.reduce((best, b) => Math.abs(b.x0) < Math.abs(best.x0) ? b : best, bins[0])?.name} stroke={CHART_TOKENS.borderActive} strokeDasharray="6 4" strokeWidth={1.5} label={{ value: '0', fontSize: 10, fill: CHART_TOKENS.text.muted }} />
+          <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+          <Bar dataKey="count" radius={[4, 4, 0, 0]} animationDuration={700}>
+            {bins.map((_, i) => <Cell key={i} fill={C[0] ?? chartColor(0)} fillOpacity={0.55 + (i / bins.length) * 0.35} />)}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+      <div className="mt-3 flex justify-center gap-3 flex-wrap">
+        <StatBadge label="Mean diff" value={diffMean.toFixed(3)} colorIdx={0} />
+        <StatBadge label="N pairs" value={diffs.length} colorIdx={1} />
+      </div>
+    </div>
+  )
+}
+
+// ── Silhouette Plot ───────────────────────────────────────────
+interface SilhouettePoint { id: number; silhouette: number; cluster: number }
+
+function SilhouettePlot({ data, expanded }: { data: SilhouettePoint[]; expanded: boolean }) {
+  const cfg = useCfg()
+  const C = cfg.colors
+  if (!data || data.length === 0) return <p className="text-xs py-4 text-center" style={{ color: CHART_TOKENS.text.muted }}>No data</p>
+
+  const sorted = [...data]
+    .sort((a, b) => a.cluster - b.cluster || b.silhouette - a.silhouette)
+    .slice(0, 300)
+  const avgSil = data.reduce((s, d) => s + d.silhouette, 0) / data.length
+  const nClusters = Math.max(...data.map(d => d.cluster))
+  const plotData = sorted.map(d => ({ ...d, fill: C[(d.cluster - 1) % C.length] ?? chartColor(d.cluster - 1) }))
+
+  return (
+    <div>
+      <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 180)}>
+        <BarChart data={plotData} barCategoryGap="0%">
+          {cfg.showGrid && <CartesianGrid {...gridStyle} horizontal />}
+          <XAxis dataKey="id" hide />
+          <YAxis domain={[-1, 1]} tick={axisTick} {...axisLabelY(cfg, 'Silhouette score')} />
+          <ReferenceLine y={0} stroke={CHART_TOKENS.borderActive} strokeWidth={1.5} />
+          <ReferenceLine y={0.5} stroke={C[1] ?? chartColor(1)} strokeDasharray="6 4" strokeWidth={1} label={{ value: '0.5', fontSize: 9, fill: C[1] ?? chartColor(1) }} />
+          <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+          <Bar dataKey="silhouette" animationDuration={700} radius={0}>
+            {plotData.map((d, i) => <Cell key={i} fill={d.fill} fillOpacity={0.78} />)}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+      <div className="mt-3 flex justify-center gap-3 flex-wrap">
+        <StatBadge label="Avg silhouette" value={avgSil.toFixed(3)} colorIdx={avgSil >= 0.5 ? 2 : avgSil >= 0.25 ? 1 : 4} />
+        <StatBadge label="Clusters" value={nClusters} colorIdx={0} />
+      </div>
+      {cfg.showLegend && (
+        <div className="mt-3 flex justify-center flex-wrap gap-3">
+          {Array.from({ length: nClusters }, (_, i) => (
+            <div key={i} className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-sm" style={{ background: C[i % C.length] ?? chartColor(i) }} />
+              <span className="text-[10px]" style={{ color: CHART_TOKENS.text.secondary, fontFamily: 'Manrope, sans-serif' }}>Cluster {i + 1}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Scatter Matrix ────────────────────────────────────────────
+interface ScatterPair { var1: string; var2: string; r: number; pairs: { x: number; y: number }[] }
+
+function ScatterMatrix({ data, config, expanded }: { data: ScatterPair[]; config: Record<string, unknown>; expanded: boolean }) {
+  const cfg = useCfg()
+  const C = cfg.colors
+  void config
+  if (!data || data.length === 0) return <p className="text-xs py-4 text-center" style={{ color: CHART_TOKENS.text.muted }}>No data</p>
+
+  const panelH = expanded ? 200 : 140
+
+  return (
+    <div
+      className="grid gap-4"
+      style={{ gridTemplateColumns: `repeat(auto-fill, minmax(260px, 1fr))` }}
+    >
+      {data.map((pair, idx) => {
+        const sample = pair.pairs.slice(0, 300)
+        const rAbs = Math.abs(pair.r)
+        const rColor = pair.r >= 0 ? chartColor(0) : chartColor(4)
+        const rLabel = `r = ${pair.r.toFixed(2)}`
+        return (
+          <div key={idx} className="rounded-xl overflow-hidden" style={{ border: `1px solid ${CHART_TOKENS.border}` }}>
+            <div className="px-3 pt-2 pb-1 flex items-center justify-between" style={{ borderBottom: `1px solid ${CHART_TOKENS.border}` }}>
+              <span className="text-[10px] font-semibold truncate" style={{ color: CHART_TOKENS.text.primary, fontFamily: 'Manrope, sans-serif' }}>
+                {pair.var1} × {pair.var2}
+              </span>
+              <span
+                className="text-[10px] font-bold tabular-nums ml-2 flex-shrink-0"
+                style={{ color: rAbs >= 0.3 ? rColor : CHART_TOKENS.text.muted, fontFamily: "'JetBrains Mono', monospace" }}
+              >
+                {rLabel}
+              </span>
+            </div>
+            <ResponsiveContainer width="100%" height={panelH}>
+              <ScatterChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+                {cfg.showGrid && <CartesianGrid {...gridStyle} />}
+                <XAxis type="number" dataKey="x" name={pair.var1} tick={axisTick} label={{ value: pair.var1, position: 'insideBottom', offset: -2, fontSize: 9, fill: CHART_TOKENS.text.muted }} />
+                <YAxis type="number" dataKey="y" name={pair.var2} tick={axisTick} label={{ value: pair.var2, angle: -90, position: 'insideLeft', offset: 8, fontSize: 9, fill: CHART_TOKENS.text.muted }} />
+                <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+                <Scatter data={sample} fill={C[idx % C.length] ?? chartColor(idx)} opacity={0.45} animationDuration={700} />
+              </ScatterChart>
+            </ResponsiveContainer>
+          </div>
+        )
+      })}
+    </div>
+  )
 }

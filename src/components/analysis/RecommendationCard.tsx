@@ -3,15 +3,16 @@
 import { Play, Settings2, AlertTriangle } from 'lucide-react'
 import { FeasibilityChecks } from './FeasibilityChecks'
 import { WorkflowSteps } from './WorkflowSteps'
-import type { AnalysisRecommendation } from '@/lib/decision-engine/types'
+import type { AnalysisRecommendation, AnalysisTypeId } from '@/lib/decision-engine/types'
 
 interface Props {
   recommendation: AnalysisRecommendation
   onRun: () => void
   onConfigureManually: () => void
+  onRunAlternative: (id: AnalysisTypeId) => void
 }
 
-export function RecommendationCard({ recommendation, onRun, onConfigureManually }: Props) {
+export function RecommendationCard({ recommendation, onRun, onConfigureManually, onRunAlternative }: Props) {
   const { primary_name, reasoning, feasibility, can_run, workflow_steps, alternatives, flags, strobe_items_auto, reporting_guideline } = recommendation
 
   return (
@@ -66,24 +67,42 @@ export function RecommendationCard({ recommendation, onRun, onConfigureManually 
         {/* Alternatives */}
         {alternatives.length > 0 && (
           <div className="px-5 py-4">
-            <p className="subsection-label mb-2">Alternative Tests</p>
-            <div className="flex flex-wrap gap-2">
+            <p className="subsection-label mb-2">Also Consider</p>
+            <div className="flex flex-col gap-2">
               {alternatives.map(alt => (
-                <div
+                <button
                   key={alt.analysis_type}
-                  className="px-2.5 py-1.5 rounded-lg"
+                  onClick={() => onRunAlternative(alt.analysis_type as AnalysisTypeId)}
+                  className="w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150 cursor-pointer"
                   style={{
                     background: 'var(--bg-app)',
                     border: '1px solid var(--border-default)',
                   }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.borderColor = 'var(--accent-blue)'
+                    e.currentTarget.style.background = 'var(--accent-blue-subtle)'
+                    const arrow = e.currentTarget.querySelector<HTMLElement>('.run-arrow')
+                    if (arrow) arrow.style.opacity = '1'
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.borderColor = 'var(--border-default)'
+                    e.currentTarget.style.background = 'var(--bg-app)'
+                    const arrow = e.currentTarget.querySelector<HTMLElement>('.run-arrow')
+                    if (arrow) arrow.style.opacity = '0'
+                  }}
                 >
-                  <p className="text-[11px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-                    {alt.name}
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[11px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      {alt.name}
+                    </p>
+                    <span className="run-arrow text-[10px] font-semibold flex-shrink-0 transition-opacity duration-150" style={{ color: 'var(--accent-blue)', opacity: 0 }}>
+                      Run →
+                    </span>
+                  </div>
                   <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
                     {alt.reason}
                   </p>
-                </div>
+                </button>
               ))}
             </div>
           </div>

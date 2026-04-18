@@ -468,7 +468,6 @@ export function AnalysisHub({ projectId }: Props) {
         : rawConfig
 
       setWorkflowProgress({ total: executableSteps.length, current: i, label: step.name })
-
       try {
         const analysisResult = await runAnalysis(backendType as AnalysisType, data, stepConfig)
 
@@ -534,6 +533,26 @@ export function AnalysisHub({ projectId }: Props) {
   }
 
   // ── DirectFlow run — builds config from lifted engine state ─────────────────
+  const handleRunAlternative = (altId: AnalysisTypeId) => {
+    const config: AnalysisConfig = {
+      analysis_type: altId,
+      dataset_id: engineContext.dataset_id,
+      version_id: engineContext.version_id,
+      outcome_variable: engineOutcome?.name ?? null,
+      exposure_variable: engineExposure?.name ?? null,
+      covariate_variables: engineCovariates.map(c => c.name),
+      time_variable: engineTimeVar?.name ?? null,
+      event_variable: engineEventVar?.name ?? null,
+      group_variable: engineGroupVar?.name ?? null,
+      strat_variable: engineStratVar?.name ?? null,
+      confidence_level: engineConfidenceLevel,
+      reference_category: 'first',
+    }
+    const backendType = ANALYSIS_TYPE_MAPPING[altId]
+    const backendConfig = buildBackendConfig(config)
+    runWithTypeAndConfig(backendType, backendConfig)
+  }
+
   const handleEngineDirectRun = () => {
     if (!engineSelectedType) return
     const config: AnalysisConfig = {
@@ -1255,6 +1274,7 @@ export function AnalysisHub({ projectId }: Props) {
                   recommendation={engineRecommendation}
                   onRecommendation={setEngineRecommendation}
                   onRunWorkflow={runWorkflowSequentially}
+                  onRunAlternative={handleRunAlternative}
                   onSwitchToDirect={preselected => {
                     if (preselected) setEngineSelectedType(preselected)
                     setDecisionPreselect(preselected ?? null)

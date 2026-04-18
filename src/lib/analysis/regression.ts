@@ -726,6 +726,301 @@ function computeROCCurve(y: number[], scores: number[]): { fpr: number; tpr: num
   return points
 }
 
+// ===================== MULTINOMIAL LOGISTIC REGRESSION =====================
+// One-vs-reference approach: for each non-reference outcome category, run
+// a binary logistic regression against the reference category only.
+// Reports Relative Risk Ratios (RRR = exp(β)) with 95% CIs per category.
+
+export interface MultinomialRegressionConfig {
+  outcome: string
+  predictors: string[]
+  confidenceLevel?: number
+}
+
+export function runMultinomialRegression(data: DataRow[], config: MultinomialRegressionConfig): AnalysisResult {
+  const { outcome, predictors, confidenceLevel = 0.95 } = config
+
+  // ── Discover outcome categories ──────────────────────────────────────────
+  const allOutcomeVals = data
+    .map(row => String(row[outcome] ?? '').trim())
+    .filter(v => v !== '' && v !== 'null' && v !== 'undefined')
+  const categories = [...new Set(allOutcomeVals)].sort()
+
+  if (categories.length < 2) {
+    return errorResult('multinomial_regression', `Outcome "${outcome}" has fewer than 2 distinct categories. Multinomial regression requires 3+ categories.`)
+  }
+  if (categories.length === 2) {
+    return errorResult('multinomial_regression', `Outcome "${outcome}" has only 2 categories — use binary logistic regression instead.`)
+  }
+
+  const reference = categories[0]
+  const nonRefCategories = categories.slice(1)
+
+  // ── Pre-compute all predictor metadata once (never inside per-row loops) ─
+  const numThreshold = data.length * 0.5
+
+  // isNumeric[i] = true if predictors[i] should be treated as continuous
+  const isNumericArr = predictors.map(v => getNumericValues(data, v).length > numThreshold)
+
+  const catEncodings = new Map<string, ReturnType<typeof encodeCategories>>()
+  const allPredictorNames: string[] = []
+
+  for (let vi = 0; vi < predictors.length; vi++) {
+    const v = predictors[vi]
+    if (isNumericArr[vi]) {
+      allPredictorNames.push(v)
+    } else {
+      const enc = encodeCategories(data, v)
+      catEncodings.set(v, enc)
+      allPredictorNames.push(...enc.names)
+    }
+  }
+
+  const k = allPredictorNames.length
+
+  // ── O(1) row→index lookup — eliminates the O(n²) data.indexOf() calls ───
+  const rowIndex = new Map<DataRow, number>(data.map((r, i) => [r, i] as [DataRow, number]))
+
+  // ── Pre-build categorical value→dummy-vector maps for O(1) encoding ──────
+  // Maps predictor name → (cell value string → dummy number[])
+  const catValueVec = new Map<string, Map<string, number[]>>()
+  for (const v of predictors) {
+    const enc = catEncodings.get(v)
+    if (!enc) continue
+    const vm = new Map<string, number[]>()
+    // reference category → all-zeros vector
+    vm.set(enc.ref, new Array(enc.names.length).fill(0))
+    // each non-reference category → one-hot vector
+    enc.names.forEach((name, di) => {
+      const catVal = name.slice(v.length + 1)
+      const vec = new Array(enc.names.length).fill(0)
+      vec[di] = 1
+      vm.set(catVal, vec)
+    })
+    catValueVec.set(v, vm)
+  }
+
+  // ── Run one binary logistic regression per non-reference category ────────
+  type CategoryResult = {
+    category: string
+    beta: number[]
+    ses: number[]
+    n: number
+    nCategory: number
+    converged: boolean
+  }
+
+  const categoryResults: CategoryResult[] = []
+
+  for (const cat of nonRefCategories) {
+    // Filter to rows where outcome == cat OR outcome == reference
+    const subset = data.filter(row => {
+      const val = String(row[outcome] ?? '').trim()
+      return (val === cat || val === reference) &&
+        predictors.every(v => row[v] !== null && row[v] !== undefined && String(row[v]).trim() !== '')
+    })
+
+    const n = subset.length
+    const nCategory = subset.filter(row => String(row[outcome] ?? '').trim() === cat).length
+
+    if (n < k + 2 || nCategory < 5) {
+      categoryResults.push({ category: cat, beta: new Array(k + 1).fill(NaN), ses: new Array(k + 1).fill(NaN), n, nCategory, converged: false })
+      continue
+    }
+
+    // Build X and y — O(1) per cell, no indexOf or full-scan calls
+    const X: number[][] = subset.map(row => {
+      const rowX: number[] = [1]
+      const origIdx = rowIndex.get(row)!
+      for (let vi = 0; vi < predictors.length; vi++) {
+        const v = predictors[vi]
+        if (isNumericArr[vi]) {
+          rowX.push(parseFloat(String(row[v])))
+        } else {
+          const vm = catValueVec.get(v)!
+          const cellVal = String(row[v] ?? '').trim()
+          const vec = vm.get(cellVal) ?? catEncodings.get(v)!.matrix[origIdx]
+          rowX.push(...vec)
+        }
+      }
+      return rowX
+    })
+    const y = subset.map(row => String(row[outcome] ?? '').trim() === cat ? 1 : 0)
+
+    // Newton-Raphson — cap at 50 iterations (converges in <20 for well-behaved data)
+    let beta = new Array(k + 1).fill(0)
+    let converged = false
+    let lastH: number[][] = []
+    for (let iter = 0; iter < 50; iter++) {
+      const pi = X.map(xi => sigmoid(xi.reduce((sum, xij, j) => sum + xij * beta[j], 0)))
+      const W = pi.map(p => Math.max(p * (1 - p), 1e-10))
+
+      // Score vector: X'(y - p)
+      const score = new Array(k + 1).fill(0)
+      for (let i = 0; i < n; i++) {
+        const r = y[i] - pi[i]
+        for (let j = 0; j <= k; j++) score[j] += X[i][j] * r
+      }
+
+      // Hessian: X'WX (upper triangle only, then mirror)
+      const H: number[][] = Array.from({ length: k + 1 }, () => new Array(k + 1).fill(0))
+      for (let i = 0; i < n; i++) {
+        const wi = W[i]
+        for (let j = 0; j <= k; j++) {
+          const xij = X[i][j] * wi
+          for (let l = j; l <= k; l++) H[j][l] += xij * X[i][l]
+        }
+      }
+      for (let j = 0; j <= k; j++)
+        for (let l = 0; l < j; l++) H[j][l] = H[l][j]
+      lastH = H
+
+      // Solve H*delta = score — O(k²) vs O(k³) full inversion
+      let delta: number[]
+      try {
+        delta = solveLin(H, score)
+      } catch { break }
+
+      const step = Math.max(...delta.map(Math.abs))
+      beta = beta.map((b, j) => b + delta[j])
+      if (step < 1e-6) { converged = true; break }
+    }
+
+    // Standard errors — reuse last H, only one matInverse call per category
+    let ses: number[]
+    try {
+      const Hinv = matInverse(lastH)
+      ses = Hinv.map((row, i) => Math.sqrt(Math.max(row[i], 0)))
+    } catch {
+      ses = new Array(k + 1).fill(NaN)
+    }
+
+    categoryResults.push({ category: cat, beta, ses, n, nCategory, converged })
+  }
+
+  // ── Build display labels for predictors ──────────────────────────────────
+  const displayLabels = new Map<string, string>()
+  const refNotes: string[] = []
+  for (const v of predictors) {
+    const isNum = getNumericValues(data, v).length > numThreshold
+    if (isNum) {
+      displayLabels.set(v, v)
+    } else {
+      const { names, ref } = catEncodings.get(v)!
+      for (const name of names) {
+        const cat = name.slice(v.length + 1)
+        displayLabels.set(name, `${v}: ${cat}`)
+      }
+      refNotes.push(`${v}: reference = "${ref}"`)
+    }
+  }
+
+  // ── Build results tables — one per outcome category ───────────────────────
+  const tables: import('./types').ResultTable[] = []
+
+  // Overall sample size table
+  const totalN = data.filter(row =>
+    String(row[outcome] ?? '').trim() !== '' &&
+    predictors.every(v => row[v] !== null && row[v] !== undefined && String(row[v]).trim() !== '')
+  ).length
+  const catFreqRows = categories.map(cat => {
+    const n = data.filter(r => String(r[outcome] ?? '').trim() === cat).length
+    return [cat, n, fmt(n / data.length * 100, 1) + '%', cat === reference ? 'Reference' : '—']
+  })
+  tables.push({
+    id: 'outcome_freq',
+    title: 'Outcome Category Distribution',
+    headers: ['Category', 'N', '%', 'Role'],
+    rows: catFreqRows,
+    footnotes: [`Reference category: "${reference}". Results for each non-reference category are vs. reference.`]
+  })
+
+  // One results table per category
+  for (const res of categoryResults) {
+    const footnotes = [
+      `RRR = Relative Risk Ratio vs reference category "${reference}". RRR > 1 = higher probability of ${res.category} vs reference.`,
+      ...(refNotes.length > 0 ? [`Reference categories: ${refNotes.join('; ')}.`] : []),
+      '*** p<0.001  ** p<0.01  * p<0.05  † p<0.10',
+      ...(!res.converged ? ['⚠️ Model did not converge — estimates may be unreliable.'] : []),
+    ]
+
+    if (!isFinite(res.beta[1])) {
+      tables.push({
+        id: `results_${res.category}`,
+        title: `${res.category} vs ${reference} (n=${res.n})`,
+        headers: ['Variable', 'RRR (95% CI)', 'p-value', 'Sig'],
+        rows: allPredictorNames.map(name => [displayLabels.get(name) ?? name, '—', '—', '—']),
+        footnotes: [`⚠️ Insufficient data for category "${res.category}" (n=${res.nCategory} observations). Need ≥ 5 per category.`]
+      })
+      continue
+    }
+
+    const rows = allPredictorNames.map((name, i) => {
+      const b = res.beta[i + 1]
+      const se = res.ses[i + 1]
+      const z = b / se
+      const p = 2 * (1 - normalCDF(Math.abs(z)))
+      const rrr = Math.exp(b)
+      const label = displayLabels.get(name) ?? name
+      return [label, `${fmt(rrr, 2)} (${fmtCI(Math.exp(b - 1.96 * se), Math.exp(b + 1.96 * se), 2)})`, formatPValue(p), getSig(p)]
+    })
+
+    tables.push({
+      id: `results_${res.category}`,
+      title: `${res.category} vs ${reference} (n=${res.n}, category n=${res.nCategory})`,
+      headers: ['Variable', 'RRR (95% CI)', 'p-value', 'Sig'],
+      rows,
+      footnotes
+    })
+  }
+
+  // ── Forest plot data — all categories combined ───────────────────────────
+  const forestData: { name: string; category: string; rrr: number; ciLow: number; ciHigh: number; p: string; sig: string }[] = []
+  for (const res of categoryResults) {
+    if (!isFinite(res.beta[1])) continue
+    for (let i = 0; i < k; i++) {
+      const b = res.beta[i + 1]
+      const se = res.ses[i + 1]
+      const z = b / se
+      const p = 2 * (1 - normalCDF(Math.abs(z)))
+      forestData.push({
+        name: displayLabels.get(allPredictorNames[i]) ?? allPredictorNames[i],
+        category: res.category,
+        rrr: Math.exp(b),
+        ciLow: Math.exp(b - 1.96 * se),
+        ciHigh: Math.exp(b + 1.96 * se),
+        p: formatPValue(p),
+        sig: getSig(p)
+      })
+    }
+  }
+
+  // ── Interpretation ────────────────────────────────────────────────────────
+  const catSummaries = categoryResults.map(res => {
+    if (!isFinite(res.beta[1])) return `${res.category}: insufficient data`
+    const sigPreds = allPredictorNames.filter((name, i) => {
+      const z = res.beta[i + 1] / res.ses[i + 1]
+      return 2 * (1 - normalCDF(Math.abs(z))) < 0.05
+    }).map(n => displayLabels.get(n) ?? n)
+    return `${res.category} vs ${reference} (n=${res.n}): ${sigPreds.length > 0 ? `significant predictors — ${sigPreds.join(', ')}` : 'no significant predictors at p<0.05'}`
+  }).join('; ')
+
+  const interpretation = `Multinomial logistic regression (one-vs-reference). ` +
+    `Outcome: ${outcome} — ${categories.length} categories, reference = "${reference}". ` +
+    `Total complete cases: ${totalN}. ` +
+    catSummaries + '.'
+
+  return {
+    type: 'multinomial_regression',
+    summary: { n: totalN, categories: categories.length, reference },
+    tables,
+    charts: forestData.length > 0
+      ? [{ type: 'forest_rrr', title: 'Relative Risk Ratios by Outcome Category', data: forestData, config: { reference } }]
+      : [],
+    interpretation
+  }
+}
+
 // ===================== POISSON REGRESSION =====================
 
 export interface PoissonConfig {
