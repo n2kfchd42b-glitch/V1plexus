@@ -7,23 +7,15 @@ import {
 } from 'lucide-react'
 import { ReasoningPrompt } from './ReasoningPrompt'
 import Link from 'next/link'
-import { HubTableGeneratorModal } from './HubTableGeneratorModal'
-import { AssumptionCheckModal } from './AssumptionCheckModal'
 import type { AssumptionCheckResult } from '@/types/analysisIntegrity'
 import { ANALYSIS_TYPES } from './AnalysisTypePicker'
 import { ProjectDatasetSelector } from './ProjectDatasetSelector'
 import { AnalysisEntryPoint } from './AnalysisEntryPoint'
-import { GuidedFlow } from './GuidedFlow'
-import { DirectFlow } from './DirectFlow'
 import { profileFromDatasetColumns } from '@/lib/decision-engine/variableProfiler'
 import { ANALYSIS_TYPE_MAPPING, buildBackendConfig, buildExecutableWorkflow } from '@/lib/decision-engine/index'
 import { ANALYSIS_REGISTRY } from '@/lib/decision-engine/analysisRegistry'
 import type { DatasetContext, AnalysisTypeId, EngineColumnSchema, AnalysisConfig, ResearchIntent, AnalysisRecommendation } from '@/lib/decision-engine/types'
 import type { ExecutableWorkflowStep } from '@/lib/decision-engine/index'
-import { DecisionVariableSelector } from './DecisionVariableSelector'
-import { MultiDecisionVariableSelector } from './MultiDecisionVariableSelector'
-import { HubResultsPreview } from './HubResultsPreview'
-import { AnalysisCharts } from './results/AnalysisCharts'
 import { createClient } from '@/lib/supabase/client'
 import { loadVersionData } from '@/lib/data/storage'
 import { runAnalysis } from '@/lib/analysis/engine'
@@ -40,8 +32,17 @@ import { logAudit } from '@/lib/audit'
 import type { AnalysisRun, AnalysisType, DatasetColumn } from '@/types/database'
 import type { DataRow, AnalysisResult } from '@/lib/analysis/types'
 
-// Config components — lazy-loaded so only the active analysis type is bundled/fetched
+// Heavy components and engines — lazy-loaded to split the initial bundle
 import dynamic from 'next/dynamic'
+
+const HubTableGeneratorModal  = dynamic(() => import('./HubTableGeneratorModal').then(m => ({ default: m.HubTableGeneratorModal })))
+const AssumptionCheckModal    = dynamic(() => import('./AssumptionCheckModal').then(m => ({ default: m.AssumptionCheckModal })))
+const GuidedFlow              = dynamic(() => import('./GuidedFlow').then(m => ({ default: m.GuidedFlow })))
+const DirectFlow              = dynamic(() => import('./DirectFlow').then(m => ({ default: m.DirectFlow })))
+const DecisionVariableSelector     = dynamic(() => import('./DecisionVariableSelector').then(m => ({ default: m.DecisionVariableSelector })))
+const MultiDecisionVariableSelector = dynamic(() => import('./MultiDecisionVariableSelector').then(m => ({ default: m.MultiDecisionVariableSelector })))
+const HubResultsPreview       = dynamic(() => import('./HubResultsPreview').then(m => ({ default: m.HubResultsPreview })))
+const AnalysisCharts          = dynamic(() => import('./results/AnalysisCharts').then(m => ({ default: m.AnalysisCharts })))
 
 const DescriptiveConfig       = dynamic(() => import('./configs/DescriptiveConfig').then(m => ({ default: m.DescriptiveConfig })))
 const FrequencyConfig         = dynamic(() => import('./configs/FrequencyConfig').then(m => ({ default: m.FrequencyConfig })))
@@ -1414,7 +1415,7 @@ export function AnalysisHub({ projectId }: Props) {
                     {/* Charts — hero */}
                     {(result.charts ?? []).length > 0 && (
                       <AnalysisCharts
-                        charts={result.charts as Parameters<typeof AnalysisCharts>[0]['charts']}
+                        charts={result.charts as never}
                         analysisType={selectedType ?? 'descriptive'}
                       />
                     )}

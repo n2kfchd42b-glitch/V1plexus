@@ -15,8 +15,8 @@ export async function GET(
     const { id: dataset_id } = await params
     const supabase = await createClient()
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -25,10 +25,10 @@ export async function GET(
       return NextResponse.json({ error: 'version_id is required' }, { status: 400 })
     }
 
-    // Verify version belongs to dataset
+    // Single query: verify version belongs to dataset and get project_id via join
     const { data: version } = await supabase
       .from('dataset_versions')
-      .select('id, version_number')
+      .select('id, version_number, datasets(project_id)')
       .eq('id', version_id)
       .eq('dataset_id', dataset_id)
       .single()
@@ -37,42 +37,37 @@ export async function GET(
       return NextResponse.json({ error: 'Version not found' }, { status: 404 })
     }
 
-    // Get the dataset's project_id
-    const { data: dataset } = await supabase
-      .from('datasets')
-      .select('project_id')
-      .eq('id', dataset_id)
-      .single()
-
-    if (!dataset) {
+    const datasetRow = Array.isArray(version.datasets) ? version.datasets[0] : version.datasets
+    if (!datasetRow?.project_id) {
       return NextResponse.json({ error: 'Dataset not found' }, { status: 404 })
     }
 
-    const approvalCheck = await checkVersionApproval(version_id, dataset.project_id, supabase)
+    const approvalCheck = await checkVersionApproval(version_id, datasetRow.project_id, supabase)
 
-    // If there's a request, load full detail including supervisor + history
+    // If there's a request, load full detail including supervisor + history in parallel
     if (!approvalCheck.request) {
       return NextResponse.json({ has_request: false, ...approvalCheck })
     }
 
-    const { data: fullRequest } = await supabase
-      .from('dataset_approval_requests')
-      .select(`
-        id, status, requested_at, reviewed_at, reviewer_note,
-        assigned_supervisor, request_message,
-        supervisor:assigned_supervisor(id, full_name)
-      `)
-      .eq('id', approvalCheck.request.id)
-      .single()
-
-    const { data: history } = await supabase
-      .from('approval_review_history')
-      .select(`
-        id, action, note, created_at,
-        reviewer:reviewer_id(full_name)
-      `)
-      .eq('request_id', approvalCheck.request.id)
-      .order('created_at', { ascending: true })
+    const [{ data: fullRequest }, { data: history }] = await Promise.all([
+      supabase
+        .from('dataset_approval_requests')
+        .select(`
+          id, status, requested_at, reviewed_at, reviewer_note,
+          assigned_supervisor, request_message,
+          supervisor:assigned_supervisor(id, full_name)
+        `)
+        .eq('id', approvalCheck.request.id)
+        .single(),
+      supabase
+        .from('approval_review_history')
+        .select(`
+          id, action, note, created_at,
+          reviewer:reviewer_id(full_name)
+        `)
+        .eq('request_id', approvalCheck.request.id)
+        .order('created_at', { ascending: true }),
+    ])
 
     return NextResponse.json({
       has_request: true,

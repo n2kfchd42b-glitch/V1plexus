@@ -13,19 +13,25 @@ export async function checkVersionApproval(
   project_id: string,
   supabaseClient: SupabaseClient
 ): Promise<ApprovalCheck> {
-  // 1. Get project workspace
-  const { data: project } = await supabaseClient
-    .from('projects')
-    .select('workspace_id')
-    .eq('id', project_id)
-    .single()
+  // Fetch project workspace and approval request in parallel
+  const [{ data: project }, { data: request }] = await Promise.all([
+    supabaseClient
+      .from('projects')
+      .select('workspace_id')
+      .eq('id', project_id)
+      .single(),
+    supabaseClient
+      .from('dataset_approval_requests')
+      .select('id, status, requested_at, reviewed_at, reviewer_note, approved_version_hash')
+      .eq('version_id', version_id)
+      .maybeSingle(),
+  ])
 
   if (!project?.workspace_id) {
-    // No workspace → no supervisors → no gate
     return { status: 'not_required', can_analyze: true }
   }
 
-  // 2. Check if the workspace has any active supervisor members
+  // Check if the workspace has any active supervisors
   const { data: supervisors } = await supabaseClient
     .from('workspace_memberships')
     .select('id')
@@ -37,13 +43,6 @@ export async function checkVersionApproval(
   if (!supervisors || supervisors.length === 0) {
     return { status: 'not_required', can_analyze: true }
   }
-
-  // 3. Look for an approval request on this version
-  const { data: request } = await supabaseClient
-    .from('dataset_approval_requests')
-    .select('id, status, requested_at, reviewed_at, reviewer_note, approved_version_hash')
-    .eq('version_id', version_id)
-    .maybeSingle()
 
   if (!request) {
     return {
