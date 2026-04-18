@@ -2,6 +2,34 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  const isAuthPage =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register");
+
+  const isSetupPage = pathname.startsWith("/setup");
+  const isInvitePage = pathname.startsWith("/invite/");
+  // Auth callback must be public — unauthenticated users land here after clicking
+  // a confirmation email link; the route exchanges the PKCE code for a session.
+  const isAuthCallback = pathname.startsWith("/auth/");
+  // Public pages — protocol registry, dataset landing pages, and public portfolio/badge pages
+  const isPublicPage =
+    pathname.startsWith("/registry/") ||
+    pathname.startsWith("/data/") ||
+    pathname.startsWith("/profile/");
+
+  // API routes handle their own auth — no need to hit Supabase here.
+  const isApiRoute = pathname.startsWith("/api/");
+
+  const isProtected =
+    !isAuthPage && !isSetupPage && !isInvitePage && !isAuthCallback && !isPublicPage && !isApiRoute && pathname !== "/";
+
+  // Routes that need no auth check: skip the Supabase network round-trip entirely.
+  if (!isProtected && !isAuthPage) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -28,29 +56,6 @@ export async function proxy(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const { pathname } = request.nextUrl;
-
-  const isAuthPage =
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/register");
-
-  const isSetupPage = pathname.startsWith("/setup");
-
-  const isInvitePage = pathname.startsWith("/invite/");
-
-  // Auth callback must be public — unauthenticated users land here after clicking
-  // a confirmation email link; the route exchanges the PKCE code for a session.
-  const isAuthCallback = pathname.startsWith("/auth/");
-
-  // Public pages — protocol registry, dataset landing pages, and public portfolio/badge pages
-  const isPublicPage =
-    pathname.startsWith("/registry/") ||
-    pathname.startsWith("/data/") ||
-    pathname.startsWith("/profile/");
-
-  const isProtected =
-    !isAuthPage && !isSetupPage && !isInvitePage && !isAuthCallback && !isPublicPage && pathname !== "/";
 
   // Redirect unauthenticated users to login
   if (isProtected && !user) {

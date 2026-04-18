@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useMemo, useCallback, useEffect } from 'react'
+import { useState, useRef, useMemo, useCallback, useEffect, memo } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -33,7 +33,7 @@ interface DatasetTableProps {
   className?: string
 }
 
-export function DatasetTable({ rows, columns, className = '' }: DatasetTableProps) {
+export const DatasetTable = memo(function DatasetTable({ rows, columns, className = '' }: DatasetTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
@@ -262,4 +262,4 @@ export function DatasetTable({ rows, columns, className = '' }: DatasetTableProp
       </div>
     </div>
   )
-}
+})

@@ -11,17 +11,14 @@ export default async function ProjectWorkspaceLayout({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  // Middleware already verified auth — getSession() reads the cookie locally.
+  const [{ data: { session } }, projectResult] = await Promise.all([
+    supabase.auth.getSession(),
+    supabase.from("projects").select("id").eq("id", id).is("deleted_at", null).single(),
+  ]);
 
-  const { data: project } = await supabase
-    .from("projects")
-    .select("id")
-    .eq("id", id)
-    .is("deleted_at", null)
-    .single();
-
-  if (!project) notFound();
+  if (!session) redirect("/login");
+  if (!projectResult.data) notFound();
 
   return (
     <div className="flex flex-col min-h-screen">

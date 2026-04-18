@@ -291,7 +291,9 @@ export function DuplicateReviewModal({
         operations: [{ type: 'remove_duplicates', columns: [report.idColumn] }],
         createdBy,
       })
-      await auditDuplicateResolution(
+
+      // Fire audit and portrait non-blocking — version is already committed
+      auditDuplicateResolution(
         { userId: createdBy, projectId },
         {
           versionId,
@@ -303,8 +305,8 @@ export function DuplicateReviewModal({
           rowsRemoved: rows.length - cleanedRows.length,
           justification: text,
         }
-      )
-      // Re-trigger portrait for the new version (non-blocking)
+      ).catch(err => console.error('[audit] duplicate resolution:', err))
+
       fetch('/api/analytics/portrait/trigger', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

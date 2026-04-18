@@ -26,15 +26,10 @@ export default async function ProjectOverviewPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: project } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("id", id)
-    .single();
-  if (!project) notFound();
+  // Middleware already verified auth — getSession() reads the cookie locally,
+  // no extra Supabase network round-trip needed just to get the user ID.
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) redirect("/login");
 
   // ── Parallel data fetch ──────────────────────────────────────────────────
   const sevenDaysAgo = new Date();
@@ -42,6 +37,7 @@ export default async function ProjectOverviewPage({
   sevenDaysAgo.setHours(0, 0, 0, 0);
 
   const [
+    projectResult,
     { count: datasetCount },
     { count: runCount },
     { count: auditCount },
@@ -49,6 +45,7 @@ export default async function ProjectOverviewPage({
     { data: rawNotes },
     { data: rawActivity },
   ] = await Promise.all([
+    supabase.from("projects").select("*").eq("id", id).single(),
     supabase.from("datasets").select("id", { count: "exact", head: true }).eq("project_id", id).is("deleted_at", null),
     supabase.from("analysis_runs").select("id", { count: "exact", head: true }).eq("project_id", id).eq("status", "completed"),
     supabase.from("audit_logs").select("id", { count: "exact", head: true }).eq("project_id", id),
@@ -56,6 +53,9 @@ export default async function ProjectOverviewPage({
     supabase.from("audit_logs").select("id, timestamp, details, actor:profiles(full_name)").eq("project_id", id).eq("action", "progress.note").order("timestamp", { ascending: false }).limit(20).then(r => ({ data: r.data ?? [] })),
     supabase.from("audit_logs").select("timestamp").eq("project_id", id).gte("timestamp", sevenDaysAgo.toISOString()).then(r => ({ data: r.data ?? [] })),
   ]);
+
+  const project = projectResult.data;
+  if (!project) notFound();
 
   // ── Shape data ───────────────────────────────────────────────────────────
   const phases = (rawPhases ?? []) as GanttPhase[];
@@ -234,7 +234,7 @@ export default async function ProjectOverviewPage({
         >
           <ProjectGantt
             projectId={id}
-            userId={user.id}
+            userId={session.user.id}
             initialPhases={phases}
             initialNotes={notes}
           />

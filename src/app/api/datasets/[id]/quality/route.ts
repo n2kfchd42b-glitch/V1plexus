@@ -205,8 +205,8 @@ function computeReport(
 }
 
 // ── Shared access check ──────────────────────────────────────────────────────
-// Returns the project_id if the user can access the dataset (owner OR member),
-// or null if not found, or 'forbidden' if access denied.
+// Single-query access check: fetches dataset + project owner in one round-trip,
+// then checks project_members only if the user is not the owner.
 
 async function resolveAccess(
   datasetId: string,
@@ -216,29 +216,24 @@ async function resolveAccess(
 
   const { data: dataset } = await service
     .from('datasets')
-    .select('project_id')
+    .select('project_id, projects(owner_id)')
     .eq('id', datasetId)
     .single()
+
   if (!dataset) return 'not_found'
 
-  // Check ownership first (project owner is always allowed)
-  const { data: project } = await service
-    .from('projects')
-    .select('owner_id')
-    .eq('id', dataset.project_id)
-    .single()
+  const projectId = dataset.project_id
+  const ownerRow = Array.isArray(dataset.projects) ? dataset.projects[0] : dataset.projects
+  if (ownerRow?.owner_id === userId) return { projectId }
 
-  if (project?.owner_id === userId) return { projectId: dataset.project_id }
-
-  // Fall back to project_members table
   const { data: member } = await service
     .from('project_members')
     .select('id')
-    .eq('project_id', dataset.project_id)
+    .eq('project_id', projectId)
     .eq('user_id', userId)
     .single()
 
-  if (member) return { projectId: dataset.project_id }
+  if (member) return { projectId }
 
   return 'forbidden'
 }
@@ -255,12 +250,12 @@ export async function GET(
     const versionId = url.searchParams.get('version_id')
 
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const access = await resolveAccess(datasetId, user.id)
+    const access = await resolveAccess(datasetId, session.user.id)
     if (access === 'not_found') return NextResponse.json({ error: 'Dataset not found' }, { status: 404 })
     if (access === 'forbidden') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
@@ -302,12 +297,12 @@ export async function POST(
     const { version_id } = body
 
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const access = await resolveAccess(datasetId, user.id)
+    const access = await resolveAccess(datasetId, session.user.id)
     if (access === 'not_found') return NextResponse.json({ error: 'Dataset not found' }, { status: 404 })
     if (access === 'forbidden') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
@@ -369,7 +364,7 @@ export async function POST(
         {
           dataset_id: datasetId,
           version_id: version.id,
-          computed_by: user.id,
+          computed_by: session.user.id,
           ...metrics,
         },
         { onConflict: 'version_id' }

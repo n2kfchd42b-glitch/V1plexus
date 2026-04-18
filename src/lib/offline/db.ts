@@ -32,6 +32,7 @@ export type LocalDataset = {
   deleted_at: string | null
   archived_at: string | null
   _synced_at: string
+  latest_version?: LocalDatasetVersion
 }
 
 export type LocalDatasetVersion = {

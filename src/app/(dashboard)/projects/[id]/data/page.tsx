@@ -21,12 +21,11 @@ import {
 import {
   getActiveProjectDatasetsOffline,
   getArchivedProjectDatasetsOffline,
-  getVersionsByDatasetIdsOffline,
 } from '@/lib/offline'
 import { toast } from 'sonner'
 import { logAudit } from '@/lib/audit'
 import { cn } from '@/lib/utils'
-import type { Dataset, DatasetVersion } from '@/types/database'
+import type { Dataset } from '@/types/database'
 
 // ─── Animations ───────────────────────────────────────────────────────────────
 
@@ -73,14 +72,8 @@ export default function ProjectDataPage() {
 
       if (!datasetsResult.data?.length) { setDatasets([]); return }
 
-      const datasetList: Dataset[] = datasetsResult.data as unknown as Dataset[]
-      const versionsResult = await getVersionsByDatasetIdsOffline(supabase, datasetList.map(d => d.id))
-
-      const latestMap = new Map<string, DatasetVersion>()
-      for (const v of (versionsResult.data ?? [])) {
-        if (!latestMap.has(v.dataset_id)) latestMap.set(v.dataset_id, v as unknown as DatasetVersion)
-      }
-      setDatasets(datasetList.map(ds => ({ ...ds, latest_version: latestMap.get(ds.id) ?? undefined })))
+      // latest_version is now embedded in the dataset record from the offline layer
+      setDatasets(datasetsResult.data as unknown as Dataset[])
     } finally {
       setListLoading(false)
     }

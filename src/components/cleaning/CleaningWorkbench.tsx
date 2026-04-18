@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useReducer, useEffect } from 'react'
 import {
   Plus, Undo2, RotateCcw, Save, ChevronDown, Loader2, GitCommit,
   Check, X, Trash2, ArrowUpDown, PlusCircle
@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { DatasetTable } from '@/components/data/DatasetTable'
-import { applyOperations } from '@/lib/data/operations'
+import { applyOperation, applyOperations } from '@/lib/data/operations'
 import { saveCleanedVersion } from '@/lib/data/storage'
 import { auditDatasetVersionCommit } from '@/lib/audit/auditHelpers'
 import { useAuth } from '@/hooks/useAuth'
@@ -86,29 +86,55 @@ export function CleaningWorkbench({
   datasetId, projectId, version, initialRows, initialColumns, branchName = 'main', onVersionSaved,
 }: CleaningWorkbenchProps) {
   const { user } = useAuth()
-  const [operations, setOperations] = useState<CleaningOperation[]>([])
+  type WorkbenchState = {
+    operations: CleaningOperation[]
+    currentRows: DataRow[]
+    currentColumns: ColumnSchema[]
+  }
+  type WorkbenchAction =
+    | { type: 'ADD'; op: CleaningOperation }
+    | { type: 'REMOVE'; index: number }
+    | { type: 'RESET' }
+
+  const [state, dispatch] = useReducer(
+    (s: WorkbenchState, action: WorkbenchAction): WorkbenchState => {
+      switch (action.type) {
+        case 'ADD': {
+          // Incremental: apply only the new op to current state — O(rows), not O(ops×rows)
+          const { rows, columns } = applyOperation(s.currentRows, s.currentColumns, action.op)
+          return { operations: [...s.operations, action.op], currentRows: rows, currentColumns: columns }
+        }
+        case 'REMOVE': {
+          const newOps = s.operations.filter((_, i) => i !== action.index)
+          if (newOps.length === 0) return { operations: [], currentRows: initialRows, currentColumns: initialColumns }
+          const { rows, columns } = applyOperations(initialRows, initialColumns, newOps)
+          return { operations: newOps, currentRows: rows, currentColumns: columns }
+        }
+        case 'RESET':
+          return { operations: [], currentRows: initialRows, currentColumns: initialColumns }
+      }
+    },
+    { operations: [], currentRows: initialRows, currentColumns: initialColumns }
+  )
+
+  const { operations, currentRows, currentColumns } = state
+
   const [addOpType, setAddOpType] = useState<string | null>(null)
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [commitMessage, setCommitMessage] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
-  // Apply all operations to get current state
-  const { rows: currentRows, columns: currentColumns } = useMemo(() => {
-    if (operations.length === 0) return { rows: initialRows, columns: initialColumns }
-    return applyOperations(initialRows, initialColumns, operations)
-  }, [initialRows, initialColumns, operations])
-
   // Sample for preview (first 500 rows for performance)
   const previewRows = useMemo(() => currentRows.slice(0, 500), [currentRows])
 
   const addOperation = useCallback((op: CleaningOperation) => {
-    setOperations(prev => [...prev, op])
+    dispatch({ type: 'ADD', op })
     setAddOpType(null)
   }, [])
 
   const removeOperation = useCallback((index: number) => {
-    setOperations(prev => prev.filter((_, i) => i !== index))
+    dispatch({ type: 'REMOVE', index })
   }, [])
 
   const handleSave = async () => {
@@ -128,7 +154,8 @@ export function CleaningWorkbench({
         operations,
         createdBy: user.id,
       })
-      await auditDatasetVersionCommit(
+      // Fire audit and portrait non-blocking — version is already committed
+      auditDatasetVersionCommit(
         { userId: user.id, projectId },
         {
           versionId,
@@ -141,8 +168,8 @@ export function CleaningWorkbench({
           justification: commitMessage.trim(),
           operations,
         }
-      )
-      // Re-trigger portrait for the new version (non-blocking)
+      ).catch(err => console.error('[audit] version commit:', err))
+
       fetch('/api/analytics/portrait/trigger', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -174,11 +201,11 @@ export function CleaningWorkbench({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setOperations(prev => prev.slice(0, -1))} disabled={operations.length === 0}>
+          <Button variant="outline" size="sm" onClick={() => dispatch({ type: 'REMOVE', index: operations.length - 1 })} disabled={operations.length === 0}>
             <Undo2 className="h-3.5 w-3.5 mr-1" />
             Undo
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setOperations([])} disabled={operations.length === 0}>
+          <Button variant="outline" size="sm" onClick={() => dispatch({ type: 'RESET' })} disabled={operations.length === 0}>
             <RotateCcw className="h-3.5 w-3.5 mr-1" />
             Reset
           </Button>
@@ -260,7 +287,7 @@ export function CleaningWorkbench({
         <OperationFormDialog
           type={addOpType}
           columns={currentColumns}
-          rows={currentRows}
+          rows={previewRows}
           onAdd={addOperation}
           onClose={() => setAddOpType(null)}
         />
@@ -339,17 +366,18 @@ function OperationFormDialog({ type, columns, rows, onAdd, onClose }: OperationF
   const [replaceValue, setReplaceValue] = useState('')
   const [reorderList, setReorderList] = useState<string[]>(colNames)
 
-  // Unique non-null values for the currently selected column, derived from live data
-  const uniqueColValues = useMemo(() => {
+  // Unique non-null values for the currently selected column — computed async after mount
+  const [uniqueColValues, setUniqueColValues] = useState<string[]>([])
+  useEffect(() => {
     const seen = new Set<string>()
     for (const row of rows) {
       const v = row[col]
       if (v !== null && v !== undefined && String(v).trim() !== '') {
         seen.add(String(v))
-        if (seen.size >= 300) break // cap to keep UI fast
+        if (seen.size >= 300) break
       }
     }
-    return Array.from(seen).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+    setUniqueColValues(Array.from(seen).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })))
   }, [rows, col])
 
   const handleAdd = () => {

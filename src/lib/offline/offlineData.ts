@@ -5,10 +5,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
-  getAllProjects,
   getProject,
-  getActiveProjectDatasets,
-  getArchivedProjectDatasets,
   getDataset,
   getVersionsByDatasetIds,
   getDatasetBranches,
@@ -18,8 +15,6 @@ import {
   getProjectDocuments,
   getDocument,
   getProfile,
-  getDatasetProjectIds,
-  getAnalysisRunProjectIds,
 } from '@/lib/data'
 import { getDB, now, isStale } from './db'
 import type {
@@ -40,7 +35,7 @@ type SC = SupabaseClient<any>
 // navigator.onLine can lag behind reality — the network may be down while the
 // flag still reports true. Without a timeout, Supabase fetches hang for up to
 // 2 minutes before failing, blocking the cache fallback path.
-function withTimeout<T>(promise: Promise<T>, ms = 5000): Promise<T> {
+function withTimeout<T>(promise: PromiseLike<T>, ms = 5000): Promise<T> {
   return Promise.race([
     promise,
     new Promise<never>((_, reject) =>
@@ -67,26 +62,23 @@ export async function getProjectsOffline(
 
   if (navigator.onLine) {
     try {
-      const projectsResult = await withTimeout(getAllProjects(supabase))
-      if (projectsResult.status === 'error') {
-        throw new Error(projectsResult.error ?? 'Failed to fetch projects')
-      }
+      const { data: rows, error } = await withTimeout(
+        supabase
+          .from('projects')
+          .select('*, datasets(count), analysis_runs(count)')
+          .is('deleted_at', null)
+          .order('updated_at', { ascending: false })
+          .limit(200)
+          .then(r => r)
+      )
+      if (error) throw new Error(error.message)
+      if (!rows || !rows.length) return { data: [], error: null, source: 'network' }
 
-      const rows = projectsResult.data
-      if (!rows.length) return { data: [], error: null, source: 'network' }
-
-      const ids = rows.map(p => p.id)
-      const [datasetsResult, runsResult] = await withTimeout(Promise.all([
-        getDatasetProjectIds(supabase, ids),
-        getAnalysisRunProjectIds(supabase, ids),
-      ]))
-
-      const datasetCountMap: Record<string, number> = {}
-      const runCountMap: Record<string, number> = {}
-      for (const d of datasetsResult.data) datasetCountMap[d.project_id] = (datasetCountMap[d.project_id] ?? 0) + 1
-      for (const r of runsResult.data) runCountMap[r.project_id] = (runCountMap[r.project_id] ?? 0) + 1
-
-      const locals: LocalProject[] = rows.map(p => ({
+      const locals: LocalProject[] = rows.map((p: {
+        id: string; title: string; description: string | null;
+        owner_id: string; status: string; created_at: string; updated_at: string;
+        datasets: { count: number }[]; analysis_runs: { count: number }[];
+      }) => ({
         id: p.id,
         title: p.title,
         description: p.description,
@@ -94,8 +86,8 @@ export async function getProjectsOffline(
         status: p.status,
         created_at: p.created_at,
         updated_at: p.updated_at,
-        dataset_count: datasetCountMap[p.id] ?? 0,
-        run_count: runCountMap[p.id] ?? 0,
+        dataset_count: p.datasets?.[0]?.count ?? 0,
+        run_count: p.analysis_runs?.[0]?.count ?? 0,
         _synced_at: now(),
       }))
 
@@ -128,14 +120,15 @@ export async function getProjectOffline(
 
   if (navigator.onLine) {
     try {
-      const result = await withTimeout(getProject(supabase, id))
-      if (result.status === 'error' || !result.data) throw new Error(result.error ?? 'Not found')
-
-      const p = result.data
-      const [datasetsResult, runsResult] = await withTimeout(Promise.all([
-        getDatasetProjectIds(supabase, [id]),
-        getAnalysisRunProjectIds(supabase, [id]),
-      ]))
+      const { data: p, error } = await withTimeout(
+        supabase
+          .from('projects')
+          .select('*, datasets(count), analysis_runs(count)')
+          .eq('id', id)
+          .single()
+          .then(r => r)
+      )
+      if (error || !p) throw new Error(error?.message ?? 'Not found')
 
       const local: LocalProject = {
         id: p.id,
@@ -145,8 +138,8 @@ export async function getProjectOffline(
         status: p.status,
         created_at: p.created_at,
         updated_at: p.updated_at,
-        dataset_count: datasetsResult.data.length,
-        run_count: runsResult.data.length,
+        dataset_count: p.datasets?.[0]?.count ?? 0,
+        run_count: p.analysis_runs?.[0]?.count ?? 0,
         _synced_at: now(),
       }
 
@@ -176,25 +169,34 @@ export async function getActiveProjectDatasetsOffline(
 
   if (navigator.onLine) {
     try {
-      const result = await withTimeout(getActiveProjectDatasets(supabase, projectId))
-      if (result.status === 'error') throw new Error(result.error ?? 'Failed')
+      const { data: rows, error } = await withTimeout(
+        supabase
+          .from('datasets')
+          .select('*, dataset_versions(id, dataset_id, version_number, parent_version, commit_message, file_path, file_hash, file_size, row_count, column_count, schema_info, operations, created_by, created_at)')
+          .eq('project_id', projectId)
+          .is('deleted_at', null)
+          .is('archived_at', null)
+          .order('updated_at', { ascending: false })
+          .order('version_number', { ascending: false, foreignTable: 'dataset_versions' })
+          .then(r => r)
+      )
+      if (error) throw new Error(error.message)
 
-      const locals: LocalDataset[] = (result.data ?? []).map(d => ({
-        id: d.id,
-        project_id: d.project_id,
-        name: d.name,
-        description: d.description,
-        source: d.source,
-        parent_id: d.parent_id,
-        uploaded_by: d.uploaded_by,
-        created_at: d.created_at,
-        updated_at: d.updated_at,
-        deleted_at: d.deleted_at,
-        archived_at: d.archived_at,
-        _synced_at: now(),
-      }))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const locals: LocalDataset[] = (rows ?? []).map((d: any) => {
+        const latestV = d.dataset_versions?.[0]
+        return {
+          id: d.id, project_id: d.project_id, name: d.name,
+          description: d.description, source: d.source, parent_id: d.parent_id,
+          uploaded_by: d.uploaded_by, created_at: d.created_at,
+          updated_at: d.updated_at, deleted_at: d.deleted_at,
+          archived_at: d.archived_at, _synced_at: now(),
+          latest_version: latestV ? { ...latestV, _synced_at: now() } : undefined,
+        }
+      })
 
-      await db.datasets.bulkPut(locals)
+      const versionLocals = locals.flatMap(d => d.latest_version ? [d.latest_version] : [])
+      await Promise.all([db.datasets.bulkPut(locals), db.dataset_versions.bulkPut(versionLocals)])
       return { data: locals, error: null, source: 'network' }
     } catch {
       // Fall through
@@ -225,25 +227,34 @@ export async function getArchivedProjectDatasetsOffline(
 
   if (navigator.onLine) {
     try {
-      const result = await withTimeout(getArchivedProjectDatasets(supabase, projectId))
-      if (result.status === 'error') throw new Error(result.error ?? 'Failed')
+      const { data: rows, error } = await withTimeout(
+        supabase
+          .from('datasets')
+          .select('*, dataset_versions(id, dataset_id, version_number, parent_version, commit_message, file_path, file_hash, file_size, row_count, column_count, schema_info, operations, created_by, created_at)')
+          .eq('project_id', projectId)
+          .is('deleted_at', null)
+          .not('archived_at', 'is', null)
+          .order('updated_at', { ascending: false })
+          .order('version_number', { ascending: false, foreignTable: 'dataset_versions' })
+          .then(r => r)
+      )
+      if (error) throw new Error(error.message)
 
-      const locals: LocalDataset[] = (result.data ?? []).map(d => ({
-        id: d.id,
-        project_id: d.project_id,
-        name: d.name,
-        description: d.description,
-        source: d.source,
-        parent_id: d.parent_id,
-        uploaded_by: d.uploaded_by,
-        created_at: d.created_at,
-        updated_at: d.updated_at,
-        deleted_at: d.deleted_at,
-        archived_at: d.archived_at,
-        _synced_at: now(),
-      }))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const locals: LocalDataset[] = (rows ?? []).map((d: any) => {
+        const latestV = d.dataset_versions?.[0]
+        return {
+          id: d.id, project_id: d.project_id, name: d.name,
+          description: d.description, source: d.source, parent_id: d.parent_id,
+          uploaded_by: d.uploaded_by, created_at: d.created_at,
+          updated_at: d.updated_at, deleted_at: d.deleted_at,
+          archived_at: d.archived_at, _synced_at: now(),
+          latest_version: latestV ? { ...latestV, _synced_at: now() } : undefined,
+        }
+      })
 
-      await db.datasets.bulkPut(locals)
+      const versionLocals = locals.flatMap(d => d.latest_version ? [d.latest_version] : [])
+      await Promise.all([db.datasets.bulkPut(locals), db.dataset_versions.bulkPut(versionLocals)])
       return { data: locals, error: null, source: 'network' }
     } catch {
       // Fall through

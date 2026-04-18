@@ -23,13 +23,13 @@ export async function POST(request: NextRequest) {
     const body: AuditPostBody = await request.json()
 
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession()
 
-    if (authError || !user) {
+    if (!session) {
       return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
     }
 
-    if (body.actor_id !== user.id) {
+    if (body.actor_id !== session.user.id) {
       return NextResponse.json({ error: 'forbidden' }, { status: 403 })
     }
 
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     let attempt = 0
     let lastError: unknown = null
     while (attempt < 2) {
-      const { data: lastResource } = await service
+      const resourceTailPromise = service
         .from('audit_logs')
         .select('entry_hash')
         .eq('resource_type', body.resource_type)
@@ -57,20 +57,25 @@ export async function POST(request: NextRequest) {
         .order('timestamp', { ascending: false })
         .limit(1)
         .maybeSingle()
-      const resourcePrev: string | null = lastResource?.entry_hash ?? null
 
-      let projectPrev: string | null = null
-      if (body.project_id) {
-        const { data: lastProject } = await service
-          .from('audit_logs')
-          .select('project_chain_entry_hash')
-          .eq('project_id', body.project_id)
-          .not('project_chain_entry_hash', 'is', null)
-          .order('timestamp', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-        projectPrev = lastProject?.project_chain_entry_hash ?? null
-      }
+      const projectTailPromise = body.project_id
+        ? service
+            .from('audit_logs')
+            .select('project_chain_entry_hash')
+            .eq('project_id', body.project_id)
+            .not('project_chain_entry_hash', 'is', null)
+            .order('timestamp', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        : Promise.resolve({ data: null })
+
+      const [{ data: lastResource }, { data: lastProject }] = await Promise.all([
+        resourceTailPromise,
+        projectTailPromise,
+      ])
+
+      const resourcePrev: string | null = lastResource?.entry_hash ?? null
+      const projectPrev: string | null = lastProject?.project_chain_entry_hash ?? null
 
       const { resourceEntryHash, projectEntryHash } = await computeChainHashes(
         { ...body, details },
@@ -131,8 +136,8 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
       return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
     }
 
