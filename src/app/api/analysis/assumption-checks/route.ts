@@ -90,6 +90,8 @@ export async function POST(request: NextRequest) {
     }
 
     const result: AssumptionCheckResult = await response.json()
+    // Normalize: Python backend may omit or null-out checks on error paths
+    if (!Array.isArray(result.checks)) result.checks = []
     return NextResponse.json(result)
   } catch (error) {
     console.error('[POST /api/analysis/assumption-checks]', error)

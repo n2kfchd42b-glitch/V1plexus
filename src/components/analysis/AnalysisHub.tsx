@@ -422,8 +422,8 @@ export function AnalysisHub({ projectId }: Props) {
     analysisConfig: Record<string, unknown>,
     proceed: () => Promise<void>,
   ) => {
-    console.log('[assumption-gate] datasetId:', datasetId, 'versionId:', versionId, 'analysisType:', analysisType)
     if (datasetId && versionId) {
+      setRunning(true)
       try {
         const res = await fetch('/api/analysis/assumption-checks', {
           method: 'POST',
@@ -440,19 +440,18 @@ export function AnalysisHub({ projectId }: Props) {
           const checkResult: AssumptionCheckResult = await res.json()
           setAssumptionCheckResult(checkResult)
           pendingAnalysisCallback.current = proceed
+          setRunning(false)
           setShowAssumptionModal(true)
           return
-        } else {
-          const errBody = await res.json().catch(() => ({}))
-          console.error('[assumption-gate] API error', res.status, errBody)
-          toast.warning('Assumption checks failed — proceeding without validation.')
         }
+        const errBody = await res.json().catch(() => ({}))
+        console.error('[assumption-gate] API error', res.status, errBody)
+        toast.warning('Assumption checks failed — proceeding without validation.')
       } catch (err) {
         console.error('[assumption-gate] network error:', err)
         toast.warning('Assumption checks unavailable — proceeding without validation. Check your network connection.')
       }
-    } else {
-      console.warn('[assumption-gate] skipped — datasetId:', datasetId, 'versionId:', versionId)
+      setRunning(false)
     }
     await proceed()
   }, [datasetId, versionId, projectId])
@@ -679,6 +678,7 @@ export function AnalysisHub({ projectId }: Props) {
     if (approvalBlock) return
 
     if (datasetId && versionId) {
+      setRunning(true)
       try {
         const res = await fetch('/api/analysis/assumption-checks', {
           method: 'POST',
@@ -689,17 +689,18 @@ export function AnalysisHub({ projectId }: Props) {
           const checkResult: AssumptionCheckResult = await res.json()
           setAssumptionCheckResult(checkResult)
           pendingAnalysisCallback.current = executeAnalysis
+          setRunning(false)
           setShowAssumptionModal(true)
           return
-        } else {
-          const errBody = await res.json().catch(() => ({}))
-          console.error('[assumption-gate] API error', res.status, errBody)
-          toast.warning('Assumption checks failed — proceeding without validation.')
         }
+        const errBody = await res.json().catch(() => ({}))
+        console.error('[assumption-gate] API error', res.status, errBody)
+        toast.warning('Assumption checks failed — proceeding without validation.')
       } catch (err) {
         console.error('[assumption-gate] network error:', err)
         toast.warning('Assumption checks unavailable — proceeding without validation. Check your network connection.')
       }
+      setRunning(false)
     }
 
     await executeAnalysis()

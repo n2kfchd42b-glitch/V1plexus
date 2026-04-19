@@ -27,10 +27,9 @@ export function AssumptionCheckModal({
   const [acknowledged, setAcknowledged] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  if (!isOpen) return null
-
-  // Sort checks: critical > violated moderate > not_applicable > warning minor > passed
+  // useMemo before conditional return (Rules of Hooks)
   const sortedChecks = useMemo(() => {
+    const checks = Array.isArray(checkResult.checks) ? checkResult.checks : []
     const priorityMap: Record<string, number> = {
       violated_critical: 0,
       violated_moderate: 1,
@@ -45,13 +44,17 @@ export function AssumptionCheckModal({
       passed_moderate: 5,
       passed_minor: 5,
     }
-
-    return [...checkResult.checks].sort((a, b) => {
+    return [...checks].sort((a, b) => {
       const aKey = `${a.status}_${a.severity}`
       const bKey = `${b.status}_${b.severity}`
       return (priorityMap[aKey] ?? 99) - (priorityMap[bKey] ?? 99)
     })
   }, [checkResult.checks])
+
+  if (!isOpen) return null
+
+  // Python backend may return null/omit checks on error paths — normalize to safe array
+  const safeChecks: AssumptionCheck[] = Array.isArray(checkResult.checks) ? checkResult.checks : []
 
   // Determine recommendation color
   const recommendationStyles = {
@@ -77,9 +80,12 @@ export function AssumptionCheckModal({
 
   const styles = recommendationStyles[checkResult.run_recommendation]
 
-  const hasViolations = checkResult.checks.some(
-    (c) => c.status === 'violated' || c.status === 'warning'
-  )
+  // Use backend counts as fallback — checks array may be empty even when violations exist
+  const hasViolations =
+    checkResult.critical_violations > 0 ||
+    checkResult.moderate_violations > 0 ||
+    checkResult.minor_violations > 0 ||
+    safeChecks.some((c) => c.status === 'violated' || c.status === 'warning')
   const canProceed = !hasViolations || acknowledged
 
   const handleProceed = async () => {
@@ -102,7 +108,7 @@ export function AssumptionCheckModal({
                 <span className="text-2xl text-green-600">✓</span>
               </div>
             </div>
-            {checkResult.checks.length === 0 ? (
+            {safeChecks.length === 0 ? (
               <>
                 <h2 className="font-bold text-xl mb-2">Assumption checks unavailable</h2>
                 <p className="text-sm text-gray-600 mb-6">
@@ -119,17 +125,17 @@ export function AssumptionCheckModal({
             )}
 
             {/* Brief passed checks list */}
-            {checkResult.checks.length > 0 && (
+            {safeChecks.length > 0 && (
               <div className="mb-8 space-y-2 max-h-24 overflow-y-auto">
-                {checkResult.checks.slice(0, 3).map((check, idx) => (
+                {safeChecks.slice(0, 3).map((check, idx) => (
                   <div key={idx} className="flex items-center gap-2 text-sm">
                     <span className="text-green-600">✓</span>
                     <span className="text-gray-700">{check.assumption_name}</span>
                   </div>
                 ))}
-                {checkResult.checks.length > 3 && (
+                {safeChecks.length > 3 && (
                   <div className="text-xs text-gray-500 pt-2">
-                    + {checkResult.checks.length - 3} more
+                    + {safeChecks.length - 3} more
                   </div>
                 )}
               </div>
@@ -165,7 +171,7 @@ export function AssumptionCheckModal({
                 </CardTitle>
               </div>
               <p className="text-xs text-gray-600">
-                {analysisType.replace(/_/g, ' ')} · {checkResult.checks.length}{' '}
+                {analysisType.replace(/_/g, ' ')} · {safeChecks.length}{' '}
                 checks
               </p>
             </div>
@@ -212,7 +218,7 @@ export function AssumptionCheckModal({
               variant="success"
               className="text-xs"
             >
-              {checkResult.checks.length - checkResult.critical_violations - checkResult.moderate_violations - checkResult.minor_violations - checkResult.not_applicable_count}{' '}
+              {safeChecks.length - checkResult.critical_violations - checkResult.moderate_violations - checkResult.minor_violations - checkResult.not_applicable_count}{' '}
               Passed
             </Badge>
             {checkResult.not_applicable_count > 0 && (

@@ -125,6 +125,7 @@ export async function POST(request: NextRequest) {
       code: e?.code,
       details: e?.details,
       hint: e?.hint,
+      raw: JSON.stringify(lastError),
     })
     return NextResponse.json({ error: 'audit_write_failed' }, { status: 500 })
   } catch (err) {

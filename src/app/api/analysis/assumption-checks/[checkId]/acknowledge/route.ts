@@ -12,8 +12,8 @@ export async function POST(
 ) {
   try {
     const { checkId } = await params
-    const body = await request.json()
-    const { acknowledgement_notes } = body
+    const body = await request.json().catch(() => ({})) as Record<string, unknown>
+    const acknowledgement_notes = body.acknowledgement_notes
 
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
