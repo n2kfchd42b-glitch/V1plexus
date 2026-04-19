@@ -83,7 +83,7 @@ export function AssumptionCheckModal({
 
   const hasAllRequiredNotes = criticalViolations.every((check) => {
     const notes = acknowledgementNotes[check.assumption_name] || ''
-    return notes.length >= 30
+    return notes.length >= 10
   })
 
   const canProceed =
@@ -434,16 +434,16 @@ function AssumptionCheckCard({
               onChange={(e) => onNoteChange(e.target.value)}
               placeholder="e.g., The violation is minor in practical terms because... / I will use robust standard errors to address..."
               className="w-full text-xs border border-amber-300 rounded p-2 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
-              minLength={30}
+              minLength={10}
               rows={3}
             />
             <div className="text-xs text-right mt-1">
               <span
                 className={
-                  note.length >= 30 ? 'text-green-600' : 'text-gray-600'
+                  note.length >= 10 ? 'text-green-600' : 'text-gray-600'
                 }
               >
-                {note.length}/30 min
+                {note.length}/10 min
               </span>
             </div>
           </div>

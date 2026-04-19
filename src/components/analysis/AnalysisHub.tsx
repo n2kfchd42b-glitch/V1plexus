@@ -1692,14 +1692,14 @@ export function AnalysisHub({ projectId }: Props) {
           analysisType={selectedType}
           onProceed={async (notes) => {
             setShowAssumptionModal(false)
+            // Fire-and-forget — never block analysis on acknowledgement recording
             if (assumptionCheckResult.requires_acknowledgement && assumptionCheckResult.check_id) {
-              try {
-                await fetch(`/api/analysis/assumption-checks/${assumptionCheckResult.check_id}/acknowledge`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ acknowledgement_notes: notes }),
-                })
-              } catch { /* non-blocking */ }
+              fetch(`/api/analysis/assumption-checks/${assumptionCheckResult.check_id}/acknowledge`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ acknowledgement_notes: notes }),
+                signal: AbortSignal.timeout(8000),
+              }).catch(() => {})
             }
             const cb = pendingAnalysisCallback.current
             pendingAnalysisCallback.current = null
