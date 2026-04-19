@@ -146,8 +146,11 @@ async def post_assumption_checks(
             }
         }
         
-        supabase.table('audit_logs').insert(audit_entry).execute()
-        
+        try:
+            supabase.table('audit_logs').insert(audit_entry).execute()
+        except Exception:
+            pass  # audit log failure must not block the assumption check result
+
         return {
             'check_id': check_id,
             'all_passed': result['all_passed'],
@@ -236,11 +239,11 @@ async def post_acknowledge_violations(
             }
         }
         
-        audit_resp = supabase.table('audit_logs').insert(
-            audit_entry
-        ).execute()
-        
-        audit_id = audit_resp.data[0]['id']
+        try:
+            audit_resp = supabase.table('audit_logs').insert(audit_entry).execute()
+            audit_id = audit_resp.data[0]['id']
+        except Exception:
+            audit_id = None
         
         # UPDATE check record
         supabase.table('analysis_assumption_checks').update({
