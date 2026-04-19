@@ -24,6 +24,7 @@ import pandas as pd
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 from supabase import create_client
+from ..db import get_supabase
 
 from ..middleware.auth import get_current_user
 from ..causal.estimators.psm import run_psm
@@ -71,10 +72,7 @@ class PushNarrativeRequest(BaseModel):
 # =============================================================================
 
 def _supabase():
-    return create_client(
-        os.getenv("SUPABASE_URL"),
-        os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
-    )
+    return get_supabase()
 
 
 def _load_dataset(dataset_id: str, version_id: str) -> pd.DataFrame:

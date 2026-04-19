@@ -26,6 +26,7 @@ from ..sensitivity_engine import run_sensitivity_panel
 from ..missing_data_engine import run_data_portrait
 
 from supabase import create_client
+from ..db import get_supabase
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +34,7 @@ router = APIRouter(prefix="/analytics", tags=["analytics_intelligence"])
 
 
 def _supa():
-    return create_client(
-        os.getenv("SUPABASE_URL"),
-        os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
-    )
+    return get_supabase()
 
 
 def _load_df(dataset_id: str, version_id: str) -> pd.DataFrame:

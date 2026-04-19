@@ -27,6 +27,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from supabase import create_client
+from ..db import get_supabase
 
 from ..models.journal_portal import (
     CertificateLookupResult,
@@ -49,7 +50,7 @@ def _get_service() -> JournalPortalService:
     key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
     if not url or not key:
         raise HTTPException(status_code=500, detail="Supabase not configured")
-    sb = create_client(url, key)
+    sb = get_supabase()
     try:
         return JournalPortalService(sb)
     except JournalPortalError as exc:

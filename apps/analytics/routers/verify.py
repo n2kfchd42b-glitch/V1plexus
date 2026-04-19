@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
 from ..middleware.auth import get_current_user
+from ..db import get_supabase
 from ..models.verification import VerificationReport
 from ..services.verification_engine import AAD_VERSION, PTLS_VERSION, VerificationEngine
 
@@ -134,14 +135,8 @@ def _log_institutional_verification(
     Write a verification attempt to the institutional audit record.
     Uses Supabase service client if configured; silently skips if not.
     """
-    supabase_url = os.getenv("SUPABASE_URL")
-    supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-    if not supabase_url or not supabase_key:
-        return
-
     try:
-        from supabase import create_client
-        sb = create_client(supabase_url, supabase_key)
+        sb = get_supabase()
         sb.table("audit_logs").insert({
             "actor_id":      actor_id,
             "action":        "pvp.verification.run",

@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 
 import pandas as pd
 from supabase import create_client
+from ..db import get_supabase
 
 from ..middleware.auth import get_current_user
 from ..causal.pc_algorithm import run_pc_algorithm
@@ -78,10 +79,7 @@ def _run_discovery_background(
     and writes suggested edges + status back to causal_dags.
     Runs in a FastAPI BackgroundTask (non-blocking for the HTTP response).
     """
-    supabase = create_client(
-        os.getenv("SUPABASE_URL"),
-        os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
-    )
+    supabase = get_supabase()
 
     try:
         # Load dataset version from storage (CSV at {dataset_id}/{version_id}/data.csv)
@@ -157,10 +155,7 @@ async def confirm_dag(
     Researcher confirms (or modifies) the suggested DAG.
     Stores confirmed_edges, logs each edge decision, transitions to 'confirmed'.
     """
-    supabase = create_client(
-        os.getenv("SUPABASE_URL"),
-        os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
-    )
+    supabase = get_supabase()
     now = datetime.now(timezone.utc).isoformat()
 
     supabase.table("causal_dags").update({
@@ -202,10 +197,7 @@ async def get_adjustment_set(
         outcome=req.outcome,
     )
 
-    supabase = create_client(
-        os.getenv("SUPABASE_URL"),
-        os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
-    )
+    supabase = get_supabase()
     supabase.table("causal_dags").update({
         "adjustment_set": result["adjustment_set"],
         "mediators": result["mediators"],
@@ -224,10 +216,7 @@ async def get_dag(
     """
     Fetch the current state of a DAG record (polling fallback if Realtime unavailable).
     """
-    supabase = create_client(
-        os.getenv("SUPABASE_URL"),
-        os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
-    )
+    supabase = get_supabase()
     resp = supabase.table("causal_dags").select("*").eq("id", dag_id).single().execute()
     if not resp.data:
         raise HTTPException(status_code=404, detail="DAG not found")

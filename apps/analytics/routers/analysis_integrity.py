@@ -13,7 +13,7 @@ import json
 
 from ..services.assumption_checker import run_assumption_checks
 from ..middleware.auth import get_current_user
-from supabase import create_client
+from ..db import get_supabase
 
 router = APIRouter(prefix='/analytics/integrity', tags=['analysis_integrity'])
 
@@ -76,10 +76,7 @@ async def post_assumption_checks(
     
     try:
         # Get Supabase client
-        supabase = create_client(
-            os.getenv('SUPABASE_URL'),
-            os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-        )
+        supabase = get_supabase()
 
         # Look up the actual file_path from dataset_versions
         version_resp = supabase.table('dataset_versions').select('file_path').eq('id', req.version_id).single().execute()
@@ -188,10 +185,7 @@ async def post_acknowledge_violations(
     """
     
     try:
-        supabase = create_client(
-            os.getenv('SUPABASE_URL'),
-            os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-        )
+        supabase = get_supabase()
 
         # Fetch check record
         resp = supabase.table('analysis_assumption_checks').select(
@@ -279,10 +273,7 @@ async def post_reentry_compare(
     """
     
     try:
-        supabase = create_client(
-            os.getenv('SUPABASE_URL'),
-            os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-        )
+        supabase = get_supabase()
         
         # Load both datasets
         storage_path_orig = (

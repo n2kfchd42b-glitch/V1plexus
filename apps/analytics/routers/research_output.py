@@ -14,15 +14,13 @@ from ..services.methods_generator import generate_methods_statement
 from ..services.package_generator import generate_output_package, create_verification_token
 from ..middleware.auth import get_current_user
 from supabase import create_client
+from ..db import get_supabase
 
 router = APIRouter(prefix='/analytics/output', tags=['research_output'])
 
 
 def get_supabase():
-    return create_client(
-        os.getenv('SUPABASE_URL'),
-        os.getenv('SUPABASE_SERVICE_ROLE_KEY'),
-    )
+    return get_supabase()
 
 
 # ============================================================================

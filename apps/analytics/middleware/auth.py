@@ -7,7 +7,7 @@ which handles both HS256 and RS256 tokens transparently.
 import os
 from fastapi import HTTPException, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from supabase import create_client
+from ..db import get_supabase
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -23,14 +23,9 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="Missing authorization token")
 
     token = credentials.credentials
-    supabase_url = os.getenv("SUPABASE_URL", "")
-    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "") or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
-
-    if not supabase_url or not service_key:
-        raise HTTPException(status_code=500, detail="Auth not configured: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY missing")
 
     try:
-        client = create_client(supabase_url, service_key)
+        client = get_supabase()
         response = client.auth.get_user(token)
         user_id = response.user.id if response.user else None
         if not user_id:

@@ -25,6 +25,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from supabase import create_client
+from ..db import get_supabase
 
 from ..middleware.auth import get_current_user
 from ..models.institutional import (
@@ -71,7 +72,7 @@ def _supabase():
     key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
     if not url or not key:
         raise HTTPException(status_code=500, detail="Supabase not configured")
-    return create_client(url, key)
+    return get_supabase()
 
 
 def _institutional_service(sb=Depends(_supabase)) -> InstitutionalService:
