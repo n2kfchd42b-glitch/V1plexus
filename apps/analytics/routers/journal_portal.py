@@ -46,7 +46,7 @@ router = APIRouter(prefix="/api/journal", tags=["journal"])
 
 def _get_service() -> JournalPortalService:
     url = os.getenv("SUPABASE_URL")
-    key = os.getenv("SUPABASE_SERVICE_KEY")
+    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
     if not url or not key:
         raise HTTPException(status_code=500, detail="Supabase not configured")
     sb = create_client(url, key)

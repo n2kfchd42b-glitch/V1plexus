@@ -24,10 +24,10 @@ async def get_current_user(
 
     token = credentials.credentials
     supabase_url = os.getenv("SUPABASE_URL", "")
-    service_key = os.getenv("SUPABASE_SERVICE_KEY", "")
+    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "") or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 
     if not supabase_url or not service_key:
-        raise HTTPException(status_code=500, detail="Auth not configured: SUPABASE_URL or SUPABASE_SERVICE_KEY missing")
+        raise HTTPException(status_code=500, detail="Auth not configured: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY missing")
 
     try:
         client = create_client(supabase_url, service_key)

@@ -135,7 +135,7 @@ def _log_institutional_verification(
     Uses Supabase service client if configured; silently skips if not.
     """
     supabase_url = os.getenv("SUPABASE_URL")
-    supabase_key = os.getenv("SUPABASE_SERVICE_KEY")
+    supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
     if not supabase_url or not supabase_key:
         return
 

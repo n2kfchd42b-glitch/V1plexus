@@ -59,7 +59,7 @@ def require_institutional() -> ServiceBoundary:
 
 def _supabase():
     url = os.getenv("SUPABASE_URL")
-    key = os.getenv("SUPABASE_SERVICE_KEY")
+    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
     if not url or not key:
         raise HTTPException(status_code=500, detail="Supabase not configured")
     return create_client(url, key)

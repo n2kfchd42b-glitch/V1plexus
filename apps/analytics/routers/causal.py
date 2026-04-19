@@ -80,7 +80,7 @@ def _run_discovery_background(
     """
     supabase = create_client(
         os.getenv("SUPABASE_URL"),
-        os.getenv("SUPABASE_SERVICE_KEY"),
+        os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
     )
 
     try:
@@ -159,7 +159,7 @@ async def confirm_dag(
     """
     supabase = create_client(
         os.getenv("SUPABASE_URL"),
-        os.getenv("SUPABASE_SERVICE_KEY"),
+        os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
     )
     now = datetime.now(timezone.utc).isoformat()
 
@@ -204,7 +204,7 @@ async def get_adjustment_set(
 
     supabase = create_client(
         os.getenv("SUPABASE_URL"),
-        os.getenv("SUPABASE_SERVICE_KEY"),
+        os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
     )
     supabase.table("causal_dags").update({
         "adjustment_set": result["adjustment_set"],
@@ -226,7 +226,7 @@ async def get_dag(
     """
     supabase = create_client(
         os.getenv("SUPABASE_URL"),
-        os.getenv("SUPABASE_SERVICE_KEY"),
+        os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
     )
     resp = supabase.table("causal_dags").select("*").eq("id", dag_id).single().execute()
     if not resp.data:
