@@ -24,6 +24,7 @@ export function AssumptionCheckModal({
   const [acknowledgementNotes, setAcknowledgementNotes] = useState<
     Record<string, string>
   >({})
+  const [acknowledged, setAcknowledged] = useState(false)
   const [loading, setLoading] = useState(false)
 
   if (!isOpen) return null
@@ -76,19 +77,10 @@ export function AssumptionCheckModal({
 
   const styles = recommendationStyles[checkResult.run_recommendation]
 
-  // Check if all required notes are filled
-  const criticalViolations = checkResult.checks.filter(
-    (c) => c.status === 'violated' && c.severity === 'critical'
+  const hasViolations = checkResult.checks.some(
+    (c) => c.status === 'violated' || c.status === 'warning'
   )
-
-  const hasAllRequiredNotes = criticalViolations.every((check) => {
-    const notes = acknowledgementNotes[check.assumption_name] || ''
-    return notes.length >= 10
-  })
-
-  const canProceed =
-    (checkResult.all_passed && !checkResult.requires_acknowledgement) ||
-    hasAllRequiredNotes
+  const canProceed = !hasViolations || acknowledged
 
   const handleProceed = async () => {
     setLoading(true)
@@ -238,53 +230,59 @@ export function AssumptionCheckModal({
               <AssumptionCheckCard
                 key={idx}
                 check={check}
-                onNoteChange={(note) => {
-                  setAcknowledgementNotes((prev) => ({
-                    ...prev,
-                    [check.assumption_name]: note,
-                  }))
-                }}
-                note={
-                  acknowledgementNotes[check.assumption_name] || ''
-                }
               />
             ))}
           </div>
         </CardContent>
 
         {/* FOOTER */}
-        <div className="border-t border-gray-200 bg-gray-50 rounded-0 rounded-b-2xl px-8 py-5 flex items-center justify-between">
-          <div>
-            <button
-              onClick={() => {
-                onCancel()
-                onClose()
-              }}
-              className="text-sm text-gray-600 hover:text-gray-900 font-medium"
-            >
-              Cancel
-            </button>
-            <p className="text-xs text-gray-500 mt-1">
-              Analysis will not run
-            </p>
-          </div>
+        <div className="border-t border-gray-200 bg-gray-50 rounded-0 rounded-b-2xl px-8 py-5">
+          {hasViolations && (
+            <label className="flex items-start gap-3 cursor-pointer mb-4">
+              <input
+                type="checkbox"
+                checked={acknowledged}
+                onChange={(e) => setAcknowledged(e.target.checked)}
+                className="w-4 h-4 mt-0.5 rounded flex-shrink-0"
+              />
+              <span className="text-xs text-gray-700 leading-relaxed">
+                I have reviewed the assumption check results and understand the implications for my analysis.
+              </span>
+            </label>
+          )}
+          <div className="flex items-center justify-between">
+            <div>
+              <button
+                onClick={() => {
+                  onCancel()
+                  onClose()
+                }}
+                className="text-sm text-gray-600 hover:text-gray-900 font-medium"
+              >
+                Cancel
+              </button>
+              <p className="text-xs text-gray-500 mt-1">
+                Analysis will not run
+              </p>
+            </div>
 
-          <Button
-            onClick={handleProceed}
-            disabled={!canProceed || loading}
-            variant={
-              checkResult.run_recommendation === 'consider_alternatives'
-                ? 'secondary'
-                : 'default'
-            }
-            className="ml-3"
-          >
-            {loading
-              ? 'Processing...'
-              : checkResult.run_recommendation === 'consider_alternatives'
-                ? 'Proceed Anyway'
-                : 'Run Analysis →'}
-          </Button>
+            <Button
+              onClick={handleProceed}
+              disabled={!canProceed || loading}
+              variant={
+                checkResult.run_recommendation === 'consider_alternatives'
+                  ? 'secondary'
+                  : 'default'
+              }
+              className="ml-3"
+            >
+              {loading
+                ? 'Processing...'
+                : checkResult.run_recommendation === 'consider_alternatives'
+                  ? 'Proceed Anyway'
+                  : 'Run Analysis →'}
+            </Button>
+          </div>
         </div>
       </Card>
     </div>
@@ -294,15 +292,9 @@ export function AssumptionCheckModal({
 // Individual assumption check card component
 interface AssumptionCheckCardProps {
   check: AssumptionCheck
-  onNoteChange: (note: string) => void
-  note: string
 }
 
-function AssumptionCheckCard({
-  check,
-  onNoteChange,
-  note,
-}: AssumptionCheckCardProps) {
+function AssumptionCheckCard({ check }: AssumptionCheckCardProps) {
   const statusIcon = {
     passed: <span className="w-5 h-5 rounded-full bg-green-100 border border-green-600 flex items-center justify-center text-xs text-green-600">✓</span>,
     violated: {
@@ -423,47 +415,6 @@ function AssumptionCheckCard({
           </div>
         )}
 
-        {/* Acknowledgement input for critical violations */}
-        {check.status === 'violated' && check.severity === 'critical' && (
-          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded">
-            <p className="text-xs font-bold text-amber-900 uppercase mb-2">
-              Required: Explain why proceeding despite this violation
-            </p>
-            <textarea
-              value={note}
-              onChange={(e) => onNoteChange(e.target.value)}
-              placeholder="e.g., The violation is minor in practical terms because... / I will use robust standard errors to address..."
-              className="w-full text-xs border border-amber-300 rounded p-2 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
-              minLength={10}
-              rows={3}
-            />
-            <div className="text-xs text-right mt-1">
-              <span
-                className={
-                  note.length >= 10 ? 'text-green-600' : 'text-gray-600'
-                }
-              >
-                {note.length}/10 min
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* Checkbox for moderate/not_applicable */}
-        {(check.severity === 'moderate' ||
-          check.status === 'not_applicable') && (
-          <label className="mt-3 flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={note === 'reviewed'}
-              onChange={(e) => onNoteChange(e.target.checked ? 'reviewed' : '')}
-              className="w-4 h-4 rounded"
-            />
-            <span className="text-xs text-gray-700">
-              I have reviewed this finding
-            </span>
-          </label>
-        )}
       </CardContent>
     </Card>
   )
