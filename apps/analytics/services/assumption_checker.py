@@ -143,9 +143,9 @@ def check_logistic_regression(
     config: Dict[str, Any],
 ) -> List[AssumptionCheck]:
     """Check assumptions for logistic regression"""
-    
+
     checks = []
-    outcome_var = config.get('outcome_variable')
+    outcome_var = config.get('outcome_variable') or config.get('outcome')
     predictors = config.get('predictors', [])
     
     if not outcome_var or not predictors:
@@ -291,10 +291,10 @@ def check_linear_regression(
     config: Dict[str, Any],
 ) -> List[AssumptionCheck]:
     """Check assumptions for linear regression"""
-    
+
     checks = []
-    outcome_var = config.get('outcome_variable')
-    predictors = config.get('predictors', [])
+    outcome_var = config.get('outcome_variable') or config.get('dependent')
+    predictors = config.get('predictors') or config.get('independents', [])
     
     if not outcome_var or not predictors:
         return checks
@@ -500,10 +500,10 @@ def check_chi_square(
     config: Dict[str, Any],
 ) -> List[AssumptionCheck]:
     """Check assumptions for chi-square test"""
-    
+
     checks = []
-    var1 = config.get('variable_1')
-    var2 = config.get('variable_2')
+    var1 = config.get('variable_1') or config.get('variable1')
+    var2 = config.get('variable_2') or config.get('variable2')
     
     if not var1 or not var2:
         return checks
@@ -577,10 +577,10 @@ def check_anova(
     config: Dict[str, Any],
 ) -> List[AssumptionCheck]:
     """Check assumptions for ANOVA"""
-    
+
     checks = []
-    outcome_var = config.get('outcome_variable')
-    grouping_var = config.get('grouping_variable')
+    outcome_var = config.get('outcome_variable') or config.get('dependent')
+    grouping_var = config.get('grouping_variable') or config.get('factor1')
     
     if not outcome_var or not grouping_var:
         return checks
@@ -684,8 +684,8 @@ def check_survival(
     """Check assumptions for survival analysis"""
     
     checks = []
-    event_var = config.get('event_variable')
-    time_var = config.get('time_variable')
+    event_var = config.get('event_variable') or config.get('eventVariable')
+    time_var = config.get('time_variable') or config.get('timeVariable')
     
     if not event_var or not time_var:
         return checks
