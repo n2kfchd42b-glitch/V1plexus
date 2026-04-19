@@ -78,14 +78,23 @@ async def post_assumption_checks(
         # Get Supabase client
         supabase = create_client(
             os.getenv('SUPABASE_URL'),
-            os.getenv('SUPABASE_SERVICE_KEY')
+            os.getenv('SUPABASE_SERVICE_ROLE_KEY')
         )
-        
-        # Load dataset version data from storage
-        # Assuming data is stored in dataset_versions as CSV
-        storage_path = f"{req.dataset_id}/{req.version_id}/data.csv"
-        response = supabase.storage.from_('datasets').download(storage_path)
-        df = pd.read_csv(pd.io.common.StringIO(response.decode('utf-8')))
+
+        # Look up the actual file_path from dataset_versions
+        version_resp = supabase.table('dataset_versions').select('file_path').eq('id', req.version_id).single().execute()
+        if not version_resp.data:
+            raise HTTPException(status_code=404, detail='Dataset version not found')
+        file_path = version_resp.data['file_path']
+
+        # Download from Supabase Storage and parse (JSON or CSV)
+        response = supabase.storage.from_('datasets').download(file_path)
+        content = response.decode('utf-8')
+        try:
+            parsed = json.loads(content)
+            df = pd.DataFrame(parsed['rows'])
+        except (json.JSONDecodeError, KeyError):
+            df = pd.read_csv(pd.io.common.StringIO(content))
         
         # Run assumption checks
         result = run_assumption_checks(
@@ -178,9 +187,9 @@ async def post_acknowledge_violations(
     try:
         supabase = create_client(
             os.getenv('SUPABASE_URL'),
-            os.getenv('SUPABASE_SERVICE_KEY')
+            os.getenv('SUPABASE_SERVICE_ROLE_KEY')
         )
-        
+
         # Fetch check record
         resp = supabase.table('analysis_assumption_checks').select(
             '*'
