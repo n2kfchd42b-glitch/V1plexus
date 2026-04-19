@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     let analyticsUrl = process.env.ANALYTICS_API_URL
     if (!analyticsUrl.startsWith('http')) analyticsUrl = `https://${analyticsUrl}`
 
-    const response = await fetch(
+    const fetchPromise = fetch(
       `${analyticsUrl}/analytics/integrity/assumption-checks`,
       {
         method: 'POST',
@@ -64,17 +64,49 @@ export async function POST(request: NextRequest) {
       }
     )
 
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('assumption-check timeout')), 10000)
+    )
+
+    const response = await Promise.race([fetchPromise, timeoutPromise])
+
     if (!response.ok) {
-      return NextResponse.json(
-        { error: 'Failed to run assumption checks' },
-        { status: response.status }
-      )
+      const errText = await response.text().catch(() => '')
+      console.error('[assumption-checks] external service error', response.status, errText)
+      // Degrade gracefully — return an "unavailable" result rather than 500
+      const unavailable: AssumptionCheckResult = {
+        check_id: '',
+        analysis_type,
+        checks: [],
+        all_passed: true,
+        run_recommendation: 'proceed',
+        critical_violations: 0,
+        moderate_violations: 0,
+        minor_violations: 0,
+        not_applicable_count: 0,
+        requires_acknowledgement: false,
+      }
+      return NextResponse.json(unavailable)
     }
 
     const result: AssumptionCheckResult = await response.json()
     return NextResponse.json(result)
   } catch (error) {
     console.error('[POST /api/analysis/assumption-checks]', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    // Degrade gracefully on network/parse errors too
+    const { analysis_type } = (await request.json().catch(() => ({}))) as { analysis_type?: string }
+    const unavailable: AssumptionCheckResult = {
+      check_id: '',
+      analysis_type: analysis_type ?? '',
+      checks: [],
+      all_passed: true,
+      run_recommendation: 'proceed',
+      critical_violations: 0,
+      moderate_violations: 0,
+      minor_violations: 0,
+      not_applicable_count: 0,
+      requires_acknowledgement: false,
+    }
+    return NextResponse.json(unavailable)
   }
 }

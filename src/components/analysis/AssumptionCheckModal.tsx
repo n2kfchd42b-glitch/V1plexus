@@ -33,9 +33,16 @@ export function AssumptionCheckModal({
     const priorityMap: Record<string, number> = {
       violated_critical: 0,
       violated_moderate: 1,
-      not_applicable: 2,
+      violated_minor: 2,
+      warning_critical: 3,
+      warning_moderate: 3,
       warning_minor: 3,
-      passed: 4,
+      not_applicable_critical: 4,
+      not_applicable_moderate: 4,
+      not_applicable_minor: 4,
+      passed_critical: 5,
+      passed_moderate: 5,
+      passed_minor: 5,
     }
 
     return [...checkResult.checks].sort((a, b) => {
@@ -103,25 +110,38 @@ export function AssumptionCheckModal({
                 <span className="text-2xl text-green-600">✓</span>
               </div>
             </div>
-            <h2 className="font-bold text-xl mb-2">All assumptions satisfied</h2>
-            <p className="text-sm text-gray-600 mb-6">
-              Your analysis configuration passed all assumption checks.
-            </p>
+            {checkResult.checks.length === 0 ? (
+              <>
+                <h2 className="font-bold text-xl mb-2">Assumption checks unavailable</h2>
+                <p className="text-sm text-gray-600 mb-6">
+                  No assumption checks were run for this analysis. You may proceed, but statistical assumptions have not been verified.
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="font-bold text-xl mb-2">All assumptions satisfied</h2>
+                <p className="text-sm text-gray-600 mb-6">
+                  Your analysis configuration passed all assumption checks.
+                </p>
+              </>
+            )}
 
             {/* Brief passed checks list */}
-            <div className="mb-8 space-y-2 max-h-24 overflow-y-auto">
-              {checkResult.checks.slice(0, 3).map((check, idx) => (
-                <div key={idx} className="flex items-center gap-2 text-sm">
-                  <span className="text-green-600">✓</span>
-                  <span className="text-gray-700">{check.assumption_name}</span>
-                </div>
-              ))}
-              {checkResult.checks.length > 3 && (
-                <div className="text-xs text-gray-500 pt-2">
-                  + {checkResult.checks.length - 3} more
-                </div>
-              )}
-            </div>
+            {checkResult.checks.length > 0 && (
+              <div className="mb-8 space-y-2 max-h-24 overflow-y-auto">
+                {checkResult.checks.slice(0, 3).map((check, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-sm">
+                    <span className="text-green-600">✓</span>
+                    <span className="text-gray-700">{check.assumption_name}</span>
+                  </div>
+                ))}
+                {checkResult.checks.length > 3 && (
+                  <div className="text-xs text-gray-500 pt-2">
+                    + {checkResult.checks.length - 3} more
+                  </div>
+                )}
+              </div>
+            )}
 
             <Button
               onClick={handleProceed}
@@ -200,12 +220,12 @@ export function AssumptionCheckModal({
               variant="success"
               className="text-xs"
             >
-              {checkResult.checks.length - checkResult.critical_violations - checkResult.moderate_violations - checkResult.minor_violations}{' '}
+              {checkResult.checks.length - checkResult.critical_violations - checkResult.moderate_violations - checkResult.minor_violations - checkResult.not_applicable_count}{' '}
               Passed
             </Badge>
             {checkResult.not_applicable_count > 0 && (
               <Badge variant="default" className="text-xs">
-                {checkResult.not_applicable_count} Acknowledgement Required
+                {checkResult.not_applicable_count} Not Applicable
               </Badge>
             )}
           </div>

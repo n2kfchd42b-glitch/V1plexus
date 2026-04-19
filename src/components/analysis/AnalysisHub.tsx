@@ -422,6 +422,7 @@ export function AnalysisHub({ projectId }: Props) {
     analysisConfig: Record<string, unknown>,
     proceed: () => Promise<void>,
   ) => {
+    console.log('[assumption-gate] datasetId:', datasetId, 'versionId:', versionId, 'analysisType:', analysisType)
     if (datasetId && versionId) {
       try {
         const res = await fetch('/api/analysis/assumption-checks', {
@@ -437,14 +438,21 @@ export function AnalysisHub({ projectId }: Props) {
         })
         if (res.ok) {
           const checkResult: AssumptionCheckResult = await res.json()
-          if (!checkResult.all_passed || checkResult.requires_acknowledgement) {
-            setAssumptionCheckResult(checkResult)
-            pendingAnalysisCallback.current = proceed
-            setShowAssumptionModal(true)
-            return
-          }
+          setAssumptionCheckResult(checkResult)
+          pendingAnalysisCallback.current = proceed
+          setShowAssumptionModal(true)
+          return
+        } else {
+          const errBody = await res.json().catch(() => ({}))
+          console.error('[assumption-gate] API error', res.status, errBody)
+          toast.warning('Assumption checks failed — proceeding without validation.')
         }
-      } catch { /* non-blocking — proceed on network error */ }
+      } catch (err) {
+        console.error('[assumption-gate] network error:', err)
+        toast.warning('Assumption checks unavailable — proceeding without validation. Check your network connection.')
+      }
+    } else {
+      console.warn('[assumption-gate] skipped — datasetId:', datasetId, 'versionId:', versionId)
     }
     await proceed()
   }, [datasetId, versionId, projectId])
@@ -454,6 +462,7 @@ export function AnalysisHub({ projectId }: Props) {
     backendType: string,
     backendConfig: Record<string, unknown>,
   ) => {
+    console.log('[run] runWithTypeAndConfig called:', backendType)
     const t = backendType as AnalysisType
     setSelectedType(t)
     setConfig(backendConfig)
@@ -639,6 +648,7 @@ export function AnalysisHub({ projectId }: Props) {
   }
 
   const handleEngineDirectRun = () => {
+    console.log('[run] handleEngineDirectRun called, engineSelectedType:', engineSelectedType)
     if (!engineSelectedType) return
     const config: AnalysisConfig = {
       analysis_type: engineSelectedType,
@@ -661,6 +671,7 @@ export function AnalysisHub({ projectId }: Props) {
   }
 
   const handleRun = async () => {
+    console.log('[run] handleRun called, selectedType:', selectedType)
     if (!selectedType) return
     if (approvalBlock) return
 
@@ -673,14 +684,19 @@ export function AnalysisHub({ projectId }: Props) {
         })
         if (res.ok) {
           const checkResult: AssumptionCheckResult = await res.json()
-          if (!checkResult.all_passed || checkResult.requires_acknowledgement) {
-            setAssumptionCheckResult(checkResult)
-            pendingAnalysisCallback.current = executeAnalysis
-            setShowAssumptionModal(true)
-            return
-          }
+          setAssumptionCheckResult(checkResult)
+          pendingAnalysisCallback.current = executeAnalysis
+          setShowAssumptionModal(true)
+          return
+        } else {
+          const errBody = await res.json().catch(() => ({}))
+          console.error('[assumption-gate] API error', res.status, errBody)
+          toast.warning('Assumption checks failed — proceeding without validation.')
         }
-      } catch { /* non-blocking */ }
+      } catch (err) {
+        console.error('[assumption-gate] network error:', err)
+        toast.warning('Assumption checks unavailable — proceeding without validation. Check your network connection.')
+      }
     }
 
     await executeAnalysis()
@@ -1673,7 +1689,7 @@ export function AnalysisHub({ projectId }: Props) {
           analysisType={selectedType}
           onProceed={async (notes) => {
             setShowAssumptionModal(false)
-            if (assumptionCheckResult.requires_acknowledgement) {
+            if (assumptionCheckResult.requires_acknowledgement && assumptionCheckResult.check_id) {
               try {
                 await fetch(`/api/analysis/assumption-checks/${assumptionCheckResult.check_id}/acknowledge`, {
                   method: 'POST',
