@@ -73,7 +73,8 @@ export function RecommendationCard({ recommendation, onRun, onConfigureManually,
                 <button
                   key={alt.analysis_type}
                   onClick={() => onRunAlternative(alt.analysis_type as AnalysisTypeId)}
-                  className="w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150 cursor-pointer"
+                  aria-label={`Run alternative: ${alt.name}`}
+                  className="group w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150 cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
                   style={{
                     background: 'var(--bg-app)',
                     border: '1px solid var(--border-default)',
@@ -81,25 +82,24 @@ export function RecommendationCard({ recommendation, onRun, onConfigureManually,
                   onMouseEnter={e => {
                     e.currentTarget.style.borderColor = 'var(--accent-blue)'
                     e.currentTarget.style.background = 'var(--accent-blue-subtle)'
-                    const arrow = e.currentTarget.querySelector<HTMLElement>('.run-arrow')
-                    if (arrow) arrow.style.opacity = '1'
                   }}
                   onMouseLeave={e => {
                     e.currentTarget.style.borderColor = 'var(--border-default)'
                     e.currentTarget.style.background = 'var(--bg-app)'
-                    const arrow = e.currentTarget.querySelector<HTMLElement>('.run-arrow')
-                    if (arrow) arrow.style.opacity = '0'
                   }}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-[11px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    <p className="text-[11px] font-semibold min-w-0 truncate" style={{ color: 'var(--text-primary)' }}>
                       {alt.name}
                     </p>
-                    <span className="run-arrow text-[10px] font-semibold flex-shrink-0 transition-opacity duration-150" style={{ color: 'var(--accent-blue)', opacity: 0 }}>
+                    <span
+                      className="text-[10px] font-semibold flex-shrink-0 transition-colors duration-150 opacity-40 group-hover:opacity-100"
+                      style={{ color: 'var(--accent-blue)' }}
+                    >
                       Run →
                     </span>
                   </div>
-                  <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                  <p className="text-[10px] mt-0.5 line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
                     {alt.reason}
                   </p>
                 </button>

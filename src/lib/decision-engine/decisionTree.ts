@@ -258,11 +258,20 @@ export function decideAnalysisType(
       }
     }
 
-    if (outcomeType === 'binary' || outcomeType === 'categorical') {
+    if (outcomeType === 'binary') {
       return {
         primary: complete_cases < 40 ? 'fisher_exact' : 'chi_square',
         alternatives: [
-          { id: 'logistic_regression', reason: 'If you need adjusted estimates' },
+          { id: 'logistic_regression', reason: 'If you need adjusted estimates controlling for covariates' },
+        ],
+      }
+    }
+
+    if (outcomeType === 'categorical') {
+      return {
+        primary: complete_cases < 40 ? 'fisher_exact' : 'chi_square',
+        alternatives: [
+          { id: 'multinomial_regression', reason: 'If you need adjusted estimates for 3+ outcome categories' },
         ],
       }
     }

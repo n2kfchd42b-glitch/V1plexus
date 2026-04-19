@@ -177,6 +177,15 @@ export function generatePlainLanguageSummary(
       break
     }
 
+    case 'multinomial_regression': {
+      const n    = fmt(get(s, 'n'))
+      const cats = fmt(get(s, 'categories'))
+      const ref  = fmt(get(s, 'reference'), 'baseline')
+      headline  = `Multinomial logistic regression compared ${cats} outcome categories vs reference "${ref}" in ${n} participants.`
+      paragraph = `A multinomial logistic regression was fitted on ${n} complete cases from ${datasetName}. The model compared ${cats} non-reference outcome categories against the reference "${ref}", producing relative risk ratios (RRR) for each predictor. An RRR > 1 indicates higher odds of that outcome category versus the reference. Examine the per-category tables and forest plot for direction, magnitude, and significance of individual predictors.`
+      break
+    }
+
     case 'simple_regression': {
       const n    = fmt(get(s, 'n'))
       const r2   = fmt(get(s, 'r2') ?? get(s, 'rSquared'))
@@ -292,7 +301,8 @@ const ASSUMPTIONS: Record<string, string> = {
   anova:                "Homogeneity of variance was assessed with Levene's test. Post-hoc comparisons used Tukey HSD.",
   simple_regression:    'Residuals were inspected for normality and homoscedasticity.',
   multiple_regression:  'Multicollinearity was assessed using variance inflation factors (VIF). Residuals were inspected for normality and homoscedasticity.',
-  logistic_regression:  'Model discrimination was assessed using the AUC of the ROC curve. Calibration was evaluated with the Hosmer-Lemeshow test.',
+  logistic_regression:      'Model discrimination was assessed using the AUC of the ROC curve. Calibration was evaluated with the Hosmer-Lemeshow test.',
+  multinomial_regression:   'One-vs-reference logistic models were fitted for each non-reference outcome category. Multicollinearity was assessed via VIF. Model convergence was verified for each category.',
   kaplan_meier:         'Survival curves were compared using the log-rank test. The proportional hazards assumption was not tested at this stage.',
   cox_regression:       'The proportional hazards assumption was assessed using Schoenfeld residuals.',
   chi_square:           'Expected cell counts were verified to meet the minimum threshold (≥5) required for validity.',

@@ -27,10 +27,11 @@ export interface ChiSquareConfig {
   variable2: string
   showExpected: boolean
   yatesCorrection: boolean
+  forceFisher?: boolean
 }
 
 export function runChiSquare(data: DataRow[], config: ChiSquareConfig): AnalysisResult {
-  const { variable1, variable2, yatesCorrection } = config
+  const { variable1, variable2, yatesCorrection, forceFisher } = config
   const vals1 = getCategoricalValues(data, variable1)
   const vals2 = getCategoricalValues(data, variable2)
   const cats1 = [...new Set(vals1)].sort()
@@ -85,18 +86,32 @@ export function runChiSquare(data: DataRow[], config: ChiSquareConfig): Analysis
   ])
   expRows.push(['Total', ...colTotals, grand])
 
+  // When forceFisher is requested but table is not 2×2, fall back gracefully
+  const canFisher = cats1.length === 2 && cats2.length === 2
+  const useFisher = forceFisher && canFisher
+  const primaryP = useFisher && fisherP !== null ? fisherP : pValue
+
   const tables: ResultTable[] = [
     { id: 'observed', title: 'Observed Counts', headers: obsHeaders, rows: obsRows },
     { id: 'expected', title: 'Expected Counts', headers: obsHeaders, rows: expRows },
     {
-      id: 'stats', title: 'Test Statistics', headers: ['Statistic', 'Value'],
-      rows: [
-        ['Chi-square (χ²)', fmt(chiSq)],
-        ['Degrees of freedom', df],
-        ['p-value', formatPValue(pValue)],
-        ['Cramér\'s V', fmt(cv, 3)],
-        ...(fisherP !== null ? [["Fisher's exact p-value", formatPValue(fisherP)]] : [])
-      ]
+      id: 'stats',
+      title: useFisher ? "Fisher's Exact Test" : 'Test Statistics',
+      headers: ['Statistic', 'Value'],
+      rows: useFisher
+        ? [
+            ["Fisher's exact p-value", formatPValue(fisherP!)],
+            ['Cramér\'s V', fmt(cv, 3)],
+            ['Chi-square (χ²)', fmt(chiSq)],
+            ['Degrees of freedom', df],
+          ]
+        : [
+            ['Chi-square (χ²)', fmt(chiSq)],
+            ['Degrees of freedom', df],
+            ['p-value', formatPValue(pValue)],
+            ['Cramér\'s V', fmt(cv, 3)],
+            ...(fisherP !== null ? [["Fisher's exact p-value", formatPValue(fisherP)]] : [])
+          ]
     }
   ]
 
@@ -105,15 +120,20 @@ export function runChiSquare(data: DataRow[], config: ChiSquareConfig): Analysis
     return { row: cat1, col: cat2, count: observed[r][c] }
   }))
 
-  const sig = pValue < 0.05 ? 'statistically significant' : 'not statistically significant'
+  const sig = primaryP < 0.05 ? 'statistically significant' : 'not statistically significant'
+  const testLabel = useFisher
+    ? `Fisher's exact test of association between ${variable1} and ${variable2} (n=${grand}): p ${formatPValue(fisherP!)}. `
+    : `Chi-square test of association between ${variable1} and ${variable2} (n=${grand}): χ²(${df}) = ${fmt(chiSq, 2)}, p ${formatPValue(pValue)}. `
+
   return {
     type: 'chi_square',
-    summary: { n: grand, chiSq: fmt(chiSq), df, pValue: formatPValue(pValue), cramersV: fmt(cv, 3) },
+    summary: { n: grand, chiSq: fmt(chiSq), df, pValue: formatPValue(primaryP), cramersV: fmt(cv, 3) },
     tables,
     charts: [{ type: 'mosaic', title: `${variable1} × ${variable2}`, data: chartData, config: { cats1, cats2 } }],
-    interpretation: `Chi-square test of association between ${variable1} and ${variable2} (n=${grand}): χ²(${df}) = ${fmt(chiSq, 2)}, p ${formatPValue(pValue)}. ` +
+    interpretation: testLabel +
       `The association is ${sig}. Cramér's V = ${fmt(cv, 3)}, indicating ` +
-      `${cv < 0.1 ? 'negligible' : cv < 0.3 ? 'small' : cv < 0.5 ? 'moderate' : 'strong'} effect size.`
+      `${cv < 0.1 ? 'negligible' : cv < 0.3 ? 'small' : cv < 0.5 ? 'moderate' : 'strong'} effect size.` +
+      (forceFisher && !canFisher ? '\n\n⚠️ Fisher\'s exact test requires a 2×2 table. Chi-square results are shown instead.' : '')
   }
 }
 
@@ -150,14 +170,19 @@ export interface TTestConfig {
   muNull?: number
   confidenceLevel: number
   equalVariances: boolean
+  nonParametric?: boolean
 }
 
 export function runTTest(data: DataRow[], config: TTestConfig): AnalysisResult {
-  const { testType, variable, groupVariable, pairedVariable, muNull = 0, confidenceLevel = 0.95, equalVariances } = config
+  const { testType, variable, groupVariable, pairedVariable, muNull = 0, confidenceLevel = 0.95, equalVariances, nonParametric } = config
   const alpha = 1 - confidenceLevel
   const tables: ResultTable[] = []
   let interpretation = ''
   let chartData: unknown[] = []
+
+  if (nonParametric && testType === 'independent' && groupVariable) {
+    return runMannWhitney(data, variable, groupVariable)
+  }
 
   if (testType === 'independent' && groupVariable) {
     const cats = getCategoricalValues(data, groupVariable)
@@ -348,10 +373,14 @@ export interface AnovaConfig {
   factor1: string
   factor2?: string
   posthoc: 'none' | 'tukey' | 'bonferroni'
-  welch: boolean
+  welch?: boolean
+  nonParametric?: boolean
 }
 
 export function runAnova(data: DataRow[], config: AnovaConfig): AnalysisResult {
+  if (config.nonParametric) {
+    return runKruskalWallis(data, config.dependent, config.factor1)
+  }
   const { dependent, factor1, posthoc } = config
 
   const groups = [...new Set(getCategoricalValues(data, factor1))].sort()
@@ -447,6 +476,186 @@ export function runAnova(data: DataRow[], config: AnovaConfig): AnalysisResult {
     charts: chartData as never,
     interpretation: `One-way ANOVA testing the effect of ${factor1} on ${dependent} (${k} groups, n=${n}). ` +
       `F(${dfBetween}, ${dfWithin}) = ${fmt(fStat, 2)}, p ${formatPValue(pValue)} — ${sig}. η² = ${fmt(etaSq, 3)}.`
+  }
+}
+
+// ===================== MANN-WHITNEY U TEST =====================
+
+function rankWithTies(sorted: { v: number; group: number | string }[]): number[] {
+  const N = sorted.length
+  const ranks = new Array<number>(N)
+  let i = 0
+  while (i < N) {
+    let j = i
+    while (j < N && sorted[j].v === sorted[i].v) j++
+    const avgRank = (i + j + 1) / 2
+    for (let k = i; k < j; k++) ranks[k] = avgRank
+    i = j
+  }
+  return ranks
+}
+
+function runMannWhitney(data: DataRow[], variable: string, groupVariable: string): AnalysisResult {
+  const cats = getCategoricalValues(data, groupVariable)
+  const vals = data.map(row => {
+    const v = row[variable]
+    return v !== null && v !== undefined ? parseFloat(String(v)) : NaN
+  })
+  const groups = [...new Set(cats)].sort().slice(0, 2)
+  const g1Vals = vals.filter((_, i) => cats[i] === groups[0] && !isNaN(vals[i]))
+  const g2Vals = vals.filter((_, i) => cats[i] === groups[1] && !isNaN(vals[i]))
+  const n1 = g1Vals.length, n2 = g2Vals.length, N = n1 + n2
+
+  const combined = [
+    ...g1Vals.map(v => ({ v, group: 1 })),
+    ...g2Vals.map(v => ({ v, group: 2 })),
+  ].sort((a, b) => a.v - b.v)
+
+  const ranks = rankWithTies(combined)
+
+  let R1 = 0
+  for (let k = 0; k < N; k++) if (combined[k].group === 1) R1 += ranks[k]
+  const U1 = R1 - n1 * (n1 + 1) / 2
+  const U2 = n1 * n2 - U1
+  const U = Math.min(U1, U2)
+
+  // Tie correction for normal approximation
+  let tieCorr = 0
+  let i = 0
+  while (i < N) {
+    let j = i
+    while (j < N && combined[j].v === combined[i].v) j++
+    const t = j - i
+    if (t > 1) tieCorr += t ** 3 - t
+    i = j
+  }
+  const varU = (n1 * n2 / 12) * ((N + 1) - tieCorr / (N * (N - 1)))
+  const Z = varU > 0 ? (U - n1 * n2 / 2) / Math.sqrt(varU) : 0
+  const pValue = 2 * normalCDF(-Math.abs(Z))
+
+  const med1 = median(g1Vals), med2 = median(g2Vals)
+  const iqr = (v: number[]) => {
+    const s = [...v].sort((a, b) => a - b)
+    return percentile(s, 75) - percentile(s, 25)
+  }
+
+  const tables: ResultTable[] = [
+    {
+      id: 'group_stats', title: 'Group Statistics',
+      headers: ['Group', 'N', 'Median', 'IQR', 'Mean Rank'],
+      rows: [
+        [groups[0], n1, fmt(med1), fmt(iqr(g1Vals)), fmt(R1 / n1)],
+        [groups[1], n2, fmt(med2), fmt(iqr(g2Vals)), fmt((N * (N + 1) / 2 - R1) / n2)],
+      ]
+    },
+    {
+      id: 'mw_stats', title: 'Mann-Whitney U Test',
+      headers: ['Statistic', 'Value'],
+      rows: [
+        ['Mann-Whitney U', fmt(U)],
+        ['Z (normal approx.)', fmt(Z, 3)],
+        ['p-value (two-tailed)', formatPValue(pValue)],
+        ['Total N', N],
+      ]
+    }
+  ]
+
+  const sig = pValue < 0.05 ? 'significant' : 'not significant'
+  return {
+    type: 't_test',
+    summary: { testType: 'mann_whitney', variable, groupVariable, U: fmt(U), Z: fmt(Z, 3), pValue: formatPValue(pValue) },
+    tables,
+    charts: [{ type: 'boxplot_2group', title: `${variable} by ${groupVariable}`, data: [
+      { group: groups[0], mean: med1, sd: iqr(g1Vals) },
+      { group: groups[1], mean: med2, sd: iqr(g2Vals) },
+    ], config: {} }],
+    interpretation: `Mann-Whitney U test comparing ${variable} between ${groups[0]} (Mdn=${fmt(med1, 2)}) and ${groups[1]} (Mdn=${fmt(med2, 2)}). ` +
+      `U = ${fmt(U)}, Z = ${fmt(Z, 3)}, p ${formatPValue(pValue)} — ${sig}.`
+  }
+}
+
+// ===================== KRUSKAL-WALLIS H TEST =====================
+
+function runKruskalWallis(data: DataRow[], dependent: string, factor1: string): AnalysisResult {
+  const groupLabels = [...new Set(getCategoricalValues(data, factor1))].sort()
+  const groupData: Record<string, number[]> = {}
+  groupLabels.forEach(g => { groupData[g] = [] })
+
+  data.forEach(row => {
+    const val = parseFloat(String(row[dependent] ?? ''))
+    const grp = String(row[factor1] ?? '')
+    if (!isNaN(val) && groupLabels.includes(grp)) groupData[grp].push(val)
+  })
+
+  const combined = groupLabels.flatMap(g => groupData[g].map(v => ({ v, group: g })))
+    .sort((a, b) => a.v - b.v)
+  const N = combined.length
+
+  const ranks = rankWithTies(combined)
+
+  const rankSums: Record<string, number> = {}
+  groupLabels.forEach(g => { rankSums[g] = 0 })
+  for (let k = 0; k < N; k++) rankSums[combined[k].group] += ranks[k]
+
+  let H = (12 / (N * (N + 1))) * groupLabels.reduce((sum, g) => {
+    const nj = groupData[g].length
+    return sum + rankSums[g] ** 2 / nj
+  }, 0) - 3 * (N + 1)
+
+  // Tie correction
+  let tieCorr = 0
+  let i = 0
+  while (i < N) {
+    let j = i
+    while (j < N && combined[j].v === combined[i].v) j++
+    const t = j - i
+    if (t > 1) tieCorr += t ** 3 - t
+    i = j
+  }
+  const C = 1 - tieCorr / (N ** 3 - N)
+  if (C > 0) H = H / C
+
+  const df = groupLabels.length - 1
+  const pValue = chiSqP(H, df)
+
+  const groupStats = groupLabels.map(g => {
+    const vals = groupData[g]
+    const sorted = [...vals].sort((a, b) => a - b)
+    return {
+      group: g,
+      n: vals.length,
+      median: median(vals),
+      iqr: fmt(percentile(sorted, 75) - percentile(sorted, 25)),
+      meanRank: fmt(rankSums[g] / vals.length),
+    }
+  })
+
+  const tables: ResultTable[] = [
+    {
+      id: 'group_stats', title: 'Group Statistics',
+      headers: ['Group', 'N', 'Median', 'IQR', 'Mean Rank'],
+      rows: groupStats.map(g => [g.group, g.n, fmt(g.median), g.iqr, g.meanRank])
+    },
+    {
+      id: 'kw_stats', title: 'Kruskal-Wallis Test',
+      headers: ['Statistic', 'Value'],
+      rows: [
+        ['H statistic (tie-corrected)', fmt(H, 3)],
+        ['Degrees of freedom', df],
+        ['p-value', formatPValue(pValue)],
+        ['Total N', N],
+      ]
+    }
+  ]
+
+  const sig = pValue < 0.05 ? 'significant' : 'not significant'
+  return {
+    type: 'anova',
+    summary: { testType: 'kruskal_wallis', dependent, factor1, H: fmt(H, 3), df, pValue: formatPValue(pValue) },
+    tables,
+    charts: [{ type: 'boxplot_groups', title: `${dependent} by ${factor1}`, data: groupStats.map(g => ({ group: g.group, mean: g.median, sd: 0 })), config: {} }],
+    interpretation: `Kruskal-Wallis H test comparing ${dependent} across ${groupLabels.length} groups of ${factor1} (N=${N}). ` +
+      `H(${df}) = ${fmt(H, 2)}, p ${formatPValue(pValue)} — ${sig}.`
   }
 }
 

@@ -85,6 +85,10 @@ export type WorkflowStep = {
   description: string
   badge?: string
   analysis_type?: AnalysisTypeId
+  /** Step cannot be auto-run — results appear inside the primary analysis output */
+  display_only?: boolean
+  /** Overrides specific fields of AnalysisConfig when building the step's backend config */
+  config_override?: Partial<AnalysisConfig>
   // Populated by buildExecutableWorkflow — machine-runnable payload
   executable_config?: {
     backendType: string

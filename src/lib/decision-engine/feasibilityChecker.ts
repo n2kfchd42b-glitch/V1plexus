@@ -69,19 +69,24 @@ export function checkFeasibility(
   // ─── EPV CHECK (logistic regression only) ────────────────────────────────
   if (analysis_type === 'logistic_regression' && variables.outcome) {
     const n_predictors = variables.covariates.length + (variables.exposure ? 1 : 0)
-    const events = Math.round(complete_cases * 0.4)
     if (n_predictors > 0) {
+      // Estimate events from outcome non-missingness; assume conservative 30% minority-class
+      // prevalence (can't know true prevalence without the data).
+      const outcome_non_null = context.row_count > 0
+        ? context.row_count - (variables.outcome.null_count ?? 0)
+        : complete_cases
+      const events = Math.round(Math.min(outcome_non_null, complete_cases) * 0.3)
       const epv = Math.round(events / n_predictors)
       const epvStatus: FeasibilityStatus = epv >= 10 ? 'pass' : epv >= 5 ? 'warn' : 'fail'
       checks.push({
         id: 'epv',
-        label: 'Events per variable',
+        label: 'Events per variable (estimated)',
         status: epvStatus,
-        value: `EPV ≈ ${epv}`,
+        value: `EPV ≈ ${epv} (assumes ~30% prevalence)`,
         detail:
           epv < 10
-            ? 'EPV < 10 — consider reducing predictors or using penalised regression.'
-            : undefined,
+            ? 'EPV < 10 — consider reducing predictors or using penalised regression. Verify actual event count before reporting.'
+            : 'Estimated from outcome non-missingness. Verify actual event prevalence.',
       })
     }
   }
@@ -105,12 +110,19 @@ export function checkFeasibility(
 
   // ─── PSM: BINARY TREATMENT + ≥1 COVARIATE ───────────────────────────────
   if (analysis_type === 'propensity_score_matching') {
+    const treatmentIsBinary = variables.exposure?.type === 'binary'
     checks.push({
       id: 'psm_treatment',
-      label: 'Treatment variable',
-      status: variables.exposure ? 'pass' : 'fail',
-      value: variables.exposure ? variables.exposure.name : 'Not selected',
-      detail: !variables.exposure ? 'PSM requires a binary treatment/exposure variable.' : undefined,
+      label: 'Treatment variable (binary)',
+      status: !variables.exposure ? 'fail' : treatmentIsBinary ? 'pass' : 'fail',
+      value: variables.exposure
+        ? `${variables.exposure.name} (${variables.exposure.type})`
+        : 'Not selected',
+      detail: !variables.exposure
+        ? 'PSM requires a binary (0/1) treatment variable.'
+        : !treatmentIsBinary
+          ? `Treatment variable is ${variables.exposure.type}. PSM requires a binary (0/1) variable — re-select a binary column.`
+          : undefined,
     })
     checks.push({
       id: 'psm_covariates',
@@ -123,15 +135,6 @@ export function checkFeasibility(
         ? 'At least one covariate is required to estimate propensity scores.'
         : undefined,
     })
-    if (variables.exposure?.type !== 'binary') {
-      checks.push({
-        id: 'psm_binary',
-        label: 'Treatment is binary',
-        status: variables.exposure ? 'warn' : 'na',
-        value: variables.exposure ? `Type: ${variables.exposure.type}` : '—',
-        detail: 'PSM requires a binary (0/1) treatment variable.',
-      })
-    }
   }
 
   // ─── SURVIVAL: TIME + EVENT VARIABLES ────────────────────────────────────

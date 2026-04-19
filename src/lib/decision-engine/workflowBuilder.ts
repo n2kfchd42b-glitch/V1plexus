@@ -22,7 +22,10 @@ export function buildWorkflow(
       {
         number: 2,
         name: 'Univariable logistic regression',
-        description: `Crude odds ratios for ${exposure} and each covariate independently`,
+        description: `Crude odds ratios for ${exposure} against ${outcome} — no covariate adjustment`,
+        badge: 'auto-run',
+        analysis_type: 'logistic_regression',
+        config_override: { covariate_variables: [] },
       },
       {
         number: 3,
@@ -34,14 +37,16 @@ export function buildWorkflow(
       {
         number: 4,
         name: 'Assumption checks',
-        description: 'Multicollinearity (VIF), complete separation, influential observations',
-        badge: 'auto-run by PLEXUS',
+        description: 'Multicollinearity (VIF), complete separation, influential observations — review in results',
+        badge: 'in results',
+        display_only: true,
       },
       {
         number: 5,
         name: 'Forest plot — Adjusted Odds Ratios',
-        description: `Publication-ready chart for ${outcome} predictors with 95% CIs`,
-        badge: 'auto-generated',
+        description: `Publication-ready chart for ${outcome} predictors with 95% CIs — generated in results`,
+        badge: 'in results',
+        display_only: true,
       },
     ],
 
@@ -57,7 +62,9 @@ export function buildWorkflow(
         number: 2,
         name: 'Outcome category frequencies',
         description: `Distribution of ${outcome} categories — n (%) per class`,
-        badge: 'auto-generated',
+        badge: 'auto-run',
+        analysis_type: 'descriptive_statistics',
+        config_override: { exposure_variable: null, covariate_variables: [] },
       },
       {
         number: 3,
@@ -69,8 +76,9 @@ export function buildWorkflow(
       {
         number: 4,
         name: 'Assumption checks',
-        description: 'Multicollinearity (VIF), complete separation per outcome class',
-        badge: 'auto-run by PLEXUS',
+        description: 'Multicollinearity (VIF), complete separation per outcome class — review in results',
+        badge: 'in results',
+        display_only: true,
       },
     ],
 
@@ -79,13 +87,16 @@ export function buildWorkflow(
         number: 1,
         name: 'Descriptive Statistics',
         description: `Distribution of ${outcome} — mean, SD, normality check`,
-        badge: 'auto-generated',
+        badge: 'auto-run',
         analysis_type: 'descriptive_statistics',
       },
       {
         number: 2,
         name: 'Univariable linear regression',
-        description: `Crude associations between ${outcome} and each predictor`,
+        description: `Crude β for ${exposure} against ${outcome} — no covariate adjustment`,
+        badge: 'auto-run',
+        analysis_type: 'linear_regression',
+        config_override: { covariate_variables: [] },
       },
       {
         number: 3,
@@ -97,8 +108,9 @@ export function buildWorkflow(
       {
         number: 4,
         name: 'Assumption checks',
-        description: 'Normality of residuals, homoscedasticity, influential observations',
-        badge: 'auto-run by PLEXUS',
+        description: 'Normality of residuals, homoscedasticity, influential observations — review in results',
+        badge: 'in results',
+        display_only: true,
       },
     ],
 
@@ -107,7 +119,7 @@ export function buildWorkflow(
         number: 1,
         name: 'Descriptive Statistics',
         description: 'Characterise study population and event rate',
-        badge: 'auto-generated',
+        badge: 'auto-run',
         analysis_type: 'descriptive_statistics',
       },
       {
@@ -122,8 +134,9 @@ export function buildWorkflow(
       {
         number: 3,
         name: 'Median survival table',
-        description: 'Median survival time with 95% CIs per group',
-        badge: 'auto-generated',
+        description: 'Median survival time with 95% CIs per group — shown in results',
+        badge: 'in results',
+        display_only: true,
       },
     ],
 
@@ -132,6 +145,7 @@ export function buildWorkflow(
         number: 1,
         name: 'Kaplan-Meier curves',
         description: 'Unadjusted survival — run before Cox regression',
+        badge: 'auto-run',
         analysis_type: 'kaplan_meier',
       },
       {
@@ -143,15 +157,17 @@ export function buildWorkflow(
       },
       {
         number: 3,
-        name: 'Schoenfeld residuals',
-        description: 'Test proportional hazards assumption',
-        badge: 'auto-run by PLEXUS',
+        name: 'Schoenfeld residuals (PH assumption)',
+        description: 'Test proportional hazards assumption — no automated implementation; review residual plot in Cox output',
+        badge: 'in results',
+        display_only: true,
       },
       {
         number: 4,
         name: 'Forest plot — Hazard Ratios',
-        description: 'Adjusted HRs with 95% CIs',
-        badge: 'auto-generated',
+        description: 'Adjusted HRs with 95% CIs — generated in results',
+        badge: 'in results',
+        display_only: true,
       },
     ],
 
@@ -159,8 +175,9 @@ export function buildWorkflow(
       {
         number: 1,
         name: 'Frequency table',
-        description: `${outcome} × ${exposure} cross-tabulation with row and column percentages`,
-        badge: 'auto-generated',
+        description: `${outcome} × ${exposure} cross-tabulation — shown in results`,
+        badge: 'in results',
+        display_only: true,
       },
       {
         number: 2,
@@ -172,8 +189,9 @@ export function buildWorkflow(
       {
         number: 3,
         name: 'Effect size',
-        description: "Cramér's V to quantify association strength",
-        badge: 'auto-generated',
+        description: "Cramér's V — shown in results",
+        badge: 'in results',
+        display_only: true,
       },
     ],
 
@@ -181,8 +199,9 @@ export function buildWorkflow(
       {
         number: 1,
         name: 'Frequency table',
-        description: `2×2 contingency table for ${outcome} × ${exposure}`,
-        badge: 'auto-generated',
+        description: `2×2 contingency table for ${outcome} × ${exposure} — shown in results`,
+        badge: 'in results',
+        display_only: true,
       },
       {
         number: 2,
@@ -197,8 +216,9 @@ export function buildWorkflow(
       {
         number: 1,
         name: 'Normality check',
-        description: `Shapiro-Wilk test for ${outcome} in each group`,
-        badge: 'auto-run by PLEXUS',
+        description: `Shapiro-Wilk test for ${outcome} — no automated implementation; check histogram in results`,
+        badge: 'in results',
+        display_only: true,
       },
       {
         number: 2,
@@ -210,8 +230,9 @@ export function buildWorkflow(
       {
         number: 3,
         name: 'Box plot',
-        description: `${outcome} distribution by ${exposure} group`,
-        badge: 'auto-generated',
+        description: `${outcome} distribution by ${exposure} group — shown in results`,
+        badge: 'in results',
+        display_only: true,
       },
     ],
 
@@ -235,8 +256,9 @@ export function buildWorkflow(
       {
         number: 1,
         name: 'Descriptive statistics by group',
-        description: `Mean (SD) of ${outcome} per ${exposure} group`,
-        badge: 'auto-generated',
+        description: `Mean (SD) of ${outcome} per ${exposure} group — shown in results`,
+        badge: 'in results',
+        display_only: true,
       },
       {
         number: 2,
@@ -248,8 +270,9 @@ export function buildWorkflow(
       {
         number: 3,
         name: "Post-hoc tests (Tukey's HSD)",
-        description: 'Pairwise comparisons between groups',
-        badge: 'if ANOVA is significant',
+        description: 'Pairwise comparisons — included in results when ANOVA is significant',
+        badge: 'in results',
+        display_only: true,
       },
     ],
 
@@ -273,8 +296,9 @@ export function buildWorkflow(
       {
         number: 1,
         name: 'Scatter plot',
-        description: `${outcome} vs ${exposure} with regression line`,
-        badge: 'auto-generated',
+        description: `${outcome} vs ${exposure} with regression line — shown in results`,
+        badge: 'in results',
+        display_only: true,
       },
       {
         number: 2,
@@ -289,8 +313,9 @@ export function buildWorkflow(
       {
         number: 1,
         name: 'Scatter plot',
-        description: `${outcome} vs ${exposure}`,
-        badge: 'auto-generated',
+        description: `${outcome} vs ${exposure} — shown in results`,
+        badge: 'in results',
+        display_only: true,
       },
       {
         number: 2,
@@ -312,8 +337,9 @@ export function buildWorkflow(
       {
         number: 2,
         name: 'Table 1 generation',
-        description: 'Journal-standard baseline characteristics table',
-        badge: 'auto-generates Table 1',
+        description: 'Journal-standard baseline characteristics table — shown in results',
+        badge: 'in results',
+        display_only: true,
       },
     ],
 
@@ -328,8 +354,9 @@ export function buildWorkflow(
       {
         number: 2,
         name: 'Stratified prevalence',
-        description: `Prevalence by ${exposure} subgroup`,
-        badge: 'if exposure selected',
+        description: `Prevalence by ${exposure} subgroup — shown in results if exposure selected`,
+        badge: 'in results',
+        display_only: true,
       },
     ],
 
@@ -338,7 +365,9 @@ export function buildWorkflow(
         number: 1,
         name: 'Descriptive — outcome distribution',
         description: `Distribution of ${outcome} count variable`,
-        badge: 'auto-generated',
+        badge: 'auto-run',
+        analysis_type: 'descriptive_statistics',
+        config_override: { exposure_variable: null, covariate_variables: [] },
       },
       {
         number: 2,
@@ -354,14 +383,15 @@ export function buildWorkflow(
         number: 1,
         name: 'Descriptive Statistics (pre-matching)',
         description: `Table 1 — covariate distribution by ${exposure} group before matching`,
-        badge: 'auto-generated',
+        badge: 'auto-run',
         analysis_type: 'descriptive_statistics',
       },
       {
         number: 2,
         name: 'Propensity score estimation',
-        description: `Logistic regression: P(${exposure}=1 | covariates). Scores estimated for all ${n.toLocaleString()} participants`,
-        badge: 'auto-generated',
+        description: `Logistic regression: P(${exposure}=1 | covariates) — estimated during matching step`,
+        badge: 'in results',
+        display_only: true,
       },
       {
         number: 3,
@@ -373,14 +403,16 @@ export function buildWorkflow(
       {
         number: 4,
         name: 'Love plot — covariate balance',
-        description: 'SMD before vs after matching for all covariates. Target: all SMD < 0.1',
-        badge: 'auto-generated',
+        description: 'SMD before vs after matching — shown in results',
+        badge: 'in results',
+        display_only: true,
       },
       {
         number: 5,
         name: 'Outcome analysis on matched cohort',
-        description: 'Run primary analysis (t-test, KM, Cox, or logistic) on matched pairs only',
-        badge: 'next step',
+        description: 'Run your outcome analysis on the matched dataset as a follow-up step',
+        badge: 'manual next step',
+        display_only: true,
       },
     ],
   }

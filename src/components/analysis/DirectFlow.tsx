@@ -59,7 +59,7 @@ export function DirectFlow({ dataset, selectedType, onSelectType, canRun, onRun,
             <p className="text-xs font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>{meta.icon} {meta.name}</p>
             <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{meta.when_to_use}</p>
             <p className="text-[11px] mt-2 rounded px-2 py-1" style={{ background: 'var(--accent-blue-subtle)', color: 'var(--text-secondary)', border: '1px solid var(--border-status-info)' }}>
-              STROBE items {meta.reporting_guideline} will be auto-populated in results.
+              {meta.reporting_guideline} reporting items will be auto-populated in results.
             </p>
           </div>
         )}

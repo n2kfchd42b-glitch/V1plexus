@@ -85,27 +85,51 @@ export function buildBackendConfig(config: AnalysisConfig): Record<string, unkno
       }
 
     case 'chi_square':
+      return {
+        variable1: outcome ?? '',
+        variable2: exposure ?? '',
+        yatesCorrection: false,
+        showExpected: false,
+      }
     case 'fisher_exact':
       return {
         variable1: outcome ?? '',
         variable2: exposure ?? '',
+        yatesCorrection: false,
+        showExpected: false,
+        forceFisher: true,
       }
 
     case 'independent_t_test':
+      return {
+        testType: 'independent',
+        variable: outcome ?? '',
+        groupVariable: exposure ?? group_variable ?? '',
+        confidenceLevel,
+        equalVariances: false,
+      }
     case 'mann_whitney':
       return {
         testType: 'independent',
         variable: outcome ?? '',
         groupVariable: exposure ?? group_variable ?? '',
         confidenceLevel,
+        equalVariances: false,
+        nonParametric: true,
       }
 
     case 'one_way_anova':
+      return {
+        dependent: outcome ?? '',
+        factor1: exposure ?? group_variable ?? '',
+        posthoc: 'tukey',
+      }
     case 'kruskal_wallis':
       return {
         dependent: outcome ?? '',
         factor1: exposure ?? group_variable ?? '',
-        posthoc: analysis_type === 'one_way_anova' ? 'tukey' : 'none',
+        posthoc: 'none',
+        nonParametric: true,
       }
 
     case 'kaplan_meier':
@@ -212,6 +236,7 @@ export function getRecommendation(
   intent: ResearchIntent,
   variables: VariableSelection,
   context: DatasetContext,
+  confidenceLevel: 0.90 | 0.95 | 0.99 = 0.95,
 ): AnalysisRecommendation {
   const selected = [
     variables.outcome,
@@ -241,7 +266,7 @@ export function getRecommendation(
     event_variable: variables.event_variable?.name ?? null,
     group_variable: variables.group_variable?.name ?? null,
     strat_variable: variables.strat_variable?.name ?? null,
-    confidence_level: 0.95,
+    confidence_level: confidenceLevel,
     reference_category: 'first',
   }
 
@@ -304,19 +329,26 @@ export function buildExecutableWorkflow(
   const { workflow_steps, primary, analysis_config } = recommendation
 
   return workflow_steps.map(step => {
-    if (!step.analysis_type) {
+    if (!step.analysis_type || step.display_only) {
       return { ...step, is_final: false }
     }
 
     const is_final = step.analysis_type === primary
-    // Build a config for this step by substituting the step's analysis_type
-    // into the same variable selections from the full recommendation config.
     const stepAnalysisConfig: AnalysisConfig = {
       ...analysis_config,
+      ...(step.config_override ?? {}),
       analysis_type: step.analysis_type,
     }
     const config = buildBackendConfig(stepAnalysisConfig)
     const backendType = ANALYSIS_TYPE_MAPPING[step.analysis_type]
+
+    // Guard: Cox PH with no predictors would produce a meaningless model
+    if (step.analysis_type === 'cox_ph') {
+      const predictors = config.predictors as string[] | undefined
+      if (!predictors || predictors.length === 0) {
+        return { ...step, is_final: false, display_only: true }
+      }
+    }
 
     return {
       ...step,

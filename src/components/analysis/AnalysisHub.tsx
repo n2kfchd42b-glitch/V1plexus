@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   BarChart2, CheckCircle2, ChevronRight, Clock, X, Database, Table2, Play,
@@ -12,7 +12,8 @@ import { ANALYSIS_TYPES } from './AnalysisTypePicker'
 import { ProjectDatasetSelector } from './ProjectDatasetSelector'
 import { AnalysisEntryPoint } from './AnalysisEntryPoint'
 import { profileFromDatasetColumns } from '@/lib/decision-engine/variableProfiler'
-import { ANALYSIS_TYPE_MAPPING, buildBackendConfig, buildExecutableWorkflow } from '@/lib/decision-engine/index'
+import { ANALYSIS_TYPE_MAPPING, buildBackendConfig, buildExecutableWorkflow, getRecommendation } from '@/lib/decision-engine/index'
+import { checkFeasibility, canRun as engineCanRun } from '@/lib/decision-engine/feasibilityChecker'
 import { ANALYSIS_REGISTRY } from '@/lib/decision-engine/analysisRegistry'
 import type { DatasetContext, AnalysisTypeId, EngineColumnSchema, AnalysisConfig, ResearchIntent, AnalysisRecommendation } from '@/lib/decision-engine/types'
 import type { ExecutableWorkflowStep } from '@/lib/decision-engine/index'
@@ -225,6 +226,8 @@ export function AnalysisHub({ projectId }: Props) {
   const [hubTableModalOpen, setHubTableModalOpen] = useState(false)
   const [assumptionCheckResult, setAssumptionCheckResult] = useState<AssumptionCheckResult | null>(null)
   const [showAssumptionModal, setShowAssumptionModal] = useState(false)
+  // Stores the actual analysis execution to run after the user confirms the assumption modal
+  const pendingAnalysisCallback = useRef<(() => Promise<void>) | null>(null)
 
   // Approval gate
   const [approvalBlock, setApprovalBlock] = useState<{
@@ -412,6 +415,40 @@ export function AnalysisHub({ projectId }: Props) {
     }
   }
 
+  // ── Shared assumption-check gate ─────────────────────────────────────────────
+  // Runs the check, then either calls `proceed` immediately or gates it behind the modal.
+  const gateOnAssumptionCheck = useCallback(async (
+    analysisType: AnalysisType,
+    analysisConfig: Record<string, unknown>,
+    proceed: () => Promise<void>,
+  ) => {
+    if (datasetId && versionId) {
+      try {
+        const res = await fetch('/api/analysis/assumption-checks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            dataset_id: datasetId,
+            version_id: versionId,
+            project_id: projectId,
+            analysis_type: analysisType,
+            analysis_config: analysisConfig,
+          }),
+        })
+        if (res.ok) {
+          const checkResult: AssumptionCheckResult = await res.json()
+          if (!checkResult.all_passed || checkResult.requires_acknowledgement) {
+            setAssumptionCheckResult(checkResult)
+            pendingAnalysisCallback.current = proceed
+            setShowAssumptionModal(true)
+            return
+          }
+        }
+      } catch { /* non-blocking — proceed on network error */ }
+    }
+    await proceed()
+  }, [datasetId, versionId, projectId])
+
   // ── Decision engine run — called by GuidedFlow and DirectFlow ──────────────
   const runWithTypeAndConfig = async (
     backendType: string,
@@ -423,26 +460,31 @@ export function AnalysisHub({ projectId }: Props) {
     setLastDecisionMode(decisionMode === 'guided' || decisionMode === 'direct' ? decisionMode : lastDecisionMode)
     setDecisionMode(null)
     setResultIsStale(false)
-    setRunning(true)
     setResult(null)
     setSavedRunId(null)
     setViewingRunId(null)
     setPromptDismissed(false)
     setConfigCollapsed(true)
-    try {
-      setResult(await runAnalysis(t, data, backendConfig))
-      setResultTab('results')
-    } catch (err) {
-      setResult({
-        type: t,
-        summary: { error: err instanceof Error ? err.message : 'Analysis failed' },
-        tables: [],
-        charts: [],
-        interpretation: 'Analysis failed.',
-      })
-    } finally {
-      setRunning(false)
+
+    const doRun = async () => {
+      setRunning(true)
+      try {
+        setResult(await runAnalysis(t, data, backendConfig))
+        setResultTab('results')
+      } catch (err) {
+        setResult({
+          type: t,
+          summary: { error: err instanceof Error ? err.message : 'Analysis failed' },
+          tables: [],
+          charts: [],
+          interpretation: 'Analysis failed.',
+        })
+      } finally {
+        setRunning(false)
+      }
     }
+
+    await gateOnAssumptionCheck(t, backendConfig, doRun)
   }
 
   // ── Sequential workflow runner — called from GuidedFlow ────────────────────
@@ -468,16 +510,38 @@ export function AnalysisHub({ projectId }: Props) {
         : rawConfig
 
       setWorkflowProgress({ total: executableSteps.length, current: i, label: step.name })
+
+      if (step.is_final) {
+        // Gate the primary analysis on assumption checks before executing
+        await gateOnAssumptionCheck(backendType as AnalysisType, stepConfig, async () => {
+          setRunning(true)
+          try {
+            const analysisResult = await runAnalysis(backendType as AnalysisType, data, stepConfig)
+            setSelectedType(backendType as AnalysisType)
+            setConfig(stepConfig)
+            setResult(analysisResult)
+            setResultTab('results')
+            setPromptDismissed(false)
+          } catch {
+            setResult({
+              type: backendType as AnalysisType,
+              summary: { error: 'Final analysis step failed. Check variable selections.' },
+              tables: [], charts: [], interpretation: 'Analysis failed.',
+            })
+          } finally {
+            setRunning(false)
+            setWorkflowProgress(null)
+          }
+        })
+        // gateOnAssumptionCheck handles setRunning/setWorkflowProgress inside the callback
+        return
+      }
+
       try {
         const analysisResult = await runAnalysis(backendType as AnalysisType, data, stepConfig)
 
-        if (step.is_final) {
-          // Final analysis → show in hub
-          setSelectedType(backendType as AnalysisType)
-          setConfig(stepConfig)
-          setResult(analysisResult)
-          setResultTab('results')
-          setPromptDismissed(false)
+        if (false) {
+          // (dead branch — kept for structural symmetry; is_final handled above)
         } else {
           // Intermediate → auto-save to history silently
           if (profile && datasetId) {
@@ -516,14 +580,16 @@ export function AnalysisHub({ projectId }: Props) {
             }
           }
         }
-      } catch {
-        // Intermediate failures: keep going. Final failure: show error.
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Unknown error'
         if (step.is_final) {
           setResult({
             type: backendType as AnalysisType,
             summary: { error: 'Final analysis step failed. Check variable selections.' },
             tables: [], charts: [], interpretation: 'Analysis failed.',
           })
+        } else {
+          toast.warning(`Step ${step.number} (${step.name}) failed and was skipped: ${msg}`)
         }
       }
     }
@@ -532,8 +598,27 @@ export function AnalysisHub({ projectId }: Props) {
     setWorkflowProgress(null)
   }
 
-  // ── DirectFlow run — builds config from lifted engine state ─────────────────
+  // ── Alternative run — checks feasibility before executing ───────────────────
   const handleRunAlternative = (altId: AnalysisTypeId) => {
+    const variables = {
+      outcome: engineOutcome,
+      exposure: engineExposure,
+      covariates: engineCovariates,
+      time_variable: engineTimeVar,
+      event_variable: engineEventVar,
+      group_variable: engineGroupVar,
+      strat_variable: engineStratVar,
+    }
+
+    const feasibility = checkFeasibility(altId, variables, engineContext)
+    if (!engineCanRun(feasibility)) {
+      const failedChecks = feasibility.filter(c => c.status === 'fail')
+      toast.error(
+        `Cannot run ${altId.replace(/_/g, ' ')}: ${failedChecks.map(c => c.label).join(', ')} failed. Update variable selections and try again.`
+      )
+      return
+    }
+
     const config: AnalysisConfig = {
       analysis_type: altId,
       dataset_id: engineContext.dataset_id,
@@ -590,6 +675,7 @@ export function AnalysisHub({ projectId }: Props) {
           const checkResult: AssumptionCheckResult = await res.json()
           if (!checkResult.all_passed || checkResult.requires_acknowledgement) {
             setAssumptionCheckResult(checkResult)
+            pendingAnalysisCallback.current = executeAnalysis
             setShowAssumptionModal(true)
             return
           }
@@ -708,7 +794,9 @@ export function AnalysisHub({ projectId }: Props) {
 
   const canEngineGuidedAnalyse = !!engineIntent && (
     engineIntent === 'describe' ? true :
-    engineIntent === 'survive' ? (!!engineTimeVar && !!engineEventVar) :
+    engineIntent === 'survive'
+      // KM needs time + event; Cox needs time + event + at least one predictor
+      ? (!!engineTimeVar && !!engineEventVar) :
     !!engineOutcome
   )
 
@@ -1097,7 +1185,7 @@ export function AnalysisHub({ projectId }: Props) {
                           <DecisionVariableSelector label="Time Variable" required schema={engineSchema} allowedTypes={['continuous', 'date']} value={engineTimeVar} onChange={setEngineTimeVar} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineTimeVar?.name)} />
                           <DecisionVariableSelector label="Event Indicator (1=event, 0=censored)" required schema={engineSchema} allowedTypes={['binary', 'continuous']} value={engineEventVar} onChange={setEngineEventVar} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineEventVar?.name)} />
                           {engineSelectedType === 'kaplan_meier' && (
-                            <DecisionVariableSelector label="Group Variable (optional)" schema={engineSchema} allowedTypes={['binary', 'categorical']} value={engineGroupVar} onChange={setEngineGroupVar} placeholder="Leave empty for single curve" row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineGroupVar?.name)} />
+                            <DecisionVariableSelector label="Group Variable (optional)" schema={engineSchema} allowedTypes={['binary', 'categorical']} value={engineExposure} onChange={setEngineExposure} placeholder="Leave empty for single curve" row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineExposure?.name)} />
                           )}
                           {engineSelectedType === 'cox_ph' && (
                             <DecisionVariableSelector label="Exposure / Primary Predictor" schema={engineSchema} allowedTypes={['binary', 'categorical', 'continuous']} value={engineExposure} onChange={setEngineExposure} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineExposure?.name)} />
@@ -1270,6 +1358,7 @@ export function AnalysisHub({ projectId }: Props) {
                   eventVar={engineEventVar}
                   groupVar={engineGroupVar}
                   stratVar={engineStratVar}
+                  confidenceLevel={engineConfidenceLevel}
                   canAnalyse={canEngineGuidedAnalyse}
                   recommendation={engineRecommendation}
                   onRecommendation={setEngineRecommendation}
@@ -1593,7 +1682,13 @@ export function AnalysisHub({ projectId }: Props) {
                 })
               } catch { /* non-blocking */ }
             }
-            await executeAnalysis()
+            const cb = pendingAnalysisCallback.current
+            pendingAnalysisCallback.current = null
+            if (cb) {
+              await cb()
+            } else {
+              await executeAnalysis()
+            }
           }}
           onCancel={() => setShowAssumptionModal(false)}
         />
@@ -1695,6 +1790,8 @@ function getKeyFindings(result: AnalysisResult, analysisType: string): Finding[]
       add('N', get('n')); add('Events', get('events')); add('AUC', get('auc')); add('Nagelkerke R²', get('nagelkerkeR2'))
       break
     case 'multinomial_regression':
+      add('N', get('n')); add('Categories', get('categories')); add('Reference', get('reference'))
+      break
     case 'ordinal_regression':
       add('N', get('n')); add('AIC', get('aic')); add('p-value', get('pValue')); add('Pseudo R²', get('pseudoR2') ?? get('mcfadden'))
       break

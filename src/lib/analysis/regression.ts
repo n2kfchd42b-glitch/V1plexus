@@ -1010,6 +1010,10 @@ export function runMultinomialRegression(data: DataRow[], config: MultinomialReg
     `Total complete cases: ${totalN}. ` +
     catSummaries + '.'
 
+  const plainLanguage = buildMultinomialRegressionPlainLanguage(
+    categoryResults, allPredictorNames, displayLabels, outcome, reference, totalN
+  )
+
   return {
     type: 'multinomial_regression',
     summary: { n: totalN, categories: categories.length, reference },
@@ -1017,8 +1021,51 @@ export function runMultinomialRegression(data: DataRow[], config: MultinomialReg
     charts: forestData.length > 0
       ? [{ type: 'forest_rrr', title: 'Relative Risk Ratios by Outcome Category', data: forestData, config: { reference } }]
       : [],
-    interpretation
+    interpretation,
+    plainLanguage
   }
+}
+
+function buildMultinomialRegressionPlainLanguage(
+  categoryResults: { category: string; beta: number[]; ses: number[]; n: number; nCategory: number; converged: boolean }[],
+  allPredictorNames: string[],
+  displayLabels: Map<string, string>,
+  outcome: string,
+  reference: string,
+  totalN: number,
+): string {
+  const nCats = categoryResults.length
+  let text = `This multinomial logistic regression examined ${outcome} across ${nCats + 1} outcome categories (reference: "${reference}") among ${totalN} participants. `
+
+  const catFindings = categoryResults
+    .filter(res => isFinite(res.beta[1]))
+    .map(res => {
+      const sigPreds = allPredictorNames
+        .map((name, i) => {
+          const b = res.beta[i + 1]
+          const se = res.ses[i + 1]
+          if (!isFinite(b) || !isFinite(se) || se === 0) return null
+          const z = b / se
+          const p = 2 * (1 - normalCDF(Math.abs(z)))
+          if (p >= 0.05) return null
+          const rrr = Math.exp(b)
+          const label = displayLabels.get(name) ?? name
+          const dir = rrr > 1 ? 'higher' : 'lower'
+          return `${label} (RRR ${fmt(rrr, 2)}, ${dir} odds of ${res.category})`
+        })
+        .filter(Boolean) as string[]
+
+      if (sigPreds.length === 0) {
+        return `For ${res.category} vs ${reference}, no predictor reached significance at p < 0.05.`
+      }
+      return `For ${res.category} vs ${reference}: ${sigPreds.join('; ')}.`
+    })
+
+  text += catFindings.join(' ')
+  if (catFindings.length === 0) {
+    text += 'No categories had sufficient data for reliable estimation.'
+  }
+  return text
 }
 
 // ===================== POISSON REGRESSION =====================

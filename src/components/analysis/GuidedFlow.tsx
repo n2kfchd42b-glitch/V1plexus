@@ -26,6 +26,7 @@ interface Props {
   eventVar: EngineColumnSchema | null
   groupVar: EngineColumnSchema | null
   stratVar: EngineColumnSchema | null
+  confidenceLevel: 0.90 | 0.95 | 0.99
   canAnalyse: boolean
   recommendation: AnalysisRecommendation | null
   onRecommendation: (rec: AnalysisRecommendation | null) => void
@@ -39,6 +40,7 @@ export function GuidedFlow({
   dataset,
   intent, onIntentChange,
   outcome, exposure, covariates, timeVar, eventVar, groupVar, stratVar,
+  confidenceLevel,
   canAnalyse,
   recommendation, onRecommendation,
   onRunWorkflow, onRunAlternative, onSwitchToDirect, onBack,
@@ -56,7 +58,7 @@ export function GuidedFlow({
     }
     setThinking(true)
     await new Promise(r => setTimeout(r, 800))
-    const rec = getRecommendation(intent, variables, dataset)
+    const rec = getRecommendation(intent, variables, dataset, confidenceLevel)
     onRecommendation(rec)
     setThinking(false)
   }
