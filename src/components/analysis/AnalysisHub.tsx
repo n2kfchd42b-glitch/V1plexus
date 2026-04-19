@@ -521,6 +521,9 @@ export function AnalysisHub({ projectId }: Props) {
       setWorkflowProgress({ total: executableSteps.length, current: i, label: step.name })
 
       if (step.is_final) {
+        // Set selectedType now so the assumption modal condition is satisfied
+        setSelectedType(backendType as AnalysisType)
+        setConfig(stepConfig)
         // Gate the primary analysis on assumption checks before executing
         await gateOnAssumptionCheck(backendType as AnalysisType, stepConfig, async () => {
           setRunning(true)
@@ -1706,7 +1709,7 @@ export function AnalysisHub({ projectId }: Props) {
               await executeAnalysis()
             }
           }}
-          onCancel={() => setShowAssumptionModal(false)}
+          onCancel={() => { setShowAssumptionModal(false); setRunning(false); setWorkflowProgress(null) }}
         />
       )}
     </div>
