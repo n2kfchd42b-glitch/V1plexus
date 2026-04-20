@@ -123,18 +123,18 @@ def compute_sensitivity_scenarios(
     ]
 
     scenarios = []
-    for delta, label, assumption in DELTAS:
+    for delta, label, interpretation in DELTAS:
         shift = delta * missing_fraction
         adj_est  = round(math.exp(log_est + shift), 3)
         adj_lo   = round(math.exp(log_lo  + shift), 3) if log_lo  is not None else None
         adj_hi   = round(math.exp(log_hi  + shift), 3) if log_hi  is not None else None
         scenarios.append({
-            'delta':      delta,
-            'label':      label,
-            'assumption': assumption,
-            'estimate':   adj_est,
-            'ci_lower':   adj_lo,
-            'ci_upper':   adj_hi,
+            'delta':          delta,
+            'label':          label,
+            'interpretation': interpretation,
+            'estimate':       adj_est,
+            'ci_lower':       adj_lo,
+            'ci_upper':       adj_hi,
         })
 
     return scenarios
@@ -442,8 +442,8 @@ def generate_design_guidance(
         if status == 'not_applicable':
             continue
         items.append({
-            'check': name.replace('_', ' '),
-            'status': 'passed' if status == 'passed' else ('violated' if status == 'violated' else 'warning'),
+            'item': name.replace('_', ' '),
+            'status': 'done' if status in ('passed', 'violated') else 'consider',
             'note': next(
                 (c['finding'] for c in checks_result.get('checks', []) if c['assumption_name'] == name),
                 ''
@@ -475,7 +475,7 @@ def generate_design_guidance(
         ],
     }
     for item in design_consider.get(study_design or '', []):
-        items.append({'check': item, 'status': 'consider', 'note': 'Not automatically tested — verify manually.'})
+        items.append({'item': item, 'status': 'consider', 'note': 'Not automatically tested — verify manually.'})
 
     return items
 

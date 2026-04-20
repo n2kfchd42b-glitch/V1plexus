@@ -189,8 +189,8 @@ export interface SensitivityScenario {
 
 export interface RobustnessBounds {
   estimate_range: [number, number]
-  ci_lower_range: [number, number]
-  ci_upper_range: [number, number]
+  ci_lower_range?: [number, number]
+  ci_upper_range?: [number, number]
   breaking_point_delta: number | null
   stability_pct: number
 }
@@ -217,6 +217,7 @@ export interface PostAnalysisReport {
   exposure_variable: string | null
   // assumption issues (Issues tab)
   top_issues: PostAnalysisAssumptionIssue[]
+  all_checks: AssumptionCheck[]
   all_passed: boolean
   critical_violations: number
   moderate_violations: number

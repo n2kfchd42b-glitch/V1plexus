@@ -14,10 +14,12 @@ import {
   FileText,
   MessageSquare,
   ClipboardList,
+  Minus,
 } from 'lucide-react'
 import type {
   PostAnalysisReport,
   PostAnalysisAssumptionIssue,
+  AssumptionCheck,
   SensitivityScenario,
   DesignGuidanceItem,
 } from '@/types/analysisIntegrity'
@@ -150,6 +152,109 @@ function GuidanceList({ items }: { items: DesignGuidanceItem[] }) {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// ─── All-checks card (shows every check including passed/N-A) ────────────────
+
+function AllCheckCard({ check }: { check: AssumptionCheck }) {
+  const [open, setOpen] = useState(false)
+  const expandable = check.status === 'violated' || check.status === 'warning' || !!check.suggested_action
+
+  let borderColor = 'var(--border-default)'
+  if (check.status === 'passed') borderColor = 'var(--status-success)'
+  else if (check.severity === 'critical') borderColor = 'var(--status-error)'
+  else if (check.status === 'not_applicable') borderColor = 'var(--border-strong)'
+  else borderColor = 'var(--status-warning)'
+
+  let icon: React.ReactNode
+  if (check.status === 'passed') icon = <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--status-success)' }} />
+  else if (check.status === 'not_applicable') icon = <Minus className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+  else if (check.severity === 'critical') icon = <AlertOctagon className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--status-error)' }} />
+  else icon = <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--status-warning)' }} />
+
+  const testLine = check.test_used
+    ? [
+        check.test_used,
+        check.statistic != null ? `stat = ${check.statistic.toFixed(3)}` : null,
+        check.p_value != null ? `p ${check.p_value < 0.001 ? '< 0.001' : '= ' + check.p_value.toFixed(3)}` : null,
+      ].filter(Boolean).join(', ')
+    : null
+
+  return (
+    <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-default)', borderLeft: `3px solid ${borderColor}` }}>
+      <button
+        className="w-full flex items-start gap-2.5 px-3.5 py-2.5 text-left"
+        style={{ background: 'var(--bg-surface)', cursor: expandable ? 'pointer' : 'default' }}
+        onClick={() => { if (expandable) setOpen(o => !o) }}
+      >
+        {icon}
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{check.assumption_name}</p>
+          {testLine && (
+            <p className="text-[11px] mt-0.5 font-mono" style={{ color: 'var(--text-tertiary)' }}>{testLine}</p>
+          )}
+          <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>{check.finding}</p>
+        </div>
+        {expandable && (
+          <span className="flex-shrink-0 mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+            {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="px-3.5 pb-3.5 space-y-2" style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-surface)' }}>
+          {check.suggested_action && (
+            <p className="text-[11px] pt-2.5" style={{ color: 'var(--text-secondary)' }}>
+              <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Suggested action: </span>
+              {check.suggested_action}
+            </p>
+          )}
+          {check.alternative_tests && check.alternative_tests.length > 0 && (
+            <div>
+              <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Alternatives:</p>
+              <div className="flex flex-wrap gap-1">
+                {check.alternative_tests.map(t => (
+                  <span key={t} className="text-[10px] px-2 py-0.5 rounded" style={{ background: 'var(--bg-inset)', color: 'var(--text-secondary)' }}>
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AllChecksList({ checks }: { checks: AssumptionCheck[] }) {
+  const violations = [...checks.filter(c => c.status === 'violated' || c.status === 'warning')]
+    .sort((a, b) => {
+      const ord: Record<string, number> = { critical: 0, moderate: 1, minor: 2 }
+      return (ord[a.severity] ?? 99) - (ord[b.severity] ?? 99)
+    })
+  const passed = checks.filter(c => c.status === 'passed')
+  const na = checks.filter(c => c.status === 'not_applicable')
+
+  const Section = ({ title, items }: { title: string; items: AssumptionCheck[] }) => (
+    <div>
+      <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>
+        {title} ({items.length})
+      </p>
+      <div className="space-y-1.5">
+        {items.map((c, i) => <AllCheckCard key={i} check={c} />)}
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="space-y-4">
+      {violations.length > 0 && <Section title="Violations" items={violations} />}
+      {passed.length > 0 && <Section title="Passed" items={passed} />}
+      {na.length > 0 && <Section title="Not Applicable" items={na} />}
     </div>
   )
 }
@@ -516,8 +621,8 @@ export function AssumptionReportModal({ isOpen, report, onClose }: Props) {
         <div className="flex-1 overflow-y-auto px-5 py-5">
           {tab === 'issues' && (
             <div className="space-y-5">
-              {/* Violation summary */}
-              {(report.critical_violations > 0 || report.moderate_violations > 0 || report.minor_violations > 0) && (
+              {/* Violation summary badges */}
+              {(report.critical_violations > 0 || report.moderate_violations > 0 || report.minor_violations > 0) ? (
                 <div className="flex items-center gap-3">
                   {report.critical_violations > 0 && (
                     <span className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded" style={{ background: 'var(--status-error-bg)', color: 'var(--status-error-text)' }}>
@@ -537,23 +642,31 @@ export function AssumptionReportModal({ isOpen, report, onClose }: Props) {
                     </span>
                   )}
                 </div>
-              )}
-              {report.all_passed && (
+              ) : (
                 <div
                   className="flex items-center gap-2 px-3.5 py-3 rounded-lg"
                   style={{ background: 'var(--status-success-bg)', border: '1px solid var(--border-status-success)' }}
                 >
                   <CheckCircle2 className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--status-success)' }} />
                   <p className="text-xs font-medium" style={{ color: 'var(--status-success-text)' }}>
-                    All assumption checks passed. Proceed with confidence.
+                    All assumption checks passed — full results below.
                   </p>
                 </div>
               )}
-              <div className="space-y-2">
-                {(report.top_issues ?? []).map((issue, i) => (
-                  <IssueCard key={i} issue={issue} />
-                ))}
-              </div>
+
+              {/* All checks list */}
+              {(report.all_checks ?? []).length > 0
+                ? <AllChecksList checks={report.all_checks} />
+                : (report.top_issues ?? []).length > 0 && (
+                  <div className="space-y-2">
+                    {(report.top_issues ?? []).map((issue, i) => (
+                      <IssueCard key={i} issue={issue} />
+                    ))}
+                  </div>
+                )
+              }
+
+              {/* Design checklist */}
               {report.design_guidance && report.design_guidance.length > 0 && (
                 <div>
                   <p className="text-xs font-semibold mb-2.5" style={{ color: 'var(--text-primary)' }}>

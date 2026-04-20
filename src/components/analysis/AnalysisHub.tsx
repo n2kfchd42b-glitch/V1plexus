@@ -380,38 +380,40 @@ export function AnalysisHub({ projectId }: Props) {
         n:            summary.n            ?? null,
       }
 
-      const endpoint = process.env.NEXT_PUBLIC_ANALYTICS_API_URL
-        ? '/api/analysis/assumption-report'
-        : '/api/analysis/assumption-checks'
-
       const body: Record<string, unknown> = {
         dataset_id: datasetId,
         version_id: versionId,
         project_id: projectId,
         analysis_type: analysisType,
         analysis_config: analysisConfig,
+        analysis_result: analysisResultPayload,
         study_design: researchContext?.study_design ?? null,
         research_question: researchContext?.research_question ?? null,
         outcome_variable: researchContext?.outcome_variable ?? null,
         exposure_variable: researchContext?.exposure_variable ?? null,
       }
-      if (endpoint === '/api/analysis/assumption-report') {
-        body.analysis_result = analysisResultPayload
-      }
 
-      const res = await fetch(endpoint, {
+      const res = await fetch('/api/analysis/assumption-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
       if (res.ok) {
         const data = await res.json()
-        if (endpoint === '/api/analysis/assumption-report' && !data.unavailable) {
-          setAssumptionReport(data as PostAnalysisReport)
+        if (!data.unavailable) {
+          // Full report from Python backend — map checks → all_checks
+          setAssumptionReport({ ...data, all_checks: data.checks ?? [] } as PostAnalysisReport)
         } else {
-          // Fallback: convert basic check result to minimal report shape
-          const checkResult = data as AssumptionCheckResult
-          setAssumptionReport(checkResultToReport(checkResult, researchContext?.study_design ?? null, researchContext?.research_question ?? null))
+          // Python backend not configured — fall back to basic checks
+          const fallbackRes = await fetch('/api/analysis/assumption-checks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          })
+          if (fallbackRes.ok) {
+            const checkResult = await fallbackRes.json() as AssumptionCheckResult
+            setAssumptionReport(checkResultToReport(checkResult, researchContext?.study_design ?? null, researchContext?.research_question ?? null))
+          }
         }
       }
     } catch {
@@ -1812,6 +1814,7 @@ function checkResultToReport(
     outcome_variable: null,
     exposure_variable: null,
     top_issues,
+    all_checks: result.checks ?? [],
     all_passed: result.all_passed,
     critical_violations: critical,
     moderate_violations: moderate,
