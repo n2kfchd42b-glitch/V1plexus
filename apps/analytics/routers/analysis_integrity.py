@@ -12,6 +12,7 @@ from datetime import datetime
 import json
 
 from ..services.assumption_checker import run_assumption_checks
+from ..services.sensitivity_reporter import generate_post_analysis_report
 from ..middleware.auth import get_current_user
 from ..db import get_supabase
 
@@ -29,6 +30,8 @@ class AssumptionCheckRequest(BaseModel):
     analysis_type: str
     analysis_config: Dict[str, Any]
     requested_by: str
+    study_design: Optional[str] = None
+    research_question: Optional[str] = None
 
 
 class AckowledgeViolationsRequest(BaseModel):
@@ -97,7 +100,9 @@ async def post_assumption_checks(
         result = run_assumption_checks(
             df=df,
             analysis_type=req.analysis_type,
-            analysis_config=req.analysis_config
+            analysis_config=req.analysis_config,
+            study_design=req.study_design,
+            research_question=req.research_question,
         )
         
         # INSERT into analysis_assumption_checks
@@ -442,7 +447,80 @@ async def post_reentry_compare(
 
 
 # ============================================================================
-# ENDPOINT 4: HEALTH CHECK
+# ENDPOINT 4: POST-ANALYSIS FULL REPORT
+# ============================================================================
+
+
+class AssumptionReportRequest(BaseModel):
+    dataset_id: str
+    version_id: str
+    project_id: str
+    analysis_type: str
+    analysis_config: Dict[str, Any]
+    analysis_result: Dict[str, Any]
+    requested_by: str
+    study_design: Optional[str] = None
+    research_question: Optional[str] = None
+    outcome_variable: Optional[str] = None
+    exposure_variable: Optional[str] = None
+
+
+@router.post('/assumption-report')
+async def post_assumption_report(
+    req: AssumptionReportRequest,
+    current_user: str = Depends(get_current_user),
+):
+    """
+    Generate the full post-analysis assumption report:
+    sensitivity scenarios, E-value, robustness bounds,
+    methods text, limitations, reviewer Q&A, design checklist.
+    """
+    try:
+        supabase = get_supabase()
+
+        version_resp = supabase.table('dataset_versions').select('file_path').eq('id', req.version_id).single().execute()
+        if not version_resp.data:
+            raise HTTPException(status_code=404, detail='Dataset version not found')
+        file_path = version_resp.data['file_path']
+
+        response = supabase.storage.from_('datasets').download(file_path)
+        content = response.decode('utf-8')
+        try:
+            parsed = json.loads(content)
+            df = pd.DataFrame(parsed['rows'])
+        except (json.JSONDecodeError, KeyError):
+            df = pd.read_csv(pd.io.common.StringIO(content))
+
+        checks_result = run_assumption_checks(
+            df=df,
+            analysis_type=req.analysis_type,
+            analysis_config=req.analysis_config,
+            study_design=req.study_design,
+            research_question=req.research_question,
+        )
+
+        report = generate_post_analysis_report(
+            df=df,
+            analysis_type=req.analysis_type,
+            analysis_config=req.analysis_config,
+            analysis_result=req.analysis_result,
+            checks_result=checks_result,
+            study_design=req.study_design,
+            research_question=req.research_question,
+            outcome_variable=req.outcome_variable,
+            exposure_variable=req.exposure_variable,
+        )
+
+        return report
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# ENDPOINT 5: HEALTH CHECK
 # ============================================================================
 
 

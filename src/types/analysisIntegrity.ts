@@ -131,3 +131,106 @@ export type ResolutionInput = {
   resolved_value: string
   resolution_note?: string
 }
+
+// ─── Research Design & Post-Analysis Assumption Engine ───────────────────────
+
+export type StudyDesign =
+  | 'cross_sectional'
+  | 'cohort'
+  | 'case_control'
+  | 'rct'
+  | 'time_series'
+  | 'meta_analysis'
+  | 'other'
+
+export interface ResearchContext {
+  study_design: StudyDesign
+  research_question: string
+  outcome_variable: string | null
+  exposure_variable: string | null
+}
+
+export type AssumptionOverallStatus = 'stable' | 'needs_review' | 'high_risk'
+
+export interface PostAnalysisAssumptionIssue {
+  title: string
+  one_liner: string
+  severity: AssumptionSeverity
+  status: AssumptionStatus
+  finding: string
+  suggested_action: string | null
+  alternative_tests: string[]
+  assumption_name: string
+}
+
+export interface PostAnalysisAssumptionSummary {
+  overall_status: AssumptionOverallStatus
+  check_id: string
+  analysis_type: string
+  study_design: StudyDesign | null
+  research_question: string | null
+  top_issues: PostAnalysisAssumptionIssue[]
+  all_passed: boolean
+  critical_violations: number
+  moderate_violations: number
+  minor_violations: number
+}
+
+// ─── Full Post-Analysis Report (from /api/analysis/assumption-report) ─────────
+
+export interface SensitivityScenario {
+  delta: number
+  label: string
+  estimate: number
+  ci_lower: number
+  ci_upper: number
+  interpretation: string
+}
+
+export interface RobustnessBounds {
+  estimate_range: [number, number]
+  ci_lower_range: [number, number]
+  ci_upper_range: [number, number]
+  breaking_point_delta: number | null
+  stability_pct: number
+}
+
+export interface ReviewerQuestion {
+  question: string
+  answer: string
+}
+
+export interface DesignGuidanceItem {
+  item: string
+  status: 'done' | 'consider' | 'not_applicable'
+  note: string
+}
+
+export interface PostAnalysisReport {
+  unavailable?: boolean
+  overall_status: AssumptionOverallStatus
+  analysis_type: string
+  metric_label: string
+  study_design: StudyDesign | null
+  research_question: string | null
+  outcome_variable: string | null
+  exposure_variable: string | null
+  // assumption issues (Issues tab)
+  top_issues: PostAnalysisAssumptionIssue[]
+  all_passed: boolean
+  critical_violations: number
+  moderate_violations: number
+  minor_violations: number
+  not_applicable_count: number
+  // sensitivity (Sensitivity tab)
+  e_value: number | null
+  sensitivity_scenarios: SensitivityScenario[]
+  robustness: RobustnessBounds | null
+  // reporting (Reporting tab)
+  methods_text: string
+  limitations: string[]
+  // peer review (Peer Review tab)
+  reviewer_questions: ReviewerQuestion[]
+  // guidance (Issues tab sidebar)
+  design_guidance: DesignGuidanceItem[]
+}

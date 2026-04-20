@@ -66,22 +66,26 @@ def run_assumption_checks(
     df: pd.DataFrame,
     analysis_type: str,
     analysis_config: Dict[str, Any],
+    study_design: Optional[str] = None,
+    research_question: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Main entry point for assumption verification.
-    
+
     Args:
         df: The dataset as a pandas DataFrame
         analysis_type: Type of analysis (e.g., 'logistic_regression', 'chi_square')
         analysis_config: Configuration dict with outcome, predictors, grouping, etc.
-    
+        study_design: Declared study design (cross_sectional, cohort, case_control, rct, …)
+        research_question: Free-text research question for context (unused in computation)
+
     Returns:
         Dict with checks, all_passed, violations counts, recommendation
     """
-    
+
     checks: List[AssumptionCheck] = []
-    
-    # Dispatch to appropriate checker
+
+    # Dispatch to model-specific checker
     if analysis_type == 'logistic_regression':
         checks = check_logistic_regression(df, analysis_config)
     elif analysis_type in ['kaplan_meier', 'cox_ph']:
@@ -95,7 +99,14 @@ def run_assumption_checks(
     elif analysis_type == 'descriptive':
         checks = check_descriptive(df, analysis_config)
     else:
-        # Unknown type - don't block
+        # Unknown type — return a clean pass and let study-design checks still run below
+        pass
+
+    # Append study-design-aware checks (always runs when design is declared)
+    if study_design:
+        checks.extend(get_study_design_checks(df, study_design, analysis_type, analysis_config))
+
+    if not checks:
         return {
             'analysis_type': analysis_type,
             'checks': [],
@@ -106,22 +117,22 @@ def run_assumption_checks(
             'not_applicable_count': 0,
             'run_recommendation': 'proceed'
         }
-    
+
     # Count violations by severity
     critical = len([c for c in checks if c.status == 'violated' and c.severity == 'critical'])
     moderate = len([c for c in checks if c.status == 'violated' and c.severity == 'moderate'])
     minor = len([c for c in checks if c.status in ['violated', 'warning'] and c.severity == 'minor'])
     not_applicable = len([c for c in checks if c.status == 'not_applicable'])
-    
+
     all_passed = critical == 0 and moderate == 0
-    
+
     if critical > 0:
         recommendation = 'consider_alternatives'
     elif moderate > 0:
         recommendation = 'proceed_with_caution'
     else:
         recommendation = 'proceed'
-    
+
     return {
         'analysis_type': analysis_type,
         'checks': [c.to_dict() for c in checks],
@@ -132,6 +143,160 @@ def run_assumption_checks(
         'not_applicable_count': not_applicable,
         'run_recommendation': recommendation,
     }
+
+
+# ============================================================================
+# STUDY-DESIGN CONTEXT CHECKS
+# ============================================================================
+
+def get_study_design_checks(
+    df: pd.DataFrame,
+    study_design: str,
+    analysis_type: str,
+    config: Dict[str, Any],
+) -> List[AssumptionCheck]:
+    """
+    Returns qualitative assumption checks driven by the declared study design.
+    These supplement (not replace) model-specific checks.
+    """
+    checks: List[AssumptionCheck] = []
+
+    # ── Global: missing data rate ─────────────────────────────────────────────
+    try:
+        total_cells = df.size
+        if total_cells > 0:
+            missing_pct = df.isnull().sum().sum() / total_cells * 100
+            if missing_pct > 30:
+                checks.append(AssumptionCheck(
+                    assumption_name='Missing data mechanism',
+                    description='High missingness can bias results if data are not missing completely at random (MCAR).',
+                    status='violated',
+                    severity='critical',
+                    finding=f'{missing_pct:.1f}% of all data cells are missing.',
+                    implication='Results are likely biased. Complete-case analysis will discard substantial data.',
+                    suggested_action='Use multiple imputation (MICE) and report a sensitivity analysis under MNAR assumptions.',
+                    alternative_tests=['Multiple imputation (MICE)', 'Maximum likelihood estimation'],
+                ))
+            elif missing_pct > 15:
+                checks.append(AssumptionCheck(
+                    assumption_name='Missing data mechanism',
+                    description='High missingness can bias results if data are not missing completely at random (MCAR).',
+                    status='warning',
+                    severity='moderate',
+                    finding=f'{missing_pct:.1f}% of all data cells are missing.',
+                    implication='Results may be biased if missingness is related to the outcome.',
+                    suggested_action='Assess missingness patterns. Consider multiple imputation if missingness is not random.',
+                    alternative_tests=['Multiple imputation (MICE)', 'Complete case sensitivity analysis'],
+                ))
+    except Exception:
+        pass
+
+    # ── Design-specific checks ────────────────────────────────────────────────
+    if study_design == 'cross_sectional':
+        checks.append(AssumptionCheck(
+            assumption_name='Reverse causation',
+            description='Cross-sectional data cannot establish temporal order between exposure and outcome.',
+            status='not_applicable',
+            severity='moderate',
+            finding='Design: cross-sectional. Temporal sequence cannot be established statistically.',
+            implication='The observed association may reflect reverse causation — the outcome may precede or cause the exposure.',
+            suggested_action=(
+                'Justify the causal direction on biological or contextual grounds. '
+                'Acknowledge reverse causation as a limitation in your discussion.'
+            ),
+        ))
+
+    elif study_design == 'cohort':
+        checks.append(AssumptionCheck(
+            assumption_name='Non-informative censoring',
+            description='Participants lost to follow-up should be censored for reasons unrelated to the outcome.',
+            status='not_applicable',
+            severity='moderate',
+            finding='Design: cohort. Censoring mechanism cannot be verified from observed data alone.',
+            implication='Informative censoring (dropout related to outcome risk) will bias survival or incidence estimates.',
+            suggested_action=(
+                'Compare baseline characteristics of censored vs. event participants. '
+                'Report reasons for dropout. Consider sensitivity analysis assuming worst-case outcomes for censored participants.'
+            ),
+        ))
+
+        # Exposure group imbalance
+        exposure_var = config.get('exposure_variable') or config.get('exposure')
+        if exposure_var and exposure_var in df.columns:
+            try:
+                counts = df[exposure_var].dropna().value_counts()
+                if len(counts) == 2:
+                    ratio = max(counts) / min(counts)
+                    if ratio > 3:
+                        checks.append(AssumptionCheck(
+                            assumption_name='Exposure group balance',
+                            description='Highly imbalanced groups reduce precision and may introduce sparse-data bias.',
+                            status='warning',
+                            severity='minor',
+                            finding=f'Exposure group imbalance: largest to smallest group ratio = {ratio:.1f}:1.',
+                            implication='Unequal group sizes reduce statistical power and precision of the effect estimate.',
+                            suggested_action='Consider propensity score matching or inverse probability of treatment weighting (IPTW).',
+                            alternative_tests=['Propensity score matching', 'IPTW'],
+                        ))
+            except Exception:
+                pass
+
+    elif study_design == 'case_control':
+        checks.append(AssumptionCheck(
+            assumption_name='Recall bias',
+            description='Cases may recall past exposures differently from controls, distorting the odds ratio.',
+            status='not_applicable',
+            severity='moderate',
+            finding='Design: case-control. Differential recall cannot be quantified from the dataset.',
+            implication='Recall bias will inflate or deflate the estimated odds ratio depending on direction of differential recall.',
+            suggested_action=(
+                'Use validated, structured questionnaires. Blind interviewers to case/control status. '
+                'Consider record-based exposure measures where available.'
+            ),
+        ))
+        checks.append(AssumptionCheck(
+            assumption_name='Selection bias',
+            description='Controls must represent the population from which cases arose.',
+            status='not_applicable',
+            severity='moderate',
+            finding='Design: case-control. Control representativeness cannot be verified statistically.',
+            implication='Non-representative controls (e.g., hospital convenience sample) will bias the odds ratio.',
+            suggested_action=(
+                'Describe the control selection procedure in your methods. '
+                'Verify controls come from the same source population as cases.'
+            ),
+        ))
+
+    elif study_design == 'rct':
+        checks.append(AssumptionCheck(
+            assumption_name='Randomisation integrity',
+            description='Randomisation should produce well-balanced groups at baseline across key confounders.',
+            status='not_applicable',
+            severity='minor',
+            finding='Design: RCT. Formal balance assessment requires a Table 1 comparison by trial arm.',
+            implication='Imbalanced baseline characteristics suggest randomisation failure or post-randomisation attrition.',
+            suggested_action=(
+                'Report Table 1 (baseline characteristics stratified by arm). '
+                'Test for balance on key confounders. Report the CONSORT flow diagram.'
+            ),
+        ))
+
+    elif study_design == 'meta_analysis':
+        checks.append(AssumptionCheck(
+            assumption_name='Publication bias',
+            description='Studies with non-significant or negative results are less likely to be published.',
+            status='not_applicable',
+            severity='moderate',
+            finding='Design: meta-analysis. Publication bias assessment requires pooled study-level data.',
+            implication='If publication bias is present, the pooled effect estimate will be inflated toward significance.',
+            suggested_action=(
+                'Conduct funnel plot inspection and Egger\'s test for small-study effects. '
+                'Apply the trim-and-fill method if asymmetry is detected.'
+            ),
+            alternative_tests=["Egger's test", 'Trim-and-fill analysis'],
+        ))
+
+    return checks
 
 
 # ============================================================================

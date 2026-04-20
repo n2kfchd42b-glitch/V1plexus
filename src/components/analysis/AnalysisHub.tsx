@@ -5,9 +5,17 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   BarChart2, CheckCircle2, ChevronRight, Clock, X, Database, Table2, Play,
 } from 'lucide-react'
+import { AssumptionStatusBar } from './AssumptionStatusBar'
 import { ReasoningPrompt } from './ReasoningPrompt'
 import Link from 'next/link'
-import type { AssumptionCheckResult } from '@/types/analysisIntegrity'
+import type {
+  AssumptionCheckResult,
+  PostAnalysisAssumptionIssue,
+  PostAnalysisReport,
+  ResearchContext,
+  StudyDesign,
+  AssumptionOverallStatus,
+} from '@/types/analysisIntegrity'
 import { ANALYSIS_TYPES } from './AnalysisTypePicker'
 import { ProjectDatasetSelector } from './ProjectDatasetSelector'
 import { AnalysisEntryPoint } from './AnalysisEntryPoint'
@@ -37,7 +45,8 @@ import type { DataRow, AnalysisResult } from '@/lib/analysis/types'
 import dynamic from 'next/dynamic'
 
 const HubTableGeneratorModal  = dynamic(() => import('./HubTableGeneratorModal').then(m => ({ default: m.HubTableGeneratorModal })))
-const AssumptionCheckModal    = dynamic(() => import('./AssumptionCheckModal').then(m => ({ default: m.AssumptionCheckModal })))
+const ResearchDesignModal     = dynamic(() => import('./ResearchDesignModal').then(m => ({ default: m.ResearchDesignModal })))
+const AssumptionReportModal   = dynamic(() => import('./AssumptionReportModal').then(m => ({ default: m.AssumptionReportModal })))
 const GuidedFlow              = dynamic(() => import('./GuidedFlow').then(m => ({ default: m.GuidedFlow })))
 const DirectFlow              = dynamic(() => import('./DirectFlow').then(m => ({ default: m.DirectFlow })))
 const DecisionVariableSelector     = dynamic(() => import('./DecisionVariableSelector').then(m => ({ default: m.DecisionVariableSelector })))
@@ -224,10 +233,15 @@ export function AnalysisHub({ projectId }: Props) {
 
   // Modals
   const [hubTableModalOpen, setHubTableModalOpen] = useState(false)
-  const [assumptionCheckResult, setAssumptionCheckResult] = useState<AssumptionCheckResult | null>(null)
-  const [showAssumptionModal, setShowAssumptionModal] = useState(false)
-  // Stores the actual analysis execution to run after the user confirms the assumption modal
-  const pendingAnalysisCallback = useRef<(() => Promise<void>) | null>(null)
+
+  // Research design context — collected once per dataset load via ResearchDesignModal
+  const [researchContext, setResearchContext] = useState<ResearchContext | null>(null)
+  const [showDesignModal, setShowDesignModal] = useState(false)
+
+  // Post-analysis assumption report (non-blocking, appears after results)
+  const [assumptionReport, setAssumptionReport] = useState<PostAnalysisReport | null>(null)
+  const [assumptionChecking, setAssumptionChecking] = useState(false)
+  const [showReportModal, setShowReportModal] = useState(false)
 
   // Approval gate
   const [approvalBlock, setApprovalBlock] = useState<{
@@ -293,6 +307,8 @@ export function AnalysisHub({ projectId }: Props) {
     setData([]); setColumns([]); setFileName('')
     setDatasetId(undefined); setVersionId(undefined)
     setResult(null); setSavedRunId(null); setApprovalBlock(null); setPromptDismissed(false)
+    setResearchContext(null); setShowDesignModal(false)
+    setAssumptionReport(null); setAssumptionChecking(false); setShowReportModal(false)
     resetEngineVars()
     setDecisionMode(null)
   }
@@ -340,6 +356,72 @@ export function AnalysisHub({ projectId }: Props) {
     setEngineRecommendation(null)
   }
 
+  // ── Post-analysis assumption report (rich, non-blocking) ───────────────────
+  const firePostAnalysisCheck = useCallback(async (
+    analysisType: AnalysisType,
+    analysisConfig: Record<string, unknown>,
+    analysisResult?: AnalysisResult | null,
+  ) => {
+    if (!datasetId || !versionId) return
+    setAssumptionReport(null)
+    setAssumptionChecking(true)
+    try {
+      // Build analysis_result payload from the result summary
+      const summary = (analysisResult?.summary ?? {}) as Record<string, unknown>
+      const analysisResultPayload = {
+        odds_ratio:   summary.odds_ratio   ?? null,
+        hazard_ratio: summary.hazard_ratio ?? null,
+        coefficient:  summary.coefficient  ?? null,
+        correlation:  summary.correlation  ?? null,
+        estimate:     summary.estimate     ?? null,
+        ci_lower:     summary.ci_lower     ?? null,
+        ci_upper:     summary.ci_upper     ?? null,
+        p_value:      summary.p_value      ?? null,
+        n:            summary.n            ?? null,
+      }
+
+      const endpoint = process.env.NEXT_PUBLIC_ANALYTICS_API_URL
+        ? '/api/analysis/assumption-report'
+        : '/api/analysis/assumption-checks'
+
+      const body: Record<string, unknown> = {
+        dataset_id: datasetId,
+        version_id: versionId,
+        project_id: projectId,
+        analysis_type: analysisType,
+        analysis_config: analysisConfig,
+        study_design: researchContext?.study_design ?? null,
+        research_question: researchContext?.research_question ?? null,
+        outcome_variable: researchContext?.outcome_variable ?? null,
+        exposure_variable: researchContext?.exposure_variable ?? null,
+      }
+      if (endpoint === '/api/analysis/assumption-report') {
+        body.analysis_result = analysisResultPayload
+      }
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (endpoint === '/api/analysis/assumption-report' && !data.unavailable) {
+          setAssumptionReport(data as PostAnalysisReport)
+        } else {
+          // Fallback: convert basic check result to minimal report shape
+          const checkResult = data as AssumptionCheckResult
+          setAssumptionReport(checkResultToReport(checkResult, researchContext?.study_design ?? null, researchContext?.research_question ?? null))
+        }
+      }
+    } catch {
+      // Non-blocking — assumption check failure must never surface as an error
+    } finally {
+      setAssumptionChecking(false)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [datasetId, versionId, projectId, researchContext])
+
   // Sequential workflow progress
   const [workflowProgress, setWorkflowProgress] = useState<{
     total: number
@@ -381,6 +463,8 @@ export function AnalysisHub({ projectId }: Props) {
     setData(rows); setColumns(cols); setFileName(name)
     setDatasetId(dsId); setVersionId(vsId); setResult(null); setSavedRunId(null); setPromptDismissed(false)
     setApprovalBlock(null)
+    setResearchContext(null); setAssumptionReport(null); setAssumptionChecking(false); setShowReportModal(false)
+    setShowDesignModal(true)
     resetEngineVars()
     setDecisionMode('entry')
 
@@ -401,60 +485,17 @@ export function AnalysisHub({ projectId }: Props) {
     setSelectedType(type); setConfig({}); setResult(null); setSavedRunId(null); setPromptDismissed(false)
   }
 
-  const executeAnalysis = async () => {
-    if (!selectedType) return
-    setRunning(true); setResult(null); setSavedRunId(null); setViewingRunId(null); setPromptDismissed(false)
-    setConfigCollapsed(true) // collapse config panel to make room for results
-    try {
-      setResult(await runAnalysis(selectedType, data, config))
-      setResultTab('results')
-    } catch (err) {
-      setResult({ type: selectedType, summary: { error: err instanceof Error ? err.message : 'Analysis failed' }, tables: [], charts: [], interpretation: 'Analysis failed.' })
-    } finally {
-      setRunning(false)
-    }
-  }
-
-  // ── Shared assumption-check gate ─────────────────────────────────────────────
-  // Runs the check, then either calls `proceed` immediately or gates it behind the modal.
+  // ── Non-blocking analysis runner — runs analysis then fires assumption check ─
   const gateOnAssumptionCheck = useCallback(async (
     analysisType: AnalysisType,
     analysisConfig: Record<string, unknown>,
-    proceed: () => Promise<void>,
+    proceed: () => Promise<AnalysisResult | void>,
   ) => {
-    if (datasetId && versionId) {
-      setRunning(true)
-      try {
-        const res = await fetch('/api/analysis/assumption-checks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            dataset_id: datasetId,
-            version_id: versionId,
-            project_id: projectId,
-            analysis_type: analysisType,
-            analysis_config: analysisConfig,
-          }),
-        })
-        if (res.ok) {
-          const checkResult: AssumptionCheckResult = await res.json()
-          setAssumptionCheckResult(checkResult)
-          pendingAnalysisCallback.current = proceed
-          setRunning(false)
-          setShowAssumptionModal(true)
-          return
-        }
-        const errBody = await res.json().catch(() => ({}))
-        console.error('[assumption-gate] API error', res.status, errBody)
-        toast.warning('Assumption checks failed — proceeding without validation.')
-      } catch (err) {
-        console.error('[assumption-gate] network error:', err)
-        toast.warning('Assumption checks unavailable — proceeding without validation. Check your network connection.')
-      }
-      setRunning(false)
-    }
-    await proceed()
-  }, [datasetId, versionId, projectId])
+    setAssumptionReport(null)
+    const analysisResult = await proceed()
+    // Fire assumption check after analysis completes — never blocks results
+    firePostAnalysisCheck(analysisType, analysisConfig, analysisResult ?? null)
+  }, [firePostAnalysisCheck])
 
   // ── Decision engine run — called by GuidedFlow and DirectFlow ──────────────
   const runWithTypeAndConfig = async (
@@ -474,11 +515,13 @@ export function AnalysisHub({ projectId }: Props) {
     setPromptDismissed(false)
     setConfigCollapsed(true)
 
-    const doRun = async () => {
+    const doRun = async (): Promise<AnalysisResult | void> => {
       setRunning(true)
       try {
-        setResult(await runAnalysis(t, data, backendConfig))
+        const r = await runAnalysis(t, data, backendConfig)
+        setResult(r)
         setResultTab('results')
+        return r
       } catch (err) {
         setResult({
           type: t,
@@ -524,7 +567,7 @@ export function AnalysisHub({ projectId }: Props) {
         setSelectedType(backendType as AnalysisType)
         setConfig(stepConfig)
         // Gate the primary analysis on assumption checks before executing
-        await gateOnAssumptionCheck(backendType as AnalysisType, stepConfig, async () => {
+        await gateOnAssumptionCheck(backendType as AnalysisType, stepConfig, async (): Promise<AnalysisResult | void> => {
           setRunning(true)
           try {
             const analysisResult = await runAnalysis(backendType as AnalysisType, data, stepConfig)
@@ -533,6 +576,7 @@ export function AnalysisHub({ projectId }: Props) {
             setResult(analysisResult)
             setResultTab('results')
             setPromptDismissed(false)
+            return analysisResult
           } catch {
             setResult({
               type: backendType as AnalysisType,
@@ -676,34 +720,20 @@ export function AnalysisHub({ projectId }: Props) {
     console.log('[run] handleRun called, selectedType:', selectedType)
     if (!selectedType) return
     if (approvalBlock) return
-
-    if (datasetId && versionId) {
-      setRunning(true)
+    setAssumptionReport(null)
+    await gateOnAssumptionCheck(selectedType, config, async (): Promise<AnalysisResult | void> => {
+      setRunning(true); setResult(null); setSavedRunId(null); setViewingRunId(null); setPromptDismissed(false)
+      setConfigCollapsed(true)
       try {
-        const res = await fetch('/api/analysis/assumption-checks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ dataset_id: datasetId, version_id: versionId, project_id: projectId, analysis_type: selectedType, analysis_config: config }),
-        })
-        if (res.ok) {
-          const checkResult: AssumptionCheckResult = await res.json()
-          setAssumptionCheckResult(checkResult)
-          pendingAnalysisCallback.current = executeAnalysis
-          setRunning(false)
-          setShowAssumptionModal(true)
-          return
-        }
-        const errBody = await res.json().catch(() => ({}))
-        console.error('[assumption-gate] API error', res.status, errBody)
-        toast.warning('Assumption checks failed — proceeding without validation.')
+        const r = await runAnalysis(selectedType, data, config)
+        setResult(r); setResultTab('results')
+        return r
       } catch (err) {
-        console.error('[assumption-gate] network error:', err)
-        toast.warning('Assumption checks unavailable — proceeding without validation. Check your network connection.')
+        setResult({ type: selectedType, summary: { error: err instanceof Error ? err.message : 'Analysis failed' }, tables: [], charts: [], interpretation: 'Analysis failed.' })
+      } finally {
+        setRunning(false)
       }
-      setRunning(false)
-    }
-
-    await executeAnalysis()
+    })
   }
 
   const handleSave = async (reasoning?: string) => {
@@ -1110,6 +1140,7 @@ export function AnalysisHub({ projectId }: Props) {
                 <button
                   onClick={() => {
                     setResultIsStale(true)
+                    setAssumptionReport(null); setAssumptionChecking(false)
                     setDecisionMode(lastDecisionMode ?? 'entry')
                   }}
                   className="flex-1 py-2 rounded-lg text-xs font-semibold border transition-colors"
@@ -1125,6 +1156,7 @@ export function AnalysisHub({ projectId }: Props) {
                     setResult(null)
                     setSavedRunId(null)
                     setResultIsStale(false)
+                    setAssumptionReport(null); setAssumptionChecking(false)
                     setDecisionMode('entry')
                   }}
                   className="flex-1 py-2 rounded-lg text-xs font-bold text-white active:scale-[0.98] transition-all"
@@ -1537,6 +1569,13 @@ export function AnalysisHub({ projectId }: Props) {
                 <div className="h-px" style={{ background: 'var(--border-row)' }} />
               </div>
 
+              {/* Post-analysis assumption status bar */}
+              <AssumptionStatusBar
+                report={assumptionReport}
+                checking={assumptionChecking}
+                onOpen={() => setShowReportModal(true)}
+              />
+
               {/* Tab content */}
               <div className="flex-1 overflow-y-auto">
                 {resultTab === 'results' ? (
@@ -1685,36 +1724,107 @@ export function AnalysisHub({ projectId }: Props) {
         <HubTableGeneratorModal projectId={projectId} onClose={() => setHubTableModalOpen(false)} />
       )}
 
-      {showAssumptionModal && assumptionCheckResult && selectedType && (
-        <AssumptionCheckModal
-          isOpen={showAssumptionModal}
-          onClose={() => setShowAssumptionModal(false)}
-          checkResult={assumptionCheckResult}
-          analysisType={selectedType}
-          onProceed={async (notes) => {
-            setShowAssumptionModal(false)
-            // Fire-and-forget — never block analysis on acknowledgement recording
-            if (assumptionCheckResult.requires_acknowledgement && assumptionCheckResult.check_id) {
-              fetch(`/api/analysis/assumption-checks/${assumptionCheckResult.check_id}/acknowledge`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ acknowledgement_notes: notes }),
-                signal: AbortSignal.timeout(8000),
-              }).catch(() => {})
-            }
-            const cb = pendingAnalysisCallback.current
-            pendingAnalysisCallback.current = null
-            if (cb) {
-              await cb()
-            } else {
-              await executeAnalysis()
-            }
-          }}
-          onCancel={() => { setShowAssumptionModal(false); setRunning(false); setWorkflowProgress(null) }}
+      {showDesignModal && (
+        <ResearchDesignModal
+          isOpen={showDesignModal}
+          columns={columns.map(c => c.name)}
+          onConfirm={(ctx) => { setResearchContext(ctx); setShowDesignModal(false) }}
+          onSkip={() => setShowDesignModal(false)}
+        />
+      )}
+
+      {showReportModal && assumptionReport && (
+        <AssumptionReportModal
+          isOpen={showReportModal}
+          report={assumptionReport}
+          onClose={() => setShowReportModal(false)}
         />
       )}
     </div>
   )
+}
+
+// ── Assumption check result → summary converter ─────────────────────────────
+
+const ASSUMPTION_FRIENDLY_TITLES: Record<string, string> = {
+  'No multicollinearity':               'Predictor Correlation',
+  'Adequate sample size':               'Sample Size Adequacy',
+  'Adequate outcome distribution':      'Outcome Balance',
+  'Normality of residuals':             'Residual Distribution',
+  'Homoscedasticity':                   'Error Variance Stability',
+  'No highly influential observations': 'Influential Data Points',
+  'Minimum expected cell frequency':    'Cell Frequency Check',
+  'Independence of observations':       'Independent Observations',
+  'Normality within groups':            'Group Normality',
+  'Homogeneity of variances':           'Equal Group Variances',
+  'Adequate event count':               'Event Count',
+  'Non-informative censoring':          'Censoring Mechanism',
+  'Proportional hazards':               'Hazard Ratio Stability',
+  'Missing data mechanism':             'Missing Data Pattern',
+  'Reverse causation':                  'Temporal Ordering',
+  'Informative censoring':              'Loss-to-Follow-Up Pattern',
+  'Selection bias':                     'Sample Representativeness',
+  'Recall bias':                        'Exposure Recall Accuracy',
+  'Publication bias':                   'Publication Bias',
+  'Randomisation integrity':            'Randomisation Balance',
+  'Exposure group balance':             'Exposure Group Balance',
+}
+
+function checkResultToReport(
+  result: AssumptionCheckResult,
+  studyDesign: StudyDesign | null,
+  researchQuestion: string | null,
+): PostAnalysisReport {
+  const critical = result.critical_violations
+  const moderate = result.moderate_violations
+
+  let overall_status: AssumptionOverallStatus
+  if (critical > 0) {
+    overall_status = 'high_risk'
+  } else if (moderate > 0) {
+    overall_status = 'needs_review'
+  } else {
+    overall_status = 'stable'
+  }
+
+  const priorityOrder: Record<string, number> = { critical: 0, moderate: 1, minor: 2 }
+  const top_issues: PostAnalysisAssumptionIssue[] = (result.checks ?? [])
+    .filter(c => c.status !== 'passed')
+    .sort((a, b) => (priorityOrder[a.severity] ?? 99) - (priorityOrder[b.severity] ?? 99))
+    .slice(0, 6)
+    .map(c => ({
+      title: ASSUMPTION_FRIENDLY_TITLES[c.assumption_name] ?? c.assumption_name,
+      one_liner: c.implication || c.finding,
+      severity: c.severity,
+      status: c.status,
+      finding: c.finding,
+      suggested_action: c.suggested_action,
+      alternative_tests: c.alternative_tests ?? [],
+      assumption_name: c.assumption_name,
+    }))
+
+  return {
+    overall_status,
+    analysis_type: result.analysis_type,
+    metric_label: '',
+    study_design: studyDesign,
+    research_question: researchQuestion,
+    outcome_variable: null,
+    exposure_variable: null,
+    top_issues,
+    all_passed: result.all_passed,
+    critical_violations: critical,
+    moderate_violations: moderate,
+    minor_violations: result.minor_violations,
+    not_applicable_count: result.not_applicable_count,
+    e_value: null,
+    sensitivity_scenarios: [],
+    robustness: null,
+    methods_text: '',
+    limitations: [],
+    reviewer_questions: [],
+    design_guidance: [],
+  }
 }
 
 // ── Key findings per analysis type ──────────────────────

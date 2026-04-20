@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     // External analytics service is configured — authenticate and proxy.
-    const { dataset_id, version_id, project_id, analysis_config } = body
+    const { dataset_id, version_id, project_id, analysis_config, study_design, research_question } = body
 
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -59,6 +59,8 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           dataset_id, version_id, project_id,
           analysis_type, analysis_config,
+          study_design: study_design ?? null,
+          research_question: research_question ?? null,
           requested_by: user.id,
         }),
       }
