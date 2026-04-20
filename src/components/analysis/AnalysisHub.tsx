@@ -9,6 +9,7 @@ import { AssumptionStatusBar } from './AssumptionStatusBar'
 import { ReasoningPrompt } from './ReasoningPrompt'
 import Link from 'next/link'
 import type {
+  AssumptionCheck,
   AssumptionCheckResult,
   PostAnalysisAssumptionIssue,
   PostAnalysisReport,
@@ -412,7 +413,14 @@ export function AnalysisHub({ projectId }: Props) {
           })
           if (fallbackRes.ok) {
             const checkResult = await fallbackRes.json() as AssumptionCheckResult
-            setAssumptionReport(checkResultToReport(checkResult, researchContext?.study_design ?? null, researchContext?.research_question ?? null))
+            setAssumptionReport(checkResultToReport(
+              checkResult,
+              researchContext?.study_design ?? null,
+              researchContext?.research_question ?? null,
+              researchContext?.outcome_variable ?? null,
+              researchContext?.exposure_variable ?? null,
+              typeof analysisResultPayload.n === 'number' ? analysisResultPayload.n : null,
+            ))
           }
         }
       }
@@ -1772,10 +1780,144 @@ const ASSUMPTION_FRIENDLY_TITLES: Record<string, string> = {
   'Exposure group balance':             'Exposure Group Balance',
 }
 
+const ANALYSIS_METHOD_LABELS: Record<string, string> = {
+  logistic_regression:    'binary logistic regression',
+  linear_regression:      'multiple linear regression',
+  simple_regression:      'simple linear regression',
+  multiple_regression:    'multiple linear regression',
+  multinomial_logistic:   'multinomial logistic regression',
+  cox_ph:                 'Cox proportional hazards regression',
+  kaplan_meier:           'Kaplan–Meier survival analysis',
+  anova:                  'one-way ANOVA',
+  chi_square:             'chi-square test of independence',
+  t_test:                 'independent samples t-test',
+  correlation:            'Pearson correlation analysis',
+  poisson_regression:     'Poisson regression',
+  descriptive:            'descriptive statistical analysis',
+}
+
+const DESIGN_LABELS: Record<string, string> = {
+  cross_sectional: 'cross-sectional',
+  cohort: 'cohort',
+  case_control: 'case-control',
+  rct: 'randomised controlled trial',
+  time_series: 'longitudinal',
+  meta_analysis: 'meta-analytic',
+  other: 'observational',
+}
+
+const DESIGN_LIMITATIONS: Record<string, string> = {
+  cross_sectional: 'The cross-sectional design precludes causal inference; temporal ordering between exposure and outcome cannot be established from these data.',
+  cohort: 'As an observational cohort study, residual confounding from unmeasured variables may influence estimates despite covariate adjustment.',
+  case_control: 'Differential recall of past exposures between cases and controls (recall bias) and potential non-representativeness of the control group may influence effect estimates.',
+  rct: 'Generalisability of findings may be limited by trial eligibility criteria and the characteristics of the enrolled population.',
+  time_series: 'Secular trends and unmeasured time-varying confounders may introduce bias in longitudinal analyses.',
+  meta_analysis: 'Publication bias may overrepresent statistically significant findings; between-study heterogeneity in design and population may limit precision of pooled estimates.',
+}
+
+function buildMethodsText(
+  analysisType: string,
+  studyDesign: StudyDesign | null,
+  checks: AssumptionCheck[],
+  n: number | null,
+  outcomeVar: string | null,
+  exposureVar: string | null,
+): string {
+  const method = ANALYSIS_METHOD_LABELS[analysisType] ?? analysisType.replace(/_/g, ' ')
+  const design = studyDesign ? DESIGN_LABELS[studyDesign] : null
+  const nText = n && n > 0 ? ` (n\u2009=\u2009${n.toLocaleString()})` : ''
+  const outcomeText = outcomeVar ? ` of ${outcomeVar}` : ''
+  const exposureText = exposureVar ? `, with ${exposureVar} as the primary predictor` : ''
+
+  const active = checks.filter(c => c.status !== 'not_applicable')
+  const checkSentences = active.map(c => {
+    const testPart = c.test_used ? ` (${c.test_used}` : ''
+    const statPart = c.statistic != null ? `, stat\u2009=\u2009${c.statistic.toFixed(3)}` : ''
+    const pPart = c.p_value != null ? `, p\u2009${c.p_value < 0.001 ? '<\u20090.001' : '=\u2009' + c.p_value.toFixed(3)}` : ''
+    const closePart = testPart ? ')' : ''
+    const outcome = c.status === 'passed' ? 'satisfied' : c.status === 'warning' ? 'borderline' : 'violated'
+    return `${c.assumption_name}${testPart}${statPart}${pPart}${closePart}: ${outcome}`
+  })
+
+  const violations = checks.filter(c => c.status === 'violated')
+  const correctionText = violations.length > 0
+    ? ` Violations were detected for ${violations.map(v => v.assumption_name.toLowerCase()).join(' and ')}; recommended corrective measures are noted against each finding.`
+    : ' All verifiable assumptions were satisfied.'
+
+  const intro = design
+    ? `A ${design} study${nText} was analysed.`
+    : `Analysis was conducted${nText}.`
+
+  return `${intro} ${method.charAt(0).toUpperCase() + method.slice(1)} was used to estimate the association${outcomeText}${exposureText}. Prior to inference, all relevant statistical assumptions were formally assessed: ${checkSentences.join('; ')}.${correctionText}`
+}
+
+function buildLimitations(
+  checks: AssumptionCheck[],
+  studyDesign: StudyDesign | null,
+): string[] {
+  const lims: string[] = []
+  if (studyDesign && DESIGN_LIMITATIONS[studyDesign]) lims.push(DESIGN_LIMITATIONS[studyDesign])
+  for (const v of checks.filter(c => c.status === 'violated' && c.severity !== 'minor').slice(0, 3)) {
+    if (v.implication) lims.push(v.implication)
+  }
+  return lims
+}
+
+function buildReviewerQuestions(
+  checks: AssumptionCheck[],
+  studyDesign: StudyDesign | null,
+): { question: string; answer: string }[] {
+  const qs: { question: string; answer: string }[] = []
+  for (const v of checks.filter(c => c.status === 'violated' && (c.severity === 'critical' || c.severity === 'moderate')).slice(0, 3)) {
+    const alts = v.alternative_tests?.length ? ` Alternative approaches considered: ${v.alternative_tests.join(', ')}.` : ''
+    qs.push({
+      question: `How was the ${v.assumption_name.toLowerCase()} violation addressed?`,
+      answer: v.suggested_action
+        ? `${v.suggested_action}${alts} Finding: ${v.finding}.`
+        : `The violation (${v.finding}) was documented and acknowledged.${alts}`,
+    })
+  }
+  const designQA: Record<string, { question: string; answer: string }> = {
+    cross_sectional: {
+      question: 'Can causal inferences be drawn from this cross-sectional analysis?',
+      answer: 'No. Cross-sectional data establish association, not causation. Temporal ordering of exposure and outcome cannot be determined. Findings should be interpreted as associational and hypothesis-generating.',
+    },
+    rct: {
+      question: 'Was randomisation successful in balancing baseline characteristics?',
+      answer: 'Baseline characteristics by trial arm are reported in Table 1. Residual imbalances were addressed through covariate adjustment in the primary analysis model.',
+    },
+    cohort: {
+      question: 'How was residual confounding addressed?',
+      answer: 'Potential confounders identified a priori were included as model covariates. Residual confounding from unmeasured variables remains an inherent limitation of observational designs.',
+    },
+    case_control: {
+      question: 'Are controls representative of the source population?',
+      answer: 'Controls were selected to represent the population from which cases arose. The selection rationale is described in the Methods section.',
+    },
+  }
+  if (studyDesign && designQA[studyDesign]) qs.push(designQA[studyDesign])
+  return qs.slice(0, 5)
+}
+
+function buildDesignGuidance(
+  checks: AssumptionCheck[],
+): { item: string; status: 'done' | 'consider' | 'not_applicable'; note: string }[] {
+  return checks
+    .filter(c => c.status !== 'not_applicable')
+    .map(c => ({
+      item: c.assumption_name,
+      status: (c.status === 'passed' ? 'done' : c.status === 'warning' ? 'consider' : 'done') as 'done' | 'consider' | 'not_applicable',
+      note: c.finding.slice(0, 120),
+    }))
+}
+
 function checkResultToReport(
   result: AssumptionCheckResult,
   studyDesign: StudyDesign | null,
   researchQuestion: string | null,
+  outcomeVariable: string | null = null,
+  exposureVariable: string | null = null,
+  n: number | null = null,
 ): PostAnalysisReport {
   const critical = result.critical_violations
   const moderate = result.moderate_violations
@@ -1805,16 +1947,18 @@ function checkResultToReport(
       assumption_name: c.assumption_name,
     }))
 
+  const allChecks = result.checks ?? []
+
   return {
     overall_status,
     analysis_type: result.analysis_type,
     metric_label: '',
     study_design: studyDesign,
     research_question: researchQuestion,
-    outcome_variable: null,
-    exposure_variable: null,
+    outcome_variable: outcomeVariable,
+    exposure_variable: exposureVariable,
     top_issues,
-    all_checks: result.checks ?? [],
+    all_checks: allChecks,
     all_passed: result.all_passed,
     critical_violations: critical,
     moderate_violations: moderate,
@@ -1823,10 +1967,12 @@ function checkResultToReport(
     e_value: null,
     sensitivity_scenarios: [],
     robustness: null,
-    methods_text: '',
-    limitations: [],
-    reviewer_questions: [],
-    design_guidance: [],
+    methods_text: allChecks.length > 0
+      ? buildMethodsText(result.analysis_type, studyDesign, allChecks, n, outcomeVariable, exposureVariable)
+      : '',
+    limitations: buildLimitations(allChecks, studyDesign),
+    reviewer_questions: buildReviewerQuestions(allChecks, studyDesign),
+    design_guidance: buildDesignGuidance(allChecks),
   }
 }
 
