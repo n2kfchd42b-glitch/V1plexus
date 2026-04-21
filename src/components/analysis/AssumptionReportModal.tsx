@@ -309,10 +309,10 @@ function SensitivityTab({ report }: { report: PostAnalysisReport }) {
       <div>
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
-            MNAR bias sensitivity (δ)
+            Sensitivity to unmeasured confounding (γ)
           </p>
           <span className="text-xs font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
-            δ = {current.delta > 0 ? '+' : ''}{current.delta}
+            γ = {(current.delta + 1).toFixed(2)}
           </span>
         </div>
 
@@ -329,7 +329,7 @@ function SensitivityTab({ report }: { report: PostAnalysisReport }) {
         <div className="flex justify-between mt-1">
           {scenarios.map(s => (
             <span key={s.delta} className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-              {s.delta > 0 ? '+' : ''}{s.delta}
+              {(s.delta + 1).toFixed(1)}
             </span>
           ))}
         </div>
@@ -343,7 +343,7 @@ function SensitivityTab({ report }: { report: PostAnalysisReport }) {
             <p className="text-[11px] font-semibold" style={{ color: 'var(--text-secondary)' }}>{current.label}</p>
             <span
               className="font-mono text-sm font-bold tabular-nums"
-              style={{ color: current.delta === 0 ? 'var(--accent-blue)' : 'var(--text-primary)' }}
+              style={{ color: current.delta === 0 ? 'var(--accent-blue)' : 'var(--text-primary)', transition: 'color 0.15s' }}
             >
               {ml} {fmtEst(current.estimate)}
             </span>
@@ -387,7 +387,7 @@ function SensitivityTab({ report }: { report: PostAnalysisReport }) {
             ))}
           </div>
           <p className="text-[10px] mt-1.5" style={{ color: 'var(--text-tertiary)' }}>
-            Stability = percentage of MNAR scenarios where the result direction is maintained.
+            Stability = percentage of scenarios where the result direction is maintained across all confounding levels.
             Observed {ml}: {fmtEst(observed.estimate)}.
           </p>
         </div>

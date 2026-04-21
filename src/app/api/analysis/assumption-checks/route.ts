@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getAccessTokenFromRequest } from '@/lib/supabase/server'
 import type { AssumptionCheckResult } from '@/types/analysisIntegrity'
 
 /**
@@ -39,8 +39,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const session = await supabase.auth.getSession()
-    const accessToken = session.data.session?.access_token
+    const accessToken = getAccessTokenFromRequest(request)
     if (!accessToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

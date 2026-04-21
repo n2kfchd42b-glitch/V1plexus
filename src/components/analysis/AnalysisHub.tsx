@@ -16,6 +16,8 @@ import type {
   ResearchContext,
   StudyDesign,
   AssumptionOverallStatus,
+  SensitivityScenario,
+  RobustnessBounds,
 } from '@/types/analysisIntegrity'
 import { ANALYSIS_TYPES } from './AnalysisTypePicker'
 import { ProjectDatasetSelector } from './ProjectDatasetSelector'
@@ -369,16 +371,17 @@ export function AnalysisHub({ projectId }: Props) {
     try {
       // Build analysis_result payload from the result summary
       const summary = (analysisResult?.summary ?? {}) as Record<string, unknown>
-      const analysisResultPayload = {
-        odds_ratio:   summary.odds_ratio   ?? null,
-        hazard_ratio: summary.hazard_ratio ?? null,
-        coefficient:  summary.coefficient  ?? null,
-        correlation:  summary.correlation  ?? null,
-        estimate:     summary.estimate     ?? null,
-        ci_lower:     summary.ci_lower     ?? null,
-        ci_upper:     summary.ci_upper     ?? null,
-        p_value:      summary.p_value      ?? null,
-        n:            summary.n            ?? null,
+      const toNum = (v: unknown): number | null => (typeof v === 'number' ? v : null)
+      const analysisResultPayload: EffectPayload = {
+        odds_ratio:   toNum(summary.odds_ratio),
+        hazard_ratio: toNum(summary.hazard_ratio),
+        coefficient:  toNum(summary.coefficient),
+        correlation:  toNum(summary.correlation),
+        estimate:     toNum(summary.estimate),
+        ci_lower:     toNum(summary.ci_lower),
+        ci_upper:     toNum(summary.ci_upper),
+        p_value:      toNum(summary.p_value),
+        n:            toNum(summary.n),
       }
 
       const body: Record<string, unknown> = {
@@ -399,29 +402,31 @@ export function AnalysisHub({ projectId }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      if (res.ok) {
-        const data = await res.json()
-        if (!data.unavailable) {
-          // Full report from Python backend — map checks → all_checks
-          setAssumptionReport({ ...data, all_checks: data.checks ?? [] } as PostAnalysisReport)
-        } else {
-          // Python backend not configured — fall back to basic checks
-          const fallbackRes = await fetch('/api/analysis/assumption-checks', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-          })
-          if (fallbackRes.ok) {
-            const checkResult = await fallbackRes.json() as AssumptionCheckResult
-            setAssumptionReport(checkResultToReport(
-              checkResult,
-              researchContext?.study_design ?? null,
-              researchContext?.research_question ?? null,
-              researchContext?.outcome_variable ?? null,
-              researchContext?.exposure_variable ?? null,
-              typeof analysisResultPayload.n === 'number' ? analysisResultPayload.n : null,
-            ))
-          }
+      // Treat any non-200 or unavailable response as needing the fallback
+      const reportData = res.ok ? await res.json().catch(() => ({ unavailable: true })) : { unavailable: true }
+
+      if (!reportData.unavailable) {
+        // Full report from Python backend — map checks → all_checks
+        setAssumptionReport({ ...reportData, all_checks: reportData.checks ?? [] } as PostAnalysisReport)
+      } else {
+        // Fall back to basic checks (also works when ANALYTICS_API_URL is not set)
+        const fallbackRes = await fetch('/api/analysis/assumption-checks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        if (fallbackRes.ok) {
+          const checkResult = await fallbackRes.json() as AssumptionCheckResult
+          setAssumptionReport(checkResultToReport(
+            checkResult,
+            analysisType,
+            analysisResultPayload,
+            researchContext?.study_design ?? null,
+            researchContext?.research_question ?? null,
+            researchContext?.outcome_variable ?? null,
+            researchContext?.exposure_variable ?? null,
+            analysisResultPayload.n,
+          ))
         }
       }
     } catch {
@@ -1815,6 +1820,159 @@ const DESIGN_LIMITATIONS: Record<string, string> = {
   meta_analysis: 'Publication bias may overrepresent statistically significant findings; between-study heterogeneity in design and population may limit precision of pooled estimates.',
 }
 
+// ── Sensitivity analysis (deterministic, no AI) ─────────────────────────────
+
+interface EffectPayload {
+  odds_ratio: number | null
+  hazard_ratio: number | null
+  coefficient: number | null
+  correlation: number | null
+  estimate: number | null
+  ci_lower: number | null
+  ci_upper: number | null
+  p_value: number | null
+  n: number | null
+}
+
+function eValueFromOR(or: number): number {
+  const r = or > 1 ? or : 1 / or
+  return r + Math.sqrt(r * (r - 1))
+}
+
+function buildSensitivity(
+  analysisType: string,
+  effect: EffectPayload,
+): { e_value: number | null; sensitivity_scenarios: SensitivityScenario[]; robustness: RobustnessBounds | null; metric_label: string } {
+  const none = { e_value: null, sensitivity_scenarios: [], robustness: null, metric_label: '' }
+
+  // Logistic regression — OR-based unmeasured-confounding sensitivity
+  const or = effect.odds_ratio
+  if ((analysisType === 'logistic_regression' || analysisType === 'multinomial_logistic') && or != null && or > 0) {
+    const lo = effect.ci_lower ?? or * 0.75
+    const hi = effect.ci_upper ?? or * 1.33
+    const e_value = or === 1 ? 1 : Math.round(eValueFromOR(or) * 100) / 100
+
+    // γ = confounder association strength; adjusted OR = observed OR / γ
+    const gammas = [1.0, 1.5, 2.0, 3.0, 5.0]
+    const labels = [
+      'Observed — no unmeasured confounding',
+      'Weak confounder (γ\u2009=\u20091.5)',
+      'Moderate confounder (γ\u2009=\u20092.0)',
+      'Strong confounder (γ\u2009=\u20093.0)',
+      'Very strong confounder (γ\u2009=\u20095.0)',
+    ]
+    const scenarios: SensitivityScenario[] = gammas.map((g, i) => {
+      const adj = round3(or / g)
+      const adjLo = round3(lo / g)
+      const adjHi = round3(hi / g)
+      const interpretation =
+        adjLo > 1 ? 'OR remains significant (lower CI > 1)' :
+        adjHi < 1 ? 'Direction reversed under this level of confounding' :
+        'Effect no longer significant — confounding of this magnitude could explain the result'
+      return { delta: g - 1, label: labels[i], estimate: adj, ci_lower: adjLo, ci_upper: adjHi, interpretation }
+    })
+
+    const bpScenario = scenarios.find(s => s.ci_lower <= 1 && s.ci_upper >= 1)
+    const stableCount = scenarios.filter(s => s.ci_lower > 1 || s.ci_upper < 1).length
+    return {
+      e_value,
+      metric_label: 'OR',
+      sensitivity_scenarios: scenarios,
+      robustness: {
+        estimate_range: [scenarios[scenarios.length - 1].estimate, scenarios[0].estimate],
+        breaking_point_delta: bpScenario?.delta ?? null,
+        stability_pct: Math.round((stableCount / scenarios.length) * 100),
+      },
+    }
+  }
+
+  // Survival (Cox PH / Kaplan-Meier) — HR-based
+  const hr = effect.hazard_ratio
+  if ((analysisType === 'cox_ph' || analysisType === 'kaplan_meier') && hr != null && hr > 0) {
+    const lo = effect.ci_lower ?? hr * 0.75
+    const hi = effect.ci_upper ?? hr * 1.33
+    const e_value = hr === 1 ? 1 : Math.round(eValueFromOR(hr) * 100) / 100
+
+    const gammas = [1.0, 1.5, 2.0, 3.0, 5.0]
+    const labels = [
+      'Observed — no unmeasured confounding',
+      'Weak confounder (γ\u2009=\u20091.5)',
+      'Moderate confounder (γ\u2009=\u20092.0)',
+      'Strong confounder (γ\u2009=\u20093.0)',
+      'Very strong confounder (γ\u2009=\u20095.0)',
+    ]
+    const scenarios: SensitivityScenario[] = gammas.map((g, i) => {
+      const adj = round3(hr / g)
+      const adjLo = round3(lo / g)
+      const adjHi = round3(hi / g)
+      const interpretation =
+        adjLo > 1 ? 'HR remains significant (lower CI > 1)' :
+        adjHi < 1 ? 'Direction reversed under this level of confounding' :
+        'Effect no longer significant — confounding of this magnitude could explain the result'
+      return { delta: g - 1, label: labels[i], estimate: adj, ci_lower: adjLo, ci_upper: adjHi, interpretation }
+    })
+
+    const bpScenario = scenarios.find(s => s.ci_lower <= 1 && s.ci_upper >= 1)
+    const stableCount = scenarios.filter(s => s.ci_lower > 1 || s.ci_upper < 1).length
+    return {
+      e_value,
+      metric_label: 'HR',
+      sensitivity_scenarios: scenarios,
+      robustness: {
+        estimate_range: [scenarios[scenarios.length - 1].estimate, scenarios[0].estimate],
+        breaking_point_delta: bpScenario?.delta ?? null,
+        stability_pct: Math.round((stableCount / scenarios.length) * 100),
+      },
+    }
+  }
+
+  // Linear regression — omitted-variable bias (OVB) sensitivity
+  const coeff = effect.coefficient
+  if (analysisType === 'linear_regression' && coeff != null) {
+    const lo = effect.ci_lower ?? coeff - Math.abs(coeff) * 0.4
+    const hi = effect.ci_upper ?? coeff + Math.abs(coeff) * 0.4
+
+    // delta = fraction of residual variance attributable to omitted variable
+    const deltas = [0, 0.10, 0.20, 0.35, 0.50]
+    const labels = [
+      'Observed — no omitted variable',
+      '10% additional R² (weak OVB)',
+      '20% additional R² (moderate OVB)',
+      '35% additional R² (strong OVB)',
+      '50% additional R² (severe OVB)',
+    ]
+    const crossesZero = (a: number, b: number) => a <= 0 && b >= 0
+    const scenarios: SensitivityScenario[] = deltas.map((d, i) => {
+      const adj  = round4(coeff  * (1 - d))
+      const adjLo = round4(lo    * (1 - d))
+      const adjHi = round4(hi    * (1 - d))
+      const interpretation =
+        crossesZero(adjLo, adjHi) ? 'Effect no longer significant — an omitted variable of this size could explain the result' :
+        (coeff > 0 ? adj > 0 : adj < 0) ? 'Coefficient direction preserved and significant' :
+        'Direction reversed under this degree of confounding'
+      return { delta: d, label: labels[i], estimate: adj, ci_lower: adjLo, ci_upper: adjHi, interpretation }
+    })
+
+    const bpScenario = scenarios.find(s => crossesZero(s.ci_lower, s.ci_upper))
+    const stableCount = scenarios.filter(s => !crossesZero(s.ci_lower, s.ci_upper)).length
+    return {
+      e_value: null,
+      metric_label: 'β',
+      sensitivity_scenarios: scenarios,
+      robustness: {
+        estimate_range: [scenarios[scenarios.length - 1].estimate, scenarios[0].estimate],
+        breaking_point_delta: bpScenario?.delta ?? null,
+        stability_pct: Math.round((stableCount / scenarios.length) * 100),
+      },
+    }
+  }
+
+  return none
+}
+
+function round3(x: number) { return Math.round(x * 1000) / 1000 }
+function round4(x: number) { return Math.round(x * 10000) / 10000 }
+
 function buildMethodsText(
   analysisType: string,
   studyDesign: StudyDesign | null,
@@ -1823,7 +1981,7 @@ function buildMethodsText(
   outcomeVar: string | null,
   exposureVar: string | null,
 ): string {
-  const method = ANALYSIS_METHOD_LABELS[analysisType] ?? analysisType.replace(/_/g, ' ')
+  const method = ANALYSIS_METHOD_LABELS[analysisType] ?? (analysisType ? analysisType.replace(/_/g, ' ') : 'the selected analysis')
   const design = studyDesign ? DESIGN_LABELS[studyDesign] : null
   const nText = n && n > 0 ? ` (n\u2009=\u2009${n.toLocaleString()})` : ''
   const outcomeText = outcomeVar ? ` of ${outcomeVar}` : ''
@@ -1913,6 +2071,8 @@ function buildDesignGuidance(
 
 function checkResultToReport(
   result: AssumptionCheckResult,
+  analysisTypeOverride: string,
+  effect: EffectPayload,
   studyDesign: StudyDesign | null,
   researchQuestion: string | null,
   outcomeVariable: string | null = null,
@@ -1948,11 +2108,13 @@ function checkResultToReport(
     }))
 
   const allChecks = result.checks ?? []
+  const effectiveType = result.analysis_type ?? analysisTypeOverride
+  const sens = buildSensitivity(effectiveType, effect)
 
   return {
     overall_status,
-    analysis_type: result.analysis_type,
-    metric_label: '',
+    analysis_type: effectiveType,
+    metric_label: sens.metric_label,
     study_design: studyDesign,
     research_question: researchQuestion,
     outcome_variable: outcomeVariable,
@@ -1964,11 +2126,11 @@ function checkResultToReport(
     moderate_violations: moderate,
     minor_violations: result.minor_violations,
     not_applicable_count: result.not_applicable_count,
-    e_value: null,
-    sensitivity_scenarios: [],
-    robustness: null,
+    e_value: sens.e_value,
+    sensitivity_scenarios: sens.sensitivity_scenarios,
+    robustness: sens.robustness,
     methods_text: allChecks.length > 0
-      ? buildMethodsText(result.analysis_type, studyDesign, allChecks, n, outcomeVariable, exposureVariable)
+      ? buildMethodsText(effectiveType, studyDesign, allChecks, n, outcomeVariable, exposureVariable)
       : '',
     limitations: buildLimitations(allChecks, studyDesign),
     reviewer_questions: buildReviewerQuestions(allChecks, studyDesign),
