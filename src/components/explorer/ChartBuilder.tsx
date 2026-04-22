@@ -207,7 +207,7 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
   const [chartType, setChartType] = useState<ChartType>(initialChartType ?? 'bar')
   const [config, setConfig] = useState<ChartConfig>(initialConfig ?? {})
   const [editorOpen, setEditorOpen] = useState(false)
-  const [editorConfig, setEditorConfig] = useState<ChartEditorConfig>(() => getDefaultConfig(initialChartType ?? 'bar'))
+  const [editorConfig, setEditorConfig] = useState<ChartEditorConfig>(() => getDefaultConfig(initialChartType ?? 'bar', { height_px: 380 }))
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     numeric: true,
     categorical: true,
