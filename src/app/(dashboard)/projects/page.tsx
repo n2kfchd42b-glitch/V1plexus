@@ -20,7 +20,7 @@ import {
 } from '@/lib/data'
 import { getProjectsOffline } from '@/lib/offline'
 import { logAudit } from '@/lib/audit'
-import { cn, formatRelative, statusLabel } from '@/lib/utils'
+import { cn, formatRelative } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { Project } from '@/types/database'
 
@@ -249,16 +249,20 @@ export default function ProjectsPage() {
     if (authLoading) return
     if (!profile) { setLoading(false); return }
 
-    const result = await getProjectsOffline(supabase)
-
-    if (!result.data) {
+    try {
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 8_000)
+      )
+      const result = await Promise.race([getProjectsOffline(supabase), timeout])
+      if (result.data) {
+        setProjects(result.data as unknown as ProjectWithCounts[])
+        setIsStale(result.source === 'cache')
+      }
+    } catch {
+      // network/IDB timeout or error — show empty state
+    } finally {
       setLoading(false)
-      return
     }
-
-    setProjects(result.data as unknown as ProjectWithCounts[])
-    setIsStale(result.source === 'cache')
-    setLoading(false)
   }, [profile, authLoading, supabase]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchProjects() }, [fetchProjects])

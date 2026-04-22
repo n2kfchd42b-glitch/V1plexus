@@ -17,7 +17,8 @@ import {
   tToP, chiSqP, fToP, normalCDF,
   fmt, fmtCI, formatPValue, getSig,
   cramersV, cohensD,
-  countFrequencies, encodeCategories
+  countFrequencies, encodeCategories,
+  qqNormalData,
 } from './utils'
 
 // ===================== CHI-SQUARE TEST =====================
@@ -242,7 +243,8 @@ export function runTTest(data: DataRow[], config: TTestConfig): AnalysisResult {
       { type: 'boxplot_2group', title: `${variable} by ${groupVariable}`, data: [
         { group: groups[0], mean: m1, sd: s1 },
         { group: groups[1], mean: m2, sd: s2 }
-      ], config: {} }
+      ], config: {} },
+      { type: 'qq_plot', title: `Q-Q Plot: ${variable}`, data: qqNormalData([...g1Vals, ...g2Vals]), config: { cohenD: d } },
     ]
 
     const sig = pValue < 0.05 ? 'significant' : 'not significant'
@@ -464,8 +466,12 @@ export function runAnova(data: DataRow[], config: AnovaConfig): AnalysisResult {
     })
   }
 
+  // Residuals for Q-Q plot (within-group deviations)
+  const allResiduals = groups.flatMap(g => groupData[g].map(v => v - mean(groupData[g])))
+
   const chartData = [
-    { type: 'boxplot_groups', title: `${dependent} by ${factor1}`, data: groupStats.map(g => ({ group: g.group, mean: g.mean, sd: g.sd })), config: {} }
+    { type: 'boxplot_groups', title: `${dependent} by ${factor1}`, data: groupStats.map(g => ({ group: g.group, mean: g.mean, sd: g.sd })), config: {} },
+    { type: 'qq_plot', title: 'Q-Q Plot of Residuals', data: qqNormalData(allResiduals), config: { etaSq } },
   ]
 
   const sig = pValue < 0.05 ? 'significant' : 'not significant'

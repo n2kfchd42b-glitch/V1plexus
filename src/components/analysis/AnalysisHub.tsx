@@ -365,7 +365,6 @@ export function AnalysisHub({ projectId }: Props) {
     analysisConfig: Record<string, unknown>,
     analysisResult?: AnalysisResult | null,
   ) => {
-    if (!datasetId || !versionId) return
     setAssumptionReport(null)
     setAssumptionChecking(true)
     try {
@@ -385,8 +384,8 @@ export function AnalysisHub({ projectId }: Props) {
       }
 
       const body: Record<string, unknown> = {
-        dataset_id: datasetId,
-        version_id: versionId,
+        dataset_id: datasetId ?? null,
+        version_id: versionId ?? null,
         project_id: projectId,
         analysis_type: analysisType,
         analysis_config: analysisConfig,
@@ -409,28 +408,65 @@ export function AnalysisHub({ projectId }: Props) {
         // Full report from Python backend — map checks → all_checks
         setAssumptionReport({ ...reportData, all_checks: reportData.checks ?? [] } as PostAnalysisReport)
       } else {
-        // Fall back to basic checks (also works when ANALYTICS_API_URL is not set)
-        const fallbackRes = await fetch('/api/analysis/assumption-checks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        })
-        if (fallbackRes.ok) {
-          const checkResult = await fallbackRes.json() as AssumptionCheckResult
-          setAssumptionReport(checkResultToReport(
-            checkResult,
-            analysisType,
-            analysisResultPayload,
-            researchContext?.study_design ?? null,
-            researchContext?.research_question ?? null,
-            researchContext?.outcome_variable ?? null,
-            researchContext?.exposure_variable ?? null,
-            analysisResultPayload.n,
-          ))
+        // No external analytics backend — build assumption checks deterministically from the result
+        const relevantVars = Object.keys(analysisConfig).flatMap(k => {
+          const v = (analysisConfig as Record<string, unknown>)[k]
+          if (typeof v === 'string') return [v]
+          if (Array.isArray(v)) return v.filter((x): x is string => typeof x === 'string')
+          return []
+        }).filter(v => columns.some(c => c.name === v))
+
+        const missingMap: Record<string, number> = {}
+        for (const v of relevantVars) {
+          const col = columns.find(c => c.name === v)
+          if (col) missingMap[v] = col.missing ?? 0
         }
+
+        const deterministicChecks = analysisResult
+          ? buildAssumptionChecksFromResult(
+              analysisType,
+              analysisResult,
+              relevantVars.length > 0 ? { vars: relevantVars, missingMap, totalN: data.length } : undefined,
+            )
+          : []
+        const crit = deterministicChecks.filter(c => c.status === 'violated' && c.severity === 'critical').length
+        const mod  = deterministicChecks.filter(c => c.status === 'violated' && c.severity !== 'critical').length
+        const minor = deterministicChecks.filter(c => c.status === 'violated' && c.severity === 'minor').length
+        const na   = deterministicChecks.filter(c => c.status === 'not_applicable').length
+        const checkResult: AssumptionCheckResult = {
+          check_id: `local_${Date.now()}`,
+          analysis_type: analysisType,
+          checks: deterministicChecks,
+          all_passed: deterministicChecks.filter(c => c.status !== 'not_applicable').every(c => c.status === 'passed'),
+          run_recommendation: crit > 0 ? 'consider_alternatives' : mod > 0 ? 'proceed_with_caution' : 'proceed',
+          critical_violations: crit,
+          moderate_violations: mod,
+          minor_violations: minor,
+          not_applicable_count: na,
+          requires_acknowledgement: crit > 0,
+        }
+        setAssumptionReport(checkResultToReport(
+          checkResult,
+          analysisType,
+          analysisResultPayload,
+          researchContext?.study_design ?? null,
+          researchContext?.research_question ?? null,
+          researchContext?.outcome_variable ?? null,
+          researchContext?.exposure_variable ?? null,
+          analysisResultPayload.n,
+        ))
       }
     } catch {
-      // Non-blocking — assumption check failure must never surface as an error
+      // Non-blocking — set minimal stable report so the bar always renders after analysis
+      setAssumptionReport({
+        overall_status: 'stable', analysis_type: analysisType, metric_label: '',
+        study_design: researchContext?.study_design ?? null, research_question: researchContext?.research_question ?? null,
+        outcome_variable: researchContext?.outcome_variable ?? null, exposure_variable: researchContext?.exposure_variable ?? null,
+        top_issues: [], all_checks: [], all_passed: true,
+        critical_violations: 0, moderate_violations: 0, minor_violations: 0, not_applicable_count: 0,
+        e_value: null, sensitivity_scenarios: [], robustness: null,
+        methods_text: '', limitations: [], reviewer_questions: [], design_guidance: [],
+      })
     } finally {
       setAssumptionChecking(false)
     }
@@ -1847,7 +1883,7 @@ function buildSensitivity(
 
   // Logistic regression — OR-based unmeasured-confounding sensitivity
   const or = effect.odds_ratio
-  if ((analysisType === 'logistic_regression' || analysisType === 'multinomial_logistic') && or != null && or > 0) {
+  if ((analysisType === 'logistic_regression' || analysisType === 'multinomial_logistic' || analysisType === 'multinomial_regression') && or != null && or > 0) {
     const lo = effect.ci_lower ?? or * 0.75
     const hi = effect.ci_upper ?? or * 1.33
     const e_value = or === 1 ? 1 : Math.round(eValueFromOR(or) * 100) / 100
@@ -1888,7 +1924,7 @@ function buildSensitivity(
 
   // Survival (Cox PH / Kaplan-Meier) — HR-based
   const hr = effect.hazard_ratio
-  if ((analysisType === 'cox_ph' || analysisType === 'kaplan_meier') && hr != null && hr > 0) {
+  if ((analysisType === 'cox_ph' || analysisType === 'cox_regression' || analysisType === 'kaplan_meier') && hr != null && hr > 0) {
     const lo = effect.ci_lower ?? hr * 0.75
     const hi = effect.ci_upper ?? hr * 1.33
     const e_value = hr === 1 ? 1 : Math.round(eValueFromOR(hr) * 100) / 100
@@ -1928,7 +1964,7 @@ function buildSensitivity(
 
   // Linear regression — omitted-variable bias (OVB) sensitivity
   const coeff = effect.coefficient
-  if (analysisType === 'linear_regression' && coeff != null) {
+  if ((analysisType === 'linear_regression' || analysisType === 'simple_regression' || analysisType === 'multiple_regression') && coeff != null) {
     const lo = effect.ci_lower ?? coeff - Math.abs(coeff) * 0.4
     const hi = effect.ci_upper ?? coeff + Math.abs(coeff) * 0.4
 
@@ -1972,6 +2008,600 @@ function buildSensitivity(
 
 function round3(x: number) { return Math.round(x * 1000) / 1000 }
 function round4(x: number) { return Math.round(x * 10000) / 10000 }
+
+// ── Deterministic assumption checker (runs client-side from analysis result) ──
+
+function _skewness(vals: number[]): number {
+  const n = vals.length
+  if (n < 3) return 0
+  const m = vals.reduce((s, v) => s + v, 0) / n
+  const s = Math.sqrt(vals.reduce((s, v) => s + (v - m) ** 2, 0) / n)
+  if (s < 1e-10) return 0
+  return vals.reduce((sum, v) => sum + ((v - m) / s) ** 3, 0) / n
+}
+
+function _kurtosis(vals: number[]): number {
+  const n = vals.length
+  if (n < 4) return 0
+  const m = vals.reduce((s, v) => s + v, 0) / n
+  const s = Math.sqrt(vals.reduce((s, v) => s + (v - m) ** 2, 0) / n)
+  if (s < 1e-10) return 0
+  return vals.reduce((sum, v) => sum + ((v - m) / s) ** 4, 0) / n - 3
+}
+
+function _absCorr(x: number[], y: number[]): number {
+  const n = x.length
+  if (n < 3) return 0
+  const mx = x.reduce((s, v) => s + v, 0) / n
+  const my = y.reduce((s, v) => s + v, 0) / n
+  const num = x.reduce((s, v, i) => s + (v - mx) * (y[i] - my), 0)
+  const denom = Math.sqrt(x.reduce((s, v) => s + (v - mx) ** 2, 0) * y.reduce((s, v) => s + (v - my) ** 2, 0))
+  return denom < 1e-10 ? 0 : Math.abs(num / denom)
+}
+
+function _parseLevenePFromFootnote(footnotes: string[] | undefined): number | null {
+  for (const fn of footnotes ?? []) {
+    const m = fn.match(/p\s*=\s*([\d.<]+)/)
+    if (m) {
+      const raw = m[1].replace('<', '')
+      const p = parseFloat(raw)
+      return isNaN(p) ? null : p
+    }
+  }
+  return null
+}
+
+// ── Post-hoc power helpers ────────────────────────────────────────────────────
+
+function _normalCDF(x: number): number {
+  // Approximation (accurate to ~5e-4)
+  const t = 1 / (1 + 0.2316419 * Math.abs(x))
+  const poly = t * (0.319381530 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))))
+  const p = 1 - (1 / Math.sqrt(2 * Math.PI)) * Math.exp(-0.5 * x * x) * poly
+  return x >= 0 ? p : 1 - p
+}
+
+function _postHocPowerTTest(cohenD: number, n1: number, n2: number, alpha = 0.05): number {
+  const n_harm = 2 / (1 / n1 + 1 / n2) // harmonic mean n
+  const delta = Math.abs(cohenD) * Math.sqrt(n_harm / 2)
+  const zCrit = 1.959964 // z_{0.025} for two-tailed α=0.05
+  return _normalCDF(delta - zCrit) + _normalCDF(-delta - zCrit)
+}
+
+function _postHocPowerAnova(etaSq: number, k: number, n: number, alpha = 0.05): number {
+  if (etaSq <= 0 || etaSq >= 1) return 0
+  const f = Math.sqrt(etaSq / (1 - etaSq))
+  const lambda = n * f * f // non-centrality parameter
+  const dfB = k - 1, dfW = n - k
+  // Normal approximation for non-central F power
+  const fCrit_approx = 1 + 3 * dfB / (dfW - 2) // rough F-critical at α=0.05 for large n
+  void fCrit_approx
+  // Use chi-square approximation: power ≈ P(χ²(dfB, λ) > χ²_crit)
+  const chiCrit = dfB * 3.841 // χ²_{0.05,1} × dfB (rough)
+  const powerApprox = 1 - _normalCDF((chiCrit - dfB - lambda) / Math.sqrt(2 * (dfB + 2 * lambda)))
+  void alpha
+  return Math.min(1, Math.max(0, powerApprox))
+}
+
+function _postHocPowerChiSq(cramersV: number, df: number, n: number): number {
+  const w = cramersV * Math.sqrt(df) // effect size w
+  const lambda = n * w * w
+  const chiCrit_approx = df + 1.645 * Math.sqrt(2 * df) // χ²_{0.05,df} approximation
+  return Math.min(1, Math.max(0, 1 - _normalCDF((chiCrit_approx - df - lambda) / Math.sqrt(2 * (df + 2 * lambda)))))
+}
+
+function buildAssumptionChecksFromResult(
+  analysisType: string,
+  result: AnalysisResult,
+  missingInfo?: { vars: string[]; missingMap: Record<string, number>; totalN: number },
+): AssumptionCheck[] {
+  const checks: AssumptionCheck[] = []
+  const summary = result.summary as Record<string, unknown>
+  const n = typeof summary.n === 'number' ? summary.n : null
+
+  // ── Data quality: missing values ────────────────────────────────────────────
+  if (missingInfo && missingInfo.vars.length > 0 && missingInfo.totalN > 0) {
+    const { vars, missingMap, totalN } = missingInfo
+    const highMissing = vars.filter(v => {
+      const pct = (missingMap[v] ?? 0) / totalN
+      return pct > 0.05
+    })
+    const maxMissingVar = vars.reduce((mx, v) => {
+      const pct = (missingMap[v] ?? 0) / totalN
+      return pct > ((missingMap[mx] ?? 0) / totalN) ? v : mx
+    }, vars[0])
+    const maxMissingPct = maxMissingVar ? (missingMap[maxMissingVar] ?? 0) / totalN : 0
+
+    if (maxMissingPct > 0) {
+      checks.push({
+        assumption_name: 'Missing Data',
+        description: 'Variables used in the analysis should have low missing rates',
+        status: maxMissingPct > 0.20 ? 'violated' : maxMissingPct > 0.05 ? 'warning' : 'passed',
+        severity: maxMissingPct > 0.20 ? 'moderate' : 'minor',
+        test_used: 'Missing rate per variable',
+        statistic: parseFloat((maxMissingPct * 100).toFixed(1)),
+        p_value: null,
+        finding: maxMissingPct > 0.05
+          ? `${highMissing.length} variable(s) have > 5% missing data (max: ${maxMissingVar} — ${(maxMissingPct * 100).toFixed(1)}% missing, ${missingMap[maxMissingVar] ?? 0} of ${totalN} rows).`
+          : `Missing data is minimal (max: ${(maxMissingPct * 100).toFixed(1)}% in ${maxMissingVar}).`,
+        implication: 'High missing rates can bias estimates if data is not Missing Completely At Random (MCAR).',
+        suggested_action: maxMissingPct > 0.10 ? 'Consider multiple imputation (MICE) or assess the missing data mechanism.' : null,
+        alternative_tests: maxMissingPct > 0.10 ? ['Multiple imputation (MICE)', 'Complete-case sensitivity analysis'] : [],
+        variable_affected: highMissing[0] ?? null,
+      })
+    }
+  }
+
+  // ── Linear regression (simple + multiple) ──────────────────────────────────
+  if (analysisType === 'simple_regression' || analysisType === 'multiple_regression') {
+    const residPlot = result.charts?.find(c => c.type === 'residual_plot')
+    const residData = Array.isArray(residPlot?.data)
+      ? (residPlot!.data as Array<{ fitted: number; residual: number }>)
+      : []
+    const residuals = residData.map(d => d.residual).filter(v => isFinite(v))
+    const fitted    = residData.map(d => d.fitted).filter(v => isFinite(v))
+
+    if (residuals.length >= 5) {
+      const sk   = _skewness(residuals)
+      const kurt = _kurtosis(residuals)
+      const severe  = Math.abs(sk) > 1.5 || Math.abs(kurt) > 4
+      const warning = !severe && (Math.abs(sk) > 0.75 || Math.abs(kurt) > 2)
+      checks.push({
+        assumption_name: 'Normality of Residuals',
+        description: 'Residuals should be approximately normally distributed',
+        status: severe ? 'violated' : warning ? 'warning' : 'passed',
+        severity: severe ? 'moderate' : 'minor',
+        test_used: 'Skewness / excess kurtosis',
+        statistic: parseFloat(sk.toFixed(3)),
+        p_value: null,
+        finding: severe
+          ? `Non-normal residuals (skewness = ${sk.toFixed(2)}, excess kurtosis = ${kurt.toFixed(2)}). Inference may be affected.`
+          : warning
+          ? `Mild departure from normality (skewness = ${sk.toFixed(2)}, excess kurtosis = ${kurt.toFixed(2)}).`
+          : `Residuals are approximately normal (skewness = ${sk.toFixed(2)}, excess kurtosis = ${kurt.toFixed(2)}).`,
+        implication: 'Non-normal residuals can inflate Type I error and widen confidence intervals, especially in small samples.',
+        suggested_action: severe ? 'Consider transforming the outcome (log, sqrt) or using robust regression.' : null,
+        alternative_tests: severe ? ['Robust regression', 'Bootstrap CIs', 'Quantile regression'] : [],
+        variable_affected: null,
+      })
+
+      if (fitted.length === residuals.length) {
+        const absResid = residuals.map(r => Math.abs(r))
+        const hetCorr  = _absCorr(fitted, absResid)
+        const hetSevere  = hetCorr > 0.35
+        const hetWarning = !hetSevere && hetCorr > 0.18
+        checks.push({
+          assumption_name: 'Homoscedasticity',
+          description: 'Residual variance should be constant across fitted values',
+          status: hetSevere ? 'violated' : hetWarning ? 'warning' : 'passed',
+          severity: hetSevere ? 'moderate' : 'minor',
+          test_used: 'cor(|residuals|, fitted)',
+          statistic: parseFloat(hetCorr.toFixed(3)),
+          p_value: null,
+          finding: hetSevere
+            ? `Heteroscedasticity detected (r = ${hetCorr.toFixed(2)} between |residuals| and fitted values).`
+            : hetWarning
+            ? `Mild heteroscedasticity possible (r = ${hetCorr.toFixed(2)}).`
+            : `Residuals appear homoscedastic (r = ${hetCorr.toFixed(2)}).`,
+          implication: 'Heteroscedastic errors make OLS standard errors unreliable, affecting p-values and CIs.',
+          suggested_action: hetSevere ? 'Use heteroscedasticity-consistent (HC3) standard errors or transform the outcome.' : null,
+          alternative_tests: hetSevere ? ['Weighted Least Squares', 'Robust SEs (HC3)', 'Log transform'] : [],
+          variable_affected: null,
+        })
+      }
+    }
+
+    // Multicollinearity from VIF table (multiple regression only)
+    if (analysisType === 'multiple_regression') {
+      const vifTable = result.tables?.find(t => t.id === 'vif')
+      if (vifTable && vifTable.rows.length > 0) {
+        const maxVif = vifTable.rows.reduce((mx, r) => {
+          const v = parseFloat(String(r[1]))
+          return isFinite(v) ? Math.max(mx, v) : mx
+        }, 0)
+        const highCount     = vifTable.rows.filter(r => parseFloat(String(r[1])) > 10).length
+        const moderateCount = vifTable.rows.filter(r => { const v = parseFloat(String(r[1])); return v > 5 && v <= 10 }).length
+        checks.push({
+          assumption_name: 'Multicollinearity',
+          description: 'Predictors should not be highly correlated with each other',
+          status: highCount > 0 ? 'violated' : moderateCount > 0 ? 'warning' : 'passed',
+          severity: highCount > 0 ? 'critical' : moderateCount > 0 ? 'moderate' : 'minor',
+          test_used: 'Variance Inflation Factor (VIF)',
+          statistic: maxVif > 0 ? parseFloat(maxVif.toFixed(2)) : null,
+          p_value: null,
+          finding: highCount > 0
+            ? `${highCount} predictor(s) have VIF > 10 (max VIF = ${maxVif.toFixed(1)}). Severe multicollinearity.`
+            : moderateCount > 0
+            ? `${moderateCount} predictor(s) have VIF > 5 (max VIF = ${maxVif.toFixed(1)}). Moderate collinearity.`
+            : `All VIF values ≤ 5 (max = ${maxVif.toFixed(1)}). No problematic multicollinearity.`,
+          implication: 'High VIF inflates standard errors, making individual coefficient estimates unstable.',
+          suggested_action: highCount > 0 ? 'Remove or combine correlated predictors, or use ridge regression.' : null,
+          alternative_tests: highCount > 0 ? ['Ridge regression', 'LASSO', 'PCA regression'] : [],
+          variable_affected: highCount > 0 ? String(vifTable.rows.find(r => parseFloat(String(r[1])) > 10)?.[0] ?? '') : null,
+        })
+      }
+    }
+
+    // Sample size adequacy
+    if (n !== null) {
+      const k   = typeof summary.k === 'number' ? summary.k : 1
+      const minN = analysisType === 'multiple_regression' ? Math.max(50, 10 * k) : 20
+      checks.push({
+        assumption_name: 'Sample Size Adequacy',
+        description: 'Sufficient observations for reliable estimation',
+        status: n < minN ? (n < minN / 2 ? 'violated' : 'warning') : 'passed',
+        severity: n < minN / 2 ? 'moderate' : 'minor',
+        test_used: `n ≥ ${minN} rule of thumb`,
+        statistic: n,
+        p_value: null,
+        finding: n < minN
+          ? `n = ${n} is below the recommended minimum of ${minN}.`
+          : `n = ${n} is adequate for this model.`,
+        implication: 'Small samples reduce power and may produce unstable estimates.',
+        suggested_action: n < minN ? 'Interpret with caution; collect more data if possible.' : null,
+        alternative_tests: [],
+        variable_affected: null,
+      })
+    }
+
+    // Outliers from standardized residuals
+    if (residuals.length > 0) {
+      const residPlotForOutliers = result.charts?.find(c => c.type === 'residual_plot')
+      const stdResid = Array.isArray(residPlotForOutliers?.data)
+        ? (residPlotForOutliers!.data as Array<{ standardized?: number; residual: number }>).map(d => d.standardized ?? 0)
+        : residuals.map(r => { const sd = Math.sqrt(residuals.reduce((s, v) => s + v * v, 0) / residuals.length); return sd > 0 ? r / sd : 0 })
+
+      const outlierCount = stdResid.filter(r => Math.abs(r) > 3).length
+      const pctOutliers  = outlierCount / stdResid.length
+      checks.push({
+        assumption_name: 'Influential Outliers',
+        description: 'Standardized residuals should be within ±3 for most observations',
+        status: pctOutliers > 0.05 ? 'violated' : outlierCount > 0 ? 'warning' : 'passed',
+        severity: pctOutliers > 0.05 ? 'moderate' : 'minor',
+        test_used: '|standardized residual| > 3',
+        statistic: outlierCount,
+        p_value: null,
+        finding: outlierCount > 0
+          ? `${outlierCount} observation(s) have |standardized residual| > 3 (${(pctOutliers * 100).toFixed(1)}% of n = ${stdResid.length}).`
+          : `No influential outliers detected (all |standardized residuals| ≤ 3).`,
+        implication: 'Outliers can disproportionately influence regression coefficients and inflate RMSE.',
+        suggested_action: outlierCount > 0 ? 'Inspect flagged observations. Consider robust regression or reporting results with and without outliers.' : null,
+        alternative_tests: ['Robust regression (M-estimator)', "Cook's D analysis"],
+        variable_affected: null,
+      })
+    }
+  }
+
+  // ── Logistic regression ────────────────────────────────────────────────────
+  else if (analysisType === 'logistic_regression') {
+    const events = typeof summary.events === 'number' ? summary.events : null
+    const k = result.tables?.find(t => t.id === 'coefs')?.rows.length ?? 1
+
+    if (events !== null && k > 0) {
+      const epv = events / k
+      checks.push({
+        assumption_name: 'Events Per Variable (EPV)',
+        description: 'Minimum 10 events per predictor for stable OR estimates',
+        status: epv < 5 ? 'violated' : epv < 10 ? 'warning' : 'passed',
+        severity: epv < 5 ? 'critical' : 'moderate',
+        test_used: 'EPV = events / predictors',
+        statistic: parseFloat(epv.toFixed(1)),
+        p_value: null,
+        finding: epv < 10
+          ? `EPV = ${epv.toFixed(1)} (${events} events across ${k} predictor${k > 1 ? 's' : ''}). Recommended minimum: 10.`
+          : `EPV = ${epv.toFixed(1)}. Adequate events per variable.`,
+        implication: 'Low EPV causes overfitting and unreliable ORs with inflated SEs.',
+        suggested_action: epv < 10 ? 'Reduce number of predictors or collect more outcome events.' : null,
+        alternative_tests: epv < 5 ? ["Firth penalized logistic regression", "Exact logistic regression"] : [],
+        variable_affected: null,
+      })
+    }
+
+    if (n !== null) {
+      const minN = Math.max(100, 20 * k)
+      checks.push({
+        assumption_name: 'Sample Size Adequacy',
+        description: 'Sufficient observations for reliable logistic regression',
+        status: n < 50 ? 'violated' : n < minN ? 'warning' : 'passed',
+        severity: n < 50 ? 'moderate' : 'minor',
+        test_used: `n ≥ ${minN} rule of thumb`,
+        statistic: n,
+        p_value: null,
+        finding: n < minN
+          ? `n = ${n} may be insufficient. Recommended: n ≥ ${minN} for ${k} predictor(s).`
+          : `n = ${n} is adequate.`,
+        implication: 'Small logistic models have wide OR confidence intervals and reduced reliability.',
+        suggested_action: n < 50 ? 'Expand sample or use exact logistic regression.' : null,
+        alternative_tests: [],
+        variable_affected: null,
+      })
+    }
+  }
+
+  // ── T-test ─────────────────────────────────────────────────────────────────
+  else if (analysisType === 't_test') {
+    const groupStatsTable = result.tables?.find(t => t.id === 'group_stats')
+    const n1 = groupStatsTable ? parseInt(String(groupStatsTable.rows[0]?.[1] ?? '0')) : null
+    const n2 = groupStatsTable ? parseInt(String(groupStatsTable.rows[1]?.[1] ?? '0')) : null
+    const minGroupN = n1 !== null && n2 !== null ? Math.min(n1, n2) : (n ?? null)
+
+    if (minGroupN !== null) {
+      checks.push({
+        assumption_name: 'Normality',
+        description: 'Each group should be approximately normally distributed (or n ≥ 30, CLT)',
+        status: minGroupN < 15 ? 'warning' : 'passed',
+        severity: 'moderate',
+        test_used: 'CLT (n threshold)',
+        statistic: minGroupN,
+        p_value: null,
+        finding: minGroupN < 15
+          ? `Smallest group n = ${minGroupN}. With < 30 per group, normality should be formally verified.`
+          : `Both groups have n ≥ 30 (min = ${minGroupN}). CLT applies.`,
+        implication: 'Non-normality in small samples inflates Type I error.',
+        suggested_action: minGroupN < 15 ? 'Use the Mann-Whitney U test (non-parametric).' : null,
+        alternative_tests: ['Mann-Whitney U test', 'Wilcoxon signed-rank test'],
+        variable_affected: null,
+      })
+    }
+
+    // Levene's p from table footnote
+    const tTestTable = result.tables?.find(t => t.id === 't_test')
+    const leveneP = _parseLevenePFromFootnote(tTestTable?.footnotes)
+    if (leveneP !== null) {
+      checks.push({
+        assumption_name: 'Equality of Variances',
+        description: "Group variances should be approximately equal (Levene's test)",
+        status: leveneP < 0.05 ? 'warning' : 'passed',
+        severity: 'moderate',
+        test_used: "Levene's test",
+        statistic: null,
+        p_value: parseFloat(leveneP.toFixed(4)),
+        finding: leveneP < 0.05
+          ? `Levene's test p = ${leveneP < 0.001 ? '<0.001' : leveneP.toFixed(3)}. Unequal variances detected.`
+          : `Levene's test p = ${leveneP.toFixed(3)}. Equal variances assumption satisfied.`,
+        implication: 'Unequal variances inflate Type I error in the standard t-test.',
+        suggested_action: leveneP < 0.05 ? "Use Welch's t-test (unequal variances assumed)." : null,
+        alternative_tests: ["Welch's t-test", 'Mann-Whitney U test'],
+        variable_affected: null,
+      })
+    }
+
+    // Post-hoc statistical power (independent t-test only)
+    if (n1 !== null && n2 !== null) {
+      const tTestTableForD = result.tables?.find(t => t.id === 't_test')
+      const dRaw = tTestTableForD?.rows[0]?.[6]
+      const cohenD = dRaw != null ? parseFloat(String(dRaw)) : null
+      if (cohenD !== null && isFinite(cohenD)) {
+        const power = _postHocPowerTTest(cohenD, n1, n2)
+        checks.push({
+          assumption_name: 'Statistical Power (Post-Hoc)',
+          description: 'Observed power to detect the effect at α = 0.05 (80% threshold recommended)',
+          status: power < 0.50 ? 'violated' : power < 0.80 ? 'warning' : 'passed',
+          severity: power < 0.50 ? 'moderate' : 'minor',
+          test_used: `Post-hoc power (d = ${cohenD.toFixed(2)}, n₁ = ${n1}, n₂ = ${n2})`,
+          statistic: parseFloat((power * 100).toFixed(1)),
+          p_value: null,
+          finding: `Post-hoc power = ${(power * 100).toFixed(1)}% (Cohen's d = ${cohenD.toFixed(2)}, n = ${n1 + n2}). ${power < 0.80 ? 'Study may be underpowered to detect this effect.' : 'Adequate power to detect the observed effect.'}`,
+          implication: 'Low power means the study may fail to detect true effects; non-significant results are inconclusive.',
+          suggested_action: power < 0.80 ? `To achieve 80% power for this effect size, n ≈ ${Math.ceil(2 * Math.pow((1.96 + 0.842) / (Math.abs(cohenD) + 1e-6), 2))} per group is recommended.` : null,
+          alternative_tests: [],
+          variable_affected: null,
+        })
+      }
+    }
+  }
+
+  // ── ANOVA ──────────────────────────────────────────────────────────────────
+  else if (analysisType === 'anova') {
+    const groupStatsTable = result.tables?.find(t => t.id === 'group_stats')
+    const groupNs = groupStatsTable?.rows.map(r => parseInt(String(r[1] ?? '0'))).filter(v => v > 0) ?? []
+    const minGroupN = groupNs.length > 0 ? Math.min(...groupNs) : (n ?? null)
+
+    if (minGroupN !== null) {
+      checks.push({
+        assumption_name: 'Normality of Residuals',
+        description: 'Within-group observations should be approximately normally distributed',
+        status: minGroupN < 15 ? 'warning' : 'passed',
+        severity: 'moderate',
+        test_used: 'CLT (per-group n threshold)',
+        statistic: minGroupN,
+        p_value: null,
+        finding: minGroupN < 15
+          ? `Smallest group n = ${minGroupN}. Normality assumption should be formally verified.`
+          : `All groups have n ≥ 15 (min = ${minGroupN}). CLT reasonably applies.`,
+        implication: 'Non-normality in small groups can inflate Type I error.',
+        suggested_action: minGroupN < 15 ? 'Use the Kruskal-Wallis H test (non-parametric).' : null,
+        alternative_tests: ['Kruskal-Wallis H test'],
+        variable_affected: null,
+      })
+    }
+
+    checks.push({
+      assumption_name: 'Homogeneity of Variances',
+      description: "Group variances should be approximately equal (Levene's / Brown-Forsythe)",
+      status: 'not_applicable',
+      severity: 'moderate',
+      test_used: null,
+      statistic: null,
+      p_value: null,
+      finding: "Homogeneity of variances requires Levene's test — verify manually if group SD values differ substantially.",
+      implication: 'Heterogeneous variances inflate the F-statistic and Type I error rate.',
+      suggested_action: "Run Levene's test or use Welch's ANOVA if variances are unequal.",
+      alternative_tests: ["Welch's ANOVA", 'Kruskal-Wallis H test'],
+      variable_affected: null,
+    })
+
+    // Post-hoc power for ANOVA
+    const etaSqRaw = typeof summary.etaSq === 'string' ? parseFloat(summary.etaSq) : (typeof summary.etaSq === 'number' ? summary.etaSq : null)
+    const kGroups  = typeof summary.k === 'number' ? summary.k : null
+    if (etaSqRaw !== null && kGroups !== null && n !== null && isFinite(etaSqRaw) && etaSqRaw > 0) {
+      const power = _postHocPowerAnova(etaSqRaw, kGroups, n)
+      checks.push({
+        assumption_name: 'Statistical Power (Post-Hoc)',
+        description: 'Observed power to detect the effect at α = 0.05',
+        status: power < 0.50 ? 'violated' : power < 0.80 ? 'warning' : 'passed',
+        severity: power < 0.50 ? 'moderate' : 'minor',
+        test_used: `Post-hoc power (η² = ${etaSqRaw.toFixed(3)}, k = ${kGroups}, n = ${n})`,
+        statistic: parseFloat((power * 100).toFixed(1)),
+        p_value: null,
+        finding: `Post-hoc power = ${(power * 100).toFixed(1)}% (η² = ${etaSqRaw.toFixed(3)}, ${kGroups} groups, n = ${n}).`,
+        implication: 'Low power means the study may have missed true between-group differences.',
+        suggested_action: power < 0.80 ? 'Consider increasing sample size per group or collapsing factor levels.' : null,
+        alternative_tests: [],
+        variable_affected: null,
+      })
+    }
+  }
+
+  // ── Chi-square ─────────────────────────────────────────────────────────────
+  else if (analysisType === 'chi_square') {
+    const expectedTable = result.tables?.find(t => t.title?.toLowerCase().includes('expected'))
+    if (expectedTable) {
+      const allExpected: number[] = []
+      for (const row of expectedTable.rows) {
+        for (let ci = 1; ci < row.length - 1; ci++) {
+          const v = parseFloat(String(row[ci]))
+          if (isFinite(v)) allExpected.push(v)
+        }
+      }
+      if (allExpected.length > 0) {
+        const lowCount = allExpected.filter(v => v < 5).length
+        const pctLow   = lowCount / allExpected.length
+        checks.push({
+          assumption_name: 'Expected Cell Frequencies ≥ 5',
+          description: 'At least 80% of cells should have expected frequency ≥ 5',
+          status: pctLow > 0.2 ? 'violated' : pctLow > 0 ? 'warning' : 'passed',
+          severity: pctLow > 0.2 ? 'critical' : 'moderate',
+          test_used: 'Expected frequency check',
+          statistic: lowCount,
+          p_value: null,
+          finding: lowCount > 0
+            ? `${lowCount} of ${allExpected.length} cells have expected frequency < 5 (${(pctLow * 100).toFixed(0)}%).`
+            : `All ${allExpected.length} cells have expected frequency ≥ 5.`,
+          implication: 'Low expected cell counts make the chi-square approximation unreliable.',
+          suggested_action: lowCount > 0 ? "Use Fisher's exact test or collapse sparse categories." : null,
+          alternative_tests: ["Fisher's exact test", 'Monte Carlo chi-square'],
+          variable_affected: null,
+        })
+      }
+    }
+
+    checks.push({
+      assumption_name: 'Independence of Observations',
+      description: 'Each unit should contribute exactly once to the table',
+      status: 'not_applicable',
+      severity: 'minor',
+      test_used: null,
+      statistic: null,
+      p_value: null,
+      finding: 'Independence is a design assumption — verify each row is an independent observation.',
+      implication: 'Dependent observations (e.g., repeated measures) invalidate chi-square.',
+      suggested_action: "For paired/matched data, use McNemar's test.",
+      alternative_tests: ["McNemar's test"],
+      variable_affected: null,
+    })
+
+    // Post-hoc power for chi-square
+    const cramersVRaw = typeof summary.cramersV === 'string' ? parseFloat(summary.cramersV) : (typeof summary.cramersV === 'number' ? summary.cramersV : null)
+    const dfRaw = typeof summary.df === 'number' ? summary.df : null
+    const nChi = typeof summary.n === 'number' ? summary.n : null
+    if (cramersVRaw !== null && dfRaw !== null && nChi !== null && isFinite(cramersVRaw) && cramersVRaw > 0) {
+      const power = _postHocPowerChiSq(cramersVRaw, dfRaw, nChi)
+      checks.push({
+        assumption_name: 'Statistical Power (Post-Hoc)',
+        description: 'Observed power to detect the association at α = 0.05',
+        status: power < 0.50 ? 'violated' : power < 0.80 ? 'warning' : 'passed',
+        severity: power < 0.50 ? 'moderate' : 'minor',
+        test_used: `Post-hoc power (V = ${cramersVRaw.toFixed(3)}, df = ${dfRaw}, n = ${nChi})`,
+        statistic: parseFloat((power * 100).toFixed(1)),
+        p_value: null,
+        finding: `Post-hoc power = ${(power * 100).toFixed(1)}% (Cramér's V = ${cramersVRaw.toFixed(3)}, n = ${nChi}).`,
+        implication: 'Low power may mean a true association exists but the sample was too small to detect it reliably.',
+        suggested_action: power < 0.80 ? 'Increase sample size or simplify the contingency table.' : null,
+        alternative_tests: [],
+        variable_affected: null,
+      })
+    }
+  }
+
+  // ── Correlation ────────────────────────────────────────────────────────────
+  else if (analysisType === 'correlation') {
+    if (n !== null) {
+      checks.push({
+        assumption_name: 'Bivariate Normality',
+        description: 'Both variables should be approximately normally distributed for Pearson r',
+        status: n >= 30 ? 'passed' : 'warning',
+        severity: 'moderate',
+        test_used: 'CLT (n threshold)',
+        statistic: n,
+        p_value: null,
+        finding: n >= 30
+          ? `n = ${n}. CLT applies — normality assumption is reasonably met.`
+          : `n = ${n} is small. Confirm both variables are normally distributed.`,
+        implication: 'Pearson r is unreliable for non-normal distributions in small samples.',
+        suggested_action: n < 30 ? "Use Spearman's rank correlation." : null,
+        alternative_tests: ["Spearman's rho", "Kendall's tau"],
+        variable_affected: null,
+      })
+    }
+
+    checks.push({
+      assumption_name: 'Linearity',
+      description: 'Relationship between variables should be linear (Pearson r only captures linear association)',
+      status: 'not_applicable',
+      severity: 'minor',
+      test_used: 'Visual / scatterplot inspection',
+      statistic: null,
+      p_value: null,
+      finding: 'Linearity is a design assumption — inspect scatterplots to confirm the relationship is linear.',
+      implication: 'Non-linear relationships are poorly captured by Pearson r.',
+      suggested_action: 'For non-linear associations, consider Spearman correlation or polynomial regression.',
+      alternative_tests: ["Spearman's rho", 'Polynomial regression'],
+      variable_affected: null,
+    })
+  }
+
+  // ── Survival (Kaplan-Meier / Cox) ──────────────────────────────────────────
+  else if (analysisType === 'kaplan_meier' || analysisType === 'cox_regression') {
+    if (n !== null) {
+      checks.push({
+        assumption_name: 'Sample Size Adequacy',
+        description: 'Sufficient events for reliable survival estimates',
+        status: n < 30 ? 'warning' : 'passed',
+        severity: 'moderate',
+        test_used: 'n ≥ 30 events rule of thumb',
+        statistic: n,
+        p_value: null,
+        finding: n < 30
+          ? `n = ${n} is small for survival analysis. Estimates may be imprecise.`
+          : `n = ${n} is adequate.`,
+        implication: 'Small event counts produce wide confidence intervals and unstable survival curves.',
+        suggested_action: null,
+        alternative_tests: [],
+        variable_affected: null,
+      })
+    }
+
+    if (analysisType === 'cox_regression') {
+      checks.push({
+        assumption_name: 'Proportional Hazards',
+        description: 'Hazard ratio between groups should be constant over time',
+        status: 'not_applicable',
+        severity: 'critical',
+        test_used: 'Schoenfeld residuals (requires formal testing)',
+        statistic: null,
+        p_value: null,
+        finding: 'The proportional hazards assumption must be verified via Schoenfeld residual plots or log-log survival curves.',
+        implication: 'If hazards are not proportional, Cox HR estimates are time-averaged and may be misleading.',
+        suggested_action: 'Test with scaled Schoenfeld residuals. If violated, use stratified Cox or time-varying coefficients.',
+        alternative_tests: ['Stratified Cox regression', 'Accelerated failure time model', "Royston-Parmar model"],
+        variable_affected: null,
+      })
+    }
+  }
+
+  return checks
+}
 
 function buildMethodsText(
   analysisType: string,

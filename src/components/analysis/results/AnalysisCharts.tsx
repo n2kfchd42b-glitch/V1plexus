@@ -172,6 +172,7 @@ const SUPPORTED_CHART_TYPES = new Set([
   'scree_plot', 'cluster_scatter', 'power_curve', 'epi_curve', 'acf_plot',
   'biplot', 'boxplot_2group', 'boxplot_groups', 'mosaic',
   'forest_rrr', 'paired_diff', 'silhouette_plot', 'scatter_matrix',
+  'qq_plot',
 ])
 
 // ── Chart Wrapper ────────────────────────────────────────────
@@ -337,6 +338,7 @@ function ChartRenderer({
               {type === 'paired_diff'       && <PairedDiffChart    data={data as number[]} expanded={expanded} />}
               {type === 'silhouette_plot'   && <SilhouettePlot     data={data as SilhouettePoint[]} expanded={expanded} />}
               {type === 'scatter_matrix'    && <ScatterMatrix      data={data as ScatterPair[]} config={config ?? {}} expanded={expanded} />}
+              {type === 'qq_plot'           && <QQPlot             data={data as { theoretical: number; observed: number }[]} config={config} expanded={expanded} />}
             </ChartRenderContext.Provider>
           </div>
         </div>
@@ -1433,6 +1435,59 @@ function SilhouettePlot({ data, expanded }: { data: SilhouettePoint[]; expanded:
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Q-Q Plot ─────────────────────────────────────────────────
+function QQPlot({ data, config, expanded }: { data: { theoretical: number; observed: number }[]; config: Record<string, unknown>; expanded: boolean }) {
+  const cfg = useCfg()
+  const C = cfg.colors
+  void config
+
+  if (!data || data.length === 0) return <p className="text-xs py-4 text-center" style={{ color: CHART_TOKENS.text.muted }}>No data</p>
+
+  const sorted = [...data].sort((a, b) => a.theoretical - b.theoretical)
+  const xMin = sorted[0].theoretical
+  const xMax = sorted[sorted.length - 1].theoretical
+  const refLine = [{ theoretical: xMin, ref: xMin }, { theoretical: xMax, ref: xMax }]
+  const merged = sorted.map(d => ({ ...d, ref: d.theoretical }))
+
+  return (
+    <div>
+      <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 160)}>
+        <ComposedChart data={merged} margin={{ left: 4, right: 8, bottom: 4, top: 4 }}>
+          {cfg.showGrid && <CartesianGrid {...gridStyle} />}
+          <XAxis dataKey="theoretical" type="number" name="Theoretical Quantile" tick={axisTick} domain={['dataMin', 'dataMax']} {...axisLabelX(cfg, 'Theoretical Quantiles')} />
+          <YAxis dataKey="observed" type="number" name="Sample Quantile" tick={axisTick} {...axisLabelY(cfg, 'Sample Quantiles')} />
+          <Tooltip
+            content={({ active, payload }) => {
+              if (!active || !payload?.length) return null
+              const d = payload[0]?.payload as { theoretical: number; observed: number }
+              return (
+                <div className="rounded-xl min-w-[140px]" style={{ background: '#ffffff', border: `1px solid ${CHART_TOKENS.border}`, padding: '8px 12px', boxShadow: '0 4px 16px rgba(0,24,72,0.08)' }}>
+                  <div className="space-y-1">
+                    <div className="flex justify-between gap-4">
+                      <span className="text-[10px]" style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}>Theoretical</span>
+                      <span className="text-[11px] font-bold tabular-nums" style={{ color: CHART_TOKENS.text.primary, fontFamily: "'JetBrains Mono', monospace" }}>{d?.theoretical?.toFixed(3)}</span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span className="text-[10px]" style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}>Sample</span>
+                      <span className="text-[11px] font-bold tabular-nums" style={{ color: CHART_TOKENS.text.primary, fontFamily: "'JetBrains Mono', monospace" }}>{d?.observed?.toFixed(3)}</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            }}
+            cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+          />
+          <Line data={refLine} dataKey="ref" type="linear" stroke={CHART_TOKENS.borderActive} strokeDasharray="6 4" strokeWidth={1.5} dot={false} legendType="none" animationDuration={0} />
+          <Scatter data={merged} dataKey="observed" fill={C[0] ?? chartColor(0)} opacity={0.55} animationDuration={600} />
+        </ComposedChart>
+      </ResponsiveContainer>
+      <p className="text-[10px] text-center mt-1" style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}>
+        Points close to the dashed line indicate approximate normality
+      </p>
     </div>
   )
 }

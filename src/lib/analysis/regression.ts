@@ -7,7 +7,8 @@ import {
   matMul, transpose, matInverse, solveLin,
   sigmoid, normalCDF,
   tToP, chiSqP, incompleteBeta,
-  fmt, fmtCI, formatPValue, getSig
+  fmt, fmtCI, formatPValue, getSig,
+  qqNormalData,
 } from './utils'
 
 // ===================== SIMPLE LINEAR REGRESSION =====================
@@ -77,11 +78,12 @@ export function runSimpleRegression(data: DataRow[], config: SimpleRegressionCon
 
   return {
     type: 'simple_regression',
-    summary: { n, r2: fmt(r2), adjR2: fmt(adjR2), fStat: fmt(fStat), pValue: formatPValue(fP) },
+    summary: { n, r2: fmt(r2), adjR2: fmt(adjR2), fStat: fmt(fStat), pValue: formatPValue(fP), coefficient: b1, ci_lower: b1 - tCrit * seb1, ci_upper: b1 + tCrit * seb1 },
     tables,
     charts: [
       { type: 'scatter_regression', title: `${dependent} ~ ${independent}`, data: scatterData, config: { b0, b1, r2 } },
-      { type: 'residual_plot', title: 'Residuals vs Fitted', data: residData, config: {} }
+      { type: 'residual_plot', title: 'Residuals vs Fitted', data: residData, config: {} },
+      { type: 'qq_plot', title: 'Q-Q Plot of Residuals', data: qqNormalData(residuals.map((r) => r / rse)), config: {} },
     ],
     interpretation: `Simple linear regression: ${dependent} = ${fmt(b0, 2)} + ${fmt(b1, 2)} × ${independent}. ` +
       `R² = ${fmt(r2, 3)} (model explains ${fmt(r2 * 100, 1)}% of variance). ` +
@@ -291,7 +293,8 @@ export function runMultipleRegression(data: DataRow[], config: MultipleRegressio
     tables,
     charts: [
       { type: 'coefficient_plot', title: 'Coefficient Plot', data: coefPlotData, config: {} },
-      { type: 'residual_plot', title: 'Residuals vs Fitted', data: residData, config: {} }
+      { type: 'residual_plot', title: 'Residuals vs Fitted', data: residData, config: {} },
+      { type: 'qq_plot', title: 'Q-Q Plot of Residuals', data: qqNormalData(residuals.map((r) => r / rse)), config: {} },
     ],
     interpretation,
     plainLanguage
@@ -602,7 +605,13 @@ export function runLogisticRegression(data: DataRow[], config: LogisticRegressio
 
   return {
     type: 'logistic_regression',
-    summary: { n, events: n1, auc: fmt(auc, 3), nagelkerkeR2: fmt(nagelkerkeR2, 3) },
+    summary: {
+      n, events: n1, auc: fmt(auc, 3), nagelkerkeR2: fmt(nagelkerkeR2, 3),
+      // Primary predictor OR + CI for sensitivity analysis
+      odds_ratio: beta.length > 1 ? Math.exp(beta[1]) : null,
+      ci_lower:   beta.length > 1 ? Math.exp(beta[1] - 1.96 * ses[1]) : null,
+      ci_upper:   beta.length > 1 ? Math.exp(beta[1] + 1.96 * ses[1]) : null,
+    },
     tables,
     charts: [
       { type: 'forest_or', title: 'Adjusted Odds Ratios', data: forestData, config: {} },
