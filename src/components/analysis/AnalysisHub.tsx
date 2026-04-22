@@ -418,9 +418,18 @@ export function AnalysisHub({ projectId }: Props) {
         const localSens = backendHasSens
           ? null
           : buildSensitivity(analysisType, analysisResultPayload)
+        const validStatuses: AssumptionOverallStatus[] = ['stable', 'needs_review', 'high_risk']
+        const normalizedStatus: AssumptionOverallStatus =
+          validStatuses.includes(reportData.overall_status)
+            ? reportData.overall_status
+            : 'needs_review'
         setAssumptionReport({
           ...reportData,
+          overall_status: normalizedStatus,
           all_checks: reportData.checks ?? [],
+          critical_violations: reportData.critical_violations ?? 0,
+          moderate_violations: reportData.moderate_violations ?? 0,
+          minor_violations: reportData.minor_violations ?? 0,
           e_value: reportData.e_value ?? localSens?.e_value ?? null,
           sensitivity_scenarios: backendHasSens ? reportData.sensitivity_scenarios : (localSens?.sensitivity_scenarios ?? []),
           robustness: reportData.robustness ?? localSens?.robustness ?? null,

@@ -54,7 +54,7 @@ export function AssumptionStatusBar({ report, checking, onOpen }: Props) {
 
   if (!report) return null
 
-  const cfg = STATUS_CONFIG[report.overall_status]
+  const cfg = STATUS_CONFIG[report.overall_status] ?? STATUS_CONFIG.needs_review
   const Icon = cfg.icon
   const violationCount = report.critical_violations + report.moderate_violations + report.minor_violations
   const subtitle = report.all_passed
