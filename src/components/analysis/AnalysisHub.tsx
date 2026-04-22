@@ -387,6 +387,7 @@ export function AnalysisHub({ projectId }: Props) {
         ci_upper:     toNum(summary.ci_upper),
         p_value:      toNum(summary.p_value),
         n:            toNum(summary.n),
+        n_events:     toNum(summary.events),
       }
 
       const body: Record<string, unknown> = {
@@ -1876,6 +1877,7 @@ interface EffectPayload {
   ci_upper: number | null
   p_value: number | null
   n: number | null
+  n_events: number | null
 }
 
 function eValueFromOR(or: number): number {
@@ -1964,6 +1966,47 @@ function buildSensitivity(
       sensitivity_scenarios: scenarios,
       robustness: {
         estimate_range: [scenarios[scenarios.length - 1].estimate, scenarios[0].estimate],
+        breaking_point_delta: bpScenario?.delta ?? null,
+        stability_pct: Math.round((stableCount / scenarios.length) * 100),
+      },
+    }
+  }
+
+  // Kaplan-Meier (no HR) — sensitivity to informative censoring
+  if (analysisType === 'kaplan_meier' && effect.n != null && effect.n > 0 && effect.n_events != null) {
+    const n = effect.n
+    const events = effect.n_events
+    const censored = n - events
+    const baseRate = events / n
+
+    const deltas = [0, 0.10, 0.20, 0.35, 0.50]
+    const labels = [
+      'Observed — non-informative censoring assumed',
+      '10% of censored subjects had informative censoring',
+      '20% of censored subjects had informative censoring',
+      '35% of censored subjects had informative censoring',
+      '50% of censored subjects had informative censoring',
+    ]
+    const scenarios: SensitivityScenario[] = deltas.map((d, i) => {
+      const adj = Math.min(1, baseRate + d * (censored / n))
+      const margin = adj * 0.15
+      const adjLo = Math.max(0, Math.round((adj - margin) * 1000) / 1000)
+      const adjHi = Math.min(1, Math.round((adj + margin) * 1000) / 1000)
+      const interpretation =
+        d === 0 ? `Observed event rate: ${(baseRate * 100).toFixed(1)}%` :
+        adj > baseRate * 1.25 ? 'Meaningful increase in event rate — informative censoring would substantially alter conclusions' :
+        'Event rate remains in a similar range — conclusions are robust to this level of informative censoring'
+      return { delta: d, label: labels[i], estimate: Math.round(adj * 1000) / 1000, ci_lower: adjLo, ci_upper: adjHi, interpretation }
+    })
+
+    const bpScenario = scenarios.find(s => s.estimate > baseRate * 1.25)
+    const stableCount = scenarios.filter(s => s.estimate <= baseRate * 1.25).length
+    return {
+      e_value: null,
+      metric_label: 'Event Rate',
+      sensitivity_scenarios: scenarios,
+      robustness: {
+        estimate_range: [scenarios[0].estimate, scenarios[scenarios.length - 1].estimate],
         breaking_point_delta: bpScenario?.delta ?? null,
         stability_pct: Math.round((stableCount / scenarios.length) * 100),
       },

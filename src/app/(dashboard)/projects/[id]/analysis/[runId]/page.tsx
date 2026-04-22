@@ -223,18 +223,25 @@ export default function AnalysisRunPage() {
             />
 
             {run.dataset_id && run.version_id &&
-             ['linear_regression', 'multiple_linear_regression', 'logistic_regression'].includes(run.analysis_type) &&
-             !!(run.config as Record<string, unknown>)?.outcome_variable && (
+             ['linear_regression', 'multiple_linear_regression', 'logistic_regression', 'kaplan_meier'].includes(run.analysis_type) &&
+             !!(
+               (run.config as Record<string, unknown>)?.outcome_variable ||
+               (run.config as Record<string, unknown>)?.eventVariable
+             ) && (
               <div className="mt-6 pt-6 border-t border-[var(--border-row)]">
                 <SensitivityPanel
                   projectId={projectId}
                   datasetId={run.dataset_id}
                   versionId={run.version_id}
                   analysisType={run.analysis_type}
-                  outcome={String((run.config as Record<string, unknown>).outcome_variable ?? '')}
+                  outcome={String(
+                    (run.config as Record<string, unknown>).outcome_variable ??
+                    (run.config as Record<string, unknown>).eventVariable ?? ''
+                  )}
                   exposure={String(
                     ((run.config as Record<string, unknown>).predictors as string[])?.[0] ??
-                    (run.config as Record<string, unknown>).exposure_variable ?? ''
+                    (run.config as Record<string, unknown>).exposure_variable ??
+                    (run.config as Record<string, unknown>).groupVariable ?? ''
                   )}
                   covariates={((run.config as Record<string, unknown>).predictors as string[] | undefined)?.slice(1) ?? []}
                 />
