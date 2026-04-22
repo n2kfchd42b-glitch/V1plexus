@@ -413,7 +413,19 @@ export function AnalysisHub({ projectId }: Props) {
 
       if (!reportData.unavailable) {
         // Full report from Python backend — map checks → all_checks
-        setAssumptionReport({ ...reportData, all_checks: reportData.checks ?? [] } as PostAnalysisReport)
+        // Augment with locally-computed sensitivity if backend didn't provide it
+        const backendHasSens = Array.isArray(reportData.sensitivity_scenarios) && reportData.sensitivity_scenarios.length > 0
+        const localSens = backendHasSens
+          ? null
+          : buildSensitivity(analysisType, analysisResultPayload)
+        setAssumptionReport({
+          ...reportData,
+          all_checks: reportData.checks ?? [],
+          e_value: reportData.e_value ?? localSens?.e_value ?? null,
+          sensitivity_scenarios: backendHasSens ? reportData.sensitivity_scenarios : (localSens?.sensitivity_scenarios ?? []),
+          robustness: reportData.robustness ?? localSens?.robustness ?? null,
+          metric_label: reportData.metric_label ?? localSens?.metric_label ?? '',
+        } as PostAnalysisReport)
       } else {
         // No external analytics backend — build assumption checks deterministically from the result
         const relevantVars = Object.keys(analysisConfig).flatMap(k => {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, getAccessTokenFromRequest } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,14 +10,10 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const accessToken = getAccessTokenFromRequest(request)
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user || !session.access_token) {
+      // Fall back gracefully — client uses deterministic path
+      return NextResponse.json({ unavailable: true })
     }
 
     let analyticsUrl = process.env.ANALYTICS_API_URL
@@ -27,9 +23,9 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ ...body, requested_by: user.id }),
+      body: JSON.stringify({ ...body, requested_by: session.user.id }),
     })
 
     const timeoutPromise = new Promise<never>((_, reject) =>
