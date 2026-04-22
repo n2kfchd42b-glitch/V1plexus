@@ -261,8 +261,37 @@ function AllChecksList({ checks }: { checks: AssumptionCheck[] }) {
 
 // ─── Sensitivity tab ──────────────────────────────────────────────────────────
 
+function sensitivityMeta(analysisType: string): { heading: string; paramLabel: string; paramDisplay: (delta: number) => string } {
+  if (analysisType === 'chi_square') {
+    return {
+      heading: 'Sensitivity to non-differential misclassification',
+      paramLabel: 'δ (misclassification rate)',
+      paramDisplay: (d) => `δ = ${(d * 100).toFixed(0)}%`,
+    }
+  }
+  if (analysisType === 'anova' || analysisType === 'kruskal_wallis') {
+    return {
+      heading: 'Sensitivity to group contamination',
+      paramLabel: 'δ (contamination rate)',
+      paramDisplay: (d) => `δ = ${(d * 100).toFixed(0)}%`,
+    }
+  }
+  if (analysisType === 'linear_regression' || analysisType === 'simple_regression' || analysisType === 'multiple_regression') {
+    return {
+      heading: 'Sensitivity to omitted-variable bias',
+      paramLabel: 'δ (additional R²)',
+      paramDisplay: (d) => `δ = ${(d * 100).toFixed(0)}%`,
+    }
+  }
+  return {
+    heading: 'Sensitivity to unmeasured confounding (\u03b3)',
+    paramLabel: '\u03b3 (confounder strength)',
+    paramDisplay: (d) => `\u03b3 = ${(d + 1).toFixed(2)}`,
+  }
+}
+
 function SensitivityTab({ report }: { report: PostAnalysisReport }) {
-  const [sliderIdx, setSliderIdx] = useState(2) // default = δ=0
+  const [sliderIdx, setSliderIdx] = useState(0)
   const scenarios = report.sensitivity_scenarios
 
   if (!scenarios || scenarios.length === 0) {
@@ -276,8 +305,9 @@ function SensitivityTab({ report }: { report: PostAnalysisReport }) {
   }
 
   const current: SensitivityScenario = scenarios[sliderIdx]
-  const observed = scenarios.find(s => s.delta === 0) ?? scenarios[2]
+  const observed = scenarios.find(s => s.delta === 0) ?? scenarios[0]
   const ml = report.metric_label
+  const meta = sensitivityMeta(report.analysis_type ?? '')
 
   const fmtEst = (v: number) => ml === 'β' ? v.toFixed(3) : v.toFixed(2)
 
@@ -305,14 +335,14 @@ function SensitivityTab({ report }: { report: PostAnalysisReport }) {
         </div>
       )}
 
-      {/* MNAR slider */}
+      {/* Sensitivity slider */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
-            Sensitivity to unmeasured confounding (γ)
+            {meta.heading}
           </p>
           <span className="text-xs font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
-            γ = {(current.delta + 1).toFixed(2)}
+            {meta.paramDisplay(current.delta)}
           </span>
         </div>
 
@@ -329,7 +359,7 @@ function SensitivityTab({ report }: { report: PostAnalysisReport }) {
         <div className="flex justify-between mt-1">
           {scenarios.map(s => (
             <span key={s.delta} className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-              {(s.delta + 1).toFixed(1)}
+              {meta.paramDisplay(s.delta)}
             </span>
           ))}
         </div>

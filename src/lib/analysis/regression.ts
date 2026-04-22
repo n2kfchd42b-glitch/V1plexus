@@ -289,7 +289,12 @@ export function runMultipleRegression(data: DataRow[], config: MultipleRegressio
 
   return {
     type: 'multiple_regression',
-    summary: { n, k, r2: fmt(r2), adjR2: fmt(adjR2), fStat: fmt(fStat), pValue: formatPValue(fP) },
+    summary: {
+      n, k, r2: fmt(r2), adjR2: fmt(adjR2), fStat: fmt(fStat), pValue: formatPValue(fP),
+      coefficient: beta.length > 1 ? beta[1] : null,
+      ci_lower:    beta.length > 1 ? beta[1] - tCrit * ses[1] : null,
+      ci_upper:    beta.length > 1 ? beta[1] + tCrit * ses[1] : null,
+    },
     tables,
     charts: [
       { type: 'coefficient_plot', title: 'Coefficient Plot', data: coefPlotData, config: {} },
@@ -1211,7 +1216,12 @@ export function runPoissonRegression(data: DataRow[], config: PoissonConfig): An
 
   return {
     type: 'poisson_regression',
-    summary: { n, deviance: fmt(deviance), aic: fmt(aic) },
+    summary: {
+      n, deviance: fmt(deviance), aic: fmt(aic),
+      estimate: beta.length > 1 ? Math.exp(beta[1]) : null,
+      ci_lower:  beta.length > 1 ? Math.exp(beta[1] - 1.96 * ses[1]) : null,
+      ci_upper:  beta.length > 1 ? Math.exp(beta[1] + 1.96 * ses[1]) : null,
+    },
     tables,
     charts: [{ type: 'forest_irr', title: 'Incidence Rate Ratios', data: forestData, config: {} }],
     interpretation: `Poisson regression (n=${n}): Deviance = ${fmt(deviance)}, AIC = ${fmt(aic)}. ` +

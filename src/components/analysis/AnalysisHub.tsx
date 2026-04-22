@@ -370,12 +370,18 @@ export function AnalysisHub({ projectId }: Props) {
     try {
       // Build analysis_result payload from the result summary
       const summary = (analysisResult?.summary ?? {}) as Record<string, unknown>
-      const toNum = (v: unknown): number | null => (typeof v === 'number' ? v : null)
+      const toNum = (v: unknown): number | null => {
+        if (typeof v === 'number') return isFinite(v) ? v : null
+        if (typeof v === 'string' && v !== '') { const n = parseFloat(v); return isFinite(n) ? n : null }
+        return null
+      }
       const analysisResultPayload: EffectPayload = {
         odds_ratio:   toNum(summary.odds_ratio),
         hazard_ratio: toNum(summary.hazard_ratio),
         coefficient:  toNum(summary.coefficient),
         correlation:  toNum(summary.correlation),
+        cramers_v:    toNum(summary.cramersV),
+        eta_sq:       toNum(summary.etaSq),
         estimate:     toNum(summary.estimate),
         ci_lower:     toNum(summary.ci_lower),
         ci_upper:     toNum(summary.ci_upper),
@@ -1863,6 +1869,8 @@ interface EffectPayload {
   hazard_ratio: number | null
   coefficient: number | null
   correlation: number | null
+  cramers_v: number | null
+  eta_sq: number | null
   estimate: number | null
   ci_lower: number | null
   ci_upper: number | null
@@ -1881,9 +1889,9 @@ function buildSensitivity(
 ): { e_value: number | null; sensitivity_scenarios: SensitivityScenario[]; robustness: RobustnessBounds | null; metric_label: string } {
   const none = { e_value: null, sensitivity_scenarios: [], robustness: null, metric_label: '' }
 
-  // Logistic regression — OR-based unmeasured-confounding sensitivity
+  // Logistic / Ordinal regression — OR-based unmeasured-confounding sensitivity
   const or = effect.odds_ratio
-  if ((analysisType === 'logistic_regression' || analysisType === 'multinomial_logistic' || analysisType === 'multinomial_regression') && or != null && or > 0) {
+  if ((analysisType === 'logistic_regression' || analysisType === 'multinomial_logistic' || analysisType === 'multinomial_regression' || analysisType === 'ordinal_regression') && or != null && or > 0) {
     const lo = effect.ci_lower ?? or * 0.75
     const hi = effect.ci_upper ?? or * 1.33
     const e_value = or === 1 ? 1 : Math.round(eValueFromOR(or) * 100) / 100
@@ -1994,6 +2002,112 @@ function buildSensitivity(
     return {
       e_value: null,
       metric_label: 'β',
+      sensitivity_scenarios: scenarios,
+      robustness: {
+        estimate_range: [scenarios[scenarios.length - 1].estimate, scenarios[0].estimate],
+        breaking_point_delta: bpScenario?.delta ?? null,
+        stability_pct: Math.round((stableCount / scenarios.length) * 100),
+      },
+    }
+  }
+
+  // Poisson / Negative-binomial — IRR-based unmeasured-confounding sensitivity
+  const rr = effect.estimate
+  if ((analysisType === 'poisson_regression' || analysisType === 'negbinomial_regression') && rr != null && rr > 0) {
+    const lo = effect.ci_lower ?? rr * 0.75
+    const hi = effect.ci_upper ?? rr * 1.33
+    const e_value = rr === 1 ? 1 : Math.round(eValueFromOR(rr) * 100) / 100
+    const gammas = [1.0, 1.5, 2.0, 3.0, 5.0]
+    const labels = [
+      'Observed — no unmeasured confounding',
+      'Weak confounder (\u03b3\u2009=\u20091.5)',
+      'Moderate confounder (\u03b3\u2009=\u20092.0)',
+      'Strong confounder (\u03b3\u2009=\u20093.0)',
+      'Very strong confounder (\u03b3\u2009=\u20095.0)',
+    ]
+    const scenarios: SensitivityScenario[] = gammas.map((g, i) => {
+      const adj = round3(rr / g)
+      const adjLo = round3(lo / g)
+      const adjHi = round3(hi / g)
+      const interpretation =
+        adjLo > 1 ? 'IRR remains significant (lower CI > 1)' :
+        adjHi < 1 ? 'Direction reversed under this level of confounding' :
+        'Effect no longer significant — confounding of this magnitude could explain the result'
+      return { delta: g - 1, label: labels[i], estimate: adj, ci_lower: adjLo, ci_upper: adjHi, interpretation }
+    })
+    const bpScenario = scenarios.find(s => s.ci_lower <= 1 && s.ci_upper >= 1)
+    const stableCount = scenarios.filter(s => s.ci_lower > 1 || s.ci_upper < 1).length
+    return {
+      e_value,
+      metric_label: 'IRR',
+      sensitivity_scenarios: scenarios,
+      robustness: {
+        estimate_range: [scenarios[scenarios.length - 1].estimate, scenarios[0].estimate],
+        breaking_point_delta: bpScenario?.delta ?? null,
+        stability_pct: Math.round((stableCount / scenarios.length) * 100),
+      },
+    }
+  }
+
+  // ANOVA / Kruskal-Wallis — η² sensitivity to group contamination/misassignment
+  const etaSq = effect.eta_sq
+  if ((analysisType === 'anova' || analysisType === 'kruskal_wallis') && etaSq != null) {
+    const contamRates = [0, 0.05, 0.10, 0.20, 0.30]
+    const labels = [
+      'Observed — no group contamination',
+      '5% group misassignment',
+      '10% group misassignment',
+      '20% group misassignment',
+      '30% group misassignment',
+    ]
+    const scenarios: SensitivityScenario[] = contamRates.map((c, i) => {
+      const adj = round4(etaSq * Math.max(0, 1 - 2 * c) ** 2)
+      const margin = round4(adj * 0.3)
+      const interpretation =
+        adj < 0.01 ? 'Effect size negligible under this contamination level' :
+        adj < etaSq * 0.5 ? 'Substantial attenuation — contamination meaningfully reduces effect' :
+        'Effect direction and magnitude largely preserved'
+      return { delta: c, label: labels[i], estimate: adj, ci_lower: round4(Math.max(0, adj - margin)), ci_upper: round4(Math.min(1, adj + margin)), interpretation }
+    })
+    const bpScenario = scenarios.find(s => s.estimate < 0.01)
+    const stableCount = scenarios.filter(s => s.estimate >= etaSq * 0.5).length
+    return {
+      e_value: null,
+      metric_label: '\u03b7\u00b2',
+      sensitivity_scenarios: scenarios,
+      robustness: {
+        estimate_range: [scenarios[scenarios.length - 1].estimate, scenarios[0].estimate],
+        breaking_point_delta: bpScenario?.delta ?? null,
+        stability_pct: Math.round((stableCount / scenarios.length) * 100),
+      },
+    }
+  }
+
+  // Chi-square — Cramér's V sensitivity to non-differential misclassification
+  const cv = effect.cramers_v
+  if (analysisType === 'chi_square' && cv != null) {
+    const miscRates = [0, 0.05, 0.10, 0.15, 0.20]
+    const labels = [
+      'Observed — no misclassification',
+      '5% non-differential misclassification',
+      '10% non-differential misclassification',
+      '15% non-differential misclassification',
+      '20% non-differential misclassification',
+    ]
+    const scenarios: SensitivityScenario[] = miscRates.map((r, i) => {
+      const adj = round4(Math.max(0, cv * (1 - 2 * r)))
+      const margin = round4(adj * 0.3)
+      const interpretation =
+        adj < 0.1 ? 'Association negligible under this misclassification level' :
+        adj < cv * 0.5 ? 'Substantial attenuation — misclassification meaningfully reduces association' :
+        'Association largely preserved despite misclassification'
+      return { delta: r, label: labels[i], estimate: adj, ci_lower: round4(Math.max(0, adj - margin)), ci_upper: round4(Math.min(1, adj + margin)), interpretation }
+    })
+    const bpScenario = scenarios.find(s => s.estimate < 0.1)
+    const stableCount = scenarios.filter(s => s.estimate >= cv * 0.5).length
+    return {
+      e_value: null,
+      metric_label: 'V',
       sensitivity_scenarios: scenarios,
       robustness: {
         estimate_range: [scenarios[scenarios.length - 1].estimate, scenarios[0].estimate],

@@ -607,7 +607,12 @@ export function runCoxRegression(data: DataRow[], config: CoxConfig): AnalysisRe
 
   return {
     type: 'cox_regression',
-    summary: { n, events: nEvents, concordance: fmt(concordance, 3), lrP: formatPValue(lrP) },
+    summary: {
+      n, events: nEvents, concordance: fmt(concordance, 3), lrP: formatPValue(lrP),
+      hazard_ratio: beta.length > 0 ? Math.exp(beta[0]) : null,
+      ci_lower:     beta.length > 0 ? Math.exp(beta[0] - 1.96 * ses[0]) : null,
+      ci_upper:     beta.length > 0 ? Math.exp(beta[0] + 1.96 * ses[0]) : null,
+    },
     tables,
     charts: [{ type: 'forest_hr', title: 'Adjusted Hazard Ratios', data: forestData, config: {} }],
     interpretation,
