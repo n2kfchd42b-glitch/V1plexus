@@ -180,6 +180,9 @@ export function runTTest(data: DataRow[], config: TTestConfig): AnalysisResult {
   const tables: ResultTable[] = []
   let interpretation = ''
   let chartData: unknown[] = []
+  let summaryN: number | null = null
+  let summaryCohenD: number | null = null
+  let summaryMeanDiff: number | null = null
 
   if (nonParametric && testType === 'independent' && groupVariable) {
     return runMannWhitney(data, variable, groupVariable)
@@ -219,6 +222,7 @@ export function runTTest(data: DataRow[], config: TTestConfig): AnalysisResult {
     const ciLow = diff - tCrit * se
     const ciHigh = diff + tCrit * se
     const d = cohensD(m1, m2, s1, s2, n1, n2)
+    summaryN = n1 + n2; summaryCohenD = d; summaryMeanDiff = diff
 
     // Levene's test
     const { fStat: leveneF, pValue: leveneP } = levenesTest(g1Vals, g2Vals)
@@ -265,6 +269,7 @@ export function runTTest(data: DataRow[], config: TTestConfig): AnalysisResult {
     const pValue = tToP(t, df)
     const tCrit = getTCritical(alpha / 2, df)
     const d = Math.abs(diffMean) / diffSD
+    summaryN = n; summaryCohenD = d; summaryMeanDiff = diffMean
 
     tables.push({
       id: 'paired', title: 'Paired Samples T-Test', headers: ['', 'Mean Diff', 'SD', 'SE', 't', 'df', 'p-value', `${Math.round(confidenceLevel * 100)}% CI`, "Cohen's d"],
@@ -291,13 +296,14 @@ export function runTTest(data: DataRow[], config: TTestConfig): AnalysisResult {
       rows: [[variable, n, fmt(m), fmt(s), fmt(t), df, formatPValue(pValue), fmtCI(m - tCrit * se, m + tCrit * se)]]
     })
 
+    summaryN = n
     chartData = [{ type: 'histogram', title: `Distribution: ${variable}`, data: makeHistBins(vals), config: {} }]
     interpretation = `One-sample t-test of ${variable} against μ=${muNull}: t(${df}) = ${fmt(t, 2)}, p ${formatPValue(pValue)}. Sample mean = ${fmt(m, 2)} ± ${fmt(s, 2)}.`
   }
 
   return {
     type: 't_test',
-    summary: { testType, variable },
+    summary: { testType, variable, n: summaryN, cohenD: summaryCohenD !== null ? fmt(summaryCohenD, 3) : null, meanDiff: summaryMeanDiff },
     tables,
     charts: chartData as never,
     interpretation
@@ -654,10 +660,11 @@ function runKruskalWallis(data: DataRow[], dependent: string, factor1: string): 
     }
   ]
 
+  const epsilonSq = N > 1 ? Math.min(1, H / (N - 1)) : 0
   const sig = pValue < 0.05 ? 'significant' : 'not significant'
   return {
     type: 'anova',
-    summary: { testType: 'kruskal_wallis', dependent, factor1, H: fmt(H, 3), df, pValue: formatPValue(pValue) },
+    summary: { testType: 'kruskal_wallis', dependent, factor1, H: fmt(H, 3), df, pValue: formatPValue(pValue), n: N, etaSq: fmt(epsilonSq, 3) },
     tables,
     charts: [{ type: 'boxplot_groups', title: `${dependent} by ${factor1}`, data: groupStats.map(g => ({ group: g.group, mean: g.median, sd: 0 })), config: {} }],
     interpretation: `Kruskal-Wallis H test comparing ${dependent} across ${groupLabels.length} groups of ${factor1} (N=${N}). ` +
@@ -749,9 +756,18 @@ export function runCorrelation(data: DataRow[], config: CorrelationConfig): Anal
       if (Math.abs(rMatrix[i][j]) >= 0.3)
         strongCorrs.push(`${variables[i]}–${variables[j]} (r=${fmt(rMatrix[i][j], 2)}, p${formatPValue(pMatrix[i][j])})`)
 
+  let maxAbsR = 0
+  let minPairN = Infinity
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      if (Math.abs(rMatrix[i][j]) > maxAbsR) maxAbsR = Math.abs(rMatrix[i][j])
+      if (nMatrix[i][j] > 0 && nMatrix[i][j] < minPairN) minPairN = nMatrix[i][j]
+    }
+  }
+
   return {
     type: 'correlation',
-    summary: { variables: variables.length, method },
+    summary: { variables: variables.length, method, correlation: fmt(maxAbsR, 3), n: isFinite(minPairN) ? minPairN : null },
     tables,
     charts: [
       { type: 'heatmap', title: 'Correlation Heatmap', data: heatmapData, config: { variables } },

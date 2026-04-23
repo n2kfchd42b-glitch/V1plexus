@@ -388,6 +388,7 @@ export function AnalysisHub({ projectId }: Props) {
         p_value:      toNum(summary.p_value),
         n:            toNum(summary.n),
         n_events:     toNum(summary.events),
+        cohen_d:      toNum(summary.cohenD),
       }
 
       const body: Record<string, unknown> = {
@@ -1899,6 +1900,7 @@ interface EffectPayload {
   p_value: number | null
   n: number | null
   n_events: number | null
+  cohen_d: number | null
 }
 
 function eValueFromOR(or: number): number {
@@ -2138,6 +2140,74 @@ function buildSensitivity(
     return {
       e_value: null,
       metric_label: '\u03b7\u00b2',
+      sensitivity_scenarios: scenarios,
+      robustness: {
+        estimate_range: [scenarios[scenarios.length - 1].estimate, scenarios[0].estimate],
+        breaking_point_delta: bpScenario?.delta ?? null,
+        stability_pct: Math.round((stableCount / scenarios.length) * 100),
+      },
+    }
+  }
+
+  // T-test — Cohen's d sensitivity to measurement error (attenuation)
+  const cohenD = effect.cohen_d
+  if (analysisType === 't_test' && cohenD != null && isFinite(cohenD)) {
+    const reliabilities = [1.0, 0.9, 0.8, 0.7, 0.6]
+    const labels = [
+      'Observed — perfect measurement assumed',
+      '90% reliability (mild measurement error)',
+      '80% reliability (moderate measurement error)',
+      '70% reliability (substantial measurement error)',
+      '60% reliability (high measurement error)',
+    ]
+    const scenarios: SensitivityScenario[] = reliabilities.map((rel, i) => {
+      const adj = round3(cohenD * rel)
+      const margin = round3(Math.abs(adj) * 0.3)
+      const interpretation =
+        Math.abs(adj) < 0.2 ? 'Effect size trivial — measurement error could eliminate the effect' :
+        Math.abs(adj) < 0.5 ? 'Small effect remains — conclusions largely unchanged' :
+        'Medium-to-large effect preserved despite measurement error'
+      return { delta: 1 - rel, label: labels[i], estimate: adj, ci_lower: round3(adj - margin), ci_upper: round3(adj + margin), interpretation }
+    })
+    const bpScenario = scenarios.find(s => Math.abs(s.estimate) < 0.2)
+    const stableCount = scenarios.filter(s => Math.abs(s.estimate) >= 0.2).length
+    return {
+      e_value: null,
+      metric_label: 'd',
+      sensitivity_scenarios: scenarios,
+      robustness: {
+        estimate_range: [scenarios[scenarios.length - 1].estimate, scenarios[0].estimate],
+        breaking_point_delta: bpScenario?.delta ?? null,
+        stability_pct: Math.round((stableCount / scenarios.length) * 100),
+      },
+    }
+  }
+
+  // Correlation — sensitivity to measurement error (Spearman attenuation correction)
+  const rVal = effect.correlation
+  if (analysisType === 'correlation' && rVal != null && Math.abs(rVal) > 0) {
+    const reliabilities = [1.0, 0.9, 0.8, 0.7, 0.6]
+    const labels = [
+      'Observed — perfect measurement assumed',
+      '90% reliability (mild measurement error)',
+      '80% reliability (moderate measurement error)',
+      '70% reliability (substantial measurement error)',
+      '60% reliability (high measurement error)',
+    ]
+    const scenarios: SensitivityScenario[] = reliabilities.map((rel, i) => {
+      const adj = round3(rVal * rel)
+      const margin = round3(Math.abs(adj) * 0.2)
+      const interpretation =
+        Math.abs(adj) < 0.1 ? 'Correlation negligible — measurement error could explain the association' :
+        Math.abs(adj) < 0.3 ? 'Weak correlation — some attenuation but effect persists' :
+        'Moderate-to-strong correlation preserved despite measurement error'
+      return { delta: 1 - rel, label: labels[i], estimate: adj, ci_lower: round3(Math.max(-1, adj - margin)), ci_upper: round3(Math.min(1, adj + margin)), interpretation }
+    })
+    const bpScenario = scenarios.find(s => Math.abs(s.estimate) < 0.1)
+    const stableCount = scenarios.filter(s => Math.abs(s.estimate) >= 0.1).length
+    return {
+      e_value: null,
+      metric_label: 'r',
       sensitivity_scenarios: scenarios,
       robustness: {
         estimate_range: [scenarios[scenarios.length - 1].estimate, scenarios[0].estimate],
