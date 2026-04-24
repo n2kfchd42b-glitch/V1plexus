@@ -15,9 +15,9 @@ export function buildWorkflow(
       {
         number: 1,
         name: 'Descriptive Statistics (Table 1)',
-        description: `Characterise all ${n.toLocaleString()} participants by ${exposure} group`,
-        badge: 'auto-generates Table 1',
-        analysis_type: 'descriptive_statistics',
+        description: `Characterise all ${n.toLocaleString()} participants by ${exposure} group — embedded in results`,
+        badge: 'in results',
+        display_only: true,
       },
       {
         number: 2,
@@ -54,17 +54,16 @@ export function buildWorkflow(
       {
         number: 1,
         name: 'Descriptive Statistics (Table 1)',
-        description: `Characterise all ${n.toLocaleString()} participants by ${exposure} group`,
-        badge: 'auto-generates Table 1',
-        analysis_type: 'descriptive_statistics',
+        description: `Characterise all ${n.toLocaleString()} participants by ${exposure} group — embedded in results`,
+        badge: 'in results',
+        display_only: true,
       },
       {
         number: 2,
         name: 'Outcome category frequencies',
-        description: `Distribution of ${outcome} categories — n (%) per class`,
-        badge: 'auto-run',
-        analysis_type: 'descriptive_statistics',
-        config_override: { exposure_variable: null, covariate_variables: [] },
+        description: `Distribution of ${outcome} categories — n (%) per class — embedded in results`,
+        badge: 'in results',
+        display_only: true,
       },
       {
         number: 3,
@@ -86,9 +85,9 @@ export function buildWorkflow(
       {
         number: 1,
         name: 'Descriptive Statistics',
-        description: `Distribution of ${outcome} — mean, SD, normality check`,
-        badge: 'auto-run',
-        analysis_type: 'descriptive_statistics',
+        description: `Distribution of ${outcome} — mean, SD, normality check — embedded in results`,
+        badge: 'in results',
+        display_only: true,
       },
       {
         number: 2,
@@ -118,9 +117,9 @@ export function buildWorkflow(
       {
         number: 1,
         name: 'Descriptive Statistics',
-        description: 'Characterise study population and event rate',
-        badge: 'auto-run',
-        analysis_type: 'descriptive_statistics',
+        description: 'Characterise study population and event rate — embedded in results',
+        badge: 'in results',
+        display_only: true,
       },
       {
         number: 2,
@@ -364,10 +363,9 @@ export function buildWorkflow(
       {
         number: 1,
         name: 'Descriptive — outcome distribution',
-        description: `Distribution of ${outcome} count variable`,
-        badge: 'auto-run',
-        analysis_type: 'descriptive_statistics',
-        config_override: { exposure_variable: null, covariate_variables: [] },
+        description: `Distribution of ${outcome} count variable — embedded in results`,
+        badge: 'in results',
+        display_only: true,
       },
       {
         number: 2,

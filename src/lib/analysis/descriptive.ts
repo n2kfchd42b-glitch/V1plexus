@@ -4,6 +4,80 @@ import {
   mean, sd, median, percentile, skewness, kurtosis, fmt, countFrequencies
 } from './utils'
 
+/**
+ * Compute journal-standard Table 1 tables on an already-filtered complete-case
+ * dataset. Returns ResultTable[] to be prepended to the primary analysis tables,
+ * guaranteeing that baseline characteristics and primary results share the same N.
+ */
+export function buildTable1Tables(data: DataRow[], variables: string[]): ResultTable[] {
+  if (data.length === 0 || variables.length === 0) return []
+
+  const numericVars = variables.filter(v => {
+    const vals = getNumericValues(data, v)
+    return vals.length > 0 && new Set(vals).size > 10
+  })
+  const catVars = variables.filter(v => {
+    const vals = getNumericValues(data, v)
+    return vals.length === 0 || new Set(vals).size <= 10
+  })
+
+  const tables: ResultTable[] = []
+
+  if (numericVars.length > 0) {
+    const rows: (string | number | null)[][] = numericVars.map(v => {
+      const vals = getNumericValues(data, v)
+      const q1 = percentile(vals, 25), q3 = percentile(vals, 75)
+      return [
+        v,
+        vals.length,
+        `${fmt(mean(vals), 2)} (${fmt(sd(vals), 2)})`,
+        `${fmt(median(vals), 2)} [${fmt(q1, 2)}–${fmt(q3, 2)}]`,
+        `${fmt(Math.min(...vals), 2)}–${fmt(Math.max(...vals), 2)}`,
+      ]
+    })
+    tables.push({
+      id: 'table1_numeric',
+      title: 'Table 1 — Baseline Characteristics (Continuous Variables)',
+      headers: ['Variable', 'N', 'Mean (SD)', 'Median [IQR]', 'Range'],
+      rows,
+      footnotes: ['Values are mean (SD) and median [IQR]. Computed on the same complete-case sample as the primary analysis.'],
+    })
+  }
+
+  if (catVars.length > 0) {
+    const rows: (string | number | null)[][] = []
+    for (const v of catVars) {
+      const vals = getCategoricalValues(data, v)
+      const freq = countFrequencies(vals)
+      const missing = countMissing(data, v)
+      const sorted = [...freq.entries()].sort((a, b) => {
+        const an = Number(a[0]), bn = Number(b[0])
+        if (!isNaN(an) && !isNaN(bn)) return an - bn
+        return a[0].localeCompare(b[0])
+      })
+      sorted.forEach(([category, count], i) => {
+        const pct = vals.length > 0 ? (count / vals.length * 100).toFixed(1) : '0'
+        rows.push([
+          i === 0 ? v : '',
+          i === 0 ? category : `  ${category}`,
+          count,
+          `${pct}%`,
+          i === 0 ? missing : '',
+        ])
+      })
+    }
+    tables.push({
+      id: 'table1_categorical',
+      title: 'Table 1 — Baseline Characteristics (Categorical Variables)',
+      headers: ['Variable', 'Category', 'n', '%', 'Missing'],
+      rows,
+      footnotes: ['n (%) shown per category. Computed on the same complete-case sample as the primary analysis.'],
+    })
+  }
+
+  return tables
+}
+
 export interface DescriptiveConfig {
   variables: string[]
   includeMissing: boolean

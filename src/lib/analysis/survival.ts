@@ -7,6 +7,7 @@ import {
   normalCDF, chiSqP,
   fmt, fmtCI, formatPValue, getSig
 } from './utils'
+import { buildTable1Tables } from './descriptive'
 
 // ===================== KAPLAN-MEIER =====================
 
@@ -117,7 +118,8 @@ export function runKaplanMeier(data: DataRow[], config: KaplanMeierConfig): Anal
   }
 
   // ── Tables ──────────────────────────────────────────────────────────────────
-  const tables: ResultTable[] = []
+  const kmVars = [timeVariable, eventVariable, ...(groupVariable ? [groupVariable] : [])]
+  const tables: ResultTable[] = [...buildTable1Tables(completeCases, kmVars)]
 
   // 1. Survival Summary (primary table — always shown)
   const summaryRows: (string | number | null)[][] = kmData.map(({ group, points, median }) => {

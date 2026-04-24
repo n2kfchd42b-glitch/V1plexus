@@ -1756,7 +1756,7 @@ export function AnalysisHub({ projectId }: Props) {
                             <tbody>
                               {table.rows.map((row, j) => {
                                 // A continuation row in the categorical table has an empty string in col 0
-                                const isContinuation = table.id === 'categorical_summary' && row[0] === ''
+                                const isContinuation = (table.id === 'categorical_summary' || table.id === 'table1_categorical') && row[0] === ''
                                 return (
                                 <tr key={j} className={`border-b border-[var(--border-row)] last:border-0 transition-colors ${isContinuation ? '' : 'hover:bg-[var(--bg-row-hover)]'}`}
                                   style={isContinuation ? { background: 'var(--bg-app)' } : undefined}

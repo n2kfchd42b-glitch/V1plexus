@@ -10,6 +10,7 @@ import {
   fmt, fmtCI, formatPValue, getSig,
   qqNormalData,
 } from './utils'
+import { buildTable1Tables } from './descriptive'
 
 // ===================== SIMPLE LINEAR REGRESSION =====================
 
@@ -230,6 +231,7 @@ export function runMultipleRegression(data: DataRow[], config: MultipleRegressio
   }).filter(Boolean) as string[]
 
   const tables: ResultTable[] = [
+    ...buildTable1Tables(completeCases, [dependent, ...independents]),
     {
       id: 'model',
       title: 'Model Summary',
@@ -553,6 +555,7 @@ export function runLogisticRegression(data: DataRow[], config: LogisticRegressio
   ]
 
   const tables: ResultTable[] = [
+    ...buildTable1Tables(completeCases, [outcome, ...predictors]),
     {
       id: 'model_fit',
       title: 'Model Fit',
@@ -933,10 +936,14 @@ export function runMultinomialRegression(data: DataRow[], config: MultinomialReg
   const tables: import('./types').ResultTable[] = []
 
   // Overall sample size table
-  const totalN = data.filter(row =>
+  const completeCasesMulti = data.filter(row =>
     String(row[outcome] ?? '').trim() !== '' &&
     predictors.every(v => row[v] !== null && row[v] !== undefined && String(row[v]).trim() !== '')
-  ).length
+  )
+  const totalN = completeCasesMulti.length
+
+  // Embed Table 1 on the same complete-case sample as the primary analysis
+  tables.push(...buildTable1Tables(completeCasesMulti, [outcome, ...predictors]))
   const catFreqRows = categories.map(cat => {
     const n = data.filter(r => String(r[outcome] ?? '').trim() === cat).length
     return [cat, n, fmt(n / data.length * 100, 1) + '%', cat === reference ? 'Reference' : '—']
@@ -1221,6 +1228,7 @@ export function runPoissonRegression(data: DataRow[], config: PoissonConfig): An
   })
 
   const tables: ResultTable[] = [
+    ...buildTable1Tables(completeCases, [outcome, ...predictors]),
     { id: 'model_fit', title: 'Model Fit', headers: ['Statistic', 'Value'], rows: [['N', n], ['Deviance', fmt(deviance)], ['Null Deviance', fmt(nullDeviance)], ['AIC', fmt(aic)]] },
     { id: 'coefs', title: 'Coefficients', headers: ['Variable', 'β', 'SE', 'z', 'p-value', 'IRR', '95% CI (IRR)', 'Sig'], rows: coefRows }
   ]
