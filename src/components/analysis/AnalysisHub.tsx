@@ -375,7 +375,7 @@ export function AnalysisHub({ projectId }: Props) {
         if (typeof v === 'string' && v !== '') { const n = parseFloat(v); return isFinite(n) ? n : null }
         return null
       }
-      const analysisResultPayload: EffectPayload = {
+      let analysisResultPayload: EffectPayload = {
         odds_ratio:   toNum(summary.odds_ratio),
         hazard_ratio: toNum(summary.hazard_ratio),
         coefficient:  toNum(summary.coefficient),
@@ -389,6 +389,32 @@ export function AnalysisHub({ projectId }: Props) {
         n:            toNum(summary.n),
         n_events:     toNum(summary.events),
         cohen_d:      toNum(summary.cohenD),
+      }
+
+      // T-test fallback: if summary.cohenD didn't survive serialization, extract
+      // Cohen's d from the result table (independent table has it as last column,
+      // identifiable by the "Cohen's d" header).
+      if (analysisType === 't_test' && analysisResultPayload.cohen_d == null && analysisResult?.tables) {
+        for (const table of analysisResult.tables) {
+          if (table.id !== 't_test') continue
+          const cohenColIdx = table.headers?.indexOf("Cohen's d") ?? -1
+          if (cohenColIdx < 0 || !table.rows?.[0]) continue
+          const d = parseFloat(String(table.rows[0][cohenColIdx] ?? ''))
+          if (isFinite(d) && d >= 0) {
+            analysisResultPayload = { ...analysisResultPayload, cohen_d: d }
+          }
+          break
+        }
+      }
+
+      // ANOVA/KW fallback: extract etaSq directly from summary if it wasn't captured
+      // (handles cases where etaSq is stored as a number rather than a string in summary)
+      if (analysisType === 'anova' && analysisResultPayload.eta_sq == null) {
+        const raw = (analysisResult?.summary as Record<string, unknown>)?.etaSq
+        const eta = typeof raw === 'number' ? raw : typeof raw === 'string' ? parseFloat(raw) : NaN
+        if (isFinite(eta)) {
+          analysisResultPayload = { ...analysisResultPayload, eta_sq: eta }
+        }
       }
 
       const body: Record<string, unknown> = {

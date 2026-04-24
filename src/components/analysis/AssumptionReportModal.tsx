@@ -283,6 +283,20 @@ function sensitivityMeta(analysisType: string): { heading: string; paramLabel: s
       paramDisplay: (d) => `δ = ${(d * 100).toFixed(0)}%`,
     }
   }
+  if (analysisType === 't_test' || analysisType === 'correlation') {
+    return {
+      heading: 'Sensitivity to measurement error (attenuation)',
+      paramLabel: 'Measurement reliability',
+      paramDisplay: (d) => `Reliability = ${((1 - d) * 100).toFixed(0)}%`,
+    }
+  }
+  if (analysisType === 'kaplan_meier') {
+    return {
+      heading: 'Sensitivity to informative censoring',
+      paramLabel: '\u03b4 (informative censoring rate)',
+      paramDisplay: (d) => `Informative censoring = ${(d * 100).toFixed(0)}%`,
+    }
+  }
   return {
     heading: 'Sensitivity to unmeasured confounding (\u03b3)',
     paramLabel: '\u03b3 (confounder strength)',

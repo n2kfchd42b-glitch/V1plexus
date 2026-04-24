@@ -1028,9 +1028,20 @@ export function runMultinomialRegression(data: DataRow[], config: MultinomialReg
     categoryResults, allPredictorNames, displayLabels, outcome, reference, totalN
   )
 
+  // Primary RRR for sensitivity analysis: first converged category, first predictor
+  const firstConverged = categoryResults.find(r => allPredictorNames.length > 0 && isFinite(r.beta[1]) && r.ses[1] > 0)
+  const primaryRRR     = firstConverged ? Math.exp(firstConverged.beta[1]) : null
+  const primaryRRRCILo = firstConverged && primaryRRR != null ? Math.exp(firstConverged.beta[1] - 1.96 * firstConverged.ses[1]) : null
+  const primaryRRRCIHi = firstConverged && primaryRRR != null ? Math.exp(firstConverged.beta[1] + 1.96 * firstConverged.ses[1]) : null
+
   return {
     type: 'multinomial_regression',
-    summary: { n: totalN, categories: categories.length, reference },
+    summary: {
+      n: totalN, categories: categories.length, reference,
+      odds_ratio: primaryRRR,
+      ci_lower:   primaryRRRCILo,
+      ci_upper:   primaryRRRCIHi,
+    },
     tables,
     charts: forestData.length > 0
       ? [{ type: 'forest_rrr', title: 'Relative Risk Ratios by Outcome Category', data: forestData, config: { reference } }]

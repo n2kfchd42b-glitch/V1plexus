@@ -567,15 +567,17 @@ function runMannWhitney(data: DataRow[], variable: string, groupVariable: string
         ['Mann-Whitney U', fmt(U)],
         ['Z (normal approx.)', fmt(Z, 3)],
         ['p-value (two-tailed)', formatPValue(pValue)],
+        ['Rank-biserial r', fmt(n1 > 0 && n2 > 0 ? Math.abs(1 - 2 * U / (n1 * n2)) : 0, 3)],
         ['Total N', N],
       ]
     }
   ]
 
+  const rankBiserialR = n1 > 0 && n2 > 0 ? Math.abs(1 - 2 * U / (n1 * n2)) : 0
   const sig = pValue < 0.05 ? 'significant' : 'not significant'
   return {
     type: 't_test',
-    summary: { testType: 'mann_whitney', variable, groupVariable, U: fmt(U), Z: fmt(Z, 3), pValue: formatPValue(pValue) },
+    summary: { testType: 'mann_whitney', variable, groupVariable, U: fmt(U), Z: fmt(Z, 3), pValue: formatPValue(pValue), cohenD: rankBiserialR, n: N },
     tables,
     charts: [{ type: 'boxplot_2group', title: `${variable} by ${groupVariable}`, data: [
       { group: groups[0], mean: med1, sd: iqr(g1Vals) },
@@ -655,16 +657,17 @@ function runKruskalWallis(data: DataRow[], dependent: string, factor1: string): 
         ['H statistic (tie-corrected)', fmt(H, 3)],
         ['Degrees of freedom', df],
         ['p-value', formatPValue(pValue)],
+        ['ε² (epsilon-squared)', fmt(N > 1 && isFinite(H) ? Math.min(1, H / (N - 1)) : 0, 3)],
         ['Total N', N],
       ]
     }
   ]
 
-  const epsilonSq = N > 1 ? Math.min(1, H / (N - 1)) : 0
+  const epsilonSq = N > 1 && isFinite(H) ? Math.min(1, H / (N - 1)) : 0
   const sig = pValue < 0.05 ? 'significant' : 'not significant'
   return {
     type: 'anova',
-    summary: { testType: 'kruskal_wallis', dependent, factor1, H: fmt(H, 3), df, pValue: formatPValue(pValue), n: N, etaSq: fmt(epsilonSq, 3) },
+    summary: { testType: 'kruskal_wallis', dependent, factor1, H: fmt(H, 3), df, pValue: formatPValue(pValue), n: N, etaSq: epsilonSq },
     tables,
     charts: [{ type: 'boxplot_groups', title: `${dependent} by ${factor1}`, data: groupStats.map(g => ({ group: g.group, mean: g.median, sd: 0 })), config: {} }],
     interpretation: `Kruskal-Wallis H test comparing ${dependent} across ${groupLabels.length} groups of ${factor1} (N=${N}). ` +
