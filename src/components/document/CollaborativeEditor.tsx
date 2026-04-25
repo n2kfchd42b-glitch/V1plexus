@@ -13,7 +13,6 @@ import TaskItem from '@tiptap/extension-task-item'
 import { createClient } from '@/lib/supabase/client'
 import { DocumentOutline } from './DocumentOutline'
 import { CitationPanel } from './CitationPanel'
-import { DataPanel } from './DataPanel'
 import { SlashCommandMenu } from './SlashCommandMenu'
 import { FloatingSelectionToolbar } from './FloatingSelectionToolbar'
 import { ComplianceStatusBar } from './ComplianceStatusBar'
@@ -27,10 +26,9 @@ import { GenerateSectionModal } from '@/components/ai/GenerateSectionModal'
 import { GrammarCheckPanel } from '@/components/ai/GrammarCheckPanel'
 import { DatasetTableExtension } from './extensions/DatasetTableNode'
 import { ChartNodeExtension } from './extensions/ChartNode'
-import { TableBlockNodeExtension } from './extensions/TableBlockNode'
 import { CitationNodeExtension, buildCitationAttrs } from './extensions/CitationNode'
 import {
-  BookOpen, BarChart2, MessageSquare, SpellCheck, Sparkles,
+  BookOpen, MessageSquare, SpellCheck, Sparkles,
   PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react'
 
@@ -129,7 +127,6 @@ export function CollaborativeEditor({
       TaskItem.configure({ nested: true }),
       DatasetTableExtension,
       ChartNodeExtension,
-      TableBlockNodeExtension,
       CitationNodeExtension,
     ],
     content: (initialContent ?? undefined) as Record<string, unknown> | undefined,
@@ -247,18 +244,6 @@ export function CollaborativeEditor({
                   {citations.length}
                 </span>
               )}
-            </button>
-            <button
-              onClick={() => togglePanel('data')}
-              className={cn(
-                'h-6 w-6 flex items-center justify-center rounded transition-colors',
-                panelActive('data')
-                  ? 'bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)]'
-                  : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]'
-              )}
-              title="Data & charts"
-            >
-              <BarChart2 className="h-3.5 w-3.5" />
             </button>
             <button
               onClick={() => togglePanel('grammar')}
@@ -411,7 +396,6 @@ export function CollaborativeEditor({
             {!readOnly && (
               <SlashCommandMenu
                 editor={editor}
-                onInsertData={() => togglePanel('data')}
                 onInsertCitation={() => togglePanel('citations')}
                 onGenerate={() => setShowGenerateModal(true)}
               />
@@ -439,22 +423,6 @@ export function CollaborativeEditor({
                 onStyleChange={setCitationStyle}
                 onInsert={insertCitationIntoEditor}
                 onRemove={removeCitation}
-              />
-            )}
-            {rightPanel === 'data' && (
-              <DataPanel
-                projectId={projectId}
-                onInsertTable={({ html }) => {
-                  editor?.chain().focus().insertContent(html).run()
-                  togglePanel('data')
-                }}
-                onInsertChart={({ explorationId, chartTitle, chartType, chartConfig, datasetId, versionId }) => {
-                  editor?.chain().focus().insertContent({
-                    type: 'chartEmbed',
-                    attrs: { explorationId, chartTitle, chartType, chartConfig, datasetId, versionId },
-                  }).run()
-                  togglePanel('data')
-                }}
               />
             )}
             {rightPanel === 'comments' && currentProfile && (

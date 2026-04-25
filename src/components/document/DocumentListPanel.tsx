@@ -11,25 +11,6 @@ import {
 import { cn, formatRelativeTime, statusColor, statusLabel } from '@/lib/utils'
 import type { Document } from '@/lib/types/database'
 
-// ── Filter chips ──────────────────────────────────────────────────────────────
-
-const FILTERS = [
-  { label: 'All',       value: 'all' },
-  { label: 'Draft',     value: 'draft' },
-  { label: 'Review',    value: 'in_review' },
-  { label: 'Approved',  value: 'approved' },
-] as const
-type FilterValue = (typeof FILTERS)[number]['value']
-
-// ── Status dot ────────────────────────────────────────────────────────────────
-
-const STATUS_DOT: Record<string, string> = {
-  draft:               'bg-text-tertiary',
-  in_review:           'bg-status-warning',
-  revision_requested:  'bg-status-error',
-  approved:            'bg-status-success',
-  locked:              'bg-text-tertiary',
-}
 
 // ── Document list panel ───────────────────────────────────────────────────────
 
@@ -52,7 +33,6 @@ export function DocumentListPanel({
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [collapsed, setCollapsed] = useState(false)
-  const [filter, setFilter] = useState<FilterValue>('all')
   const [creating, setCreating] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
@@ -71,7 +51,7 @@ export function DocumentListPanel({
 
   useEffect(() => { fetchDocs() }, [projectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const filtered = filter === 'all' ? documents : documents.filter(d => d.status === filter)
+  const filtered = documents
 
   const handleSelect = async (docId: string) => {
     if (docId === selectedDocId) return
@@ -195,28 +175,6 @@ export function DocumentListPanel({
         </div>
       </div>
 
-      {/* Filter chips */}
-      <div className="flex items-center gap-1 px-3 py-2 flex-wrap shrink-0">
-        {FILTERS.map(f => {
-          const count = f.value === 'all'
-            ? documents.length
-            : documents.filter(d => d.status === f.value).length
-          return (
-            <button
-              key={f.value}
-              onClick={() => setFilter(f.value)}
-              className={cn(
-                'text-[10px] font-semibold px-2 py-0.5 rounded-full transition-colors',
-                filter === f.value
-                  ? 'bg-accent-blue text-white'
-                  : 'bg-bg-surface-active text-text-tertiary hover:text-text-secondary'
-              )}
-            >
-              {f.label} {count > 0 && <span className="opacity-70">{count}</span>}
-            </button>
-          )
-        })}
-      </div>
 
       {/* Document rows */}
       <div className="flex-1 overflow-y-auto">
@@ -228,17 +186,15 @@ export function DocumentListPanel({
           <div className="flex flex-col items-center justify-center py-8 px-4 text-center gap-2">
             <FileText className="h-6 w-6 text-text-tertiary opacity-40" />
             <p className="text-[11px] text-text-tertiary">
-              {filter === 'all' ? 'No documents yet' : `No ${filter} documents`}
+              No documents yet
             </p>
-            {filter === 'all' && (
-              <button
-                onClick={handleNew}
-                disabled={creating}
-                className="text-[11px] text-accent-blue hover:underline"
-              >
-                Create your first
-              </button>
-            )}
+            <button
+              onClick={handleNew}
+              disabled={creating}
+              className="text-[11px] text-accent-blue hover:underline"
+            >
+              Create your first
+            </button>
           </div>
         ) : (
           <div className="py-1">
@@ -246,7 +202,6 @@ export function DocumentListPanel({
               const isSelected = doc.id === selectedDocId
               const isConfirming = confirmId === doc.id
               const isDeleting = deletingId === doc.id
-              const dot = STATUS_DOT[doc.status] ?? 'bg-text-tertiary'
 
               return (
                 <div
@@ -265,8 +220,6 @@ export function DocumentListPanel({
                     <div className="absolute left-0 top-2 bottom-2 w-0.5 bg-accent-blue rounded-full" />
                   )}
 
-                  {/* Status dot */}
-                  <div className={cn('w-1.5 h-1.5 rounded-full mt-1.5 shrink-0', dot)} />
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">

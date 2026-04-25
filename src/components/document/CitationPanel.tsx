@@ -55,7 +55,7 @@ export function CitationPanel({ citations, style, onStyleChange, onInsert, onRem
   const [bibtexInput, setBibtexInput] = useState('')
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
-  const [section, setSection] = useState<'search' | 'library'>('search')
+  const [section, setSection] = useState<'search' | 'references'>('search')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -152,7 +152,7 @@ export function CitationPanel({ citations, style, onStyleChange, onInsert, onRem
     <div className="flex flex-col h-full">
       {/* Section toggle */}
       <div className="flex border-b border-[var(--border-default)] shrink-0">
-        {(['search', 'library'] as const).map(s => (
+        {(['search', 'references'] as const).map(s => (
           <button
             key={s}
             onClick={() => setSection(s)}
@@ -163,7 +163,7 @@ export function CitationPanel({ citations, style, onStyleChange, onInsert, onRem
                 : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             )}
           >
-            {s === 'library' ? `Library (${citations.length})` : 'Add Citation'}
+            {s === 'references' ? `References (${citations.length})` : 'Add Citation'}
           </button>
         ))}
       </div>
@@ -294,7 +294,7 @@ export function CitationPanel({ citations, style, onStyleChange, onInsert, onRem
         </div>
       )}
 
-      {section === 'library' && (
+      {section === 'references' && (
         <div className="flex flex-col flex-1 min-h-0">
           {/* Style + copy */}
           <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-default)] shrink-0">

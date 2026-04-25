@@ -16,7 +16,6 @@ import { AIAssistPopover } from "@/components/ai/AIAssistPopover";
 import { VersionHistory } from "./VersionHistory";
 import { SaveVersionButton } from "./SaveVersionButton";
 import { DocumentStatusBadge } from "./DocumentStatusBadge";
-import { TableBlockNodeExtension } from "./extensions/TableBlockNode";
 import { useDocumentAutoSave } from "@/hooks/useDocumentAutoSave";
 import { SaveStateIndicator } from "@/components/documents/SaveStateIndicator";
 import type { Document, DocumentVersion, Json } from "@/lib/types/database";
@@ -84,7 +83,6 @@ export function DocumentEditor({
       UnderlineExtension,
       LinkExtension.configure({ openOnClick: false }),
       Placeholder.configure({ placeholder: "Start writing…" }),
-      TableBlockNodeExtension,
     ],
     content: doc.content && Object.keys(doc.content).length > 0
       ? (doc.content as object)

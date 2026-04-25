@@ -12,6 +12,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { createClient } from '@/lib/supabase/client'
+import { formatCitation, type ReferenceStyle } from '@/components/publication/BibliographyGenerator'
+import type { CslCitation } from '@/components/publication/CitationSearch'
 
 interface ExportDropdownProps {
   documentId: string
@@ -66,13 +68,95 @@ function nodeToHtml(node: Record<string, unknown>): string {
     case 'codeBlock': return `<pre><code>${inner}</code></pre>\n`
     case 'hardBreak': return '<br>\n'
     case 'horizontalRule': return '<hr>\n'
+    case 'citation': return inlineCitationText(node)
     default: return inner
   }
 }
 
+// ─── Citation utilities ───────────────────────────────────────────────────────
+
+interface CollectedCitation {
+  citation: CslCitation
+  num: number
+  style: ReferenceStyle
+}
+
+function inlineCitationText(node: Record<string, unknown>): string {
+  const attrs = (node.attrs as Record<string, unknown>) ?? {}
+  const num = (attrs.num as number) ?? 1
+  const style = (attrs.style as string) ?? 'vancouver'
+  const authors = attrs.author as Array<{ family: string }> | undefined
+  const issued = attrs.issued as { 'date-parts': number[][] } | null | undefined
+  const year = issued?.['date-parts']?.[0]?.[0] ?? ''
+  const firstAuthor = authors?.[0]?.family ?? 'Unknown'
+  const multi = (authors?.length ?? 0) > 1
+  if (style === 'vancouver' || style === 'numbered') return `[${num}]`
+  return `(${firstAuthor}${multi ? ' et al.' : ''}, ${year})`
+}
+
+function collectCitations(node: Record<string, unknown>): CollectedCitation[] {
+  const results: CollectedCitation[] = []
+  if (node.type === 'citation') {
+    const attrs = (node.attrs as Record<string, unknown>) ?? {}
+    try {
+      const citation = JSON.parse(attrs.citationData as string) as CslCitation
+      results.push({
+        citation,
+        num: (attrs.num as number) ?? 1,
+        style: ((attrs.style as string) ?? 'vancouver') as ReferenceStyle,
+      })
+    } catch { /* malformed citationData — skip */ }
+  }
+  const children = (node.content as Record<string, unknown>[] | undefined) ?? []
+  for (const child of children) results.push(...collectCitations(child))
+  return results
+}
+
+function deduplicateCitations(raw: CollectedCitation[]): CollectedCitation[] {
+  const seen = new Set<number>()
+  return raw
+    .filter(({ num }) => { if (seen.has(num)) return false; seen.add(num); return true })
+    .sort((a, b) => a.num - b.num)
+}
+
+// Convert markdown italics (*text*) produced by formatCitation into HTML <em>
+function bibEntryToHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+}
+
+// Convert markdown italics (*text*) produced by formatCitation into LaTeX \textit{}
+function bibEntryToLatex(text: string): string {
+  return escLatex(text.replace(/\*([^*]+)\*/g, '\x00$1\x01'))
+    .replace(/\x00([^\x01]*)\x01/g, '\\textit{$1}')
+}
+
+function buildReferencesHtml(citations: CollectedCitation[]): string {
+  if (citations.length === 0) return ''
+  const style = citations[0].style
+  const items = citations
+    .map(({ citation, num }) => `  <li style="margin-bottom:8pt">${bibEntryToHtml(formatCitation(citation, style, num))}</li>`)
+    .join('\n')
+  return `<hr style="margin:24pt 0;border:none;border-top:1pt solid #ccc">
+<h2 style="font-size:14pt;font-weight:bold;margin-bottom:12pt">References</h2>
+<ol style="padding-left:20pt;margin:0">
+${items}
+</ol>\n`
+}
+
+function buildReferencesLatex(citations: CollectedCitation[]): string {
+  if (citations.length === 0) return ''
+  const style = citations[0].style
+  const items = citations
+    .map(({ citation, num }) => `  \\item ${bibEntryToLatex(formatCitation(citation, style, num))}`)
+    .join('\n')
+  return `\n\\section*{References}\n\\begin{enumerate}\n${items}\n\\end{enumerate}\n`
+}
+
 // ─── PDF: styled HTML print window ───────────────────────────────────────────
 
-function buildPrintHtml(title: string, content: Record<string, unknown> | null): string {
+function buildPrintHtml(title: string, content: Record<string, unknown> | null, bibliography: string): string {
   const body = content ? nodeToHtml(content) : ''
   return `<!DOCTYPE html>
 <html><head>
@@ -85,18 +169,20 @@ function buildPrintHtml(title: string, content: Record<string, unknown> | null):
     pre{background:#f5f5f5;padding:12px;border-radius:4px;overflow-x:auto}
     blockquote{border-left:3px solid #ccc;margin-left:0;padding-left:16px;color:#555}
     code{background:#f0f0f0;padding:1px 4px;border-radius:3px;font-size:.9em}
+    ol.references li{margin-bottom:8pt}
     @media print{body{margin:0}@page{margin:2cm}}
   </style>
 </head>
 <body>
   <h1>${escHtml(title)}</h1>
   ${body}
+  ${bibliography}
 </body></html>`
 }
 
 // ─── DOCX: Word-compatible HTML (Word opens .doc HTML natively) ───────────────
 
-function buildWordHtml(title: string, content: Record<string, unknown> | null): string {
+function buildWordHtml(title: string, content: Record<string, unknown> | null, bibliography: string): string {
   const body = content ? nodeToHtml(content) : ''
   return `<html xmlns:o="urn:schemas-microsoft-com:office:office"
      xmlns:w="urn:schemas-microsoft-com:office:word"
@@ -129,6 +215,7 @@ function buildWordHtml(title: string, content: Record<string, unknown> | null): 
 <body>
   <h1>${escHtml(title)}</h1>
   ${body}
+  ${bibliography}
 </body>
 </html>`
 }
@@ -179,11 +266,12 @@ function nodeToLatex(node: Record<string, unknown>): string {
     case 'codeBlock': return `\n\\begin{verbatim}\n${(node.content as Record<string, unknown>[] | undefined)?.map(c => (c.text as string) ?? '').join('') ?? ''}\n\\end{verbatim}\n`
     case 'hardBreak': return '\\\\\n'
     case 'horizontalRule': return '\n\\hrule\n'
+    case 'citation': return escLatex(inlineCitationText(node))
     default: return inner
   }
 }
 
-function buildLatex(title: string, content: Record<string, unknown> | null): string {
+function buildLatex(title: string, content: Record<string, unknown> | null, bibliography: string): string {
   const body = content ? nodeToLatex(content) : ''
   return `\\documentclass[12pt,a4paper]{article}
 \\usepackage[utf8]{inputenc}
@@ -196,6 +284,7 @@ function buildLatex(title: string, content: Record<string, unknown> | null): str
 \\begin{document}
 \\maketitle
 ${body}
+${bibliography}
 \\end{document}
 `
 }
@@ -253,7 +342,12 @@ export function ExportDropdown({ documentId, documentTitle, projectId, documentT
       if (error || !doc) throw new Error('Could not load document content')
 
       const title = (doc.title as string) ?? documentTitle
-      let content = doc.content as Record<string, unknown> | null
+      const rawContent = doc.content as Record<string, unknown> | null
+
+      // Collect citations from the raw document before any mutation
+      const citations = deduplicateCitations(rawContent ? collectCitations(rawContent) : [])
+
+      let content = rawContent
 
       // Append authorship statement if authors exist
       const { data: authorRows } = await supabase
@@ -285,8 +379,11 @@ export function ExportDropdown({ documentId, documentTitle, projectId, documentT
         content = authorshipNode
       }
 
+      const bibliographyHtml = buildReferencesHtml(citations)
+      const bibliographyLatex = buildReferencesLatex(citations)
+
       if (format === 'pdf') {
-        const html = buildPrintHtml(title, content)
+        const html = buildPrintHtml(title, content, bibliographyHtml)
         const printWindow = window.open('', '_blank')
         if (!printWindow) throw new Error('Popup blocked — please allow popups for this site')
         printWindow.document.write(html)
@@ -294,10 +391,10 @@ export function ExportDropdown({ documentId, documentTitle, projectId, documentT
         printWindow.focus()
         setTimeout(() => printWindow.print(), 250)
       } else if (format === 'docx') {
-        const html = buildWordHtml(title, content)
+        const html = buildWordHtml(title, content, bibliographyHtml)
         downloadBlob(html, `${safeTitle}.doc`, 'application/msword')
       } else if (format === 'latex') {
-        const tex = buildLatex(title, content)
+        const tex = buildLatex(title, content, bibliographyLatex)
         downloadBlob(tex, `${safeTitle}.tex`, 'application/x-latex')
       }
 

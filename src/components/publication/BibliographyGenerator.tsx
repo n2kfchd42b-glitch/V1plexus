@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Copy, Check, BookOpen } from 'lucide-react'
 import type { CslCitation } from './CitationSearch'
 
-type ReferenceStyle = 'vancouver' | 'apa7' | 'harvard' | 'numbered'
+export type ReferenceStyle = 'vancouver' | 'apa7' | 'harvard' | 'numbered'
 
 interface BibliographyGeneratorProps {
   citations: CslCitation[]

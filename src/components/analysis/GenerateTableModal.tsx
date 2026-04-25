@@ -19,6 +19,7 @@ import {
   formatContValue,
   getNextTableNumber,
   insertTableIntoDocument,
+  specToTipTapNodes,
   REGRESSION_TYPES,
   type ContVar,
   type CatVar,
@@ -448,7 +449,7 @@ export function GenerateTableModal({ result, projectId, runTitle, onClose }: Pro
       } else {
         const docContent = {
           type: 'doc',
-          content: [{ type: 'tableBlock', attrs: { tableSpec: JSON.stringify(spec) } }],
+          content: specToTipTapNodes(spec),
         }
         const docResult = await createDocument(supabase, {
           project_id: projectId,

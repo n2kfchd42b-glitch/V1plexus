@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -20,19 +20,18 @@ import { SlashCommandMenu } from './SlashCommandMenu'
 import { FloatingSelectionToolbar } from './FloatingSelectionToolbar'
 import { DocumentOutline } from './DocumentOutline'
 import { CitationPanel } from './CitationPanel'
-import { DataPanel } from './DataPanel'
 import { DatasetTableExtension } from './extensions/DatasetTableNode'
 import { ChartNodeExtension } from './extensions/ChartNode'
-import { TableBlockNodeExtension } from './extensions/TableBlockNode'
 import { CitationNodeExtension, buildCitationAttrs } from './extensions/CitationNode'
 import { GenerateSectionModal } from '@/components/ai/GenerateSectionModal'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
-  Plus, Loader2, X, BookOpen, BarChart2, Sparkles,
+  Plus, Loader2, X, BookOpen, Sparkles,
   AlignLeft, Maximize2, Minimize2,
 } from 'lucide-react'
 import type { CslCitation } from '@/components/publication/CitationSearch'
+import { formatCitation } from '@/components/publication/BibliographyGenerator'
 
 type RightPanel = 'citations' | 'data' | null
 type ReferenceStyle = 'vancouver' | 'apa7' | 'harvard' | 'numbered'
@@ -74,6 +73,15 @@ function extractCitationsFromContent(content: Record<string, unknown> | null | u
 
 function readingTime(words: number): string {
   return `${Math.max(1, Math.round(words / 200))} min`
+}
+
+function renderBibEntry(text: string): React.ReactNode {
+  const parts = text.split(/(\*[^*]+\*)/)
+  return parts.map((part, i) =>
+    part.startsWith('*') && part.endsWith('*')
+      ? <em key={i}>{part.slice(1, -1)}</em>
+      : part
+  )
 }
 
 interface MinimalEditorProps {
@@ -157,7 +165,6 @@ export function MinimalEditor({
       TableCell,
       DatasetTableExtension,
       ChartNodeExtension,
-      TableBlockNodeExtension,
       CitationNodeExtension,
     ],
     content: (initialContent ?? undefined) as Record<string, unknown> | undefined,
@@ -226,23 +233,22 @@ export function MinimalEditor({
 
   const insertCitation = useCallback((citation: CslCitation) => {
     if (!editor) return
-    setCitations(prev => {
-      const exists = prev.find(c => c.DOI && c.DOI === citation.DOI)
-      if (exists) {
-        editor.chain().focus().insertContent({
-          type: 'citation',
-          attrs: buildCitationAttrs(citation, prev.indexOf(exists) + 1, citationStyle),
-        }).run()
-        return prev
-      }
-      const next = [...prev, citation]
+    const exists = citations.find(c => c.DOI && c.DOI === citation.DOI)
+    if (exists) {
+      const num = citations.indexOf(exists) + 1
+      editor.chain().focus().insertContent({
+        type: 'citation',
+        attrs: buildCitationAttrs(citation, num, citationStyle),
+      }).run()
+    } else {
+      const next = [...citations, citation]
       editor.chain().focus().insertContent({
         type: 'citation',
         attrs: buildCitationAttrs(citation, next.length, citationStyle),
       }).run()
-      return next
-    })
-  }, [editor, citationStyle])
+      setCitations(next)
+    }
+  }, [editor, citationStyle, citations])
 
   const toggleRightPanel = (panel: RightPanel) => {
     setRightPanel(p => {
@@ -327,7 +333,6 @@ export function MinimalEditor({
                   <>
                     <SlashCommandMenu
                       editor={editor}
-                      onInsertData={() => { setRightPanel('data'); setOutlineOpen(false) }}
                       onInsertCitation={() => { setRightPanel('citations'); setOutlineOpen(false) }}
                       onGenerate={() => setShowGenerateModal(true)}
                     />
@@ -340,6 +345,33 @@ export function MinimalEditor({
                 )}
               </div>
             </article>
+
+            {/* ── Live references preview ──────────────────────────────────── */}
+            {citations.length > 0 && (
+              <div className="mt-16 pt-8 border-t border-border-subtle">
+                <div className="flex items-baseline justify-between mb-5">
+                  <h2 className="font-manrope font-bold text-xl tracking-tight text-text-primary">
+                    References
+                  </h2>
+                  <span className="text-[10px] font-manrope uppercase tracking-widest text-text-tertiary">
+                    {citations.length} {citations.length === 1 ? 'source' : 'sources'}
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  {citations.map((citation, i) => (
+                    <p
+                      key={citation.DOI ?? citation.title ?? i}
+                      className="text-[14px] leading-relaxed text-text-secondary pl-7 -indent-7"
+                    >
+                      {renderBibEntry(formatCitation(citation, citationStyle, i + 1))}
+                    </p>
+                  ))}
+                </div>
+                <p className="mt-6 text-[10px] font-manrope uppercase tracking-widest text-text-tertiary/60 select-none">
+                  Auto-assembled · updates as you cite
+                </p>
+              </div>
+            )}
           </div>
         </main>
 
@@ -392,22 +424,6 @@ export function MinimalEditor({
                   onRemove={(idx) => setCitations(prev => prev.filter((_, i) => i !== idx))}
                 />
               )}
-              {rightPanel === 'data' && (
-                <DataPanel
-                  projectId={projectId}
-                  onInsertTable={({ html }) => {
-                    editor?.chain().focus().insertContent(html).run()
-                    setRightPanel(null)
-                  }}
-                  onInsertChart={({ explorationId, chartTitle, chartType, chartConfig, datasetId, versionId }) => {
-                    editor?.chain().focus().insertContent({
-                      type: 'chartEmbed',
-                      attrs: { explorationId, chartTitle, chartType, chartConfig, datasetId, versionId },
-                    }).run()
-                    setRightPanel(null)
-                  }}
-                />
-              )}
             </div>
           </div>
         ) : (
@@ -426,16 +442,9 @@ export function MinimalEditor({
               )}
             </button>
             <button
-              onClick={() => toggleRightPanel('data')}
-              className="h-7 w-7 flex items-center justify-center rounded text-text-tertiary/50 hover:text-text-primary hover:bg-bg-surface-hover transition-colors"
-              title="Data & charts"
-            >
-              <BarChart2 className="h-3.5 w-3.5" />
-            </button>
-            <button
               onClick={() => setShowGenerateModal(true)}
               className="h-7 w-7 flex items-center justify-center rounded text-text-tertiary/50 hover:text-phase-data hover:bg-bg-surface-hover transition-colors"
-              title="AI Generate (⌘J)"
+              title="Generate section (⌘J)"
             >
               <Sparkles className="h-3.5 w-3.5" />
             </button>

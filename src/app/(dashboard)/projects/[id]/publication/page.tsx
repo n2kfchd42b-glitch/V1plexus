@@ -10,7 +10,7 @@ const FEATURES = [
   {
     icon: Search,
     label: 'Journal Finder',
-    description: 'AI-powered journal matching based on your research topic, scope, and impact factor targets.',
+    description: 'Automated journal matching based on your research topic, scope, and impact factor targets.',
     color: 'text-blue-500',
     bg: 'bg-blue-50',
   },

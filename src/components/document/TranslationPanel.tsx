@@ -144,7 +144,7 @@ export function TranslationPanel({ documentId, onClose, onInsertTranslation }: T
         {state === 'error' && (
           <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg p-3">
             <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
-            <p className="text-xs text-red-700">Translation failed. Ensure the AI service is configured.</p>
+            <p className="text-xs text-red-700">Translation failed. Please try again or contact support.</p>
           </div>
         )}
 

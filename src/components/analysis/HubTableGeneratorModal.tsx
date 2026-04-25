@@ -19,6 +19,7 @@ import {
   formatContValue,
   getNextTableNumber,
   insertTableIntoDocument,
+  specToTipTapNodes,
   REGRESSION_TYPES,
   SURVIVAL_TYPES,
   getTableTemplate,
@@ -621,7 +622,7 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
       } else {
         const docContent = {
           type: 'doc',
-          content: [{ type: 'tableBlock', attrs: { tableSpec: JSON.stringify(spec) } }],
+          content: specToTipTapNodes(spec),
         }
         const docResult = await createDocument(supabase, {
           project_id: projectId,

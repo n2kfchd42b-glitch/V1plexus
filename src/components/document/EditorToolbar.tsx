@@ -4,7 +4,7 @@ import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough,
   Heading1, Heading2, Heading3, List, ListOrdered,
   AlignLeft, AlignCenter, AlignRight, Link as LinkIcon,
-  Highlighter, Undo, Redo, Code, Quote, Table2, BarChart2, Minus
+  Highlighter, Undo, Redo, Code, Quote, Minus
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -37,10 +37,9 @@ function ToolbarButton({ onClick, isActive, disabled, children, title }: Toolbar
 
 interface EditorToolbarProps {
   editor: ReturnType<typeof import('@tiptap/react').useEditor> | null
-  onInsertData?: () => void
 }
 
-export function EditorToolbar({ editor, onInsertData }: EditorToolbarProps) {
+export function EditorToolbar({ editor }: EditorToolbarProps) {
   if (!editor) return null
 
   return (
@@ -183,22 +182,6 @@ export function EditorToolbar({ editor, onInsertData }: EditorToolbarProps) {
         <AlignRight className="h-3.5 w-3.5" />
       </ToolbarButton>
 
-      {onInsertData && (
-        <>
-          <Separator orientation="vertical" className="h-5 mx-1" />
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 text-[11px] gap-1 font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 hover:border-slate-300"
-            onClick={onInsertData}
-            title="Insert dataset table or chart"
-          >
-            <Table2 className="h-3.5 w-3.5" />
-            Insert Data
-          </Button>
-        </>
-      )}
     </div>
   )
 }

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import {
   Heading1, Heading2, Heading3, List, ListOrdered, Quote,
-  Minus, Code, CheckSquare, BookOpen, Table2, BarChart2,
+  Minus, Code, CheckSquare, BookOpen,
   Sparkles, FileText, Microscope, FlaskConical, PenLine, ClipboardList,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -16,7 +16,7 @@ interface SlashCommand {
   icon: React.ReactNode
   category: string
   keywords: string[]
-  action: (editor: Editor, onInsertData?: () => void, onInsertCitation?: () => void, onGenerate?: () => void) => void
+  action: (editor: Editor, onInsertCitation?: () => void, onGenerate?: () => void) => void
 }
 
 const COMMANDS: SlashCommand[] = [
@@ -70,22 +70,12 @@ const COMMANDS: SlashCommand[] = [
   {
     id: 'cite', label: 'Insert Citation', description: 'Search CrossRef or import DOI', icon: <BookOpen className="h-4 w-4" />,
     category: 'Research', keywords: ['cite', 'citation', 'reference', 'doi', 'pubmed'],
-    action: (_e, _od, onInsertCitation) => onInsertCitation?.(),
+    action: (_e, onInsertCitation) => onInsertCitation?.(),
   },
   {
-    id: 'table', label: 'Insert Data Table', description: 'Embed dataset from project', icon: <Table2 className="h-4 w-4" />,
-    category: 'Research', keywords: ['table', 'data', 'dataset', 'insert'],
-    action: (_e, onInsertData) => onInsertData?.(),
-  },
-  {
-    id: 'chart', label: 'Insert Chart', description: 'Embed saved analysis chart', icon: <BarChart2 className="h-4 w-4" />,
-    category: 'Research', keywords: ['chart', 'figure', 'graph', 'plot', 'analysis'],
-    action: (_e, onInsertData) => onInsertData?.(),
-  },
-  {
-    id: 'generate', label: 'AI Generate', description: 'Generate section with AI', icon: <Sparkles className="h-4 w-4" />,
+    id: 'generate', label: 'Generate Section', description: 'Generate a section from document context', icon: <Sparkles className="h-4 w-4" />,
     category: 'Research', keywords: ['ai', 'generate', 'write', 'assist'],
-    action: (_e, _od, _oc, onGenerate) => onGenerate?.(),
+    action: (_e, _oc, onGenerate) => onGenerate?.(),
   },
   // IMRAD Templates
   {
@@ -192,12 +182,11 @@ const CATEGORIES = ['Structure', 'Research', 'Templates']
 
 interface SlashCommandMenuProps {
   editor: Editor | null
-  onInsertData?: () => void
   onInsertCitation?: () => void
   onGenerate?: () => void
 }
 
-export function SlashCommandMenu({ editor, onInsertData, onInsertCitation, onGenerate }: SlashCommandMenuProps) {
+export function SlashCommandMenu({ editor, onInsertCitation, onGenerate }: SlashCommandMenuProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -319,7 +308,7 @@ export function SlashCommandMenu({ editor, onInsertData, onInsertCitation, onGen
     }
     slashPosRef.current = null
 
-    cmd.action(editor, onInsertData, onInsertCitation, onGenerate)
+    cmd.action(editor, onInsertCitation, onGenerate)
   }
 
   if (!open || filtered.length === 0) return null

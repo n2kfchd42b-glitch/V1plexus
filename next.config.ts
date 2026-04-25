@@ -11,7 +11,7 @@ const withSerwist = withSerwistInit({
 const nextConfig: NextConfig = {
   compress: true,
 
-  productionBrowserSourceMaps: true,
+  productionBrowserSourceMaps: false,
 
   images: {
     remotePatterns: [],

@@ -427,7 +427,7 @@ export function GenerateManuscriptModal({ projectId, onClose }: Props) {
                     Also draft a cover letter
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    Uses the publication pipeline's AI cover letter generator
+                    Uses the publication pipeline's cover letter generator
                   </p>
                 </div>
               </label>
@@ -444,7 +444,7 @@ export function GenerateManuscriptModal({ projectId, onClose }: Props) {
             </div>
 
             <p className="text-xs text-gray-400">
-              Claude will write a cohesive abstract and linking prose to connect your selected sections into a full manuscript.
+              Selected sections will be synthesised into a structured manuscript draft with abstract and linking prose.
             </p>
           </div>
         )

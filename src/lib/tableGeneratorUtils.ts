@@ -135,9 +135,13 @@ export function parseDescriptiveResult(result: AnalysisResult): {
 
   const numericTable = result.tables.find(t => t.id === 'numeric_summary')
   if (numericTable) {
+    const seenContNames = new Set<string>()
     for (const row of numericTable.rows) {
+      const contName = String(row[0] ?? '').trim()
+      if (!contName || seenContNames.has(contName)) continue
+      seenContNames.add(contName)
       continuous.push({
-        name: String(row[0] ?? ''),
+        name: contName,
         n: Number(row[1] ?? 0),
         missing: Number(row[2] ?? 0),
         mean: String(row[3] ?? ''),
@@ -151,8 +155,11 @@ export function parseDescriptiveResult(result: AnalysisResult): {
 
   const catTable = result.tables.find(t => t.id === 'categorical_summary')
   if (catTable) {
+    const seenCatNames = new Set<string>()
     for (const row of catTable.rows) {
-      const varName = String(row[0] ?? '')
+      const varName = String(row[0] ?? '').trim()
+      if (!varName || seenCatNames.has(varName)) continue
+      seenCatNames.add(varName)
       const n = Number(row[1] ?? 0)
       const missing = Number(row[2] ?? 0)
 
@@ -326,6 +333,119 @@ export async function getNextTableNumber(
   return nums.length > 0 ? Math.max(...nums) + 1 : 1
 }
 
+// ─── Convert spec → TipTap-native table JSON ─────────────────────────────────
+
+function cell(text: string, isHeader = false): Record<string, unknown> {
+  const type = isHeader ? 'tableHeader' : 'tableCell'
+  return {
+    type,
+    attrs: { colspan: 1, rowspan: 1, colwidth: null },
+    content: [{ type: 'paragraph', content: text ? [{ type: 'text', text }] : [] }],
+  }
+}
+
+function headerRow(headers: string[]): Record<string, unknown> {
+  return { type: 'tableRow', content: headers.map(h => cell(h, true)) }
+}
+
+function dataRow(cells: string[]): Record<string, unknown> {
+  return { type: 'tableRow', content: cells.map(c => cell(c)) }
+}
+
+export function specToTipTapNodes(spec: AnyTableSpec): Record<string, unknown>[] {
+  const nodes: Record<string, unknown>[] = []
+
+  // Title paragraph (bold)
+  if (spec.title) {
+    nodes.push({
+      type: 'paragraph',
+      content: [{ type: 'text', marks: [{ type: 'bold' }], text: spec.title }],
+    })
+  }
+
+  const rows: Record<string, unknown>[] = []
+
+  if (!spec.specType || spec.specType === 'table1') {
+    // Table 1: baseline characteristics
+    const s = spec as Table1Spec | LegacyTableSpec
+    const format = s.format ?? 'mean_sd'
+    const totalN = s.totalN ?? 0
+
+    if ('stratified' in s && s.stratified && 'columns' in s && s.columns && s.columns.length > 0) {
+      const cols = s.columns as StratifiedColumn[]
+      const headers = ['Variable', ...cols.map(c => `${c.label} (N=${c.n})`)]
+      rows.push(headerRow(headers))
+      cols[0]?.variables.forEach(v => {
+        if (v.type === 'continuous') {
+          const rowCells = [v.name, ...cols.map(c => {
+            const found = c.variables.find(cv => cv.name === v.name && cv.type === 'continuous') as ContVar | undefined
+            return found ? formatContValue(found, format) : '—'
+          })]
+          rows.push(dataRow(rowCells))
+        } else {
+          const cv = v as CatVar
+          rows.push(dataRow([cv.name, ...cols.map(() => '')]))
+          cv.categories.forEach(cat => {
+            const catCells = [` ${cat.label}`, ...cols.map(c => {
+              const found = c.variables.find(cv2 => cv2.name === cv.name && cv2.type === 'categorical') as CatVar | undefined
+              const fc = found?.categories.find(cc => cc.label === cat.label)
+              return fc ? `${fc.count} (${fc.pct}%)` : '—'
+            })]
+            rows.push(dataRow(catCells))
+          })
+        }
+      })
+    } else {
+      const variables = (s as { variables?: TableVar[] }).variables ?? []
+      rows.push(headerRow(['Variable', `Total (N=${totalN})`]))
+      variables.forEach(v => {
+        if (v.type === 'continuous') {
+          rows.push(dataRow([v.name, formatContValue(v as ContVar, format)]))
+        } else {
+          const cv = v as CatVar
+          rows.push(dataRow([cv.name, '']))
+          cv.categories.forEach(cat => {
+            rows.push(dataRow([` ${cat.label}`, `${cat.count} (${cat.pct}%)`]))
+          })
+        }
+      })
+    }
+  } else if (spec.specType === 'table2') {
+    const s = spec as Table2Spec
+    const headers = ['Variable']
+    if (s.showCrude) headers.push(`Crude ${s.effectLabel}`, 'P value')
+    if (s.showAdjusted) headers.push(`Adj. ${s.effectLabel}`, 'P value')
+    rows.push(headerRow(headers))
+    s.rows.forEach(r => {
+      if (!r.variable) return
+      const cells: string[] = [r.variable]
+      if (s.showCrude) cells.push(r.crude ?? '—', r.crude_p ?? '—')
+      if (s.showAdjusted) cells.push(r.adj ?? '—', r.adj_p ?? '—')
+      rows.push(dataRow(cells))
+    })
+  } else if (spec.specType === 'table3') {
+    const s = spec as Table3Spec
+    rows.push(headerRow(['Group', 'N', 'Events', `Median survival (${s.timeUnit})`, '95% CI']))
+    s.rows.forEach(r => {
+      rows.push(dataRow([r.group ?? '—', String(r.n), `${r.events} (${r.eventPct}%)`, r.medianSurvival, r.ci]))
+    })
+  }
+
+  if (rows.length > 0) {
+    nodes.push({ type: 'table', content: rows })
+  }
+
+  // Footnote
+  if (spec.footnote) {
+    nodes.push({
+      type: 'paragraph',
+      content: [{ type: 'text', marks: [{ type: 'italic' }], text: spec.footnote }],
+    })
+  }
+
+  return nodes
+}
+
 // ─── Insert table into existing document ─────────────────────────────────────
 
 export async function insertTableIntoDocument(
@@ -344,12 +464,12 @@ export async function insertTableIntoDocument(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const existing = (doc.content as any) ?? { type: 'doc', content: [] }
-  const newNode = { type: 'tableBlock', attrs: { tableSpec: JSON.stringify(spec) } }
+  const newNodes = specToTipTapNodes(spec)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const content = Array.isArray((existing as any).content)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ? { ...existing, content: [...(existing as any).content, newNode] }
-    : { type: 'doc', content: [newNode] }
+    ? { ...existing, content: [...(existing as any).content, ...newNodes] }
+    : { type: 'doc', content: newNodes }
 
   const { error: updateErr } = await supabase
     .from('documents')

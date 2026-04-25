@@ -241,7 +241,7 @@ export function FloatingSelectionToolbar({ editor, onInsertCitation, onAddCommen
           onClick={() => handleAiAction(action)}
           disabled={!!aiLoading}
           className="h-7 flex items-center gap-1 px-2 rounded text-purple-300 hover:text-purple-100 hover:bg-white/10 transition-colors text-[11px] font-medium disabled:opacity-40 capitalize"
-          title={`AI: ${action}`}
+          title={`${action.charAt(0).toUpperCase() + action.slice(1)} selected text`}
         >
           {aiLoading === action ? (
             <span className="h-3.5 w-3.5 rounded-full border-2 border-purple-300 border-t-transparent animate-spin" />
