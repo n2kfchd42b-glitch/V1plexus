@@ -2,16 +2,20 @@
 
 import { Download } from 'lucide-react'
 import type { ResultTable } from '@/lib/analysis/types'
+import { isSigMarker, sigMarkerClass, SIG_FOOTNOTE, buildFootnote } from '@/lib/analysis/formatStats'
 import { cn } from '@/lib/utils'
 
 interface Props {
   table: ResultTable
+  tableNumber?: number   // e.g. 1 → "Table 1."
 }
 
 function downloadCSV(table: ResultTable) {
   const escape = (v: string | number | null) => {
     const s = v === null ? '' : String(v)
-    return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
+    return s.includes(',') || s.includes('"') || s.includes('\n')
+      ? `"${s.replace(/"/g, '""')}"`
+      : s
   }
   const rows = [table.headers, ...table.rows]
   const csv = rows.map(row => row.map(escape).join(',')).join('\r\n')
@@ -26,31 +30,42 @@ function downloadCSV(table: ResultTable) {
   URL.revokeObjectURL(url)
 }
 
-const SIG_COLORS: Record<string, string> = {
-  '***': 'text-[#003d9b] font-bold',
-  '**':  'text-[#003d9b] font-bold',
-  '*':   'text-[#0052cc] font-semibold',
-  '†':   'text-[#A1A1AA]',
+// Detect whether any row in the table contains significance markers
+function hasSigColumn(table: ResultTable): boolean {
+  return table.rows.some(row =>
+    row.some(cell => cell !== null && isSigMarker(String(cell)))
+  )
 }
 
-export function CoefficientTable({ table }: Props) {
+export function CoefficientTable({ table, tableNumber }: Props) {
+  const showSigFootnote = hasSigColumn(table)
+
+  const allFootnotes = buildFootnote([
+    ...(table.footnotes ?? []),
+    showSigFootnote ? SIG_FOOTNOTE : null,
+  ])
+
   return (
     <div className="overflow-x-auto">
-      {/* Table header */}
-      <div className="flex items-center justify-between mb-4 gap-4">
-        {table.title && (
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope mb-0.5">
-              Table
+
+      {/* Caption — journal style: "Table N. Title" */}
+      <div className="flex items-start justify-between gap-4 mb-3">
+        <div>
+          {table.title && (
+            <p className="text-[12px] font-semibold text-[var(--text-primary)] leading-snug font-manrope">
+              {tableNumber != null && (
+                <span className="text-[var(--accent-primary)] mr-1">
+                  Table {tableNumber}.
+                </span>
+              )}
+              {table.title}
             </p>
-            <h4 className="font-manrope font-bold text-sm text-[#18181B]">{table.title}</h4>
-          </div>
-        )}
+          )}
+        </div>
         <button
           onClick={() => downloadCSV(table)}
           title="Download as CSV"
-          className="ml-auto flex items-center gap-1.5 text-[11px] font-medium text-[#52525B] hover:text-[#18181B] transition-colors px-3 py-1.5 rounded-lg border border-[rgba(195,198,214,0.4)] hover:bg-[#f2f4f6] bg-white flex-shrink-0"
-          style={{ boxShadow: '0 4px 12px rgba(0,24,72,0.04)' }}
+          className="flex-shrink-0 flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors px-2.5 py-1.5 rounded border border-[var(--border-default)] hover:bg-[var(--bg-surface-hover)] bg-[var(--bg-surface)]"
         >
           <Download className="h-3 w-3" />
           CSV
@@ -58,15 +73,15 @@ export function CoefficientTable({ table }: Props) {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl overflow-hidden" style={{ boxShadow: '0 4px 12px rgba(0,24,72,0.04)' }}>
+      <div className="rounded-lg overflow-hidden border border-[var(--border-default)]">
         <table className="w-full text-xs border-collapse">
           <thead>
-            <tr className="bg-[#f7f9fb]">
+            <tr className="bg-[var(--bg-app)]">
               {table.headers.map((h, i) => (
                 <th
                   key={i}
                   className={cn(
-                    'py-3 px-5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#A1A1AA] whitespace-nowrap border-b border-[#f2f4f6]',
+                    'py-2.5 px-4 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)] border-b border-[var(--border-default)] whitespace-nowrap',
                     i > 0 ? 'text-right' : 'text-left'
                   )}
                 >
@@ -79,42 +94,43 @@ export function CoefficientTable({ table }: Props) {
             {table.rows.map((row, ri) => (
               <tr
                 key={ri}
-                className="border-b border-[#f2f4f6] last:border-0 transition-colors duration-150 cursor-default"
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,61,155,0.02)')}
-                onMouseLeave={e => (e.currentTarget.style.background = '')}
+                className="border-b border-[var(--border-row)] last:border-0 hover:bg-[var(--bg-row-hover)] transition-colors duration-100"
               >
-                {row.map((cell, ci) => (
-                  <td
-                    key={ci}
-                    className={cn(
-                      'py-3.5 px-5 whitespace-nowrap',
-                      ci === 0
-                        ? 'font-semibold text-[#18181B] text-[12px]'
-                        : 'text-right font-mono text-[11px] text-[#52525B]'
-                    )}
-                  >
-                    {cell === null ? (
-                      <span className="text-[#A1A1AA]">—</span>
-                    ) : (SIG_COLORS[String(cell)] !== undefined) ? (
-                      <span className={SIG_COLORS[String(cell)]}>
-                        {String(cell)}
-                      </span>
-                    ) : String(cell)}
-                  </td>
-                ))}
+                {row.map((cell, ci) => {
+                  const str = cell === null ? null : String(cell)
+                  const isSig = str !== null && isSigMarker(str)
+
+                  return (
+                    <td
+                      key={ci}
+                      className={cn(
+                        'py-3 px-4 whitespace-nowrap',
+                        ci === 0
+                          ? 'font-medium text-[var(--text-primary)] text-[12px]'
+                          : 'text-right font-mono text-[11px] tabular-nums text-[var(--text-secondary)]'
+                      )}
+                    >
+                      {cell === null ? (
+                        <span className="text-[var(--text-tertiary)]">—</span>
+                      ) : isSig ? (
+                        <span className={sigMarkerClass(str!)}>
+                          {str}
+                        </span>
+                      ) : str}
+                    </td>
+                  )
+                })}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      {/* Footnotes */}
-      {table.footnotes && table.footnotes.length > 0 && (
-        <div className="mt-3 px-1 space-y-1">
-          {table.footnotes.map((fn, i) => (
-            <p key={i} className="text-[11px] text-[#A1A1AA] italic leading-snug">{fn}</p>
-          ))}
-        </div>
+      {/* Footnotes — always show sig key when stars appear */}
+      {allFootnotes && (
+        <p className="mt-2 px-1 text-[10px] text-[var(--text-tertiary)] leading-relaxed">
+          {allFootnotes}
+        </p>
       )}
     </div>
   )

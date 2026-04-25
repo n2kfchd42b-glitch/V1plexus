@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from 'react'
-import { FileText, Sparkles, Copy, Check, ChevronDown } from 'lucide-react'
+import { FileText, Copy, Check, ChevronDown, ScrollText } from 'lucide-react'
 import { SummaryBox } from './SummaryBox'
 import { CoefficientTable } from './CoefficientTable'
 import { InterpretationBox } from './InterpretationBox'
@@ -145,7 +145,7 @@ export function ResultsPanel({ result, analysisType, title, datasetName, onSave,
         datasetName={datasetName}
       />
 
-      {/* ── 2. AI Insight — always visible ───────────────────────────── */}
+      {/* ── 2. Summary ───────────────────────────────────────────────── */}
       {(result.plainLanguage || result.interpretation) && (
         <InterpretationBox
           plainLanguage={result.plainLanguage}
@@ -185,9 +185,9 @@ export function ResultsPanel({ result, analysisType, title, datasetName, onSave,
               </div>
               <div className="overflow-y-auto flex-1" style={{ maxHeight: hasChart ? '520px' : undefined }}>
                 {filteredPrimaryTables.length > 0 ? (
-                  filteredPrimaryTables.map(table => (
+                  filteredPrimaryTables.map((table, idx) => (
                     <div key={table.id} className="px-4 py-4 border-b border-[var(--border-row)] last:border-0">
-                      <CoefficientTable table={table} />
+                      <CoefficientTable table={table} tableNumber={idx + 1} />
                     </div>
                   ))
                 ) : (
@@ -199,11 +199,11 @@ export function ResultsPanel({ result, analysisType, title, datasetName, onSave,
         </div>
       )}
 
-      {/* ── 4. Statistical Narrative (generated on demand) ───────────── */}
+      {/* ── 4. Methods narrative (generated on demand) ───────────────── */}
       {narrative && (
         <div className="py-4 border-b border-[var(--border-row)]">
           <div className="flex items-center justify-between mb-2">
-            <p className="subsection-label">Statistical Narrative</p>
+            <p className="subsection-label">Methods text</p>
             <button
               onClick={copyNarrative}
               className="flex items-center gap-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
@@ -276,10 +276,10 @@ export function ResultsPanel({ result, analysisType, title, datasetName, onSave,
           <button
             onClick={generateNarrative}
             disabled={narrativeLoading}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--accent-blue)] border border-[var(--accent-blue)]/25 rounded px-3 py-1.5 hover:bg-blue-50 transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--accent-blue)] border border-[var(--accent-blue)]/25 rounded px-3 py-1.5 hover:bg-[var(--accent-blue-subtle)] transition-colors disabled:opacity-50"
           >
-            <Sparkles className="h-3.5 w-3.5" />
-            {narrativeLoading ? 'Generating…' : 'Generate Narrative'}
+            <ScrollText className="h-3.5 w-3.5" />
+            {narrativeLoading ? 'Drafting…' : 'Draft methods text'}
           </button>
         )}
       </div>

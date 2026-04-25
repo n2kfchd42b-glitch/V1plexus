@@ -1,5 +1,6 @@
 "use client"
 
+import { formatStatKey, formatStatValue, pValueBadge } from '@/lib/analysis/formatStats'
 import type { AnalysisType } from '@/types/database'
 
 interface Props {
@@ -9,63 +10,54 @@ interface Props {
   datasetName?: string
 }
 
-function formatKey(key: string): string {
-  return key
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/_/g, ' ')
-    .trim()
-    .replace(/^./, c => c.toUpperCase())
-}
+// Keys that carry no value in a summary display
+const SKIP_KEYS = new Set(['error', 'type', 'method', 'note', 'warning'])
 
-function formatValue(val: unknown): string {
-  if (val === null || val === undefined) return '—'
-  if (typeof val === 'number') {
-    if (Number.isInteger(val)) return val.toLocaleString()
-    if (Math.abs(val) <= 1 && val !== 0 && String(val).length > 4) return val.toFixed(3)
-    return val.toLocaleString(undefined, { maximumFractionDigits: 3 })
-  }
-  return String(val)
-}
-
-function getSignificanceLabel(key: string, val: unknown): string | null {
-  const k = key.toLowerCase()
-  const num = Number(val)
-  if (isNaN(num)) return null
-  if (k.includes('pval') || k === 'p' || k.includes('p_val') || k.includes('p-val')) {
-    if (num < 0.001) return 'p<0.001 ***'
-    if (num < 0.01)  return 'p<0.01 **'
-    if (num < 0.05)  return 'sig'
-    return 'ns'
-  }
-  return null
+// Badge variant styling
+const SIG_BADGE: Record<string, string> = {
+  '***': 'bg-[var(--accent-primary)] text-white',
+  '**':  'bg-[var(--accent-primary)]/80 text-white',
+  '*':   'bg-[var(--accent-blue)] text-white',
+  '†':   'bg-[var(--bg-inset)] text-[var(--text-secondary)]',
+  'ns':  'bg-[var(--bg-inset)] text-[var(--text-tertiary)]',
 }
 
 export function SummaryBox({ summary }: Props) {
-  const pairs = Object.entries(summary)
-    .filter(([k]) => k !== 'error')
-    .slice(0, 8)
-
   if (summary.error) {
     return (
-      <div className="rounded border border-[var(--timeline-flagged)]/20 bg-red-50 px-4 py-3">
-        <p className="text-xs font-medium text-[var(--timeline-flagged)]">Analysis Error</p>
+      <div className="rounded border border-[var(--status-error)]/20 bg-[var(--status-error-bg)] px-4 py-3">
+        <p className="text-xs font-semibold text-[var(--status-error-text)]">Analysis Error</p>
         <p className="text-xs text-[var(--text-secondary)] mt-1">{String(summary.error)}</p>
       </div>
     )
   }
 
+  const pairs = Object.entries(summary)
+    .filter(([k, v]) => !SKIP_KEYS.has(k) && v !== null && v !== undefined && v !== '')
+    .slice(0, 10)
+
   if (pairs.length === 0) return null
 
   return (
-    <div className="flex flex-wrap gap-3 py-3 border-b border-[var(--border-row)]">
+    <div className="flex flex-wrap gap-2 py-3 border-b border-[var(--border-row)]">
       {pairs.map(([key, val]) => {
-        const sig = getSignificanceLabel(key, val)
+        const badge = pValueBadge(key, val)
+
         return (
-          <div key={key} className="flex items-baseline gap-2 px-3 py-2 rounded border border-[var(--border-row)] bg-white">
-            <span className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider">{formatKey(key)}</span>
-            <span className="text-sm font-semibold text-[var(--text-primary)]">{formatValue(val)}</span>
-            {sig && (
-              <span className="text-[10px] text-[var(--accent-blue)]">{sig}</span>
+          <div
+            key={key}
+            className="flex items-baseline gap-2 px-3 py-2 rounded-md border border-[var(--border-row)] bg-[var(--bg-surface)]"
+          >
+            <span className="text-[10px] font-medium text-[var(--text-tertiary)] uppercase tracking-wider leading-none">
+              {formatStatKey(key)}
+            </span>
+            <span className="text-sm font-semibold text-[var(--text-primary)] font-mono tabular-nums">
+              {badge ? badge.label : formatStatValue(val)}
+            </span>
+            {badge && (
+              <span className={`text-[9px] font-bold px-1 py-0.5 rounded leading-none ${SIG_BADGE[badge.sig] ?? SIG_BADGE['ns']}`}>
+                {badge.sig}
+              </span>
             )}
           </div>
         )
