@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { getInitials } from '@/lib/utils'
 import { LanguageSelector } from '@/components/i18n/LanguageSelector'
-import { AlertTriangle, ExternalLink, ChevronRight, CheckCircle2, Globe } from 'lucide-react'
+import { AlertTriangle, ExternalLink, ChevronRight, CheckCircle2, Globe, MapPin, Loader2, ChevronDown } from 'lucide-react'
 import type { Profile } from '@/types/database'
 import type { User } from '@supabase/supabase-js'
 
@@ -62,6 +62,34 @@ const PLAN_FEATURES: Record<string, string[]> = {
   institution: ['Everything in Pro', 'Unlimited storage', 'Institutional workspace', 'Admin dashboard', 'Dedicated support', 'SSO / SAML'],
 }
 
+const RESEARCH_AREAS = [
+  'Global Health', 'Epidemiology', 'Biostatistics', 'Public Health',
+  'Clinical Research', 'Social Science', 'Environmental Health', 'Health Policy',
+  'Infectious Disease', 'Non-communicable Disease', 'Maternal & Child Health',
+  'Mental Health', 'Other',
+]
+
+const COUNTRIES = [
+  'Afghanistan', 'Albania', 'Algeria', 'Angola', 'Argentina', 'Armenia', 'Australia',
+  'Austria', 'Azerbaijan', 'Bangladesh', 'Belgium', 'Benin', 'Bolivia', 'Bosnia and Herzegovina',
+  'Botswana', 'Brazil', 'Burkina Faso', 'Burundi', 'Cambodia', 'Cameroon', 'Canada',
+  'Central African Republic', 'Chad', 'Chile', 'China', 'Colombia', 'Congo', 'Costa Rica',
+  "Côte d'Ivoire", 'Croatia', 'Cuba', 'Czech Republic', 'DR Congo', 'Denmark', 'Dominican Republic',
+  'Ecuador', 'Egypt', 'El Salvador', 'Eritrea', 'Ethiopia', 'Finland', 'France', 'Gabon',
+  'Gambia', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Guatemala', 'Guinea', 'Guinea-Bissau',
+  'Haiti', 'Honduras', 'Hungary', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Israel',
+  'Italy', 'Jamaica', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kosovo', 'Laos', 'Lebanon',
+  'Lesotho', 'Liberia', 'Libya', 'Madagascar', 'Malawi', 'Malaysia', 'Mali', 'Mauritania',
+  'Mexico', 'Moldova', 'Mongolia', 'Morocco', 'Mozambique', 'Myanmar', 'Namibia', 'Nepal',
+  'Netherlands', 'New Zealand', 'Nicaragua', 'Niger', 'Nigeria', 'North Korea', 'Norway',
+  'Pakistan', 'Palestine', 'Panama', 'Papua New Guinea', 'Paraguay', 'Peru', 'Philippines',
+  'Poland', 'Portugal', 'Romania', 'Russia', 'Rwanda', 'Saudi Arabia', 'Senegal', 'Sierra Leone',
+  'Somalia', 'South Africa', 'South Korea', 'South Sudan', 'Spain', 'Sri Lanka', 'Sudan',
+  'Sweden', 'Switzerland', 'Syria', 'Tanzania', 'Thailand', 'Togo', 'Tunisia', 'Turkey',
+  'Uganda', 'Ukraine', 'United Kingdom', 'United States', 'Uruguay', 'Uzbekistan', 'Venezuela',
+  'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe',
+]
+
 type Tab = 'overview' | 'edit' | 'security' | 'billing' | 'danger'
 
 const NAV: { id: Tab; label: string; icon: string }[] = [
@@ -101,6 +129,15 @@ export default function ProfilePage() {
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleting, setDeleting]           = useState(false)
 
+  // Research Presence
+  const [discipline, setDiscipline]   = useState('')
+  const [city, setCity]               = useState('')
+  const [country, setCountry]         = useState('')
+  const [presenceLat, setPresenceLat] = useState<number | null>(null)
+  const [presenceLng, setPresenceLng] = useState<number | null>(null)
+  const [showOnGlobe, setShowOnGlobe] = useState(true)
+  const [geoState, setGeoState]       = useState<'idle' | 'detecting' | 'detected' | 'denied'>('idle')
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const credInputRef = useRef<HTMLInputElement>(null)
 
@@ -130,6 +167,13 @@ export default function ProfilePage() {
       if (profileResult.data) {
         setProfile(profileResult.data)
         setAvatarUrl(profileResult.data.avatar_url ?? null)
+        const p = profileResult.data as unknown as Record<string, unknown>
+        setDiscipline((p.research_discipline as string | null) ?? '')
+        setCity((p.city as string | null) ?? '')
+        setCountry((p.country as string | null) ?? '')
+        setPresenceLat((p.lat as number | null) ?? null)
+        setPresenceLng((p.lng as number | null) ?? null)
+        setShowOnGlobe((p.show_on_globe as boolean | null) ?? true)
       }
       setProjectCount(countResult.data ?? 0)
       setReviewCount(reviewsRes.count ?? 0)
@@ -158,21 +202,93 @@ export default function ProfilePage() {
     setAvatarUploading(false)
   }
 
+  /* ── location detect ────────────────────────────────────────────────────── */
+  const detectLocation = () => {
+    if (!navigator.geolocation) return
+    setGeoState('detecting')
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords
+        setPresenceLat(latitude)
+        setPresenceLng(longitude)
+        try {
+          const res = await fetch(`/api/reverse-geocode?lat=${latitude}&lng=${longitude}`)
+          if (res.ok) {
+            const data = await res.json() as { city: string | null; country: string | null }
+            setCity(data.city ?? '')
+            setCountry(data.country ?? '')
+          }
+        } catch { /* non-fatal */ }
+        setGeoState('idle') // city/country now set — UI switches to confirmed state
+      },
+      () => setGeoState('denied'),
+      { timeout: 8000 }
+    )
+  }
+
   /* ── save profile ───────────────────────────────────────────────────────── */
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!authUser) return
     setSaving(true)
+
+    // Geocode city/country — always attempt so we have fresh coordinates.
+    // If geocoding fails, keep whatever coordinates are already stored (never write null).
+    let finalLat = presenceLat
+    let finalLng = presenceLng
+    if (city && country) {
+      try {
+        const res = await fetch(`/api/geocode?city=${encodeURIComponent(city)}&country=${encodeURIComponent(country)}`)
+        if (res.ok) {
+          const geo = await res.json() as { lat: number; lng: number }
+          finalLat = geo.lat
+          finalLng = geo.lng
+        }
+      } catch { /* non-fatal — keep existing coords */ }
+    }
+
+    const locationCoords = finalLat !== null && finalLng !== null
+      ? { lat: finalLat, lng: finalLng }
+      : {}   // don't overwrite existing coordinates with null
+
     const result = await updateProfile(supabase, authUser.id, {
-      full_name: profile.full_name,
-      title:     profile.title,
-      bio:       profile.bio,
-      orcid_id:  profile.orcid_id,
-      phone:     profile.phone,
-      website:   profile.website,
+      full_name:           profile.full_name,
+      title:               profile.title,
+      bio:                 profile.bio,
+      orcid_id:            profile.orcid_id,
+      phone:               profile.phone,
+      website:             profile.website,
+      research_discipline: discipline || null,
+      city:                city || null,
+      country:             country || null,
+      show_on_globe:       showOnGlobe,
+      ...locationCoords,
     })
-    if (result.status === 'error') toast.error(result.error ?? 'Failed to save')
-    else toast.success('Profile saved')
+
+    if (result.status === 'error') {
+      toast.error(result.error ?? 'Failed to save')
+      setSaving(false)
+      return
+    }
+
+    // Reload from DB to confirm what actually persisted
+    const fresh = await supabase
+      .from('profiles')
+      .select('city, country, lat, lng, show_on_globe, research_discipline')
+      .eq('id', authUser.id)
+      .maybeSingle()
+
+    if (fresh.data) {
+      const f = fresh.data as Record<string, unknown>
+      setCity((f.city as string | null) ?? '')
+      setCountry((f.country as string | null) ?? '')
+      setPresenceLat((f.lat as number | null) ?? null)
+      setPresenceLng((f.lng as number | null) ?? null)
+      setShowOnGlobe((f.show_on_globe as boolean | null) ?? true)
+      setDiscipline((f.research_discipline as string | null) ?? '')
+    }
+
+    toast.success('Profile saved')
     setSaving(false)
   }
 
@@ -677,6 +793,118 @@ export default function ProfilePage() {
                   <Label htmlFor="website">Website / Lab URL</Label>
                   <Input id="website" type="url" placeholder="https://yourlab.edu" value={profile.website ?? ''} onChange={e => setProfile(p => ({ ...p, website: e.target.value }))} className="mt-1" />
                 </div>
+              </div>
+
+              {/* Research Presence */}
+              <div className="border border-[#E4E4E7] rounded-xl p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-[#0052CC]" />
+                  <h2 className="text-sm font-semibold text-[#191c1e]">Research Presence</h2>
+                  <span className="ml-auto text-[10px] text-[#A1A1AA] font-medium uppercase tracking-wide">Appears on global map</span>
+                </div>
+
+                {/* Discipline */}
+                <div>
+                  <Label htmlFor="discipline">Research Discipline</Label>
+                  <div className="relative mt-1">
+                    <select
+                      id="discipline"
+                      value={discipline}
+                      onChange={e => setDiscipline(e.target.value)}
+                      className="w-full rounded-md border border-[#E4E4E7] px-3 py-2 pr-8 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-[#0052CC] bg-white"
+                    >
+                      <option value="">Select discipline…</option>
+                      {RESEARCH_AREAS.map(a => (
+                        <option key={a} value={a}>{a}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#A1A1AA] pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* Location */}
+                <div>
+                  <Label>Location</Label>
+                  <div className="mt-2 space-y-2">
+                    {/* Confirmed state — shown whenever city or country is set */}
+                    {(city || country) && geoState !== 'denied' ? (
+                      <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-700">
+                        <span className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                          <strong>{[city, country].filter(Boolean).join(', ')}</strong>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => { setCity(''); setCountry(''); setPresenceLat(null); setPresenceLng(null); setGeoState('denied') }}
+                          className="text-xs text-emerald-600 hover:underline ml-3 flex-shrink-0"
+                        >
+                          Change
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Auto-detect button */}
+                        <button
+                          type="button"
+                          onClick={detectLocation}
+                          disabled={geoState === 'detecting'}
+                          className="flex items-center gap-2 rounded-lg border border-[#0052CC]/30 bg-[#EFF6FF] px-4 py-2 text-sm font-medium text-[#0052CC] hover:bg-[#DBEAFE] transition-colors disabled:opacity-60"
+                        >
+                          {geoState === 'detecting'
+                            ? <Loader2 className="h-4 w-4 animate-spin" />
+                            : <MapPin className="h-4 w-4" />}
+                          {geoState === 'detecting' ? 'Detecting…' : 'Detect my location'}
+                        </button>
+
+                        {/* Manual city + country */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="settingsCity" className="text-xs text-[#52525B]">City</Label>
+                            <Input
+                              id="settingsCity"
+                              placeholder="Accra"
+                              value={city}
+                              onChange={e => setCity(e.target.value)}
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="settingsCountry" className="text-xs text-[#52525B]">Country</Label>
+                            <div className="relative mt-1">
+                              <select
+                                id="settingsCountry"
+                                value={country}
+                                onChange={e => setCountry(e.target.value)}
+                                className="w-full rounded-md border border-[#E4E4E7] px-3 py-2 pr-8 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-[#0052CC] bg-white"
+                              >
+                                <option value="">Select…</option>
+                                {COUNTRIES.map(c => (
+                                  <option key={c} value={c}>{c}</option>
+                                ))}
+                              </select>
+                              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#A1A1AA] pointer-events-none" />
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Show on globe toggle */}
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div>
+                    <p className="text-sm font-medium text-[#191c1e]">Show on global researcher map</p>
+                    <p className="text-xs text-[#A1A1AA]">Your city appears as a dot visible to other researchers.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowOnGlobe(v => !v)}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 ${showOnGlobe ? 'bg-[#0052CC]' : 'bg-[#D4D4D8]'}`}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${showOnGlobe ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </button>
+                </label>
               </div>
 
               <Button type="submit" disabled={saving} className="bg-[#0052CC] hover:bg-[var(--accent-primary)]">

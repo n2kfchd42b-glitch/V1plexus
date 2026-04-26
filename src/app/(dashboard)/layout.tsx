@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/Header'
 import { CommandPalette } from '@/components/layout/CommandPalette'
 import { ShortcutOverlay } from '@/components/layout/ShortcutOverlay'
@@ -11,6 +12,7 @@ import { WorkspaceProvider } from '@/components/workspace/WorkspaceProvider'
 import { useAuth } from '@/hooks/useAuth'
 import { useGlobalShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { Toaster } from 'sonner'
+import { LocationPromptBanner } from '@/components/layout/LocationPromptBanner'
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const { user, profile, loading, signOut } = useAuth()
@@ -20,6 +22,22 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 
   const openCommandPalette = useCallback(() => setCmdOpen(true), [])
   const openShortcuts = useCallback(() => setShortcutsOpen(true), [])
+
+  // Heartbeat: keep last_seen_at fresh so the researcher appears online on the globe
+  const supabaseRef = useRef(createClient())
+  useEffect(() => {
+    if (!user) return
+    const ping = () => {
+      supabaseRef.current
+        .from('profiles')
+        .update({ last_seen_at: new Date().toISOString() })
+        .eq('id', user.id)
+        .then(() => {})
+    }
+    ping()
+    const interval = setInterval(ping, 4 * 60 * 1000) // every 4 min
+    return () => clearInterval(interval)
+  }, [user])
 
   useGlobalShortcuts({
     onCommandPalette: openCommandPalette,
@@ -61,6 +79,9 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         <Header profile={profile} onSearchClick={openCommandPalette} />
+        {profile && !profile.lat && (
+          <LocationPromptBanner userId={profile.id} />
+        )}
         <main className="flex-1">
           <div className="page-content">
             {children}

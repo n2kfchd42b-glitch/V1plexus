@@ -62,6 +62,12 @@ export interface Profile {
   department_id: string | null
   onboarding_completed: boolean
   workspace_setup_completed: boolean
+  city: string | null
+  country: string | null
+  lat: number | null
+  lng: number | null
+  show_on_globe: boolean
+  last_seen_at: string | null
   created_at: string
   updated_at: string
   institution?: Institution
