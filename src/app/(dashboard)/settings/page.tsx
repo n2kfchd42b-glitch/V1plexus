@@ -164,7 +164,9 @@ export default function ProfilePage() {
           .order('uploaded_at', { ascending: false }),
       ])
 
-      if (profileResult.data) {
+      if (profileResult.status === 'error') {
+        toast.error('Failed to load profile — please refresh the page')
+      } else if (profileResult.data) {
         setProfile(profileResult.data)
         setAvatarUrl(profileResult.data.avatar_url ?? null)
         const p = profileResult.data as unknown as Record<string, unknown>
@@ -217,9 +219,15 @@ export default function ProfilePage() {
             const data = await res.json() as { city: string | null; country: string | null }
             setCity(data.city ?? '')
             setCountry(data.country ?? '')
+            setGeoState('detected')
+          } else {
+            toast.error('Could not detect location — enter it manually')
+            setGeoState('idle')
           }
-        } catch { /* non-fatal */ }
-        setGeoState('idle') // city/country now set — UI switches to confirmed state
+        } catch {
+          toast.error('Could not detect location — enter it manually')
+          setGeoState('idle')
+        }
       },
       () => setGeoState('denied'),
       { timeout: 8000 }
@@ -229,7 +237,7 @@ export default function ProfilePage() {
   /* ── save profile ───────────────────────────────────────────────────────── */
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!authUser) return
+    if (!authUser || saving) return
     setSaving(true)
 
     // Geocode city/country — always attempt so we have fresh coordinates.
@@ -271,21 +279,17 @@ export default function ProfilePage() {
       return
     }
 
-    // Reload from DB to confirm what actually persisted
-    const fresh = await supabase
-      .from('profiles')
-      .select('city, country, lat, lng, show_on_globe, research_discipline')
-      .eq('id', authUser.id)
-      .maybeSingle()
-
-    if (fresh.data) {
-      const f = fresh.data as Record<string, unknown>
-      setCity((f.city as string | null) ?? '')
-      setCountry((f.country as string | null) ?? '')
-      setPresenceLat((f.lat as number | null) ?? null)
-      setPresenceLng((f.lng as number | null) ?? null)
-      setShowOnGlobe((f.show_on_globe as boolean | null) ?? true)
-      setDiscipline((f.research_discipline as string | null) ?? '')
+    // Sync all local state from the server's confirmed response
+    if (result.data) {
+      const saved = result.data as unknown as Record<string, unknown>
+      setProfile(result.data)
+      setAvatarUrl((saved.avatar_url as string | null) ?? avatarUrl)
+      setCity((saved.city as string | null) ?? '')
+      setCountry((saved.country as string | null) ?? '')
+      setPresenceLat((saved.lat as number | null) ?? null)
+      setPresenceLng((saved.lng as number | null) ?? null)
+      setShowOnGlobe((saved.show_on_globe as boolean | null) ?? true)
+      setDiscipline((saved.research_discipline as string | null) ?? '')
     }
 
     toast.success('Profile saved')
