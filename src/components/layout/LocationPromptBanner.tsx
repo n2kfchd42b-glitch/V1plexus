@@ -28,11 +28,12 @@ const COUNTRIES = [
 
 interface Props {
   userId: string
+  onSaved?: () => void
 }
 
 type State = 'prompt' | 'detecting' | 'detected' | 'manual' | 'saving' | 'done'
 
-export function LocationPromptBanner({ userId }: Props) {
+export function LocationPromptBanner({ userId, onSaved }: Props) {
   const [state, setState] = useState<State>('prompt')
   const [dismissed, setDismissed] = useState(false)
   const [city, setCity] = useState('')
@@ -85,16 +86,37 @@ export function LocationPromptBanner({ userId }: Props) {
 
     const { error } = await supabase
       .from('profiles')
-      .update({ city: city || null, country: country || null, lat: finalLat, lng: finalLng })
+      .update({
+        city: city || null,
+        country: country || null,
+        lat: finalLat,
+        lng: finalLng,
+        show_on_globe: true,
+      })
       .eq('id', userId)
 
     if (error) {
       toast.error('Could not save location.')
       setState(lat ? 'detected' : 'manual')
-    } else {
-      toast.success('Your location has been added to the global map.')
-      setState('done')
+      return
     }
+
+    // Verify the write actually landed (RLS silent-fail check)
+    const { data: verify } = await supabase
+      .from('profiles')
+      .select('lat')
+      .eq('id', userId)
+      .maybeSingle()
+
+    if (!verify?.lat) {
+      toast.error('Location could not be saved. Please try from Settings.')
+      setState(lat ? 'detected' : 'manual')
+      return
+    }
+
+    toast.success('Your location has been added to the global map.')
+    setState('done')
+    onSaved?.()
   }
 
   return (

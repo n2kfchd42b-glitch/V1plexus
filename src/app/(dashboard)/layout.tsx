@@ -19,6 +19,9 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [cmdOpen, setCmdOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  // Suppress the location banner for the rest of this session once the user saves.
+  // profile.lat won't update in context without a full re-auth, so we track it locally.
+  const [locationSaved, setLocationSaved] = useState(false)
 
   const openCommandPalette = useCallback(() => setCmdOpen(true), [])
   const openShortcuts = useCallback(() => setShortcutsOpen(true), [])
@@ -79,8 +82,8 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         <Header profile={profile} onSearchClick={openCommandPalette} />
-        {profile && !profile.lat && (
-          <LocationPromptBanner userId={profile.id} />
+        {profile && !profile.lat && !locationSaved && (
+          <LocationPromptBanner userId={profile.id} onSaved={() => setLocationSaved(true)} />
         )}
         <main className="flex-1">
           <div className="page-content">
