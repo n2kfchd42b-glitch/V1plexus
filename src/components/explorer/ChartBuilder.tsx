@@ -6,6 +6,7 @@ import {
   BarChart2, TrendingUp, Circle, Activity, Box, PieChart as PieIcon,
   Grid3x3, AreaChart as AreaChartIcon, Hash, Tag, Calendar, ToggleLeft, ChevronDown,
   Save, ArrowLeft, Lightbulb, FileText, SlidersHorizontal,
+  Target, LayoutGrid, Filter, Layers, Dot,
 } from 'lucide-react'
 import { ChartEditor } from '@/components/analysis/ChartEditor'
 import { getDefaultConfig, DEFAULT_CHART_EDITOR_CONFIG } from '@/lib/chartEditorConfig'
@@ -23,6 +24,11 @@ import { BoxPlot } from '@/components/charts/BoxPlot'
 import { PieChart } from '@/components/charts/PieChart'
 import { Heatmap } from '@/components/charts/Heatmap'
 import { AreaChart } from '@/components/charts/AreaChart'
+import { RadarChart } from '@/components/charts/RadarChart'
+import { BubbleChart } from '@/components/charts/BubbleChart'
+import { TreemapChart } from '@/components/charts/TreemapChart'
+import { FunnelChart } from '@/components/charts/FunnelChart'
+import { DotPlot } from '@/components/charts/DotPlot'
 import type { ChartConfig, DataRow, ColumnSchema, ChartType, ColumnType } from '@/types/database'
 
 interface ChartBuilderProps {
@@ -96,6 +102,31 @@ const CHART_TYPES: ChartTypeDef[] = [
     id: 'heatmap', label: 'Heatmap', icon: <Grid3x3 size={14} />,
     requiresX: false, requiresY: false, supportsColor: false, supportsAgg: false,
     preferredX: [], preferredY: [],
+  },
+  {
+    id: 'radar', label: 'Radar', icon: <Target size={14} />,
+    requiresX: true, requiresY: true, supportsColor: true, supportsAgg: false,
+    preferredX: ['categorical', 'text'], preferredY: ['number', 'integer', 'decimal'],
+  },
+  {
+    id: 'bubble', label: 'Bubble', icon: <Layers size={14} />,
+    requiresX: true, requiresY: true, supportsColor: true, supportsAgg: false,
+    preferredX: ['number', 'integer', 'decimal'], preferredY: ['number', 'integer', 'decimal'],
+  },
+  {
+    id: 'treemap', label: 'Treemap', icon: <LayoutGrid size={14} />,
+    requiresX: true, requiresY: false, supportsColor: false, supportsAgg: true,
+    preferredX: ['categorical', 'text'], preferredY: ['number', 'integer', 'decimal'],
+  },
+  {
+    id: 'funnel', label: 'Funnel', icon: <Filter size={14} />,
+    requiresX: true, requiresY: false, supportsColor: false, supportsAgg: true,
+    preferredX: ['categorical', 'text'], preferredY: ['number', 'integer', 'decimal'],
+  },
+  {
+    id: 'dot', label: 'Dot Plot', icon: <Dot size={14} />,
+    requiresX: false, requiresY: true, supportsColor: false, supportsAgg: false,
+    preferredX: ['categorical', 'text'], preferredY: ['number', 'integer', 'decimal'],
   },
 ]
 
@@ -189,6 +220,11 @@ function RenderChart({
     case 'pie': return <PieChart {...props} chartType="pie" />
     case 'donut': return <PieChart {...props} chartType="donut" />
     case 'heatmap': return <Heatmap {...props} />
+    case 'radar': return <RadarChart {...props} />
+    case 'bubble': return <BubbleChart {...props} />
+    case 'treemap': return <TreemapChart {...props} />
+    case 'funnel': return <FunnelChart {...props} />
+    case 'dot': return <DotPlot {...props} />
     default:
       return (
         <div
@@ -558,6 +594,20 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
                 </div>
               )}
 
+              {/* Size (bubble only) */}
+              {chartType === 'bubble' && (
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}>Size <span style={{ opacity: 0.5 }}>(optional)</span></Label>
+                  <ColumnSelect
+                    value={config.size}
+                    onChange={v => patchConfig({ size: v })}
+                    placeholder="Uniform"
+                    allowNone={true}
+                    filterTypes={['number', 'integer', 'decimal']}
+                  />
+                </div>
+              )}
+
               <Separator />
 
               {/* Aggregation */}
@@ -633,8 +683,8 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
                 {[
                   { show: chartType === 'bar', label: 'Show values', checked: config.show_values ?? false, onChange: (v: boolean) => patchConfig({ show_values: v }) },
                   { show: chartType === 'scatter' || chartType === 'line', label: 'Trend line', checked: config.trend_line ?? false, onChange: (v: boolean) => patchConfig({ trend_line: v }) },
-                  { show: ['bar','line','area','scatter'].includes(chartType), label: 'Log scale Y', checked: config.log_scale_y ?? false, onChange: (v: boolean) => patchConfig({ log_scale_y: v }) },
-                  { show: chartType === 'scatter', label: 'Log scale X', checked: config.log_scale_x ?? false, onChange: (v: boolean) => patchConfig({ log_scale_x: v }) },
+                  { show: ['bar','line','area','scatter','bubble'].includes(chartType), label: 'Log scale Y', checked: config.log_scale_y ?? false, onChange: (v: boolean) => patchConfig({ log_scale_y: v }) },
+                  { show: chartType === 'scatter' || chartType === 'bubble', label: 'Log scale X', checked: config.log_scale_x ?? false, onChange: (v: boolean) => patchConfig({ log_scale_x: v }) },
                   { show: chartType === 'histogram', label: 'Distribution curve', checked: (config.chart_specific as Record<string,unknown> | undefined)?.show_density as boolean ?? false, onChange: (v: boolean) => patchConfig({ chart_specific: { ...(config.chart_specific as object), show_density: v } }) },
                   { show: chartType === 'box', label: 'Show data points', checked: (config.chart_specific as Record<string,unknown> | undefined)?.show_points as boolean ?? false, onChange: (v: boolean) => patchConfig({ chart_specific: { ...(config.chart_specific as object), show_points: v } }) },
                   { show: chartType === 'box', label: 'Show mean (◇)', checked: (config.chart_specific as Record<string,unknown> | undefined)?.show_mean as boolean ?? false, onChange: (v: boolean) => patchConfig({ chart_specific: { ...(config.chart_specific as object), show_mean: v } }) },
