@@ -4,7 +4,6 @@ import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { BrandLogo } from '@/components/layout/BrandLogo'
-import { createClient } from '@/lib/supabase/client'
 
 function RegisterForm() {
   const router = useRouter()
@@ -22,26 +21,31 @@ function RegisterForm() {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    const supabase = createClient()
+
     const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirect)}`
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName },
-        emailRedirectTo,
-      },
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, fullName, emailRedirectTo }),
     })
-    if (error) {
-      setError(error.message)
+
+    const json = await res.json() as { userId?: string; error?: string }
+
+    if (!res.ok) {
+      setError(json.error ?? 'Registration failed. Please try again.')
       setLoading(false)
-    } else if (data.session) {
+      return
+    }
+
+    setConfirming(true)
+    setLoading(false)
+
+    // If Supabase auto-confirmed the session (e.g. email confirmations disabled),
+    // redirect immediately. This path is uncommon in production.
+    if (res.status === 200) {
       router.push(redirect)
       router.refresh()
-    } else {
-      setConfirming(true)
-      setLoading(false)
     }
   }
 
