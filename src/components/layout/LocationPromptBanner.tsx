@@ -129,8 +129,8 @@ export function LocationPromptBanner({ userId, onSaved }: Props) {
         {state === 'prompt' && (
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
-              <p className="text-sm font-medium text-slate-800">Add your location to the global researcher map</p>
-              <p className="text-xs text-slate-500 mt-0.5">Your dot will appear on the PLEXUS world map. You can opt out anytime.</p>
+              <p className="text-sm font-medium text-slate-800">Add your country to the global researcher map</p>
+              <p className="text-xs text-slate-500 mt-0.5">Only your country is shown — your exact address is never shared. You can opt out anytime.</p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <button
@@ -138,13 +138,13 @@ export function LocationPromptBanner({ userId, onSaved }: Props) {
                 className="flex items-center gap-1.5 rounded-lg bg-clinical-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-clinical-deep transition-colors"
               >
                 <MapPin className="h-3.5 w-3.5" />
-                Detect location
+                Detect my country
               </button>
               <button
                 onClick={() => setState('manual')}
                 className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
               >
-                Enter manually
+                Select manually
               </button>
             </div>
           </div>
@@ -153,7 +153,7 @@ export function LocationPromptBanner({ userId, onSaved }: Props) {
         {state === 'detecting' && (
           <div className="flex items-center gap-2 text-sm text-slate-600">
             <Loader2 className="h-4 w-4 animate-spin text-clinical-blue" />
-            Detecting your location…
+            Detecting your country…
           </div>
         )}
 
@@ -182,7 +182,7 @@ export function LocationPromptBanner({ userId, onSaved }: Props) {
 
         {state === 'manual' && (
           <div className="space-y-2">
-            <p className="text-sm font-medium text-slate-800">Enter your location</p>
+            <p className="text-sm font-medium text-slate-800">Select your country</p>
             <div className="flex items-end gap-2 flex-wrap">
               <input
                 type="text"

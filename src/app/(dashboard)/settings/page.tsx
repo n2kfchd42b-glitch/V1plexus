@@ -804,7 +804,7 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-2">
                   <Globe className="h-4 w-4 text-[#0052CC]" />
                   <h2 className="text-sm font-semibold text-[#191c1e]">Research Presence</h2>
-                  <span className="ml-auto text-[10px] text-[#A1A1AA] font-medium uppercase tracking-wide">Appears on global map</span>
+                  <span className="ml-auto text-[10px] text-[#A1A1AA] font-medium uppercase tracking-wide">Country shown on global map</span>
                 </div>
 
                 {/* Discipline */}
@@ -898,8 +898,8 @@ export default function ProfilePage() {
                 {/* Show on globe toggle */}
                 <label className="flex items-center justify-between cursor-pointer">
                   <div>
-                    <p className="text-sm font-medium text-[#191c1e]">Show on global researcher map</p>
-                    <p className="text-xs text-[#A1A1AA]">Your city appears as a dot visible to other researchers.</p>
+                    <p className="text-sm font-medium text-[#191c1e]">Show my country on the global researcher map</p>
+                    <p className="text-xs text-[#A1A1AA]">Only your country is shown — your exact address is never shared.</p>
                   </div>
                   <button
                     type="button"
