@@ -106,8 +106,8 @@ export function ResearcherGlobe() {
         <BrandLogo variant="standalone" href="/" />
       </div>
 
-      {/* Filters — top right */}
-      <div className="absolute top-6 right-6 z-10 flex flex-col items-end gap-2 max-w-[55%]">
+      {/* Filters — top right: legend + two dropdowns on one row */}
+      <div className="absolute top-6 right-6 z-10 flex flex-col items-end gap-2">
         {/* Legend */}
         <div className="flex items-center gap-3 px-3 py-1.5 rounded-full bg-white/6 border border-white/10">
           <span className="flex items-center gap-1.5 text-[10px] font-medium text-white/70">
@@ -119,48 +119,33 @@ export function ResearcherGlobe() {
           </span>
         </div>
 
-        {/* Country filter */}
-        {presentCountries.length > 0 && (
-          <select
-            value={countryFilter}
-            onChange={e => setCountryFilter(e.target.value)}
-            className="px-2.5 py-1 rounded-full text-[10px] font-medium border bg-white/5 border-white/10 text-white/60 appearance-none focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
-          >
-            <option value="">All countries</option>
-            {presentCountries.map(c => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        )}
-
-        {/* Discipline filter pills */}
-        {presentDisciplines.length > 0 && (
-          <div className="flex flex-wrap justify-end gap-1">
-            <button
-              onClick={() => setDisciplineFilter(null)}
-              className={`px-2.5 py-1 rounded-full text-[10px] font-medium border transition-all ${
-                disciplineFilter === null
-                  ? 'bg-white/15 border-white/30 text-white'
-                  : 'bg-white/5 border-white/10 text-white/40 hover:text-white/70'
-              }`}
+        {/* Discipline + Country dropdowns — side by side */}
+        <div className="flex items-center gap-2">
+          {presentDisciplines.length > 0 && (
+            <select
+              value={disciplineFilter ?? ''}
+              onChange={e => setDisciplineFilter(e.target.value || null)}
+              className="px-2.5 py-1 rounded-full text-[10px] font-medium border bg-white/5 border-white/10 text-white/60 appearance-none focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
             >
-              All disciplines
-            </button>
-            {presentDisciplines.map(d => (
-              <button
-                key={d}
-                onClick={() => setDisciplineFilter(prev => prev === d ? null : d)}
-                className={`px-2.5 py-1 rounded-full text-[10px] font-medium border transition-all ${
-                  disciplineFilter === d
-                    ? 'bg-white/15 border-white/30 text-white'
-                    : 'bg-white/5 border-white/10 text-white/40 hover:text-white/70'
-                }`}
-              >
-                {d}
-              </button>
-            ))}
-          </div>
-        )}
+              <option value="">All disciplines</option>
+              {presentDisciplines.map(d => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          )}
+          {presentCountries.length > 0 && (
+            <select
+              value={countryFilter}
+              onChange={e => setCountryFilter(e.target.value)}
+              className="px-2.5 py-1 rounded-full text-[10px] font-medium border bg-white/5 border-white/10 text-white/60 appearance-none focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
+            >
+              <option value="">All countries</option>
+              {presentCountries.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
 
       {/* Map — absolute fill so Safari doesn't collapse the SVG height to zero */}

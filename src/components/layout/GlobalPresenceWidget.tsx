@@ -33,10 +33,10 @@ export function GlobalPresenceWidget() {
 
   return (
     <>
-      {/* Stats card — bottom-right */}
-      <div className="fixed bottom-4 right-4 z-40 w-52 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)] shadow-lg overflow-hidden">
-        {/* Header row */}
-        <div className="flex items-center justify-between px-3 pt-3 pb-2">
+      {/* Compact card — bottom-right */}
+      <div className="fixed bottom-4 right-4 z-40 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)] shadow-lg overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 pt-2.5 pb-2">
           <div className="flex items-center gap-1.5">
             <Globe className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
             <span className="text-[11px] font-semibold text-[var(--text-primary)] uppercase tracking-wide">
@@ -45,31 +45,15 @@ export function GlobalPresenceWidget() {
           </div>
           <button
             onClick={() => setDismissed(true)}
-            className="h-4 w-4 flex items-center justify-center text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+            className="h-4 w-4 flex items-center justify-center text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors ml-3"
             aria-label="Dismiss"
           >
             <X className="h-3 w-3" />
           </button>
         </div>
 
-        {/* Stats grid */}
-        <div className="grid grid-cols-3 gap-px bg-[var(--border-default)] border-t border-[var(--border-default)]">
-          <div className="bg-[var(--bg-surface)] px-2 py-2.5 text-center">
-            <p className="text-sm font-bold text-[var(--text-primary)] leading-none">{stats.total.toLocaleString()}</p>
-            <p className="text-[9px] text-[var(--text-tertiary)] mt-0.5 uppercase tracking-wide">Researchers</p>
-          </div>
-          <div className="bg-[var(--bg-surface)] px-2 py-2.5 text-center">
-            <p className="text-sm font-bold text-[var(--text-primary)] leading-none">{stats.cities}</p>
-            <p className="text-[9px] text-[var(--text-tertiary)] mt-0.5 uppercase tracking-wide">Cities</p>
-          </div>
-          <div className="bg-[var(--bg-surface)] px-2 py-2.5 text-center">
-            <p className="text-sm font-bold text-[var(--text-primary)] leading-none">{stats.countries}</p>
-            <p className="text-[9px] text-[var(--text-tertiary)] mt-0.5 uppercase tracking-wide">Countries</p>
-          </div>
-        </div>
-
-        {/* Online indicator + CTA */}
-        <div className="flex items-center justify-between px-3 py-2.5 border-t border-[var(--border-default)]">
+        {/* Online + CTA */}
+        <div className="flex items-center justify-between gap-4 px-3 pb-2.5 border-t border-[var(--border-default)] pt-2">
           {stats.online > 0 ? (
             <span className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -80,7 +64,7 @@ export function GlobalPresenceWidget() {
           )}
           <button
             onClick={() => setModalOpen(true)}
-            className="text-[10px] font-semibold text-[var(--accent-blue)] hover:underline underline-offset-2"
+            className="text-[10px] font-semibold text-[var(--accent-blue)] hover:underline underline-offset-2 whitespace-nowrap"
           >
             View map →
           </button>
