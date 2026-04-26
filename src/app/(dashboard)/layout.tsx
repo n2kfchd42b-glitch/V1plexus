@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useGlobalShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { Toaster } from 'sonner'
 import { LocationPromptBanner } from '@/components/layout/LocationPromptBanner'
+import { GlobalPresenceWidget } from '@/components/layout/GlobalPresenceWidget'
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const { user, profile, loading, signOut } = useAuth()
@@ -116,6 +117,8 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       >
         ?
       </button>
+
+      <GlobalPresenceWidget />
     </div>
   )
 }
