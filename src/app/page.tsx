@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { BrandLogo } from '@/components/layout/BrandLogo'
+import { LandingGlobeWrapper } from '@/components/landing/LandingGlobeWrapper'
 
 export default function LandingPage() {
   return (
@@ -25,33 +26,46 @@ export default function LandingPage() {
 
       <main className="pt-20">
         {/* Hero Section */}
-        <section className="relative min-h-[870px] flex items-center justify-center overflow-hidden grid-bg">
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#f8f9fb]/50 to-[#f8f9fb]" />
-          <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#dde1ff] text-[#001453] text-[10px] uppercase tracking-widest font-bold mb-8">
-              <span className="material-symbols-outlined text-[14px]">verified</span>
-              Early Access · Built for Researchers and Institutions
+        <section className="relative min-h-screen flex items-center overflow-hidden grid-bg">
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#f8f9fb]/40 to-[#f8f9fb]" />
+          <div className="relative z-10 w-full max-w-7xl mx-auto px-6 py-24 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+
+            {/* Left — copy */}
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#dde1ff] text-[#001453] text-[10px] uppercase tracking-widest font-bold mb-8">
+                <span className="material-symbols-outlined text-[14px]">verified</span>
+                Early Access · Built for Researchers and Institutions
+              </div>
+              <h1 className="font-serif text-5xl md:text-7xl tracking-tight leading-[0.92] text-[#191c1e] mb-6">
+                The RESEARCH<br />Platform for<br />Global Health
+              </h1>
+              <p className="text-lg text-[#444653] leading-relaxed mb-10 max-w-lg">
+                Import from KoboToolbox or REDCap, run survival analysis and regression, generate manuscript-ready tables — every decision cryptographically logged to an immutable audit ledger.
+              </p>
+              <div className="flex flex-col sm:flex-row items-start gap-4 mb-10">
+                <Link
+                  href="/register"
+                  className="px-8 py-4 bg-[#003D9B] text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
+                >
+                  Get Started Free
+                </Link>
+                <a
+                  href="#how-it-works"
+                  className="px-8 py-4 bg-white text-[#003D9B] border border-[#c4c5d5]/30 font-semibold rounded-xl hover:bg-[#f3f4f6] transition-all duration-300 flex items-center gap-2"
+                >
+                  See How It Works
+                  <span className="material-symbols-outlined">play_circle</span>
+                </a>
+              </div>
+              {/* Trust signal */}
+              <p className="text-sm text-[#444653]/60 font-medium">
+                Join researchers active across 6 continents — see the live map →
+              </p>
             </div>
-            <h1 className="font-serif text-6xl md:text-8xl tracking-tight leading-[0.9] text-[#191c1e] mb-8">
-              The RESEARCH Platform <br />for Global Health
-            </h1>
-            <p className="max-w-2xl mx-auto text-xl text-[#444653] leading-relaxed mb-12">
-              Import from KoboToolbox or REDCap, run survival analysis and regression, generate manuscript-ready tables — every decision cryptographically logged to an immutable audit ledger.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link
-                href="/register"
-                className="w-full sm:w-auto px-8 py-4 bg-[#003D9B] text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
-              >
-                Get Started Free
-              </Link>
-              <a
-                href="#how-it-works"
-                className="w-full sm:w-auto px-8 py-4 bg-white text-[#003D9B] border border-[#c4c5d5]/30 font-semibold rounded-xl hover:bg-[#f3f4f6] transition-all duration-300 flex items-center justify-center gap-2"
-              >
-                See How It Works
-                <span className="material-symbols-outlined">play_circle</span>
-              </a>
+
+            {/* Right — live globe */}
+            <div className="hidden lg:block h-[540px] rounded-2xl overflow-hidden shadow-2xl shadow-[#003D9B]/10 ring-1 ring-white/60">
+              <LandingGlobeWrapper />
             </div>
           </div>
         </section>
