@@ -88,12 +88,17 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <>
-      <div className="text-center mb-8 lg:hidden">
-        <div className="flex justify-center mb-3">
-          <BrandLogo variant="standalone" href="/" />
-        </div>
-        <p className="text-slate-500 text-sm">Your research, globally connected</p>
+      {/* Logo — visible on mobile only (desktop sees the brand panel) */}
+      <div className="flex justify-center mb-6 lg:hidden">
+        <BrandLogo variant="standalone" href="/" />
       </div>
+
+      {/* Heading — always visible */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Welcome back</h1>
+        <p className="text-slate-500 text-sm mt-1">Sign in to your PLEXUS account</p>
+      </div>
+
       <Suspense fallback={<div className="h-48 rounded-xl bg-slate-100 animate-pulse" />}>
         <LoginForm />
       </Suspense>

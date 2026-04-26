@@ -1,4 +1,4 @@
-import { GlobeClientWrapper } from '@/components/auth/GlobeClientWrapper'
+import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel'
 
 export default function AuthLayout({
   children,
@@ -7,9 +7,9 @@ export default function AuthLayout({
 }) {
   return (
     <div className="min-h-screen flex">
-      {/* Left: Globe panel — hidden on mobile, client-only render */}
-      <div className="hidden lg:flex flex-col flex-1 relative bg-[#060d1c] min-h-screen">
-        <GlobeClientWrapper />
+      {/* Left: Brand panel — static, no JS bundle cost, hidden on mobile */}
+      <div className="hidden lg:block flex-1 min-h-screen">
+        <AuthBrandPanel />
       </div>
 
       {/* Right: Form panel */}

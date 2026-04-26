@@ -125,12 +125,17 @@ function RegisterForm() {
 export default function RegisterPage() {
   return (
     <>
-      <div className="text-center mb-8 lg:hidden">
-        <div className="flex justify-center mb-3">
-          <BrandLogo variant="standalone" href="/" />
-        </div>
-        <p className="text-slate-500 text-sm">Join PLEXUS — research, globally connected</p>
+      {/* Logo — visible on mobile only */}
+      <div className="flex justify-center mb-6 lg:hidden">
+        <BrandLogo variant="standalone" href="/" />
       </div>
+
+      {/* Heading — always visible */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Create your account</h1>
+        <p className="text-slate-500 text-sm mt-1">Join researchers publishing with verifiable integrity</p>
+      </div>
+
       <Suspense fallback={<div className="h-64 rounded-xl bg-slate-100 animate-pulse" />}>
         <RegisterForm />
       </Suspense>
