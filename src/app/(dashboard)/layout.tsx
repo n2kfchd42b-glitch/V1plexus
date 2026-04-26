@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/Header'
 import { CommandPalette } from '@/components/layout/CommandPalette'
@@ -18,6 +18,7 @@ import { GlobalPresenceWidget } from '@/components/layout/GlobalPresenceWidget'
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const { user, profile, loading, signOut } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
   const [cmdOpen, setCmdOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   // Suppress the location banner for the rest of this session once the user saves.
@@ -110,15 +111,8 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
         }}
       />
 
-      <button
-        onClick={() => setShortcutsOpen(true)}
-        className="fixed bottom-4 right-4 h-8 w-8 flex items-center justify-center rounded-full bg-[var(--bg-surface)] border border-[var(--border-default)] shadow-sm text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:shadow-md transition-all duration-150 text-sm font-medium z-40"
-        title="Keyboard shortcuts (?)"
-      >
-        ?
-      </button>
-
-      <GlobalPresenceWidget />
+      {/* Presence widget — dashboard home only, bottom-right */}
+      {pathname === '/projects' && <GlobalPresenceWidget />}
     </div>
   )
 }

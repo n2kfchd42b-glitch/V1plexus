@@ -32,8 +32,8 @@ export function GlobalPresenceWidget() {
 
   return (
     <>
-      {/* Pill widget — bottom-left, above potential mobile nav */}
-      <div className="fixed bottom-4 left-4 z-40 flex items-center gap-2.5 pl-3 pr-2 py-2 rounded-full bg-[var(--bg-surface)] border border-[var(--border-default)] shadow-md">
+      {/* Pill widget — bottom-right */}
+      <div className="fixed bottom-4 right-4 z-40 flex items-center gap-2.5 pl-3 pr-2 py-2 rounded-full bg-[var(--bg-surface)] border border-[var(--border-default)] shadow-md">
         <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
         <span className="text-xs font-medium text-[var(--text-primary)]">
           {stats.online > 0
