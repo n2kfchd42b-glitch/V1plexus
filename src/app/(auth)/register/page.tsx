@@ -13,6 +13,7 @@ function RegisterForm() {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [consentAccepted, setConsentAccepted] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -97,13 +98,36 @@ function RegisterForm() {
         />
       </div>
 
+      {/* GDPR consent */}
+      <div className="flex items-start gap-3">
+        <input
+          id="consent"
+          type="checkbox"
+          required
+          checked={consentAccepted}
+          onChange={e => setConsentAccepted(e.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-clinical-blue focus:ring-clinical-blue flex-shrink-0 cursor-pointer"
+        />
+        <label htmlFor="consent" className="text-xs text-slate-500 leading-relaxed cursor-pointer">
+          I have read and agree to the{' '}
+          <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-clinical-blue hover:underline font-medium">
+            Terms of Service
+          </a>{' '}
+          and{' '}
+          <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-clinical-blue hover:underline font-medium">
+            Privacy Policy
+          </a>
+          . I consent to PLEXUS processing my personal data as described therein, in accordance with the GDPR.
+        </label>
+      </div>
+
       {error && (
         <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
       )}
 
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || !consentAccepted}
         className="w-full bg-gradient-to-r from-clinical-deep to-clinical-blue text-white rounded-lg py-2.5 text-sm font-bold hover:opacity-90 disabled:opacity-50 transition-all shadow-[0_4px_20px_rgba(0,82,204,0.22)]"
       >
         {loading ? 'Creating account…' : 'Create account'}

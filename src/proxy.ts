@@ -13,11 +13,17 @@ export async function proxy(request: NextRequest) {
   // Auth callback must be public — unauthenticated users land here after clicking
   // a confirmation email link; the route exchanges the PKCE code for a session.
   const isAuthCallback = pathname.startsWith("/auth/");
-  // Public pages — protocol registry, dataset landing pages, and public portfolio/badge pages
+  // Public pages — protocol registry, dataset landing pages, public portfolio/badge pages, and legal/support pages
   const isPublicPage =
     pathname.startsWith("/registry/") ||
     pathname.startsWith("/data/") ||
-    pathname.startsWith("/profile/");
+    pathname.startsWith("/profile/") ||
+    pathname.startsWith("/terms") ||
+    pathname.startsWith("/privacy") ||
+    pathname.startsWith("/contact") ||
+    pathname.startsWith("/verify/") ||
+    pathname.startsWith("/quality-methodology") ||
+    pathname.startsWith("/share/");
 
   // API routes handle their own auth — no need to hit Supabase here.
   const isApiRoute = pathname.startsWith("/api/");

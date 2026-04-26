@@ -88,7 +88,7 @@ export function LandingGlobe() {
       {/* Map — absolute fill for cross-browser height */}
       <div className="absolute inset-0">
         <ComposableMap
-          projection="geoNaturalEarth1"
+          projection="geoEqualEarth"
           projectionConfig={{ scale: 165, center: [10, 10] }}
           style={{ width: '100%', height: '100%' }}
         >

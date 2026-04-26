@@ -500,9 +500,13 @@ export default function LandingPage() {
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-8">
-            {['Privacy Policy', 'Terms of Service', 'Compliance', 'Ethics Board', 'Contact Support'].map(link => (
-              <a key={link} className="text-slate-500 hover:text-slate-900 text-sm hover:underline transition-all opacity-80 hover:opacity-100" href="#">
-                {link}
+            {[
+              { label: 'Privacy Policy', href: '/privacy' },
+              { label: 'Terms of Service', href: '/terms' },
+              { label: 'Contact Support', href: '/contact' },
+            ].map(({ label, href }) => (
+              <a key={label} className="text-slate-500 hover:text-slate-900 text-sm hover:underline transition-all opacity-80 hover:opacity-100" href={href}>
+                {label}
               </a>
             ))}
           </div>
