@@ -2,15 +2,17 @@
 
 import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
-import { X } from 'lucide-react'
+import { X, Globe } from 'lucide-react'
 
+// Full ResearcherGlobe — has discipline pills, country filter, cluster tooltips, stats
 const GlobeModal = dynamic(
-  () => import('@/components/landing/LandingGlobe').then(m => ({ default: m.LandingGlobe })),
+  () => import('@/components/auth/ResearcherGlobe').then(m => ({ default: m.ResearcherGlobe })),
   { ssr: false, loading: () => <div className="h-full w-full bg-[#060d1c]" /> }
 )
 
 interface Stats {
   total: number
+  cities: number
   countries: number
   online: number
 }
@@ -23,65 +25,84 @@ export function GlobalPresenceWidget() {
   useEffect(() => {
     fetch('/api/globe')
       .then(r => r.json())
-      .then(d => setStats({ total: d.total, countries: d.countries, online: d.online }))
+      .then(d => setStats({ total: d.total, cities: d.cities, countries: d.countries, online: d.online }))
       .catch(() => {})
   }, [])
 
-  // Nothing to show until data loads, or if dismissed, or no researchers
   if (!stats || dismissed || stats.total === 0) return null
 
   return (
     <>
-      {/* Pill widget — bottom-right */}
-      <div className="fixed bottom-4 right-4 z-40 flex items-center gap-2.5 pl-3 pr-2 py-2 rounded-full bg-[var(--bg-surface)] border border-[var(--border-default)] shadow-md">
-        <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
-        <span className="text-xs font-medium text-[var(--text-primary)]">
-          {stats.online > 0
-            ? <>{stats.online} online now</>
-            : <>{stats.total.toLocaleString()} researchers</>
-          }
-        </span>
-        <button
-          onClick={() => setModalOpen(true)}
-          className="text-[10px] font-semibold text-[var(--accent-blue)] hover:underline underline-offset-2 whitespace-nowrap"
-        >
-          View map
-        </button>
-        <button
-          onClick={() => setDismissed(true)}
-          className="h-5 w-5 flex items-center justify-center rounded-full text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
-          aria-label="Dismiss"
-        >
-          <X className="h-3 w-3" />
-        </button>
+      {/* Stats card — bottom-right */}
+      <div className="fixed bottom-4 right-4 z-40 w-52 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)] shadow-lg overflow-hidden">
+        {/* Header row */}
+        <div className="flex items-center justify-between px-3 pt-3 pb-2">
+          <div className="flex items-center gap-1.5">
+            <Globe className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
+            <span className="text-[11px] font-semibold text-[var(--text-primary)] uppercase tracking-wide">
+              Global Activity
+            </span>
+          </div>
+          <button
+            onClick={() => setDismissed(true)}
+            className="h-4 w-4 flex items-center justify-center text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+            aria-label="Dismiss"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+
+        {/* Stats grid */}
+        <div className="grid grid-cols-3 gap-px bg-[var(--border-default)] border-t border-[var(--border-default)]">
+          <div className="bg-[var(--bg-surface)] px-2 py-2.5 text-center">
+            <p className="text-sm font-bold text-[var(--text-primary)] leading-none">{stats.total.toLocaleString()}</p>
+            <p className="text-[9px] text-[var(--text-tertiary)] mt-0.5 uppercase tracking-wide">Researchers</p>
+          </div>
+          <div className="bg-[var(--bg-surface)] px-2 py-2.5 text-center">
+            <p className="text-sm font-bold text-[var(--text-primary)] leading-none">{stats.cities}</p>
+            <p className="text-[9px] text-[var(--text-tertiary)] mt-0.5 uppercase tracking-wide">Cities</p>
+          </div>
+          <div className="bg-[var(--bg-surface)] px-2 py-2.5 text-center">
+            <p className="text-sm font-bold text-[var(--text-primary)] leading-none">{stats.countries}</p>
+            <p className="text-[9px] text-[var(--text-tertiary)] mt-0.5 uppercase tracking-wide">Countries</p>
+          </div>
+        </div>
+
+        {/* Online indicator + CTA */}
+        <div className="flex items-center justify-between px-3 py-2.5 border-t border-[var(--border-default)]">
+          {stats.online > 0 ? (
+            <span className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              {stats.online} online now
+            </span>
+          ) : (
+            <span className="text-[11px] text-[var(--text-tertiary)]">No one active</span>
+          )}
+          <button
+            onClick={() => setModalOpen(true)}
+            className="text-[10px] font-semibold text-[var(--accent-blue)] hover:underline underline-offset-2"
+          >
+            View map →
+          </button>
+        </div>
       </div>
 
-      {/* Globe modal */}
+      {/* Full globe modal with filters */}
       {modalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
           onClick={e => { if (e.target === e.currentTarget) setModalOpen(false) }}
         >
-          <div className="relative w-full max-w-4xl h-[580px] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10">
+          <div className="relative w-full max-w-5xl h-[640px] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10">
             <GlobeModal />
-
-            {/* Header bar */}
-            <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-5 py-3.5 bg-gradient-to-b from-[#060d1c] to-transparent z-10">
-              <div>
-                <p className="text-white text-sm font-semibold leading-tight">Global Researcher Activity</p>
-                <p className="text-white/40 text-[11px] mt-0.5">
-                  {stats.total.toLocaleString()} researchers · {stats.countries} countr{stats.countries !== 1 ? 'ies' : 'y'}
-                  {stats.online > 0 && ` · ${stats.online} online now`}
-                </p>
-              </div>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="h-8 w-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+            {/* Close button — sits above ResearcherGlobe's own logo */}
+            <button
+              onClick={() => setModalOpen(false)}
+              className="absolute top-4 right-4 z-30 h-8 w-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+              aria-label="Close"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
         </div>
       )}
