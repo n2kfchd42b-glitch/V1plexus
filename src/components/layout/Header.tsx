@@ -127,9 +127,6 @@ export function Header({ profile, title, onSearchClick }: HeaderProps) {
               <p className="text-sm font-semibold text-[var(--text-primary)] leading-tight">
                 {profile.full_name ?? 'User'}
               </p>
-              {profile.role && (
-                <p className="text-[11px] text-[var(--text-tertiary)] capitalize mt-0.5">{profile.role}</p>
-              )}
             </div>
             <div className="w-8 h-8 rounded-full bg-[var(--accent-primary)] flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 ring-2 ring-[var(--border-default)]">
               {profile.avatar_url ? (

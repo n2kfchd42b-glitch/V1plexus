@@ -197,10 +197,14 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
 
       {/* User chip + collapse controls */}
       <div className="relative z-10 border-t border-white/10">
-        <div className={cn(
-          'flex items-center gap-2.5 transition-all duration-200',
-          collapsed ? 'px-2 py-2 justify-center' : 'px-3 py-3'
-        )}>
+        <Link
+          href="/settings"
+          className={cn(
+            'flex items-center gap-2.5 transition-all duration-200 hover:bg-[var(--bg-sidebar-hover)] rounded-md',
+            collapsed ? 'px-2 py-2 justify-center' : 'px-3 py-3'
+          )}
+          title={collapsed ? (profile?.full_name ?? 'Profile') : undefined}
+        >
           <div className="flex items-center justify-center rounded-full bg-[var(--accent-primary)] text-white text-xs font-bold flex-shrink-0 h-7 w-7">
             {profile?.avatar_url ? (
               <img src={profile.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" />
@@ -211,14 +215,11 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white/90 truncate leading-tight">
-                {profile?.full_name ?? 'Researcher'}
-              </p>
-              <p className="text-[10px] text-[var(--text-sidebar-icon)] truncate capitalize">
-                {profile?.role ?? 'Researcher'}
+                {profile?.full_name ?? 'Account'}
               </p>
             </div>
           )}
-        </div>
+        </Link>
 
         <div className={cn(
           'flex items-center border-t border-white/5 transition-all duration-200',
