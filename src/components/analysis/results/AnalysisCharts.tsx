@@ -87,12 +87,12 @@ const FULL_WIDTH_CHART_TYPES = new Set([
   'km_curve', 'time_series', 'heatmap', 'biplot',
   'epi_curve', 'mosaic', 'roc_curve', 'forest_meta',
   'forest_or', 'forest_hr', 'forest_irr', 'coefficient_plot',
-  'forest_rrr', 'scatter_matrix',
+  'forest_rrr', 'scatter_matrix', 'violin', 'ridge', 'correlogram',
 ])
 
 export function AnalysisCharts({ charts, runId, datasetId, versionId, analysisType, savedConfig }: Props) {
   if (!charts || charts.length === 0) return null
-  const visible = charts.filter(c => SUPPORTED_CHART_TYPES.has(c.type) && c.type !== 'roc_curve')
+  const visible = charts.filter(c => SUPPORTED_CHART_TYPES.has(c.type))
   if (visible.length === 0) return null
 
   const useGrid = visible.length > 1
@@ -172,7 +172,7 @@ const SUPPORTED_CHART_TYPES = new Set([
   'scree_plot', 'cluster_scatter', 'power_curve', 'epi_curve', 'acf_plot',
   'biplot', 'boxplot_2group', 'boxplot_groups', 'mosaic',
   'forest_rrr', 'paired_diff', 'silhouette_plot', 'scatter_matrix',
-  'qq_plot',
+  'qq_plot', 'violin', 'ridge', 'correlogram', 'dumbbell',
 ])
 
 // ── Chart Wrapper ────────────────────────────────────────────
@@ -339,6 +339,10 @@ function ChartRenderer({
               {type === 'silhouette_plot'   && <SilhouettePlot     data={data as SilhouettePoint[]} expanded={expanded} />}
               {type === 'scatter_matrix'    && <ScatterMatrix      data={data as ScatterPair[]} config={config ?? {}} expanded={expanded} />}
               {type === 'qq_plot'           && <QQPlot             data={data as { theoretical: number; observed: number }[]} config={config} expanded={expanded} />}
+              {type === 'violin'            && <ViolinPlot         data={data as ViolinGroup[]} config={config} expanded={expanded} />}
+              {type === 'ridge'             && <RidgePlot          data={data as ViolinGroup[]} config={config} expanded={expanded} />}
+              {type === 'correlogram'       && <CorrelogramChart   data={data as HeatmapData[]} config={config} />}
+              {type === 'dumbbell'          && <DumbbellChart      data={data as DumbbellPoint[]} config={config} />}
             </ChartRenderContext.Provider>
           </div>
         </div>
@@ -1538,6 +1542,375 @@ function ScatterMatrix({ data, config, expanded }: { data: ScatterPair[]; config
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// ── Shared KDE helper ─────────────────────────────────────────
+interface ViolinGroup { group: string; values: number[] }
+
+function computeKDE(values: number[], nPoints = 80): { x: number; y: number }[] {
+  if (values.length < 2) return []
+  const n = values.length
+  const m = values.reduce((s, v) => s + v, 0) / n
+  const std = Math.sqrt(values.reduce((s, v) => s + (v - m) ** 2, 0) / Math.max(1, n - 1))
+  const h = Math.max(1e-6, 1.06 * std * Math.pow(n, -0.2))
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const pad = (max - min) * 0.2 || h * 3
+  const xMin = min - pad
+  const xMax = max + pad
+  return Array.from({ length: nPoints }, (_, i) => {
+    const x = xMin + (i / (nPoints - 1)) * (xMax - xMin)
+    const y = values.reduce((sum, xi) => sum + Math.exp(-0.5 * ((x - xi) / h) ** 2), 0) / (n * h * Math.sqrt(2 * Math.PI))
+    return { x, y }
+  })
+}
+
+// ── Violin Plot ───────────────────────────────────────────────
+function ViolinPlot({ data, config: _config, expanded }: { data: ViolinGroup[]; config: Record<string, unknown>; expanded: boolean }) {
+  const cfg = useCfg()
+  const C = cfg.colors
+
+  if (!data || data.length === 0) return <p className="text-xs py-4 text-center" style={{ color: CHART_TOKENS.text.muted }}>No data</p>
+
+  const kdeGroups = data.map((g, i) => ({
+    group: g.group,
+    color: C[i % C.length] ?? chartColor(i),
+    kde: computeKDE(g.values),
+    sorted: [...g.values].sort((a, b) => a - b),
+    n: g.values.length,
+  }))
+
+  const allX = kdeGroups.flatMap(g => g.kde.map(p => p.x))
+  const allY = kdeGroups.flatMap(g => g.kde.map(p => p.y))
+  if (allX.length === 0) return null
+
+  const xMin = Math.min(...allX)
+  const xMax = Math.max(...allX)
+  const yMax = Math.max(...allY) || 1
+
+  const H = cfg.height ?? (expanded ? 420 : 280)
+  const W = 600
+  const PAD = { t: 20, r: 20, b: 48, l: 50 }
+  const plotW = W - PAD.l - PAD.r
+  const plotH = H - PAD.t - PAD.b
+
+  const nGroups = kdeGroups.length
+  const groupW = plotW / nGroups
+  const maxHalfW = groupW * 0.38
+
+  const toSvgY = (x: number) => PAD.t + plotH - ((x - xMin) / (xMax - xMin || 1)) * plotH
+  const normDensity = (y: number) => (y / yMax) * maxHalfW
+
+  const nTicks = 5
+  const yTicks = Array.from({ length: nTicks }, (_, i) => xMin + (i / (nTicks - 1)) * (xMax - xMin))
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} style={{ display: 'block', overflow: 'visible' }}>
+      {cfg.showGrid && yTicks.map((v, i) => {
+        const sy = toSvgY(v)
+        return <line key={i} x1={PAD.l} y1={sy} x2={W - PAD.r} y2={sy} stroke={CHART_TOKENS.grid} strokeWidth={1} strokeDasharray="3 5" />
+      })}
+      <line x1={PAD.l} y1={PAD.t} x2={PAD.l} y2={PAD.t + plotH} stroke={CHART_TOKENS.border} strokeWidth={1} />
+      {yTicks.map((v, i) => {
+        const sy = toSvgY(v)
+        return (
+          <g key={i}>
+            <line x1={PAD.l - 4} y1={sy} x2={PAD.l} y2={sy} stroke={CHART_TOKENS.border} strokeWidth={1} />
+            <text x={PAD.l - 7} y={sy + 4} fontSize={9} fill={CHART_TOKENS.text.muted} textAnchor="end" fontFamily="Manrope, sans-serif">{v.toFixed(1)}</text>
+          </g>
+        )
+      })}
+      {kdeGroups.map((g, gi) => {
+        const cx = PAD.l + gi * groupW + groupW / 2
+        if (g.kde.length === 0 || g.sorted.length === 0) return null
+        const n = g.sorted.length
+        const rightPts = g.kde.map(p => ({ sx: cx + normDensity(p.y), sy: toSvgY(p.x) }))
+        const leftPts = [...g.kde].reverse().map(p => ({ sx: cx - normDensity(p.y), sy: toSvgY(p.x) }))
+        const pathD = [...rightPts, ...leftPts].map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.sx.toFixed(1)} ${p.sy.toFixed(1)}`).join(' ') + ' Z'
+        const q1 = g.sorted[Math.floor(n * 0.25)]
+        const q3 = g.sorted[Math.floor(n * 0.75)]
+        const med = g.sorted[Math.floor(n * 0.5)]
+        const iqrVal = q3 - q1
+        const whiskerLo = Math.max(g.sorted[0], q1 - iqrVal * 1.5)
+        const whiskerHi = Math.min(g.sorted[n - 1], q3 + iqrVal * 1.5)
+        const boxW = Math.min(12, groupW * 0.13)
+        const syQ1 = toSvgY(q1), syQ3 = toSvgY(q3), syMed = toSvgY(med)
+        const syWLo = toSvgY(whiskerLo), syWHi = toSvgY(whiskerHi)
+        return (
+          <g key={g.group}>
+            <path d={pathD} fill={g.color} fillOpacity={0.18} stroke={g.color} strokeWidth={1.5} strokeOpacity={0.6} />
+            <line x1={cx} y1={syWHi} x2={cx} y2={syQ3} stroke={g.color} strokeWidth={1.5} strokeOpacity={0.6} strokeDasharray="3 2" />
+            <line x1={cx} y1={syQ1} x2={cx} y2={syWLo} stroke={g.color} strokeWidth={1.5} strokeOpacity={0.6} strokeDasharray="3 2" />
+            <rect x={cx - boxW / 2} y={syQ3} width={boxW} height={Math.max(1, syQ1 - syQ3)} fill={g.color} fillOpacity={0.55} rx={2} stroke={g.color} strokeWidth={1} strokeOpacity={0.8} />
+            <line x1={cx - boxW / 2 - 2} y1={syMed} x2={cx + boxW / 2 + 2} y2={syMed} stroke="#fff" strokeWidth={2.5} strokeLinecap="round" />
+            <line x1={cx - boxW / 2 - 2} y1={syMed} x2={cx + boxW / 2 + 2} y2={syMed} stroke={g.color} strokeWidth={1} strokeLinecap="round" />
+            <text x={cx} y={H - PAD.b + 14} fontSize={11} fill={CHART_TOKENS.text.secondary} textAnchor="middle" fontFamily="Manrope, sans-serif" fontWeight={500}>
+              {g.group.length > 14 ? g.group.slice(0, 12) + '…' : g.group}
+            </text>
+            <text x={cx} y={H - PAD.b + 26} fontSize={9} fill={CHART_TOKENS.text.muted} textAnchor="middle" fontFamily="Manrope, sans-serif">n={g.n}</text>
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
+// ── Ridge Plot ────────────────────────────────────────────────
+function RidgePlot({ data, config: _config, expanded }: { data: ViolinGroup[]; config: Record<string, unknown>; expanded: boolean }) {
+  const cfg = useCfg()
+  const C = cfg.colors
+
+  if (!data || data.length === 0) return <p className="text-xs py-4 text-center" style={{ color: CHART_TOKENS.text.muted }}>No data</p>
+
+  const kdeGroups = data.map((g, i) => ({
+    group: g.group,
+    color: C[i % C.length] ?? chartColor(i),
+    kde: computeKDE(g.values),
+  }))
+
+  const allX = kdeGroups.flatMap(g => g.kde.map(p => p.x))
+  if (allX.length === 0) return null
+
+  const xMin = Math.min(...allX)
+  const xMax = Math.max(...allX)
+  const nGroups = kdeGroups.length
+  const H = cfg.height ?? (expanded ? 420 : Math.max(200, nGroups * 60 + 60))
+  const W = 600
+  const PAD = { t: 10, r: 20, b: 40, l: 110 }
+  const plotW = W - PAD.l - PAD.r
+  const plotH = H - PAD.t - PAD.b
+  const rowH = plotH / nGroups
+
+  const toSvgX = (x: number) => PAD.l + ((x - xMin) / (xMax - xMin || 1)) * plotW
+
+  const enriched = kdeGroups.map((g, gi) => {
+    const maxY = Math.max(...g.kde.map(p => p.y)) || 1
+    const baseline = PAD.t + (gi + 1) * rowH
+    return { ...g, baseline, toSvgY: (y: number) => baseline - (y / maxY) * rowH * 1.4 }
+  })
+
+  const nTicks = 5
+  const xTicks = Array.from({ length: nTicks }, (_, i) => xMin + (i / (nTicks - 1)) * (xMax - xMin))
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} style={{ display: 'block', overflow: 'visible' }}>
+      {cfg.showGrid && xTicks.map((v, i) => {
+        const sx = toSvgX(v)
+        return <line key={i} x1={sx} y1={PAD.t} x2={sx} y2={PAD.t + plotH} stroke={CHART_TOKENS.grid} strokeWidth={1} strokeDasharray="3 5" />
+      })}
+      {[...enriched].reverse().map(g => {
+        if (g.kde.length === 0) return null
+        const pts = g.kde.map(p => ({ sx: toSvgX(p.x), sy: g.toSvgY(p.y) }))
+        const curve = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.sx.toFixed(1)} ${p.sy.toFixed(1)}`).join(' ')
+        const close = ` L ${pts[pts.length - 1].sx.toFixed(1)} ${g.baseline} L ${pts[0].sx.toFixed(1)} ${g.baseline} Z`
+        return (
+          <g key={g.group}>
+            <path d={curve + close} fill={g.color} fillOpacity={0.22} stroke={g.color} strokeWidth={2} strokeOpacity={0.8} />
+            <line x1={PAD.l} y1={g.baseline} x2={W - PAD.r} y2={g.baseline} stroke={CHART_TOKENS.border} strokeWidth={0.5} />
+            <text x={PAD.l - 8} y={g.baseline - 4} fontSize={11} fill={CHART_TOKENS.text.secondary} textAnchor="end" fontFamily="Manrope, sans-serif" fontWeight={500}>
+              {g.group.length > 16 ? g.group.slice(0, 14) + '…' : g.group}
+            </text>
+          </g>
+        )
+      })}
+      <line x1={PAD.l} y1={PAD.t + plotH} x2={W - PAD.r} y2={PAD.t + plotH} stroke={CHART_TOKENS.border} strokeWidth={1} />
+      {xTicks.map((v, i) => {
+        const sx = toSvgX(v)
+        return (
+          <g key={i}>
+            <line x1={sx} y1={PAD.t + plotH} x2={sx} y2={PAD.t + plotH + 4} stroke={CHART_TOKENS.border} strokeWidth={1} />
+            <text x={sx} y={PAD.t + plotH + 14} fontSize={9} fill={CHART_TOKENS.text.muted} textAnchor="middle" fontFamily="Manrope, sans-serif">{v.toFixed(1)}</text>
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
+// ── Correlogram ───────────────────────────────────────────────
+function CorrelogramChart({ data, config }: { data: HeatmapData[]; config: Record<string, unknown> }) {
+  const variables = (config.variables as string[]) ?? []
+  const n = variables.length
+  if (n === 0) return null
+
+  const cellSize = Math.min(72, Math.max(36, 380 / n))
+  const labelW = Math.min(110, Math.max(60, cellSize * 1.3))
+
+  function stars(p: number): string {
+    if (p < 0.001) return '***'
+    if (p < 0.01) return '**'
+    if (p < 0.05) return '*'
+    return ''
+  }
+
+  const getCell = (v1: string, v2: string) => data.find(d => d.x === v1 && d.y === v2)
+
+  return (
+    <div className="overflow-x-auto py-2">
+      <div style={{ display: 'grid', gridTemplateColumns: `${labelW}px repeat(${n}, ${cellSize}px)`, gap: 3 }}>
+        <div />
+        {variables.map(v => (
+          <div key={v} className="text-[9px] font-semibold text-center overflow-hidden text-ellipsis whitespace-nowrap"
+            style={{ color: CHART_TOKENS.text.secondary, fontFamily: 'Manrope, sans-serif' }} title={v}>
+            {v.length > 9 ? v.slice(0, 7) + '…' : v}
+          </div>
+        ))}
+        {variables.map((v1, i) => (
+          <Fragment key={v1}>
+            <div className="text-[9px] font-semibold overflow-hidden text-ellipsis whitespace-nowrap flex items-center pr-1"
+              style={{ color: CHART_TOKENS.text.secondary, fontFamily: 'Manrope, sans-serif' }}>{v1}</div>
+            {variables.map((v2, j) => {
+              const cell = getCell(v1, v2)
+              const r = cell?.r ?? (i === j ? 1 : 0)
+              const p = cell?.p ?? 1
+              const isDiag = i === j
+              const isUpper = j > i
+
+              if (isDiag) {
+                return (
+                  <div key={v2} className="rounded-lg flex items-center justify-center"
+                    style={{ width: cellSize, height: cellSize, background: '#f5f5f5', border: `1px solid ${CHART_TOKENS.border}` }}>
+                    <span className="text-[9px] font-bold text-center px-0.5" style={{ color: CHART_TOKENS.text.secondary, fontFamily: 'Manrope, sans-serif', lineHeight: 1.2 }}>
+                      {v1.length > 8 ? v1.slice(0, 6) + '…' : v1}
+                    </span>
+                  </div>
+                )
+              }
+
+              if (isUpper) {
+                const absR = Math.abs(r)
+                const textColor = r > 0 ? chartColor(0) : chartColor(4)
+                return (
+                  <div key={v2} className="rounded-lg flex flex-col items-center justify-center gap-0.5"
+                    style={{ width: cellSize, height: cellSize, background: '#fafafa', border: `1px solid ${CHART_TOKENS.border}` }}>
+                    <span className="text-[10px] font-bold tabular-nums" style={{ color: absR >= 0.3 ? textColor : CHART_TOKENS.text.muted, fontFamily: "'JetBrains Mono', monospace" }}>
+                      {r.toFixed(2)}
+                    </span>
+                    {stars(p) && (
+                      <span className="text-[9px] font-bold leading-none" style={{ color: chartColor(4) }}>{stars(p)}</span>
+                    )}
+                  </div>
+                )
+              }
+
+              const absR = Math.abs(r)
+              const fill = r > 0 ? chartColor(0) : chartColor(4)
+              const circR = absR * (cellSize * 0.38) + cellSize * 0.04
+              return (
+                <div key={v2} className="rounded-lg flex items-center justify-center cursor-default"
+                  title={`r = ${r.toFixed(3)}, p = ${p.toFixed(4)}`}
+                  style={{ width: cellSize, height: cellSize, background: '#fafafa', border: `1px solid ${CHART_TOKENS.border}` }}>
+                  <svg width={cellSize - 6} height={cellSize - 6} style={{ overflow: 'visible' }}>
+                    <circle
+                      cx={(cellSize - 6) / 2} cy={(cellSize - 6) / 2} r={circR}
+                      fill={fill} fillOpacity={0.15 + absR * 0.65}
+                      stroke={fill} strokeWidth={1} strokeOpacity={0.4 + absR * 0.4}
+                    />
+                  </svg>
+                </div>
+              )
+            })}
+          </Fragment>
+        ))}
+      </div>
+      <div className="flex items-center gap-5 mt-4 px-1 flex-wrap">
+        {[{ color: chartColor(0), label: 'Positive' }, { color: chartColor(4), label: 'Negative' }].map(({ color, label }) => (
+          <div key={label} className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-full" style={{ background: color, opacity: 0.75 }} />
+            <span className="text-[10px]" style={{ color: CHART_TOKENS.text.secondary, fontFamily: 'Manrope, sans-serif' }}>{label}</span>
+          </div>
+        ))}
+        <span className="text-[10px] ml-2" style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}>
+          * p&lt;.05 &nbsp; ** p&lt;.01 &nbsp; *** p&lt;.001 (upper triangle)
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// ── Dumbbell Chart ────────────────────────────────────────────
+interface DumbbellPoint { label: string; value1: number; value2: number }
+
+function DumbbellChart({ data, config }: { data: DumbbellPoint[]; config: Record<string, unknown> }) {
+  const cfg = useCfg()
+  const C = cfg.colors
+  const label1 = (config.label1 as string) ?? 'Group 1'
+  const label2 = (config.label2 as string) ?? 'Group 2'
+
+  if (!data || data.length === 0) return <p className="text-xs py-4 text-center" style={{ color: CHART_TOKENS.text.muted }}>No data</p>
+
+  const allVals = data.flatMap(d => [d.value1, d.value2]).filter(v => isFinite(v))
+  if (allVals.length === 0) return null
+
+  const rowH = 44
+  const W = 560
+  const PAD = { t: 30, r: 60, b: 30, l: 120 }
+  const plotW = W - PAD.l - PAD.r
+  const H = data.length * rowH + PAD.t + PAD.b
+
+  const xMin = Math.min(...allVals)
+  const xMax = Math.max(...allVals)
+  const pad = (xMax - xMin) * 0.18 || 1
+  const domMin = xMin - pad
+  const domMax = xMax + pad
+
+  const toSvgX = (v: number) => PAD.l + ((v - domMin) / (domMax - domMin)) * plotW
+
+  const nTicks = 5
+  const xTicks = Array.from({ length: nTicks }, (_, i) => domMin + (i / (nTicks - 1)) * (domMax - domMin))
+
+  const c1 = C[0] ?? chartColor(0)
+  const c2 = C[1] ?? chartColor(1)
+
+  return (
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} style={{ display: 'block' }}>
+        {xTicks.map((v, i) => {
+          const sx = toSvgX(v)
+          return (
+            <g key={i}>
+              {cfg.showGrid && <line x1={sx} y1={PAD.t} x2={sx} y2={H - PAD.b} stroke={CHART_TOKENS.grid} strokeWidth={1} strokeDasharray="3 5" />}
+              <line x1={sx} y1={H - PAD.b} x2={sx} y2={H - PAD.b + 4} stroke={CHART_TOKENS.border} strokeWidth={1} />
+              <text x={sx} y={H - PAD.b + 14} fontSize={9} fill={CHART_TOKENS.text.muted} textAnchor="middle" fontFamily="Manrope, sans-serif">{v.toFixed(2)}</text>
+            </g>
+          )
+        })}
+        <line x1={PAD.l} y1={H - PAD.b} x2={W - PAD.r} y2={H - PAD.b} stroke={CHART_TOKENS.border} strokeWidth={1} />
+        {data.map((d, i) => {
+          const cy = PAD.t + i * rowH + rowH / 2
+          const sx1 = toSvgX(d.value1)
+          const sx2 = toSvgX(d.value2)
+          const diff = d.value2 - d.value1
+          const bg = i % 2 === 1 ? '#f7f9fb' : '#ffffff'
+          const lineColor = diff >= 0 ? c2 : c1
+          return (
+            <g key={d.label}>
+              <rect x={PAD.l} y={cy - rowH / 2} width={plotW} height={rowH} fill={bg} />
+              <text x={PAD.l - 8} y={cy + 4} fontSize={11} fill={CHART_TOKENS.text.primary} textAnchor="end" fontFamily="Manrope, sans-serif" fontWeight={500}>
+                {d.label.length > 16 ? d.label.slice(0, 14) + '…' : d.label}
+              </text>
+              <line x1={sx1} y1={cy} x2={sx2} y2={cy} stroke={lineColor} strokeWidth={2.5} strokeOpacity={0.45} />
+              <circle cx={sx1} cy={cy} r={7} fill={c1} fillOpacity={0.9} stroke="#fff" strokeWidth={2} />
+              <circle cx={sx2} cy={cy} r={7} fill={c2} fillOpacity={0.9} stroke="#fff" strokeWidth={2} />
+              <text x={Math.max(sx1, sx2) + 12} y={cy + 4} fontSize={9} fill={lineColor} fontFamily="'JetBrains Mono', monospace" fontWeight={700}>
+                {diff >= 0 ? '+' : ''}{diff.toFixed(2)}
+              </text>
+            </g>
+          )
+        })}
+      </svg>
+      {cfg.showLegend && (
+        <div className="flex justify-center gap-6 mt-3">
+          {[{ color: c1, label: label1 }, { color: c2, label: label2 }].map(({ color, label }) => (
+            <div key={label} className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
+              <span className="text-[11px]" style={{ color: CHART_TOKENS.text.secondary, fontFamily: 'Manrope, sans-serif' }}>{label}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

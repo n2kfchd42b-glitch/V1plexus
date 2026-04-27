@@ -243,12 +243,19 @@ export function runTTest(data: DataRow[], config: TTestConfig): AnalysisResult {
       footnotes: [`Levene's test for equality of variances: F = ${fmt(leveneF)}, p = ${formatPValue(leveneP)}`]
     })
 
+    const violinData = [
+      { group: groups[0], values: g1Vals.slice(0, 500) },
+      { group: groups[1], values: g2Vals.slice(0, 500) },
+    ]
     chartData = [
       { type: 'boxplot_2group', title: `${variable} by ${groupVariable}`, data: [
         { group: groups[0], mean: m1, sd: s1 },
         { group: groups[1], mean: m2, sd: s2 }
       ], config: {} },
+      { type: 'violin', title: `Distribution of ${variable} by ${groupVariable}`, data: violinData, config: {} },
+      { type: 'ridge', title: `Density: ${variable} by ${groupVariable}`, data: violinData, config: {} },
       { type: 'qq_plot', title: `Q-Q Plot: ${variable}`, data: qqNormalData([...g1Vals, ...g2Vals]), config: { cohenD: d } },
+      { type: 'dumbbell', title: `Group Means: ${variable}`, data: [{ label: variable, value1: m1, value2: m2 }], config: { label1: groups[0], label2: groups[1] } },
     ]
 
     const sig = pValue < 0.05 ? 'significant' : 'not significant'
@@ -276,7 +283,12 @@ export function runTTest(data: DataRow[], config: TTestConfig): AnalysisResult {
       rows: [[`${variable} vs ${pairedVariable}`, fmt(diffMean), fmt(diffSD), fmt(se), fmt(t), df, formatPValue(pValue), fmtCI(diffMean - tCrit * se, diffMean + tCrit * se), fmt(d, 2)]]
     })
 
-    chartData = [{ type: 'paired_diff', data: pairs, mean: diffMean, pValue: formatPValue(pValue) }]
+    const xFiltered = x.filter((_, i) => !isNaN(x[i]) && !isNaN(y[i]))
+    const yFiltered = y.filter((_, i) => !isNaN(x[i]) && !isNaN(y[i]))
+    chartData = [
+      { type: 'paired_diff', data: pairs, mean: diffMean, pValue: formatPValue(pValue) },
+      { type: 'dumbbell', title: `Pre vs Post: ${variable}`, data: [{ label: 'Mean', value1: mean(xFiltered), value2: mean(yFiltered) }], config: { label1: variable, label2: pairedVariable } },
+    ]
     interpretation = `Paired t-test: mean difference = ${fmt(diffMean, 2)} (SD = ${fmt(diffSD, 2)}), t(${df}) = ${fmt(t, 2)}, p ${formatPValue(pValue)}. Cohen's d = ${fmt(d, 2)}.`
 
   } else {
@@ -475,8 +487,11 @@ export function runAnova(data: DataRow[], config: AnovaConfig): AnalysisResult {
   // Residuals for Q-Q plot (within-group deviations)
   const allResiduals = groups.flatMap(g => groupData[g].map(v => v - mean(groupData[g])))
 
+  const anovaViolinData = groups.map(g => ({ group: g, values: groupData[g].slice(0, 500) }))
   const chartData = [
     { type: 'boxplot_groups', title: `${dependent} by ${factor1}`, data: groupStats.map(g => ({ group: g.group, mean: g.mean, sd: g.sd })), config: {} },
+    { type: 'violin', title: `Distribution of ${dependent} by ${factor1}`, data: anovaViolinData, config: {} },
+    { type: 'ridge', title: `Density: ${dependent} by ${factor1}`, data: anovaViolinData, config: {} },
     { type: 'qq_plot', title: 'Q-Q Plot of Residuals', data: qqNormalData(allResiduals), config: { etaSq } },
   ]
 
@@ -579,10 +594,21 @@ function runMannWhitney(data: DataRow[], variable: string, groupVariable: string
     type: 't_test',
     summary: { testType: 'mann_whitney', variable, groupVariable, U: fmt(U), Z: fmt(Z, 3), pValue: formatPValue(pValue), cohenD: rankBiserialR, n: N },
     tables,
-    charts: [{ type: 'boxplot_2group', title: `${variable} by ${groupVariable}`, data: [
-      { group: groups[0], mean: med1, sd: iqr(g1Vals) },
-      { group: groups[1], mean: med2, sd: iqr(g2Vals) },
-    ], config: {} }],
+    charts: [
+      { type: 'boxplot_2group', title: `${variable} by ${groupVariable}`, data: [
+        { group: groups[0], mean: med1, sd: iqr(g1Vals) },
+        { group: groups[1], mean: med2, sd: iqr(g2Vals) },
+      ], config: {} },
+      { type: 'violin', title: `Distribution of ${variable} by ${groupVariable}`, data: [
+        { group: groups[0], values: g1Vals.slice(0, 500) },
+        { group: groups[1], values: g2Vals.slice(0, 500) },
+      ], config: {} },
+      { type: 'ridge', title: `Density: ${variable} by ${groupVariable}`, data: [
+        { group: groups[0], values: g1Vals.slice(0, 500) },
+        { group: groups[1], values: g2Vals.slice(0, 500) },
+      ], config: {} },
+      { type: 'dumbbell', title: `Group Medians: ${variable}`, data: [{ label: variable, value1: med1, value2: med2 }], config: { label1: groups[0], label2: groups[1] } },
+    ],
     interpretation: `Mann-Whitney U test comparing ${variable} between ${groups[0]} (Mdn=${fmt(med1, 2)}) and ${groups[1]} (Mdn=${fmt(med2, 2)}). ` +
       `U = ${fmt(U)}, Z = ${fmt(Z, 3)}, p ${formatPValue(pValue)} — ${sig}.`
   }
@@ -669,7 +695,11 @@ function runKruskalWallis(data: DataRow[], dependent: string, factor1: string): 
     type: 'anova',
     summary: { testType: 'kruskal_wallis', dependent, factor1, H: fmt(H, 3), df, pValue: formatPValue(pValue), n: N, etaSq: epsilonSq },
     tables,
-    charts: [{ type: 'boxplot_groups', title: `${dependent} by ${factor1}`, data: groupStats.map(g => ({ group: g.group, mean: g.median, sd: 0 })), config: {} }],
+    charts: [
+      { type: 'boxplot_groups', title: `${dependent} by ${factor1}`, data: groupStats.map(g => ({ group: g.group, mean: g.median, sd: 0 })), config: {} },
+      { type: 'violin', title: `Distribution of ${dependent} by ${factor1}`, data: groupLabels.map(g => ({ group: g, values: groupData[g].slice(0, 500) })), config: {} },
+      { type: 'ridge', title: `Density: ${dependent} by ${factor1}`, data: groupLabels.map(g => ({ group: g, values: groupData[g].slice(0, 500) })), config: {} },
+    ],
     interpretation: `Kruskal-Wallis H test comparing ${dependent} across ${groupLabels.length} groups of ${factor1} (N=${N}). ` +
       `H(${df}) = ${fmt(H, 2)}, p ${formatPValue(pValue)} — ${sig}.`
   }
@@ -774,6 +804,7 @@ export function runCorrelation(data: DataRow[], config: CorrelationConfig): Anal
     tables,
     charts: [
       { type: 'heatmap', title: 'Correlation Heatmap', data: heatmapData, config: { variables } },
+      { type: 'correlogram', title: 'Correlogram', data: heatmapData, config: { variables } },
       { type: 'scatter_matrix', title: 'Scatter Matrix', data: scatterData, config: { variables } }
     ],
     interpretation: strongCorrs.length > 0
