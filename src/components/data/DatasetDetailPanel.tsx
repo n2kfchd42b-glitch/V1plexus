@@ -166,7 +166,7 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
   const [dataLoading,     setDataLoading]     = useState(false)
   const [error,           setError]           = useState<string | null>(null)
 
-  const [activeTab, setActiveTab] = useState<'schema' | 'data' | 'clean' | 'quality' | 'charts'>(
+  const [activeTab, setActiveTab] = useState<'schema' | 'data' | 'clean' | 'quality' | 'charts' | 'duplicates'>(
     searchParams.get('tab') === 'charts' ? 'charts'
       : searchParams.get('tab') === 'data' ? 'data'
       : searchParams.get('tab') === 'clean' ? 'clean'
@@ -180,8 +180,7 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
   const [savedCharts,      setSavedCharts]      = useState<DatasetExploration[]>([])
   const [chartsLoading,    setChartsLoading]    = useState(false)
   const [deletingId,       setDeletingId]       = useState<string | null>(null)
-  const [showDuplicateModal, setShowDuplicateModal] = useState(false)
-  const [confirmDelete,      setConfirmDelete]      = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   // Quality tab state (lazy — only fetched when tab first opened)
   const [qualityReport,     setQualityReport]     = useState<QualityReport | null | undefined>(undefined)
@@ -496,18 +495,19 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
             </button>
           ))}
 
-          {/* Duplicates — direct modal trigger, no intermediate page */}
+          {/* Duplicates — inline tab, only shown when duplicates exist */}
           {duplicateReport && (
-            <>
-              <span className="mx-1.5 text-[var(--text-tertiary)] select-none">|</span>
-              <button
-                onClick={() => setShowDuplicateModal(true)}
-                className="px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 text-[var(--status-warning-text)] hover:bg-[var(--status-warning-bg)]"
-              >
-                <AlertTriangle className="h-3 w-3" />
-                {duplicateReport.duplicateGroups.length} Duplicates
-              </button>
-            </>
+            <button
+              onClick={() => setActiveTab('duplicates')}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+                activeTab === 'duplicates'
+                  ? 'bg-[var(--status-warning)] text-white'
+                  : 'text-[var(--status-warning-text)] hover:bg-[var(--status-warning-bg)]'
+              }`}
+            >
+              <AlertTriangle className="h-3 w-3" />
+              {duplicateReport.duplicateGroups.length} Duplicates
+            </button>
           )}
 
           {/* ••• overflow menu — pushed to far right */}
@@ -571,7 +571,30 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
       </div>
 
       {/* ── TAB CONTENT ── */}
-      {activeTab === 'charts' ? (
+      {activeTab === 'duplicates' && duplicateReport && parsedData && activeVersion && user ? (
+        /* ════ INLINE DUPLICATES ════ */
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <DuplicateReviewModal
+            inline
+            rows={parsedData.rows}
+            columns={columns}
+            datasetId={datasetId}
+            projectId={projectId}
+            version={activeVersion}
+            branchName={branches.find(b => b.id === activeBranchId)?.name ?? 'main'}
+            createdBy={user.id}
+            onClose={() => setActiveTab('schema')}
+            onVersionSaved={(newVersionId) => {
+              setActiveTab('schema')
+              createClient().from('dataset_versions').select('*').eq('dataset_id', datasetId)
+                .order('version_number', { ascending: false })
+                .then(({ data }) => {
+                  if (data) { setVersions(data); setActiveVersionId(newVersionId) }
+                })
+            }}
+          />
+        </div>
+      ) : activeTab === 'charts' ? (
         /* ════ INLINE EXPLORER ════ */
         <div className="flex-1 min-h-0 flex overflow-hidden">
           {/* Left: Guide panel */}
@@ -1145,30 +1168,6 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
       </div>
       )}
 
-      {showDuplicateModal && duplicateReport && parsedData && activeVersion && user && (
-        <DuplicateReviewModal
-          rows={parsedData.rows}
-          columns={columns}
-          datasetId={datasetId}
-          projectId={projectId}
-          version={activeVersion}
-          branchName={branches.find(b => b.id === activeBranchId)?.name ?? 'main'}
-          createdBy={user.id}
-          onClose={() => setShowDuplicateModal(false)}
-          onVersionSaved={(newVersionId) => {
-            setShowDuplicateModal(false)
-            const supabaseRefresh = createClient()
-            supabaseRefresh.from('dataset_versions').select('*').eq('dataset_id', datasetId)
-              .order('version_number', { ascending: false })
-              .then(({ data }) => {
-                if (data) {
-                  setVersions(data)
-                  setActiveVersionId(newVersionId)
-                }
-              })
-          }}
-        />
-      )}
     </div>
   )
 }

@@ -27,6 +27,8 @@ interface DuplicateReviewModalProps {
   createdBy: string
   onClose: () => void
   onVersionSaved: (newVersionId: string) => void
+  /** Render as an inline tab instead of a floating modal */
+  inline?: boolean
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -222,7 +224,7 @@ function DuplicateGroupRow({
 // ─── Main Modal ───────────────────────────────────────────────────────────────
 
 export function DuplicateReviewModal({
-  rows, columns, datasetId, projectId, version, branchName, createdBy, onClose, onVersionSaved,
+  rows, columns, datasetId, projectId, version, branchName, createdBy, onClose, onVersionSaved, inline,
 }: DuplicateReviewModalProps) {
   const allColNames = columns.map(c => c.name)
   const [idColumnOverride, setIdColumnOverride]     = useState<string>('')
@@ -321,7 +323,7 @@ export function DuplicateReviewModal({
     }
   }
 
-  return (
+  const content = (
     <>
     <JustificationModal
       isOpen={showJustification}
@@ -332,8 +334,8 @@ export function DuplicateReviewModal({
       }}
       onConfirm={handleJustificationConfirm}
     />
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+    <div className={inline ? 'flex flex-col h-full overflow-hidden bg-white' : 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm'}>
+      <div className={inline ? 'flex flex-col h-full w-full overflow-hidden' : 'bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden'}>
 
         {/* ── Header ── */}
         <div className="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4 shrink-0">
@@ -350,9 +352,11 @@ export function DuplicateReviewModal({
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0">
-            <X className="h-4 w-4" />
-          </button>
+          {!inline && (
+            <button onClick={onClose} className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0">
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         {/* ── Controls bar ── */}
@@ -586,4 +590,5 @@ export function DuplicateReviewModal({
     </div>
     </>
   )
+  return content
 }
