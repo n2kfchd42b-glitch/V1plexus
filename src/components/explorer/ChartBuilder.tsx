@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { CHART_TOKENS, chartColor, chartColorMid, chartColorDim } from '@/lib/charts/design-tokens'
 import {
   BarChart2, TrendingUp, Circle, Activity, Box, PieChart as PieIcon,
@@ -45,6 +45,13 @@ interface ChartBuilderProps {
   leftPanel?: React.ReactNode
   /** Hide the top header bar entirely */
   noHeader?: boolean
+  /** Hide the "Dataset Explorer" title text (keep action buttons) */
+  hideTitle?: boolean
+  /** Controlled editor-open state (lifted from parent) */
+  editorOpen?: boolean
+  onEditorOpenChange?: (open: boolean) => void
+  /** Notified whenever the active chartType or config changes */
+  onChartChange?: (chartType: ChartType, config: ChartConfig) => void
 }
 
 // ─── Chart type definitions ───────────────────────────────────────────────────
@@ -243,10 +250,16 @@ function RenderChart({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSave, onInsertIntoDocument, initialChartType, initialConfig, leftPanel, noHeader }: ChartBuilderProps) {
+export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSave, onInsertIntoDocument, initialChartType, initialConfig, leftPanel, noHeader, hideTitle, editorOpen: editorOpenProp, onEditorOpenChange, onChartChange }: ChartBuilderProps) {
   const [chartType, setChartType] = useState<ChartType>(initialChartType ?? 'bar')
   const [config, setConfig] = useState<ChartConfig>(initialConfig ?? {})
-  const [editorOpen, setEditorOpen] = useState(false)
+  const [editorOpenInternal, setEditorOpenInternal] = useState(false)
+  const editorOpen = editorOpenProp !== undefined ? editorOpenProp : editorOpenInternal
+  function setEditorOpen(v: boolean | ((prev: boolean) => boolean)) {
+    const next = typeof v === 'function' ? v(editorOpen) : v
+    if (onEditorOpenChange) onEditorOpenChange(next)
+    else setEditorOpenInternal(next)
+  }
   const [editorConfig, setEditorConfig] = useState<ChartEditorConfig>(() => getDefaultConfig(initialChartType ?? 'bar', { height_px: 380 }))
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     numeric: true,
@@ -270,6 +283,11 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
   )
 
   const currentChartDef = CHART_TYPES.find(ct => ct.id === chartType)!
+
+  useEffect(() => {
+    onChartChange?.(chartType, config)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chartType, config])
 
   function patchConfig(patch: Partial<ChartConfig>) {
     setConfig(prev => ({ ...prev, ...patch }))
@@ -388,9 +406,11 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
             Back
           </Button>
         )}
-        <span className="font-bold text-sm" style={{ color: CHART_TOKENS.text.primary, fontFamily: 'Manrope, sans-serif' }}>
-          Dataset Explorer
-        </span>
+        {!hideTitle && (
+          <span className="font-bold text-sm" style={{ color: CHART_TOKENS.text.primary, fontFamily: 'Manrope, sans-serif' }}>
+            Dataset Explorer
+          </span>
+        )}
         <div className="flex items-center gap-2">
           {onInsertIntoDocument && (
             <Button
@@ -502,7 +522,7 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
           )}
 
           {/* Chart */}
-          <div className="flex-1 overflow-auto p-5">
+          <div className="flex-1 min-h-0 overflow-y-auto p-5">
             {config.title && (
               <div className="text-center text-sm font-bold mb-3" style={{ color: CHART_TOKENS.text.primary, fontFamily: 'Manrope, sans-serif' }}>
                 {config.title}

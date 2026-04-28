@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   ArrowLeft, BarChart2, Loader2, RefreshCw, MoreHorizontal,
   BarChart, LineChart, ScatterChart, TrendingUp, PieChart, Box, Grid3x3,
-  Trash2, Search, ChevronDown, ChevronRight,
+  Trash2, Search, ChevronDown, ChevronRight, Save, SlidersHorizontal,
   Hash, Type, Calendar, ToggleLeft, Tag, MapPin, Fingerprint, Copy, ShieldCheck,
   GitMerge, GitCommit, Archive, ArchiveRestore, AlertTriangle, ChevronsRight,
 } from 'lucide-react'
@@ -202,6 +202,8 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
   const [inlinePendingSave, setInlinePendingSave] = useState<{ chartType: ChartType; config: ChartConfig } | null>(null)
   const [inlineChartTitle,  setInlineChartTitle]  = useState('')
   const [inlineSaving,      setInlineSaving]      = useState(false)
+  const [inlineEditorOpen,  setInlineEditorOpen]  = useState(false)
+  const [liveChartState,    setLiveChartState]    = useState<{ chartType: ChartType; config: ChartConfig } | null>(null)
   const inlineTitleRef = useRef<HTMLInputElement>(null)
 
   const supabase = createClient()
@@ -660,6 +662,31 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
                 )}
               </div>
             )}
+
+            {/* Action bar */}
+            <div className="flex-shrink-0 border-t border-[var(--border-default)] p-2 flex items-center gap-2">
+              <button
+                onClick={() => setInlineEditorOpen(v => !v)}
+                className={`flex items-center justify-center gap-1.5 flex-1 h-7 rounded-md text-[11px] font-semibold transition-all ${
+                  inlineEditorOpen
+                    ? 'bg-[var(--accent-blue)] text-white'
+                    : 'bg-[var(--bg-inset)] text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)]'
+                }`}
+              >
+                <SlidersHorizontal size={12} />
+                Style
+              </button>
+              <button
+                onClick={() => {
+                  if (liveChartState) handleInlineRequestSave(liveChartState.chartType, liveChartState.config)
+                }}
+                disabled={!liveChartState}
+                className="flex items-center justify-center gap-1.5 flex-1 h-7 rounded-md text-[11px] font-semibold bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-hover)] transition-colors disabled:opacity-40"
+              >
+                <Save size={12} />
+                Save
+              </button>
+            </div>
           </div>
 
           {/* Right: ChartBuilder */}
@@ -678,6 +705,9 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
                 versionId={activeVersionId}
                 noHeader
                 leftPanel={null}
+                editorOpen={inlineEditorOpen}
+                onEditorOpenChange={setInlineEditorOpen}
+                onChartChange={(ct, cfg) => setLiveChartState({ chartType: ct, config: cfg })}
                 onSave={handleInlineRequestSave}
                 initialChartType={inlineChartType}
                 initialConfig={inlineChartConfig}
