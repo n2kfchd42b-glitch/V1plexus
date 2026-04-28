@@ -435,17 +435,20 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
           </button>
         ) : null}
 
-        <div className="mb-4">
-          <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)] font-manrope truncate">
-            {dataset.name}
-          </h1>
-          {dataset.description && (
-            <p className="text-xs text-[var(--text-tertiary)] mt-0.5 truncate max-w-lg">{dataset.description}</p>
-          )}
+        <div className="mb-3 flex items-center justify-between gap-4 min-w-0">
+          {/* Dataset name + description */}
+          <div className="min-w-0">
+            <h1 className="text-base font-bold tracking-tight text-[var(--text-primary)] font-manrope truncate">
+              {dataset.name}
+            </h1>
+            {dataset.description && (
+              <p className="text-xs text-[var(--text-tertiary)] mt-0.5 truncate max-w-xs">{dataset.description}</p>
+            )}
+          </div>
 
-          {/* Stat pills */}
+          {/* Stat pills — right of name */}
           {columns.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap mt-2">
+            <div className="flex items-center gap-1.5 flex-shrink-0">
               {[
                 { label: 'Rows',      value: rowCount.toLocaleString(), color: 'text-[var(--accent-blue)]' },
                 { label: 'Cols',      value: String(columns.length),    color: 'text-[var(--accent-blue)]' },
@@ -454,10 +457,10 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
               ].map(({ label, value, color }) => (
                 <div
                   key={label}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-[var(--bg-inset)] border border-[var(--border-subtle)] flex-shrink-0"
+                  className="flex flex-col items-center px-2 py-1 rounded-md bg-[var(--bg-inset)] border border-[var(--border-subtle)]"
                 >
                   <span className={`text-[11px] font-bold tabular-nums leading-none ${color}`}>{value}</span>
-                  <span className="text-[10px] text-[var(--text-tertiary)] leading-none">{label}</span>
+                  <span className="text-[9px] text-[var(--text-tertiary)] leading-none mt-0.5">{label}</span>
                 </div>
               ))}
             </div>
