@@ -1,12 +1,12 @@
 'use client'
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft, BarChart2, Loader2, RefreshCw, MoreHorizontal,
   BarChart, LineChart, ScatterChart, TrendingUp, PieChart, Box, Grid3x3,
-  Trash2, ExternalLink, Search, Plus, ChevronDown, ChevronRight,
+  Trash2, Search, ChevronDown, ChevronRight,
   Hash, Type, Calendar, ToggleLeft, Tag, MapPin, Fingerprint, Copy, ShieldCheck,
   GitMerge, GitCommit, Archive, ArchiveRestore, AlertTriangle, ChevronsRight,
 } from 'lucide-react'
@@ -15,13 +15,19 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { toast } from 'sonner'
 import { DatasetTable } from '@/components/data/DatasetTable'
 import { VersionSelector } from '@/components/data/VersionSelector'
 import { BranchSelector } from '@/components/data/BranchSelector'
 import { DuplicateReviewModal } from '@/components/data/DuplicateReviewModal'
+import { ChartBuilder } from '@/components/explorer/ChartBuilder'
+import { ExploreGuide } from '@/components/explorer/ExploreGuide'
 import { CleaningWorkbench } from '@/components/cleaning/CleaningWorkbench'
 import { DataQualityScorecard } from '@/components/dataset-hub/DataQualityScorecard'
 import { EnumeratorQualityPanel } from '@/components/dataset-hub/EnumeratorQualityPanel'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog'
 import { loadVersionData } from '@/lib/data/storage'
 import { detectDuplicates } from '@/lib/data/operations'
 import { useAuth } from '@/hooks/useAuth'
@@ -32,6 +38,7 @@ import {
   getDatasetBranchesOrdered,
   getDatasetExplorations,
   deleteDatasetExploration,
+  createDatasetExploration,
 } from '@/lib/data'
 import type {
   Dataset, DatasetVersion, DatasetBranch, ParsedDataset,
@@ -186,6 +193,17 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
   // Clean tab state (lazy mount — workbench only rendered after first activation)
   const [cleanMounted,      setCleanMounted]      = useState(false)
 
+  // Inline explorer state (charts tab)
+  const [guideLeftTab,      setGuideLeftTab]      = useState<'guide' | 'saved'>('guide')
+  const [explorerKey,       setExplorerKey]       = useState(0)
+  const [inlineChartType,   setInlineChartType]   = useState<ChartType | undefined>()
+  const [inlineChartConfig, setInlineChartConfig] = useState<ChartConfig | undefined>()
+  const [inlineSaveOpen,    setInlineSaveOpen]    = useState(false)
+  const [inlinePendingSave, setInlinePendingSave] = useState<{ chartType: ChartType; config: ChartConfig } | null>(null)
+  const [inlineChartTitle,  setInlineChartTitle]  = useState('')
+  const [inlineSaving,      setInlineSaving]      = useState(false)
+  const inlineTitleRef = useRef<HTMLInputElement>(null)
+
   const supabase = createClient()
 
   useEffect(() => {
@@ -249,6 +267,44 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
     await deleteDatasetExploration(supabase, id)
     setSavedCharts(prev => prev.filter(c => c.id !== id))
     setDeletingId(null)
+  }
+
+  function handleInlineGuideComplete(chartType: ChartType, config: ChartConfig) {
+    setInlineChartType(chartType)
+    setInlineChartConfig(config)
+    setExplorerKey(k => k + 1)
+  }
+
+  function handleInlineRequestSave(chartType: ChartType, config: ChartConfig) {
+    setInlinePendingSave({ chartType, config })
+    setInlineChartTitle(prev => prev || config.title || `${chartType} chart`)
+    setInlineSaveOpen(true)
+    setTimeout(() => inlineTitleRef.current?.focus(), 50)
+  }
+
+  async function handleInlineConfirmSave() {
+    if (!inlinePendingSave || !user || !activeVersionId) return
+    setInlineSaving(true)
+    try {
+      const result = await createDatasetExploration(supabase, {
+        dataset_id: datasetId,
+        version_id: activeVersionId,
+        title: inlineChartTitle.trim() || `${inlinePendingSave.chartType} chart`,
+        chart_type: inlinePendingSave.chartType,
+        config: { ...inlinePendingSave.config, title: inlineChartTitle.trim() || inlinePendingSave.config.title },
+        created_by: user.id,
+      })
+      if (result.status === 'error') throw new Error(result.error ?? 'Failed to save chart')
+      if (result.data) setSavedCharts(prev => [result.data!, ...prev])
+      setInlineSaveOpen(false)
+      setInlinePendingSave(null)
+      setGuideLeftTab('saved')
+      toast.success('Chart saved', { description: `"${inlineChartTitle.trim()}" saved to this dataset.` })
+    } catch (e) {
+      toast.error('Failed to save chart', { description: e instanceof Error ? e.message : 'Something went wrong' })
+    } finally {
+      setInlineSaving(false)
+    }
   }
 
   const handleVersionChange = (versionId: string) => {
@@ -355,10 +411,10 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-[var(--bg-app)]">
+    <div className="h-full flex flex-col bg-[var(--bg-app)]">
 
       {/* ── COMPACT HEADER ─────────────────────────────────────────────────── */}
-      <div className="px-6 pt-5 pb-0 bg-[var(--bg-surface)] border-b border-[var(--border-row)]">
+      <div className="px-6 pt-5 pb-0 bg-[var(--bg-surface)] border-b border-[var(--border-row)] flex-shrink-0">
 
         {showBackLink ? (
           <Link
@@ -521,7 +577,145 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
       </div>
 
       {/* ── TAB CONTENT ── */}
-      <div className="px-8 py-8">
+      {activeTab === 'charts' ? (
+        /* ════ INLINE EXPLORER ════ */
+        <div className="flex-1 min-h-0 flex overflow-hidden">
+          {/* Left: Guide panel */}
+          <div className="w-56 flex-shrink-0 flex flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)] overflow-hidden">
+            {/* Guide / Saved toggle */}
+            <div className="flex items-center gap-1 px-2 py-2 border-b border-[var(--border-default)] flex-shrink-0">
+              {(['guide', 'saved'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setGuideLeftTab(tab)}
+                  className={`flex-1 text-[10px] font-semibold py-1 rounded-md transition-colors ${
+                    guideLeftTab === tab
+                      ? 'bg-[var(--text-primary)] text-[var(--text-inverse)]'
+                      : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)]'
+                  }`}
+                >
+                  {tab === 'guide' ? 'Guide' : `Saved${savedCharts.length > 0 ? ` (${savedCharts.length})` : ''}`}
+                </button>
+              ))}
+            </div>
+
+            {guideLeftTab === 'guide' ? (
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <ExploreGuide
+                  sidebar
+                  columns={columns}
+                  onComplete={handleInlineGuideComplete}
+                  onSkip={() => setExplorerKey(k => k + 1)}
+                />
+              </div>
+            ) : (
+              /* Saved charts list */
+              <div className="flex-1 overflow-y-auto py-2">
+                {chartsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-4 w-4 animate-spin text-[var(--text-tertiary)]" />
+                  </div>
+                ) : savedCharts.length === 0 ? (
+                  <div className="px-3 py-6 text-center">
+                    <p className="text-[11px] text-[var(--text-tertiary)]">No saved explorations yet.</p>
+                    <button
+                      onClick={() => setGuideLeftTab('guide')}
+                      className="mt-2 text-[10px] text-[var(--accent-blue)] hover:underline"
+                    >
+                      Open guide →
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-0.5 px-1">
+                    {savedCharts.map(chart => {
+                      const meta = CHART_META[chart.chart_type] ?? { label: chart.chart_type, icon: <BarChart2 size={12} />, color: 'bg-[var(--bg-inset)] text-[var(--text-secondary)]' }
+                      return (
+                        <button
+                          key={chart.id}
+                          onClick={() => {
+                            setInlineChartType(chart.chart_type as ChartType)
+                            setInlineChartConfig(chart.config as ChartConfig)
+                            setInlineChartTitle(chart.title ?? '')
+                            setExplorerKey(k => k + 1)
+                          }}
+                          className="w-full text-left px-2.5 py-2 rounded-md hover:bg-[var(--bg-row-hover)] transition-colors group flex items-start justify-between gap-1"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium text-[var(--text-primary)] truncate">{chart.title}</p>
+                            <span className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded-full mt-0.5 ${meta.color}`}>
+                              {meta.icon}{meta.label}
+                            </span>
+                          </div>
+                          <button
+                            onClick={e => { e.stopPropagation(); handleDeleteChart(chart.id) }}
+                            disabled={deletingId === chart.id}
+                            className="flex-shrink-0 p-0.5 rounded text-[var(--text-tertiary)] opacity-0 group-hover:opacity-100 hover:text-[var(--status-error)] transition-all"
+                          >
+                            {deletingId === chart.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                          </button>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Right: ChartBuilder */}
+          <div className="flex-1 min-w-0 overflow-hidden">
+            {dataLoading || !parsedData ? (
+              <div className="flex flex-col items-center justify-center h-full gap-3">
+                <Loader2 className="h-5 w-5 animate-spin text-[var(--text-tertiary)]" />
+                <p className="text-xs text-[var(--text-tertiary)]">Loading dataset…</p>
+              </div>
+            ) : (
+              <ChartBuilder
+                key={explorerKey}
+                rows={parsedData.rows}
+                columns={parsedData.columns}
+                datasetId={datasetId}
+                versionId={activeVersionId}
+                noHeader
+                leftPanel={null}
+                onSave={handleInlineRequestSave}
+                initialChartType={inlineChartType}
+                initialConfig={inlineChartConfig}
+              />
+            )}
+          </div>
+
+          {/* Inline save dialog */}
+          <Dialog open={inlineSaveOpen} onOpenChange={open => { if (!inlineSaving) setInlineSaveOpen(open) }}>
+            <DialogContent className="sm:max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Save Chart</DialogTitle>
+                <DialogDescription>Give your chart a name so you can find it later.</DialogDescription>
+              </DialogHeader>
+              <input
+                ref={inlineTitleRef}
+                type="text"
+                placeholder="e.g. Viral Load by Sex"
+                value={inlineChartTitle}
+                onChange={e => setInlineChartTitle(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && !inlineSaving && handleInlineConfirmSave()}
+                className="w-full h-9 px-3 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <DialogFooter className="gap-2">
+                <Button variant="outline" size="sm" onClick={() => setInlineSaveOpen(false)} disabled={inlineSaving}>
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={handleInlineConfirmSave} disabled={inlineSaving || !inlineChartTitle.trim()}>
+                  {inlineSaving && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                  Save Chart
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      ) : (
+      /* ════ ALL OTHER TABS ════ */
+      <div className="flex-1 overflow-y-auto px-8 py-8">
         {error && (
           <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-xl text-sm flex items-center justify-between">
             <span>{error}</span>
@@ -926,87 +1120,8 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
         )}
 
 
-        {/* ════ EXPLORATIONS TAB ════ */}
-        {activeTab === 'charts' && (
-          <div>
-            {chartsLoading ? (
-              <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-5 w-5 animate-spin text-[var(--text-tertiary)]" />
-              </div>
-            ) : savedCharts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 gap-5 text-center bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)]">
-                <div className="flex items-end gap-2 h-20">
-                  {[0.4, 0.7, 0.55, 1, 0.85, 0.6, 0.45, 0.9, 0.75, 0.5].map((h, i) => (
-                    <div key={i} className="w-5 rounded-t-sm bg-[var(--accent-blue-subtle)]" style={{ height: `${h * 80}px` }} />
-                  ))}
-                </div>
-                <div>
-                  <p className="font-manrope font-bold text-base text-[var(--text-primary)]">No saved explorations yet</p>
-                  <p className="text-xs text-[var(--text-tertiary)] mt-1 max-w-xs">
-                    Open the Explorer to build bar charts, histograms, scatter plots, and more — then save them here.
-                  </p>
-                </div>
-                <Link href={`/projects/${projectId}/data/${datasetId}/explore`}>
-                  <button className="inline-flex items-center gap-2 bg-[var(--accent-primary)] text-[var(--text-inverse)] px-6 py-2.5 rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity">
-                    <BarChart2 className="h-4 w-4" />Open Explorer
-                  </button>
-                </Link>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between mb-6">
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">
-                    {savedCharts.length} saved exploration{savedCharts.length !== 1 ? 's' : ''}
-                  </p>
-                  <Link href={`/projects/${projectId}/data/${datasetId}/explore`}>
-                    <button className="inline-flex items-center gap-1.5 bg-[var(--accent-primary)] text-[var(--text-inverse)] px-4 py-2 rounded-lg text-xs font-bold hover:opacity-90 transition-opacity">
-                      <Plus className="h-3.5 w-3.5" />New Chart
-                    </button>
-                  </Link>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {savedCharts.map(chart => {
-                    const meta = CHART_META[chart.chart_type] ?? { label: chart.chart_type, icon: <BarChart2 size={14} />, color: 'bg-[var(--bg-inset)] text-[var(--text-secondary)]' }
-                    const cfg = chart.config as ChartConfig
-                    return (
-                      <div key={chart.id} className="bg-[var(--bg-surface)] rounded-xl p-5 border border-[var(--border-default)] hover:shadow-[var(--shadow-md)] transition-shadow flex flex-col gap-3">
-                        <div className="flex items-center justify-between">
-                          <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${meta.color}`}>
-                            {meta.icon}{meta.label}
-                          </span>
-                          <span className="data-mono text-[10px] text-[var(--text-tertiary)]">{fmtDate(chart.created_at)}</span>
-                        </div>
-                        <div>
-                          <p className="font-bold text-sm text-[var(--text-primary)] truncate">{chart.title}</p>
-                          {(cfg.x_axis || cfg.y_axis) && (
-                            <p className="text-xs text-[var(--text-tertiary)] mt-0.5 truncate">
-                              {[cfg.x_axis, cfg.y_axis].filter(Boolean).join(' → ')}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-auto pt-1">
-                          <Link href={`/projects/${projectId}/data/${datasetId}/explore?load=${chart.id}`} className="flex-1">
-                            <button className="w-full flex items-center justify-center gap-1.5 border border-[var(--border-default)] rounded-lg py-1.5 text-xs font-semibold text-[var(--text-secondary)] hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)] transition-colors">
-                              <ExternalLink size={12} />Open
-                            </button>
-                          </Link>
-                          <button
-                            onClick={() => handleDeleteChart(chart.id)}
-                            disabled={deletingId === chart.id}
-                            className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--status-error)] hover:bg-[var(--status-error-bg)] transition-colors"
-                          >
-                            {deletingId === chart.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-        )}
       </div>
+      )}
 
       {showDuplicateModal && duplicateReport && parsedData && activeVersion && user && (
         <DuplicateReviewModal

@@ -41,6 +41,10 @@ interface ChartBuilderProps {
   onInsertIntoDocument?: (chartType: ChartType, config: ChartConfig) => void
   initialChartType?: ChartType
   initialConfig?: ChartConfig
+  /** Replace the default Variables left panel with custom content */
+  leftPanel?: React.ReactNode
+  /** Hide the top header bar entirely */
+  noHeader?: boolean
 }
 
 // ─── Chart type definitions ───────────────────────────────────────────────────
@@ -239,7 +243,7 @@ function RenderChart({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSave, onInsertIntoDocument, initialChartType, initialConfig }: ChartBuilderProps) {
+export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSave, onInsertIntoDocument, initialChartType, initialConfig, leftPanel, noHeader }: ChartBuilderProps) {
   const [chartType, setChartType] = useState<ChartType>(initialChartType ?? 'bar')
   const [config, setConfig] = useState<ChartConfig>(initialConfig ?? {})
   const [editorOpen, setEditorOpen] = useState(false)
@@ -374,7 +378,7 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
   return (
     <div className="flex flex-col h-full" style={{ background: '#f7f9fb' }}>
       {/* Header */}
-      <div
+      {!noHeader && <div
         className="flex items-center justify-between px-4 py-3 flex-shrink-0"
         style={{ background: '#ffffff', borderBottom: `1px solid ${panelBorder}` }}
       >
@@ -428,24 +432,28 @@ export function ChartBuilder({ rows, columns, datasetId, versionId, onBack, onSa
             Save Chart
           </Button>
         </div>
-      </div>
+      </div>}
 
       {/* Body: 3-column layout */}
       <div className="flex flex-1 overflow-hidden">
-        {/* ── Left: Variables ─────────────────────────────────────────── */}
-        <div className="w-48 flex flex-col shrink-0" style={{ background: '#ffffff', borderRight: `1px solid ${panelBorder}` }}>
-          <div className="px-3 py-2.5" style={{ ...sectionHeadStyle, borderBottom: `1px solid ${panelBorder}` }}>
-            Variables
-          </div>
-          <ScrollArea className="flex-1">
-            <div className="py-1 space-y-0.5">
-              <VariableSection label="Numeric" cols={grouped.numeric} />
-              <VariableSection label="Categorical" cols={grouped.categorical} />
-              <VariableSection label="Date" cols={grouped.date} />
-              <VariableSection label="Boolean" cols={grouped.boolean} />
+        {/* ── Left: Variables or custom panel ─────────────────────────── */}
+        {leftPanel !== undefined ? (
+          leftPanel
+        ) : (
+          <div className="w-48 flex flex-col shrink-0" style={{ background: '#ffffff', borderRight: `1px solid ${panelBorder}` }}>
+            <div className="px-3 py-2.5" style={{ ...sectionHeadStyle, borderBottom: `1px solid ${panelBorder}` }}>
+              Variables
             </div>
-          </ScrollArea>
-        </div>
+            <ScrollArea className="flex-1">
+              <div className="py-1 space-y-0.5">
+                <VariableSection label="Numeric" cols={grouped.numeric} />
+                <VariableSection label="Categorical" cols={grouped.categorical} />
+                <VariableSection label="Date" cols={grouped.date} />
+                <VariableSection label="Boolean" cols={grouped.boolean} />
+              </div>
+            </ScrollArea>
+          </div>
+        )}
 
         {/* ── Center: Chart canvas ─────────────────────────────────────── */}
         <div className="flex-1 flex flex-col overflow-hidden" style={{ background: '#f7f9fb' }}>
