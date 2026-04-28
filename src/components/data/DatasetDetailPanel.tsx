@@ -17,8 +17,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
 import { DatasetTable } from '@/components/data/DatasetTable'
-import { VersionSelector } from '@/components/data/VersionSelector'
-import { BranchSelector } from '@/components/data/BranchSelector'
 import { DuplicateReviewModal } from '@/components/data/DuplicateReviewModal'
 import { ChartBuilder } from '@/components/explorer/ChartBuilder'
 import { ExploreGuide } from '@/components/explorer/ExploreGuide'
@@ -445,34 +443,25 @@ export function DatasetDetailPanel({ datasetId, projectId, showBackLink, isArchi
             <p className="text-xs text-[var(--text-tertiary)] mt-0.5 truncate max-w-lg">{dataset.description}</p>
           )}
 
-          {/* Single row: selectors + stat pills */}
-          <div className="flex items-center gap-1.5 flex-wrap mt-2">
-            {branches.length > 0 && activeBranchId && (
-              <BranchSelector branches={branches} currentBranchId={activeBranchId} onBranchChange={handleBranchChange} />
-            )}
-            {versions.length > 0 && activeVersionId && (
-              <VersionSelector versions={versions} currentVersionId={activeVersionId} onVersionChange={handleVersionChange} />
-            )}
-            {columns.length > 0 && (
-              <>
-                <div className="w-px h-5 bg-[var(--border-subtle)] mx-0.5 flex-shrink-0" />
-                {[
-                  { label: 'Rows',      value: rowCount.toLocaleString(), color: 'text-[var(--accent-blue)]' },
-                  { label: 'Cols',      value: String(columns.length),    color: 'text-[var(--accent-blue)]' },
-                  { label: 'Missing',   value: `${missingPct}%`,          color: parseFloat(missingPct) > 0 ? 'text-[var(--status-error)]' : 'text-[var(--accent-blue)]' },
-                  { label: 'Integrity', value: `${integrityPct}%`,        color: 'text-[var(--accent-blue)]' },
-                ].map(({ label, value, color }) => (
-                  <div
-                    key={label}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-[var(--bg-inset)] border border-[var(--border-subtle)] flex-shrink-0"
-                  >
-                    <span className={`text-[11px] font-bold tabular-nums leading-none ${color}`}>{value}</span>
-                    <span className="text-[10px] text-[var(--text-tertiary)] leading-none">{label}</span>
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
+          {/* Stat pills */}
+          {columns.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap mt-2">
+              {[
+                { label: 'Rows',      value: rowCount.toLocaleString(), color: 'text-[var(--accent-blue)]' },
+                { label: 'Cols',      value: String(columns.length),    color: 'text-[var(--accent-blue)]' },
+                { label: 'Missing',   value: `${missingPct}%`,          color: parseFloat(missingPct) > 0 ? 'text-[var(--status-error)]' : 'text-[var(--accent-blue)]' },
+                { label: 'Integrity', value: `${integrityPct}%`,        color: 'text-[var(--accent-blue)]' },
+              ].map(({ label, value, color }) => (
+                <div
+                  key={label}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-[var(--bg-inset)] border border-[var(--border-subtle)] flex-shrink-0"
+                >
+                  <span className={`text-[11px] font-bold tabular-nums leading-none ${color}`}>{value}</span>
+                  <span className="text-[10px] text-[var(--text-tertiary)] leading-none">{label}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ── TABS ── */}
