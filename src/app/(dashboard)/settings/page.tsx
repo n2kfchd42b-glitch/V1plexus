@@ -113,7 +113,6 @@ export default function ProfilePage() {
   const [credUploads, setCredUploads]       = useState<{ id: string; file_name: string; status: string; uploaded_at: string }[]>([])
 
   // Security
-  const [currentPw, setCurrentPw] = useState('')
   const [newPw, setNewPw]         = useState('')
   const [confirmPw, setConfirmPw] = useState('')
   const [changingPw, setChangingPw] = useState(false)
@@ -293,7 +292,7 @@ export default function ProfilePage() {
     setChangingPw(true)
     const { error } = await supabase.auth.updateUser({ password: newPw })
     if (error) toast.error(error.message)
-    else { toast.success('Password updated'); setCurrentPw(''); setNewPw(''); setConfirmPw('') }
+    else { toast.success('Password updated'); setNewPw(''); setConfirmPw('') }
     setChangingPw(false)
   }
 
@@ -908,10 +907,6 @@ export default function ProfilePage() {
             <div className="bg-white border border-[#E4E4E7] rounded-xl p-6 space-y-5">
               <h2 className="text-sm font-bold text-[#191c1e] font-manrope">Change Password</h2>
               <form onSubmit={handleChangePassword} className="space-y-4">
-                <div>
-                  <Label htmlFor="currentPw">Current Password</Label>
-                  <Input id="currentPw" type="password" value={currentPw} onChange={e => setCurrentPw(e.target.value)} required className="mt-1" />
-                </div>
                 <div>
                   <Label htmlFor="newPw">New Password</Label>
                   <Input id="newPw" type="password" value={newPw} onChange={e => setNewPw(e.target.value)} required minLength={8} className="mt-1" />

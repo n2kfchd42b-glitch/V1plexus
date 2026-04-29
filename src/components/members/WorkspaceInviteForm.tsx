@@ -42,16 +42,10 @@ export function WorkspaceInviteForm({ onInvited }: { onInvited?: () => void }) {
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('[WorkspaceInviteForm] Submit clicked', { email, role, activeWorkspace: activeWorkspace?.id })
-    
-    if (!activeWorkspace) {
-      console.log('[WorkspaceInviteForm] No active workspace')
-      return
-    }
+    if (!activeWorkspace) return
     setLoading(true)
 
     try {
-      console.log('[WorkspaceInviteForm] Sending invitation request...')
       const res = await fetch('/api/invitations/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -65,21 +59,15 @@ export function WorkspaceInviteForm({ onInvited }: { onInvited?: () => void }) {
         }),
       })
 
-      console.log('[WorkspaceInviteForm] Response status:', res.status)
       const data = await res.json()
-      console.log('[WorkspaceInviteForm] Response data:', data)
-
       if (!res.ok) {
-        console.error('[WorkspaceInviteForm] Error response:', data)
         toast.error(data.error ?? 'Failed to send invitation')
       } else {
-        console.log('[WorkspaceInviteForm] Success!')
         toast.success(`Invitation sent to ${email}`)
         setEmail('')
         onInvited?.()
       }
-    } catch (error) {
-      console.error('[WorkspaceInviteForm] Network or parsing error:', error)
+    } catch {
       toast.error('Network error sending invitation')
     } finally {
       setLoading(false)

@@ -34,9 +34,8 @@ export function CommitteePanel({ projectId, members: initialMembers, canEdit }: 
 
   const activeMembers = members.filter(m => m.status !== "removed");
 
-  function handleResendInvite(id: string) {
+  function handleResendInvite(_id: string) {
     // TODO: trigger email resend API
-    console.log("Resend invite for:", id);
   }
 
   return (
