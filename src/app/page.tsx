@@ -37,7 +37,7 @@ export default function LandingPage() {
                 Built for students, PhDs, and early-career researchers
               </div>
               <h1 className="font-serif text-5xl md:text-7xl tracking-tight leading-[0.92] text-[#191c1e] mb-6">
-                From data to<br />publication —<br />without the chaos.
+                From data to<br />manuscript —<br />without the chaos.
               </h1>
               <p className="text-lg text-[#444653] leading-relaxed mb-10 max-w-lg">
                 Run analysis, generate results, and export your research — with every step automatically documented.
