@@ -39,8 +39,16 @@ export async function getProfile(
     .select('*, institution:institutions(id,name,country), department:departments(id,name)')
     .eq('id', userId)
     .maybeSingle()
-  if (error) return err(error.message)
-  return ok(data as Profile | null)
+  if (!error) return ok(data as Profile | null)
+
+  // Join may fail if FK relationships aren't exposed via RLS — fall back to plain select
+  const fallback = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle()
+  if (fallback.error) return err(fallback.error.message)
+  return ok(fallback.data as Profile | null)
 }
 
 // Replaces:
