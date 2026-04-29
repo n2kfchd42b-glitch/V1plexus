@@ -137,7 +137,7 @@ export function EditProfileModal({
             </label>
             <div className="relative flex">
               <span className="flex items-center px-3 bg-surface-container-low text-sm text-on-surface-variant">
-                plexus.health/profile/
+                plexus.science/profile/
               </span>
               <input
                 type="text"

@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import { Database, Download, Calendar, Globe, Lock, Quote, ExternalLink } from 'lucide-react'
+import { Database, Calendar, Globe, Lock, Quote, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 
 export async function generateMetadata({ params }: { params: Promise<{ doi: string }> }) {
@@ -199,21 +199,10 @@ export default async function DatasetLandingPage({ params }: { params: Promise<{
           </div>
         )}
 
-        {/* Download */}
-        {!isEmbargoed && (
-          <div className="flex items-center justify-center gap-4">
-            <button
-              className="flex items-center gap-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 px-5 py-2.5 rounded-xl transition-colors"
-            >
-              <Download className="h-4 w-4" />
-              Download Dataset
-            </button>
-          </div>
-        )}
       </main>
 
       <footer className="border-t border-gray-200 mt-16 py-8 text-center text-xs text-gray-400">
-        <p>PLEXUS · Data Repository · <Link href="/" className="hover:text-blue-500">plexus.health</Link></p>
+        <p>PLEXUS · Data Repository · <Link href="/" className="hover:text-blue-500">plexus.science</Link></p>
       </footer>
     </div>
   )

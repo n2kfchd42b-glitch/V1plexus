@@ -76,12 +76,12 @@ export function PreregistrationWizard({ documentTitle, defaultAuthors = [], onRe
             <p className="text-xs text-gray-500 mb-1">Registration ID</p>
             <p className="text-xl font-mono font-bold text-blue-600">{registered}</p>
             <p className="text-xs text-gray-400 mt-2">
-              Public URL: <span className="text-blue-500">plexus.health/registry/{registered}</span>
+              Public URL: <span className="text-blue-500">plexus.science/registry/{registered}</span>
             </p>
           </div>
           <div className="flex gap-3 justify-center">
             <button
-              onClick={() => navigator.clipboard.writeText(`https://plexus.health/registry/${registered}`)}
+              onClick={() => navigator.clipboard.writeText(`https://plexus.science/registry/${registered}`)}
               className="text-sm font-medium text-blue-600 hover:text-blue-700 px-4 py-2 border border-blue-200 rounded-xl"
             >
               Copy URL

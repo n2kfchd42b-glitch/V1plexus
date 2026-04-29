@@ -45,7 +45,7 @@ export function generateBadgeSVG(level: BadgeLevel, username: string): string {
   const config = badgeConfigs[level]
   if (!config) return ''
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://plexus.health'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://plexus.science'
   const profileUrl = `${baseUrl}/profile/${username}`
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 31" width="88" height="31" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
@@ -82,7 +82,7 @@ export function generateHorizontalBadgeSVG(
   const config = badgeConfigs[level]
   if (!config) return ''
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://plexus.health'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://plexus.science'
   const profileUrl = `${baseUrl}/profile/${username}`
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" width="200" height="48" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
@@ -121,7 +121,7 @@ export function generateBadgeEmbedCode(
   username: string,
   variant: 'compact' | 'horizontal' = 'compact'
 ): string {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://plexus.health'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://plexus.science'
   const badgeUrl = `${baseUrl}/profile/${username}/badge/${variant}`
 
   if (variant === 'horizontal') {

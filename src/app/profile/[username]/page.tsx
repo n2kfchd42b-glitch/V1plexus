@@ -543,9 +543,6 @@ function CertificateCard({ certificate }: { certificate: any }) {
           </div>
         )}
       </div>
-      <button className="mt-3 w-full py-1.5 text-xs font-semibold text-clinical-blue border border-clinical-blue/20 rounded-lg hover:bg-clinical-blue/5 transition-colors">
-        View Certificate
-      </button>
     </div>
   )
 }

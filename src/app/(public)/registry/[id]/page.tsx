@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import { Shield, CheckCircle, Calendar, Download, Quote, AlertCircle } from 'lucide-react'
+import { Shield, CheckCircle, Calendar, Quote, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
@@ -68,7 +68,7 @@ export default async function RegistryPage({ params }: { params: Promise<{ id: s
     hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
   })
 
-  const citationText = `${reg.authors.map(a => a.name).join(', ')} (${registeredDate.getFullYear()}). ${reg.title}. PLEXUS Protocol Registry. Registration ID: ${reg.registration_id}. https://plexus.health/registry/${reg.registration_id}`
+  const citationText = `${reg.authors.map(a => a.name).join(', ')} (${registeredDate.getFullYear()}). ${reg.title}. PLEXUS Protocol Registry. Registration ID: ${reg.registration_id}. https://plexus.science/registry/${reg.registration_id}`
 
   const amendments: Array<{ date: string; description: string; content_hash: string }> = reg.amendments ?? []
 
@@ -201,20 +201,10 @@ export default async function RegistryPage({ params }: { params: Promise<{ id: s
           </p>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center justify-center gap-4">
-          <Link
-            href={`/registry/${reg.registration_id}/download`}
-            className="flex items-center gap-2 text-sm font-medium text-white bg-clinical-blue hover:bg-clinical-deep px-5 py-2.5 rounded-xl transition-colors"
-          >
-            <Download className="h-4 w-4" />
-            Download Protocol PDF
-          </Link>
-        </div>
       </main>
 
       <footer className="border-t border-slate-200 mt-16 py-8 text-center text-xs text-slate-400">
-        <p>PLEXUS · Protocol Registry · <Link href="/" className="hover:text-clinical-blue">plexus.health</Link></p>
+        <p>PLEXUS · Protocol Registry · <Link href="/" className="hover:text-clinical-blue">plexus.science</Link></p>
       </footer>
     </div>
   )

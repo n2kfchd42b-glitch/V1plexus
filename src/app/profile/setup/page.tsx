@@ -114,7 +114,7 @@ export default function ProfileSetupPage() {
               <div className="w-10 h-10 rounded-full bg-primary-container text-primary text-sm font-bold flex items-center justify-center">2</div>
               <div className="text-left">
                 <p className="text-sm font-semibold text-on-surface">Generate your URL</p>
-                <p className="text-xs text-on-surface-variant">plexus.health/profile/your-name</p>
+                <p className="text-xs text-on-surface-variant">plexus.science/profile/your-name</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
