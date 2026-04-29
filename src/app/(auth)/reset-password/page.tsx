@@ -17,17 +17,17 @@ function ResetPasswordForm() {
   const router = useRouter()
   const supabase = createClient()
 
-  // Supabase delivers the recovery token via the URL hash fragment.
-  // exchangeCodeForSession is handled automatically by the client on mount
-  // when it detects type=recovery in the hash.
+  // The auth/callback route already exchanged the PKCE code and set the session.
+  // We just need to confirm a valid session exists before showing the form.
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
         setReady(true)
+      } else {
+        router.push('/forgot-password')
       }
     })
-    return () => subscription.unsubscribe()
-  }, [supabase])
+  }, [supabase, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
