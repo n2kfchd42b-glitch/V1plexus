@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE() {
   try {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -11,26 +11,6 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Require password re-confirmation to prevent session-hijacking → deletion
-    const body = await request.json().catch(() => null)
-    const password: string | undefined = body?.password
-    if (!password) {
-      return NextResponse.json({ error: 'Password confirmation required' }, { status: 400 })
-    }
-
-    const email = user.email
-    if (!email) {
-      return NextResponse.json({ error: 'Cannot verify identity: no email on account' }, { status: 400 })
-    }
-
-    // Re-authenticate with the provided password before allowing deletion
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
-    if (signInError) {
-      return NextResponse.json({ error: 'Incorrect password' }, { status: 403 })
-    }
-
-    // Use service role client to delete the auth user
-    // ON DELETE CASCADE handles all related data in the database
     const serviceClient = createServiceClient()
     const { error: deleteError } = await serviceClient.auth.admin.deleteUser(user.id)
 
