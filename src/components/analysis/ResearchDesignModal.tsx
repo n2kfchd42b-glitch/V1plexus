@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { FlaskConical } from 'lucide-react'
 import type { StudyDesign, ResearchContext } from '@/types/analysisIntegrity'
 
@@ -19,6 +19,7 @@ interface Props {
   columns: string[]
   onConfirm: (ctx: ResearchContext) => void
   onSkip: () => void
+  initialValues?: ResearchContext | null
 }
 
 const CHEVRON_SVG = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`
@@ -35,11 +36,19 @@ const selectStyle: React.CSSProperties = {
   cursor: 'pointer',
 }
 
-export function ResearchDesignModal({ isOpen, columns, onConfirm, onSkip }: Props) {
-  const [design, setDesign] = useState<StudyDesign | ''>('')
-  const [question, setQuestion] = useState('')
-  const [outcome, setOutcome] = useState('')
-  const [exposure, setExposure] = useState('')
+export function ResearchDesignModal({ isOpen, columns, onConfirm, onSkip, initialValues }: Props) {
+  const [design, setDesign] = useState<StudyDesign | ''>(initialValues?.study_design ?? '')
+  const [question, setQuestion] = useState(initialValues?.research_question ?? '')
+  const [outcome, setOutcome] = useState(initialValues?.outcome_variable ?? '')
+  const [exposure, setExposure] = useState(initialValues?.exposure_variable ?? '')
+
+  // Sync when initialValues change (e.g. opening to edit a different context)
+  useEffect(() => {
+    setDesign(initialValues?.study_design ?? '')
+    setQuestion(initialValues?.research_question ?? '')
+    setOutcome(initialValues?.outcome_variable ?? '')
+    setExposure(initialValues?.exposure_variable ?? '')
+  }, [initialValues])
 
   if (!isOpen) return null
 
@@ -87,7 +96,7 @@ export function ResearchDesignModal({ isOpen, columns, onConfirm, onSkip }: Prop
           </div>
           <div>
             <p className="text-sm font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-              Research Context
+              {initialValues ? 'Edit Research Context' : 'Research Context'}
             </p>
             <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
               Tailors assumption checks and sensitivity analysis
@@ -232,7 +241,7 @@ export function ResearchDesignModal({ isOpen, columns, onConfirm, onSkip }: Prop
               onMouseEnter={e => { if (canConfirm) e.currentTarget.style.background = 'var(--accent-blue-hover)' }}
               onMouseLeave={e => { if (canConfirm) e.currentTarget.style.background = 'var(--accent-blue)' }}
             >
-              Continue →
+              {initialValues ? 'Save changes' : 'Continue →'}
             </button>
           </div>
         </div>

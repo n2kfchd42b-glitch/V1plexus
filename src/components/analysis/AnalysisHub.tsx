@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  BarChart2, CheckCircle2, ChevronRight, Clock, X, Database, Table2, Play,
+  BarChart2, CheckCircle2, ChevronRight, Clock, X, Database, Table2, Play, FlaskConical,
 } from 'lucide-react'
 import { AssumptionStatusBar } from './AssumptionStatusBar'
 import { ReasoningPrompt } from './ReasoningPrompt'
@@ -565,14 +565,35 @@ export function AnalysisHub({ projectId }: Props) {
     toast.success('Analysis deleted')
   }
 
+  const RC_KEY = (dsId: string) => `plexus_rc_${dsId}`
+
   const handleData = async (rows: DataRow[], cols: DatasetColumn[], name: string, dsId?: string, vsId?: string) => {
     setData(rows); setColumns(cols); setFileName(name)
     setDatasetId(dsId); setVersionId(vsId); setResult(null); setSavedRunId(null); setPromptDismissed(false)
     setApprovalBlock(null)
-    setResearchContext(null); setAssumptionReport(null); setAssumptionChecking(false); setShowReportModal(false)
-    setShowDesignModal(true)
+    setAssumptionReport(null); setAssumptionChecking(false); setShowReportModal(false)
     resetEngineVars()
     setDecisionMode('entry')
+
+    // Restore persisted research context for this dataset, or prompt first time
+    if (dsId) {
+      try {
+        const stored = localStorage.getItem(RC_KEY(dsId))
+        if (stored) {
+          setResearchContext(JSON.parse(stored) as ResearchContext)
+          setShowDesignModal(false)
+        } else {
+          setResearchContext(null)
+          setShowDesignModal(true)
+        }
+      } catch {
+        setResearchContext(null)
+        setShowDesignModal(true)
+      }
+    } else {
+      setResearchContext(null)
+      setShowDesignModal(true)
+    }
 
     if (dsId && vsId) {
       try {
@@ -1130,26 +1151,55 @@ export function AnalysisHub({ projectId }: Props) {
               <p className="subsection-label mb-2">Dataset</p>
 
               {dataLoaded ? (
-                <div
-                  className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-md"
-                  style={{ border: '1px solid var(--accent-blue)', borderLeft: '3px solid var(--accent-blue)', background: 'var(--accent-blue-subtle)' }}
-                >
-                  <div className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(59,130,246,0.15)' }}>
-                    <Database className="h-3 w-3" style={{ color: 'var(--accent-blue)' }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{fileName}</p>
-                    <p className="data-mono-xs" style={{ color: 'var(--text-tertiary)' }}>{data.length.toLocaleString()} rows · {columns.length} cols</p>
-                  </div>
-                  <button
-                    onClick={clearDataset}
-                    className="flex items-center gap-1 text-[11px] font-medium flex-shrink-0 px-1.5 py-1 rounded transition-colors"
-                    style={{ color: 'var(--text-tertiary)' }}
-                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.background = 'var(--bg-row-hover)' }}
-                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.background = '' }}
+                <div className="flex flex-col gap-1.5">
+                  <div
+                    className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-md"
+                    style={{ border: '1px solid var(--accent-blue)', borderLeft: '3px solid var(--accent-blue)', background: 'var(--accent-blue-subtle)' }}
                   >
-                    <X className="h-3 w-3" />Change
-                  </button>
+                    <div className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(59,130,246,0.15)' }}>
+                      <Database className="h-3 w-3" style={{ color: 'var(--accent-blue)' }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{fileName}</p>
+                      <p className="data-mono-xs" style={{ color: 'var(--text-tertiary)' }}>{data.length.toLocaleString()} rows · {columns.length} cols</p>
+                    </div>
+                    <button
+                      onClick={clearDataset}
+                      className="flex items-center gap-1 text-[11px] font-medium flex-shrink-0 px-1.5 py-1 rounded transition-colors"
+                      style={{ color: 'var(--text-tertiary)' }}
+                      onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.background = 'var(--bg-row-hover)' }}
+                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.background = '' }}
+                    >
+                      <X className="h-3 w-3" />Change
+                    </button>
+                  </div>
+
+                  {/* Research context strip */}
+                  <div
+                    className="flex items-center gap-2 px-2.5 py-2 rounded-md"
+                    style={{ background: 'var(--bg-inset)', border: '1px solid var(--border-subtle)' }}
+                  >
+                    <FlaskConical className="h-3 w-3 flex-shrink-0" style={{ color: researchContext ? 'var(--accent-blue)' : 'var(--text-tertiary)' }} />
+                    <div className="flex-1 min-w-0">
+                      {researchContext ? (
+                        <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>
+                          {researchContext.study_design.replace(/_/g, ' ')}
+                          {researchContext.outcome_variable ? ` · ${researchContext.outcome_variable}` : ''}
+                        </p>
+                      ) : (
+                        <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>No research context set</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setShowDesignModal(true)}
+                      className="text-[11px] font-medium flex-shrink-0 px-1.5 py-0.5 rounded transition-colors"
+                      style={{ color: 'var(--accent-blue)' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-blue-subtle)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = '' }}
+                    >
+                      {researchContext ? 'Edit' : 'Set'}
+                    </button>
+                  </div>
                 </div>
               ) : datasetsLoading ? (
                 <div className="space-y-1.5">{[1, 2, 3].map(i => <div key={i} className="skeleton h-10 rounded-md" />)}</div>
@@ -1834,7 +1884,14 @@ export function AnalysisHub({ projectId }: Props) {
         <ResearchDesignModal
           isOpen={showDesignModal}
           columns={columns.map(c => c.name)}
-          onConfirm={(ctx) => { setResearchContext(ctx); setShowDesignModal(false) }}
+          initialValues={researchContext}
+          onConfirm={(ctx) => {
+            setResearchContext(ctx)
+            setShowDesignModal(false)
+            if (datasetId) {
+              try { localStorage.setItem(RC_KEY(datasetId), JSON.stringify(ctx)) } catch { /* quota edge case */ }
+            }
+          }}
           onSkip={() => setShowDesignModal(false)}
         />
       )}
