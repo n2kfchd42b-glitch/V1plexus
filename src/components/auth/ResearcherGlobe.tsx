@@ -106,19 +106,8 @@ export function ResearcherGlobe() {
         <BrandLogo variant="standalone" href="/" />
       </div>
 
-      {/* Filters — top right: legend + two dropdowns on one row */}
+      {/* Filters — top right: two dropdowns */}
       <div className="absolute top-6 right-6 z-10 flex flex-col items-end gap-2">
-        {/* Legend */}
-        <div className="flex items-center gap-3 px-3 py-1.5 rounded-full bg-white/6 border border-white/10">
-          <span className="flex items-center gap-1.5 text-[10px] font-medium text-white/70">
-            <span className="h-2 w-2 rounded-full bg-[#22c55e] animate-pulse" /> Online
-          </span>
-          <span className="text-white/20">·</span>
-          <span className="flex items-center gap-1.5 text-[10px] font-medium text-white/50">
-            <span className="h-2 w-2 rounded-full bg-[#ef4444]" /> Offline
-          </span>
-        </div>
-
         {/* Discipline + Country dropdowns — side by side */}
         <div className="flex items-center gap-2">
           {presentDisciplines.length > 0 && (
@@ -241,20 +230,28 @@ export function ResearcherGlobe() {
             transform: 'translateY(-50%)',
           }}
         >
-          <p className="text-xs font-semibold leading-tight">
-            {tooltip.cluster.count} researcher{tooltip.cluster.count !== 1 ? 's' : ''}
-            {tooltip.cluster.onlineCount > 0 && (
-              <span className="text-[#22c55e] ml-1">· {tooltip.cluster.onlineCount} online</span>
-            )}
-          </p>
           {(tooltip.cluster.city || tooltip.cluster.country) && (
-            <p className="text-[10px] text-white/50 mt-0.5">
+            <p className="text-xs font-semibold leading-tight">
               {[tooltip.cluster.city, tooltip.cluster.country].filter(Boolean).join(', ')}
             </p>
           )}
           {tooltip.cluster.disciplines.length > 0 && (
-            <p className="text-[10px] text-white/40 mt-0.5">
-              {tooltip.cluster.disciplines.join(' · ')}
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {tooltip.cluster.disciplines.slice(0, 3).map(d => (
+                <span key={d} className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-white/10 text-white/60">
+                  {d}
+                </span>
+              ))}
+              {tooltip.cluster.disciplines.length > 3 && (
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-white/10 text-white/40">
+                  +{tooltip.cluster.disciplines.length - 3} more
+                </span>
+              )}
+            </div>
+          )}
+          {tooltip.cluster.count > 1 && (
+            <p className="text-[9px] text-white/30 mt-1.5">
+              {tooltip.cluster.count} researchers in this area
             </p>
           )}
         </div>
