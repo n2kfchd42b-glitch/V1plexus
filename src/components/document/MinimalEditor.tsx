@@ -23,11 +23,10 @@ import { CitationPanel } from './CitationPanel'
 import { DatasetTableExtension } from './extensions/DatasetTableNode'
 import { ChartNodeExtension } from './extensions/ChartNode'
 import { CitationNodeExtension, buildCitationAttrs } from './extensions/CitationNode'
-import { GenerateSectionModal } from '@/components/ai/GenerateSectionModal'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
-  Plus, Loader2, X, BookOpen, Sparkles,
+  Plus, Loader2, X, BookOpen,
   AlignLeft, Maximize2, Minimize2,
 } from 'lucide-react'
 import type { CslCitation } from '@/components/publication/CitationSearch'
@@ -122,7 +121,6 @@ export function MinimalEditor({
   const [outlineOpen, setOutlineOpen] = useState(false)
   const [outlineCollapsed, setOutlineCollapsed] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
-  const [showGenerateModal, setShowGenerateModal] = useState(false)
   const [citations, setCitations] = useState<CslCitation[]>(() => extractCitationsFromContent(initialContent))
   const [citationStyle, setCitationStyle] = useState<ReferenceStyle>('vancouver')
 
@@ -334,7 +332,6 @@ export function MinimalEditor({
                     <SlashCommandMenu
                       editor={editor}
                       onInsertCitation={() => { setRightPanel('citations'); setOutlineOpen(false) }}
-                      onGenerate={() => setShowGenerateModal(true)}
                     />
                     <FloatingSelectionToolbar
                       editor={editor}
@@ -441,14 +438,6 @@ export function MinimalEditor({
                 </span>
               )}
             </button>
-            <button
-              onClick={() => setShowGenerateModal(true)}
-              className="h-7 w-7 flex items-center justify-center rounded text-text-tertiary/50 hover:text-phase-data hover:bg-bg-surface-hover transition-colors"
-              title="Generate section (⌘J)"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-            </button>
-
             <div className="flex-1" />
 
             <button
@@ -496,15 +485,6 @@ export function MinimalEditor({
         </footer>
       )}
 
-      {/* ── Generate modal ──────────────────────────────────────────────── */}
-      {showGenerateModal && editor && (
-        <GenerateSectionModal
-          open={showGenerateModal}
-          onClose={() => setShowGenerateModal(false)}
-          editor={editor}
-          documentId={documentId}
-        />
-      )}
     </div>
   )
 }

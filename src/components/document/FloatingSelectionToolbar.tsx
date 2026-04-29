@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Bold, Italic, Underline, Link as LinkIcon, BookOpen, Sparkles, MessageSquare } from 'lucide-react'
+import { Bold, Italic, Underline, Link as LinkIcon, BookOpen, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Editor } from '@tiptap/react'
 
@@ -19,7 +19,6 @@ interface ToolbarPosition {
 export function FloatingSelectionToolbar({ editor, onInsertCitation, onAddComment }: FloatingSelectionToolbarProps) {
   const [visible, setVisible] = useState(false)
   const [position, setPosition] = useState<ToolbarPosition>({ top: 0, left: 0 })
-  const [aiLoading, setAiLoading] = useState<string | null>(null)
   const toolbarRef = useRef<HTMLDivElement>(null)
   const isPointerDownRef = useRef(false)
 
@@ -89,40 +88,6 @@ export function FloatingSelectionToolbar({ editor, onInsertCitation, onAddCommen
       editor.off('blur', onBlur)
     }
   }, [editor, updatePosition])
-
-  async function handleAiAction(action: 'rephrase' | 'shorten' | 'expand') {
-    if (!editor) return
-    const { from, to } = editor.state.selection
-    const selectedText = editor.state.doc.textBetween(from, to)
-    if (!selectedText.trim()) return
-
-    setAiLoading(action)
-    try {
-      const prompts: Record<string, string> = {
-        rephrase: `Rephrase the following text for clarity and scientific precision, keeping the same meaning:\n\n"${selectedText}"\n\nReturn only the rephrased text.`,
-        shorten: `Shorten the following text while preserving the key scientific meaning:\n\n"${selectedText}"\n\nReturn only the shortened text.`,
-        expand: `Expand the following text with more scientific detail and context, appropriate for a research document:\n\n"${selectedText}"\n\nReturn only the expanded text.`,
-      }
-
-      const res = await fetch('/api/ai/transform', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: prompts[action] }),
-      })
-
-      if (res.ok) {
-        const { text } = await res.json()
-        if (text) {
-          editor.chain().focus().deleteRange({ from, to }).insertContentAt(from, text).run()
-        }
-      }
-    } catch {
-      // Silently fail — keep original text
-    } finally {
-      setAiLoading(null)
-      setVisible(false)
-    }
-  }
 
   if (!visible || !editor) return null
 
@@ -232,25 +197,6 @@ export function FloatingSelectionToolbar({ editor, onInsertCitation, onAddCommen
         </button>
       )}
 
-      <div className="h-4 w-px bg-white/15 mx-0.5" />
-
-      {/* AI actions */}
-      {(['rephrase', 'shorten', 'expand'] as const).map(action => (
-        <button
-          key={action}
-          onClick={() => handleAiAction(action)}
-          disabled={!!aiLoading}
-          className="h-7 flex items-center gap-1 px-2 rounded text-purple-300 hover:text-purple-100 hover:bg-white/10 transition-colors text-[11px] font-medium disabled:opacity-40 capitalize"
-          title={`${action.charAt(0).toUpperCase() + action.slice(1)} selected text`}
-        >
-          {aiLoading === action ? (
-            <span className="h-3.5 w-3.5 rounded-full border-2 border-purple-300 border-t-transparent animate-spin" />
-          ) : (
-            <Sparkles className="h-3 w-3" />
-          )}
-          {action}
-        </button>
-      ))}
     </div>
   )
 }

@@ -12,7 +12,6 @@ import { createClient } from "@/lib/supabase/client";
 import { logAudit, logAuditBeacon } from "@/lib/audit";
 import { useAuth } from "@/hooks/useAuth";
 import { EditorToolbar } from "./EditorToolbar";
-import { AIAssistPopover } from "@/components/ai/AIAssistPopover";
 import { VersionHistory } from "./VersionHistory";
 import { SaveVersionButton } from "./SaveVersionButton";
 import { DocumentStatusBadge } from "./DocumentStatusBadge";
@@ -259,12 +258,6 @@ export function DocumentEditor({
       {/* Toolbar */}
       <div className="flex items-center gap-1 px-2 py-1 border-b border-slate-200 flex-wrap">
         <EditorToolbar editor={editor} />
-        {editor && (
-          <>
-            <div className="h-5 w-px bg-slate-200 mx-1" />
-            <AIAssistPopover editor={editor} documentId={doc.id} />
-          </>
-        )}
       </div>
 
       {/* Content area + history panel */}

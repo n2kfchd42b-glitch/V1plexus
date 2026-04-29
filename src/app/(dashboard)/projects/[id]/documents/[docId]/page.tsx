@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   ArrowLeft, Loader2, AlertTriangle, Trash2,
   History, Users, FileText, Shield, Languages,
-  MoreHorizontal, Sparkles,
+  MoreHorizontal,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -27,7 +27,6 @@ import { StructuredAbstractModal } from '@/components/document/StructuredAbstrac
 import { useDocumentAuthors, useDocumentVersions } from '@/hooks/useDocumentEditorPillars'
 
 // ── Pillar 3 ──────────────────────────────────────────────────────────────────
-import { GenerateManuscriptModal } from '@/components/document/GenerateManuscriptModal'
 
 // ── Pillar 4 ──────────────────────────────────────────────────────────────────
 import { DocumentSecurityPanel } from '@/components/document/DocumentSecurityPanel'
@@ -54,7 +53,6 @@ export default function DocumentPage() {
   const [deleteState, setDeleteState] = useState<DeleteState>('idle')
   const [rightPanel, setRightPanel] = useState<RightPanel>(null)
   const [showAbstractModal, setShowAbstractModal] = useState(false)
-  const [showManuscriptModal, setShowManuscriptModal] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
 
   const triggerSaveRef = useRef<(() => Promise<void>) | null>(null)
@@ -111,9 +109,9 @@ export default function DocumentPage() {
   const togglePanel = (panel: RightPanel) => {
     setRightPanel(prev => {
       const next = prev === panel ? null : panel
-      if (next !== null) closeEditorPanelRef.current?.()
       return next
     })
+    if (panel !== null) closeEditorPanelRef.current?.()
   }
 
   if (!document) {
@@ -182,10 +180,6 @@ export default function DocumentPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuItem onClick={() => setShowManuscriptModal(true)}>
-                <Sparkles className="h-4 w-4 mr-2 text-text-tertiary" />
-                Generate manuscript
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setShowAbstractModal(true)}>
                 <FileText className="h-4 w-4 mr-2 text-text-tertiary" />
                 Abstract builder
@@ -331,12 +325,6 @@ export default function DocumentPage() {
         onClose={() => setShowAbstractModal(false)}
         onInsert={(text) => insertContentRef.current?.(text)}
       />
-      {showManuscriptModal && (
-        <GenerateManuscriptModal
-          projectId={projectId}
-          onClose={() => setShowManuscriptModal(false)}
-        />
-      )}
       </div>{/* end editor column */}
     </div>
   )

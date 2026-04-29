@@ -21,18 +21,15 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { Profile } from '@/types/database'
 import type { CslCitation } from '@/components/publication/CitationSearch'
-import { AIAssistPopover } from '@/components/ai/AIAssistPopover'
-import { GenerateSectionModal } from '@/components/ai/GenerateSectionModal'
-import { GrammarCheckPanel } from '@/components/ai/GrammarCheckPanel'
 import { DatasetTableExtension } from './extensions/DatasetTableNode'
 import { ChartNodeExtension } from './extensions/ChartNode'
 import { CitationNodeExtension, buildCitationAttrs } from './extensions/CitationNode'
 import {
-  BookOpen, MessageSquare, SpellCheck, Sparkles,
+  BookOpen, MessageSquare,
   PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react'
 
-type RightPanel = 'citations' | 'data' | 'comments' | 'grammar' | null
+type RightPanel = 'citations' | 'data' | 'comments' | null
 type ReferenceStyle = 'vancouver' | 'apa7' | 'harvard' | 'numbered'
 
 interface CollaborativeEditorProps {
@@ -74,8 +71,6 @@ export function CollaborativeEditor({
   const [rightPanel, setRightPanel] = useState<RightPanel>(null)
   const [outlineCollapsed, setOutlineCollapsed] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
-  const [showGenerateModal, setShowGenerateModal] = useState(false)
-  const [aiOpen, setAiOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [wordCount, setWordCount] = useState(0)
@@ -164,8 +159,7 @@ export function CollaborativeEditor({
     const handleKeyDown = (e: KeyboardEvent) => {
       const cmd = e.metaKey || e.ctrlKey
       if (cmd && e.key === 's') { e.preventDefault(); handleManualSave() }
-      if (cmd && e.key === 'j') { e.preventDefault(); setAiOpen(p => !p) }
-      if (cmd && e.key === '\\') { e.preventDefault(); setFocusMode(p => !p) }
+if (cmd && e.key === '\\') { e.preventDefault(); setFocusMode(p => !p) }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -246,18 +240,6 @@ export function CollaborativeEditor({
               )}
             </button>
             <button
-              onClick={() => togglePanel('grammar')}
-              className={cn(
-                'h-6 w-6 flex items-center justify-center rounded transition-colors',
-                panelActive('grammar')
-                  ? 'bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)]'
-                  : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]'
-              )}
-              title="Grammar check"
-            >
-              <SpellCheck className="h-3.5 w-3.5" />
-            </button>
-            <button
               onClick={() => togglePanel('comments')}
               className={cn(
                 'h-6 w-6 flex items-center justify-center rounded transition-colors',
@@ -270,22 +252,6 @@ export function CollaborativeEditor({
               <MessageSquare className="h-3.5 w-3.5" />
             </button>
 
-            <div className="w-px h-3.5 bg-[var(--border-default)] mx-1.5" />
-
-            {/* AI assist icon */}
-            {editor && (
-              <AIAssistPopover editor={editor} documentId={documentId} open={aiOpen} onOpenChange={setAiOpen} />
-            )}
-
-            {/* Generate — subtle text button */}
-            <button
-              onClick={() => setShowGenerateModal(true)}
-              className="h-6 flex items-center gap-1 px-2 rounded text-[var(--text-tertiary)] hover:text-[var(--accent-blue)] hover:bg-[var(--accent-blue-subtle)] transition-colors text-[10px] font-semibold tracking-wide uppercase"
-              title="Generate with AI (⌘J)"
-            >
-              <Sparkles className="h-3 w-3" />
-              Generate
-            </button>
           </div>
         </div>
       )}
@@ -397,7 +363,6 @@ export function CollaborativeEditor({
               <SlashCommandMenu
                 editor={editor}
                 onInsertCitation={() => togglePanel('citations')}
-                onGenerate={() => setShowGenerateModal(true)}
               />
             )}
 
@@ -432,13 +397,6 @@ export function CollaborativeEditor({
                 onClose={() => setRightPanel(null)}
               />
             )}
-            {rightPanel === 'grammar' && editor && (
-              <GrammarCheckPanel
-                editor={editor}
-                documentId={documentId}
-                onClose={() => setRightPanel(null)}
-              />
-            )}
           </div>
         )}
       </div>
@@ -454,15 +412,6 @@ export function CollaborativeEditor({
         documentType={documentType}
       />
 
-      {/* ── Modals ──────────────────────────────────────────────────────── */}
-      {showGenerateModal && editor && (
-        <GenerateSectionModal
-          open={showGenerateModal}
-          onClose={() => setShowGenerateModal(false)}
-          editor={editor}
-          documentId={documentId}
-        />
-      )}
     </div>
   )
 }

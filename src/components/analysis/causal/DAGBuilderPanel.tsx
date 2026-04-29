@@ -21,7 +21,6 @@ import { DAGCanvas } from './DAGCanvas'
 import { AdjustmentSetPanel } from './AdjustmentSetPanel'
 import { EstimationPanel } from './EstimationPanel'
 import { EValuePanel } from './EValuePanel'
-import { CausalNarrativePanel } from './CausalNarrativePanel'
 import type { DAGEdge, DAGNode, AdjustmentSetResult } from '@/types/causal'
 
 interface DAGBuilderPanelProps {
@@ -46,19 +45,16 @@ export function DAGBuilderPanel({
     results: estimationResults,
     drResult,
     evalue,
-    narrative,
     loading: estLoading,
     error: estError,
     allComplete,
     isRunning: estRunning,
     startEstimation,
     computeEvalue,
-    generateNarrative,
-    pushNarrativeToDocument,
   } = useCausalEstimation(dag?.id ?? null)
 
   const [expanded, setExpanded] = useState(false)
-  const [phaseBTab, setPhaseBTab] = useState<'estimation' | 'evalue' | 'narrative'>('estimation')
+  const [phaseBTab, setPhaseBTab] = useState<'estimation' | 'evalue'>('estimation')
   const [exposure, setExposure] = useState('')
   const [outcome, setOutcome] = useState('')
   const [alpha, setAlpha] = useState(0.05)
@@ -438,7 +434,6 @@ export function DAGBuilderPanel({
                     {([
                       { key: 'estimation', label: 'Results', icon: <BarChart2 className="w-3.5 h-3.5" /> },
                       { key: 'evalue',     label: 'Sensitivity', icon: <Shield className="w-3.5 h-3.5" /> },
-                      { key: 'narrative',  label: 'Narrative', icon: <FileText className="w-3.5 h-3.5" /> },
                     ] as const).map((tab) => (
                       <button
                         key={tab.key}
@@ -488,32 +483,6 @@ export function DAGBuilderPanel({
                     </div>
                   )}
 
-                  {phaseBTab === 'narrative' && (
-                    <div className="space-y-3">
-                      {!narrative && (
-                        <button
-                          onClick={generateNarrative}
-                          disabled={estLoading || !allComplete}
-                          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-medium rounded-lg transition-colors"
-                        >
-                          {estLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
-                          Generate Results Paragraph
-                        </button>
-                      )}
-                      {!allComplete && !narrative && (
-                        <p className="text-xs text-gray-400 italic">
-                          All three estimation methods must complete first.
-                        </p>
-                      )}
-                      {narrative && (
-                        <CausalNarrativePanel
-                          narrative={narrative}
-                          projectId={projectId}
-                          onPushToDocument={pushNarrativeToDocument}
-                        />
-                      )}
-                    </div>
-                  )}
                 </>
               )}
             </div>

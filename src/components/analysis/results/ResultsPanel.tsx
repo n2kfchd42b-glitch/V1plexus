@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from 'react'
-import { FileText, Copy, Check, ChevronDown, ScrollText } from 'lucide-react'
+import { FileText, ChevronDown } from 'lucide-react'
 import { SummaryBox } from './SummaryBox'
 import { CoefficientTable } from './CoefficientTable'
 import { InterpretationBox } from './InterpretationBox'
@@ -73,41 +73,7 @@ function exportToWord(result: AnalysisResult, title: string) {
 
 export function ResultsPanel({ result, analysisType, title, datasetName, onSave, isSaved, runId, projectId, datasetId, versionId, savedChartConfig }: Props) {
   const [tableSearch, setTableSearch] = useState('')
-  const [narrative, setNarrative] = useState<string | null>(null)
-  const [narrativeLoading, setNarrativeLoading] = useState(false)
-  const [narrativeCopied, setNarrativeCopied] = useState(false)
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
-
-  const generateNarrative = async () => {
-    setNarrativeLoading(true)
-    try {
-      const res = await fetch('/api/analytics/narrative', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project_id: projectId ?? '',
-          analysis_type: analysisType,
-          result: result.summary ?? {},
-          dataset_id: datasetId ?? '',
-          variables: {},
-          analysis_run_id: runId,
-        }),
-      })
-      if (res.ok) {
-        const json = await res.json()
-        setNarrative(json.deterministic_text ?? null)
-      }
-    } catch { /* non-blocking */ }
-    finally { setNarrativeLoading(false) }
-  }
-
-  const copyNarrative = () => {
-    if (!narrative) return
-    navigator.clipboard.writeText(narrative).then(() => {
-      setNarrativeCopied(true)
-      setTimeout(() => setNarrativeCopied(false), 2000)
-    })
-  }
 
   if (result.summary?.error) {
     return (
@@ -199,24 +165,7 @@ export function ResultsPanel({ result, analysisType, title, datasetName, onSave,
         </div>
       )}
 
-      {/* ── 4. Methods narrative (generated on demand) ───────────────── */}
-      {narrative && (
-        <div className="py-4 border-b border-[var(--border-row)]">
-          <div className="flex items-center justify-between mb-2">
-            <p className="subsection-label">Methods text</p>
-            <button
-              onClick={copyNarrative}
-              className="flex items-center gap-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
-            >
-              {narrativeCopied ? <Check className="h-3 w-3 text-[var(--timeline-verified)]" /> : <Copy className="h-3 w-3" />}
-              {narrativeCopied ? 'Copied' : 'Copy'}
-            </button>
-          </div>
-          <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{narrative}</p>
-        </div>
-      )}
-
-      {/* ── 5. Diagnostics — collapsible ─────────────────────────────── */}
+      {/* ── 4. Diagnostics — collapsible ─────────────────────────────── */}
       {hasDiagnostics && (
         <div className="border-t border-[var(--border-row)]">
           <button
@@ -272,16 +221,6 @@ export function ResultsPanel({ result, analysisType, title, datasetName, onSave,
           <FileText className="h-3.5 w-3.5" />
           Export to Word
         </button>
-        {!narrative && (
-          <button
-            onClick={generateNarrative}
-            disabled={narrativeLoading}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--accent-blue)] border border-[var(--accent-blue)]/25 rounded px-3 py-1.5 hover:bg-[var(--accent-blue-subtle)] transition-colors disabled:opacity-50"
-          >
-            <ScrollText className="h-3.5 w-3.5" />
-            {narrativeLoading ? 'Drafting…' : 'Draft methods text'}
-          </button>
-        )}
       </div>
     </div>
   )
