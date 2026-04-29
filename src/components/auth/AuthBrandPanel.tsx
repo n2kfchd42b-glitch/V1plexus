@@ -49,7 +49,7 @@ export function AuthBrandPanel() {
           Built for researchers, everywhere
         </p>
         <h2 className="font-serif text-4xl xl:text-5xl leading-[1.08] text-white mb-6">
-          From data to<br />publication —<br />
+          From data to<br />manuscript —<br />
           <span className="text-[#93c5fd]">without the chaos.</span>
         </h2>
         <p className="text-white/50 text-sm leading-relaxed max-w-xs mb-10">
