@@ -13,6 +13,10 @@ export async function proxy(request: NextRequest) {
   // Auth callback must be public — unauthenticated users land here after clicking
   // a confirmation email link; the route exchanges the PKCE code for a session.
   const isAuthCallback = pathname.startsWith("/auth/");
+  // Password reset pages must be public — users are unauthenticated when they land here.
+  const isPasswordResetPage =
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password");
   // Public pages — protocol registry, dataset landing pages, public portfolio/badge pages, and legal/support pages
   const isPublicPage =
     pathname.startsWith("/registry/") ||
@@ -29,7 +33,7 @@ export async function proxy(request: NextRequest) {
   const isApiRoute = pathname.startsWith("/api/");
 
   const isProtected =
-    !isAuthPage && !isSetupPage && !isInvitePage && !isAuthCallback && !isPublicPage && !isApiRoute && pathname !== "/";
+    !isAuthPage && !isSetupPage && !isInvitePage && !isAuthCallback && !isPublicPage && !isApiRoute && !isPasswordResetPage && pathname !== "/";
 
   // Routes that need no auth check: skip the Supabase network round-trip entirely.
   if (!isProtected && !isAuthPage) {
