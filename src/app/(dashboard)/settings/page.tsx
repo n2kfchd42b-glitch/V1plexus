@@ -89,7 +89,6 @@ const NAV: { id: Tab; label: string; icon: string }[] = [
   { id: 'overview',  label: 'Profile Overview', icon: 'account_circle' },
   { id: 'edit',      label: 'Edit Profile',      icon: 'edit' },
   { id: 'security',  label: 'Security',          icon: 'shield_lock' },
-  { id: 'billing',   label: 'Billing',           icon: 'credit_card' },
   { id: 'danger',    label: 'Danger Zone',       icon: 'warning' },
 ]
 
@@ -653,28 +652,6 @@ export default function ProfilePage() {
                   </button>
                 </div>
 
-                {/* Peer Review Portal — dark card */}
-                <div className="bg-[var(--accent-primary)] p-4 rounded-xl space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-white text-[20px]">rate_review</span>
-                    <h3 className="text-sm font-bold text-white font-manrope">Peer Review Portal</h3>
-                  </div>
-                  {reviewCount > 0 ? (
-                    <p className="text-xs text-blue-200 leading-relaxed">
-                      {reviewCount} pending review {reviewCount === 1 ? 'request' : 'requests'} awaiting your attention.
-                    </p>
-                  ) : (
-                    <p className="text-xs text-blue-200 leading-relaxed">
-                      No pending review requests at this time.
-                    </p>
-                  )}
-                  <a
-                    href="/reviews"
-                    className="block w-full text-center bg-white/15 hover:bg-white/25 text-white text-xs font-semibold py-2 rounded-lg transition-colors border border-white/20"
-                  >
-                    Launch Dashboard
-                  </a>
-                </div>
 
                 {/* Contact */}
                 {(profile.website || profile.phone) && (
