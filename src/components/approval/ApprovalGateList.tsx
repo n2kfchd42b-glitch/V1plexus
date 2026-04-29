@@ -82,7 +82,13 @@ export function ApprovalGateList({ projectId, currentProfile }: ApprovalGateList
       </div>
 
       {gates.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-4">No approval gates defined.</p>
+        <div className="rounded-lg border border-dashed border-[var(--border-default)] bg-[var(--bg-inset)] px-6 py-8 text-center">
+          <p className="text-sm font-medium text-[var(--text-secondary)] mb-1">No approval gates yet</p>
+          <p className="text-xs text-[var(--text-tertiary)] max-w-xs mx-auto">
+            Approval gates are checkpoints that must be signed off before the project can progress.
+            {canManage ? ' Click "Add Gate" to create the first one.' : ' Ask the project PI to add gates.'}
+          </p>
+        </div>
       ) : (
         <div className="space-y-2">
           {gates.map(gate => (

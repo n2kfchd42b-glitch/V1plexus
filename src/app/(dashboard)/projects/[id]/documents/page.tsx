@@ -9,23 +9,10 @@ export default async function DocumentsPage({
 }) {
   const { id } = await params
   const supabase = await createClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) redirect("/login")
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect("/login")
 
-  const { data: documents } = await supabase
-    .from("documents")
-    .select("id")
-    .eq("project_id", id)
-    .is("deleted_at", null)
-    .order("updated_at", { ascending: false })
-    .limit(1)
-
-  // If there's an existing document, open it directly
-  if (documents && documents.length > 0) {
-    redirect(`/projects/${id}/documents/${documents[0].id}`)
-  }
-
-  // No documents yet — show the list panel with an empty state on the right
+  // Always show the list — no auto-redirect so the browser back button works correctly
   return (
     <div className="flex h-screen bg-bg-app overflow-hidden">
       <DocumentListPanel projectId={id} selectedDocId="" />

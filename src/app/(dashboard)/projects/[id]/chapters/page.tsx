@@ -12,8 +12,8 @@ export default async function ChaptersPage({
   const { id } = await params;
   if (!THESIS_ENABLED) redirect(`/projects/${id}/overview`);
   const supabase = await createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) redirect("/login");
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
 
   const { data: project } = await supabase
     .from("projects")
@@ -35,7 +35,7 @@ export default async function ChaptersPage({
     // Migration not yet applied — show empty state
   }
 
-  const canEdit = project.owner_id === session.user.id;
+  const canEdit = project.owner_id === user.id;
 
   return (
     <div className="px-6 py-6 max-w-3xl">

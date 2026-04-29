@@ -12,8 +12,8 @@ export default async function ProgressPage({
   const { id } = await params;
   if (!THESIS_ENABLED) redirect(`/projects/${id}/overview`);
   const supabase = await createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) redirect("/login");
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
 
   const { data: project } = await supabase
     .from("projects")

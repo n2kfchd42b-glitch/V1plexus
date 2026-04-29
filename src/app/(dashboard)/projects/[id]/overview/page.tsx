@@ -26,10 +26,8 @@ export default async function ProjectOverviewPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  // Middleware already verified auth — getSession() reads the cookie locally,
-  // no extra Supabase network round-trip needed just to get the user ID.
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) redirect("/login");
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
 
   // ── Parallel data fetch ──────────────────────────────────────────────────
   const sevenDaysAgo = new Date();
@@ -234,7 +232,7 @@ export default async function ProjectOverviewPage({
         >
           <ProjectGantt
             projectId={id}
-            userId={session.user.id}
+            userId={user.id}
             initialPhases={phases}
             initialNotes={notes}
           />

@@ -130,7 +130,7 @@ export default function ProjectSettingsPage() {
   }
 
   const handleDelete = async () => {
-    if (deleteConfirmText !== project?.title) {
+    if (deleteConfirmText.trim().toLowerCase() !== project?.title.toLowerCase()) {
       toast.error('Project title does not match')
       return
     }
@@ -155,7 +155,7 @@ export default function ProjectSettingsPage() {
     <div className="p-8 max-w-2xl mx-auto space-y-8">
       <div>
         <h2 className="text-lg font-semibold text-[var(--text-primary)]">Project Settings</h2>
-        <p className="text-sm text-[var(--text-tertiary)] mt-0.5">Manage metadata, phase, and lifecycle for this project.</p>
+        <p className="text-sm text-[var(--text-tertiary)] mt-0.5">Manage metadata and lifecycle for this project.</p>
       </div>
 
       {/* General */}
@@ -200,24 +200,6 @@ export default function ProjectSettingsPage() {
           </div>
 
           <div>
-            <Label htmlFor="proj-phase" className="text-xs font-medium text-[var(--text-secondary)]">Phase</Label>
-            <div className="relative">
-              <select
-                id="proj-phase"
-                value={phase}
-                onChange={e => setPhase(e.target.value)}
-                className="mt-1.5 w-full h-9 px-3 pr-8 text-sm appearance-none bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-md outline-none focus:border-[var(--border-focus)] focus:ring-2 focus:ring-[var(--accent-blue)]/20 text-[var(--text-primary)]"
-              >
-                <option value="">— Select phase —</option>
-                {PHASE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
             <Label htmlFor="proj-start" className="text-xs font-medium text-[var(--text-secondary)]">Start Date</Label>
             <Input
               id="proj-start"
@@ -227,6 +209,9 @@ export default function ProjectSettingsPage() {
               className="mt-1.5"
             />
           </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
           <div>
             <Label htmlFor="proj-end" className="text-xs font-medium text-[var(--text-secondary)]">Target End Date</Label>
             <Input
@@ -342,7 +327,7 @@ export default function ProjectSettingsPage() {
                 <Button
                   size="sm"
                   onClick={handleDelete}
-                  disabled={deleteConfirmText !== project.title}
+                  disabled={deleteConfirmText.trim().toLowerCase() !== project.title.toLowerCase()}
                   className="bg-red-600 hover:bg-red-700 text-white"
                 >
                   Confirm Delete

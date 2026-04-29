@@ -103,10 +103,36 @@ export async function POST(request: NextRequest) {
       console.log('[INVITATIONS] Workspace invitation created successfully')
     } else if (type === 'project') {
       if (!projectId) {
-        console.log('[INVITATIONS] Missing projectId for project invitation')
         return NextResponse.json({ error: 'projectId required' }, { status: 400 })
       }
-      console.log('[INVITATIONS] Inserting project invitation for project:', projectId)
+
+      // Block if already a member
+      const { data: existingMember } = await serviceClient
+        .from('project_members')
+        .select('user_id')
+        .eq('project_id', projectId)
+        .in('user_id',
+          (await serviceClient.from('profiles').select('id').ilike('email', normalizedEmail)).data?.map(p => p.id) ?? []
+        )
+        .maybeSingle()
+
+      if (existingMember) {
+        return NextResponse.json({ error: 'This person is already a member of the project.' }, { status: 409 })
+      }
+
+      // Block if already has a pending invitation
+      const { data: existingInvite } = await serviceClient
+        .from('project_invitations')
+        .select('id')
+        .eq('project_id', projectId)
+        .eq('email', normalizedEmail)
+        .eq('status', 'pending')
+        .maybeSingle()
+
+      if (existingInvite) {
+        return NextResponse.json({ error: 'An invitation has already been sent to this email.' }, { status: 409 })
+      }
+
       const { error: insertError } = await serviceClient
         .from('project_invitations')
         .insert({
