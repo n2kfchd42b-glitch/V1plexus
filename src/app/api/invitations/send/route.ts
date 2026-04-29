@@ -21,16 +21,11 @@ export async function POST(request: NextRequest) {
 
   const resend = new Resend(process.env.RESEND_API_KEY)
   try {
-    console.log('[INVITATIONS] Request received')
-    
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      console.log('[INVITATIONS] Auth failed:', authError)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    console.log('[INVITATIONS] User authenticated:', user.id)
 
     let body
     try {
@@ -43,12 +38,10 @@ export async function POST(request: NextRequest) {
     const { type, email, role, workspaceId, projectId, departmentId, message, workspaceName, projectTitle } = body
 
     if (!type || !email || !role) {
-      console.log('[INVITATIONS] Missing required fields:', { type, email, role })
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
     if (!EMAIL_REGEX.test(email)) {
-      console.log('[INVITATIONS] Invalid email:', email)
       return NextResponse.json({ error: 'Invalid email address' }, { status: 400 })
     }
 
@@ -59,7 +52,6 @@ export async function POST(request: NextRequest) {
     )
 
     // Look up inviter's name for the email copy
-    console.log('[INVITATIONS] Looking up inviter profile for user:', user.id)
     const { data: inviterProfile, error: profileError } = await serviceClient
       .from('profiles')
       .select('full_name, email')
@@ -71,7 +63,6 @@ export async function POST(request: NextRequest) {
     }
 
     const inviterName = inviterProfile?.full_name ?? inviterProfile?.email ?? 'A colleague'
-    console.log('[INVITATIONS] Inviter name:', inviterName)
 
     const token = crypto.randomUUID().replace(/-/g, '')
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://plexus.science'
@@ -81,10 +72,8 @@ export async function POST(request: NextRequest) {
     // Insert into the correct invitations table
     if (type === 'workspace') {
       if (!workspaceId) {
-        console.log('[INVITATIONS] Missing workspaceId for workspace invitation')
         return NextResponse.json({ error: 'workspaceId required' }, { status: 400 })
       }
-      console.log('[INVITATIONS] Inserting workspace invitation for workspace:', workspaceId)
       const { error: insertError } = await serviceClient
         .from('workspace_invitations')
         .insert({
@@ -97,10 +86,8 @@ export async function POST(request: NextRequest) {
           status: 'pending',
         })
       if (insertError) {
-        console.error('[INVITATIONS] Workspace invitation insert error:', insertError)
         return NextResponse.json({ error: insertError.message }, { status: 500 })
       }
-      console.log('[INVITATIONS] Workspace invitation created successfully')
     } else if (type === 'project') {
       if (!projectId) {
         return NextResponse.json({ error: 'projectId required' }, { status: 400 })
@@ -145,20 +132,15 @@ export async function POST(request: NextRequest) {
           status: 'pending',
         })
       if (insertError) {
-        console.error('[INVITATIONS] Project invitation insert error:', insertError)
         return NextResponse.json({ error: insertError.message }, { status: 500 })
       }
-      console.log('[INVITATIONS] Project invitation created successfully')
     } else {
-      console.log('[INVITATIONS] Invalid invitation type:', type)
       return NextResponse.json({ error: 'Invalid invitation type' }, { status: 400 })
     }
 
     // Send email via Resend
     const resourceName = type === 'workspace' ? workspaceName : projectTitle
     const roleLabel = (role as string).replace(/_/g, ' ')
-
-    console.log(`[INVITATIONS] Sending email to ${normalizedEmail} for ${type} "${resourceName}"`)
 
     const emailResponse = await resend.emails.send({
       from: 'Plexus <invitations@plexus.science>',
@@ -195,12 +177,8 @@ export async function POST(request: NextRequest) {
     })
 
     if (emailResponse.error) {
-      console.error('[INVITATIONS] Resend error:', emailResponse.error)
       return NextResponse.json({ error: `Failed to send invitation email: ${emailResponse.error.message}` }, { status: 500 })
     }
-
-    console.log(`[INVITATIONS] Email sent successfully. Message ID: ${emailResponse.data?.id}`)
-
 
     // In-app notification if the invited person already has an account
     // Use case-insensitive profiles lookup via service role — avoids pagination limits

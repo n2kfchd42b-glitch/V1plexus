@@ -629,7 +629,6 @@ export function AnalysisHub({ projectId }: Props) {
     backendType: string,
     backendConfig: Record<string, unknown>,
   ) => {
-    console.log('[run] runWithTypeAndConfig called:', backendType)
     const t = backendType as AnalysisType
     setSelectedType(t)
     setConfig(backendConfig)
@@ -821,7 +820,6 @@ export function AnalysisHub({ projectId }: Props) {
   }
 
   const handleEngineDirectRun = () => {
-    console.log('[run] handleEngineDirectRun called, engineSelectedType:', engineSelectedType)
     if (!engineSelectedType) return
     const config: AnalysisConfig = {
       analysis_type: engineSelectedType,
@@ -844,7 +842,6 @@ export function AnalysisHub({ projectId }: Props) {
   }
 
   const handleRun = async () => {
-    console.log('[run] handleRun called, selectedType:', selectedType)
     if (!selectedType) return
     if (approvalBlock) return
     setAssumptionReport(null)
