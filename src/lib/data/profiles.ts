@@ -113,7 +113,7 @@ export async function updateProfile(
     .from('profiles')
     .update(updates)
     .eq('id', id)
-    .select('*')
+    .select('*, institution:institutions(id,name,country), department:departments(id,name)')
     .single()
   if (error) return err(error.message)
   return ok(data as Profile)

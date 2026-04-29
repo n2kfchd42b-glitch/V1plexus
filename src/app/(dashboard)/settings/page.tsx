@@ -62,13 +62,6 @@ const PLAN_FEATURES: Record<string, string[]> = {
   institution: ['Everything in Pro', 'Unlimited storage', 'Institutional workspace', 'Admin dashboard', 'Dedicated support', 'SSO / SAML'],
 }
 
-const RESEARCH_AREAS = [
-  'Global Health', 'Epidemiology', 'Biostatistics', 'Public Health',
-  'Clinical Research', 'Social Science', 'Environmental Health', 'Health Policy',
-  'Infectious Disease', 'Non-communicable Disease', 'Maternal & Child Health',
-  'Mental Health', 'Other',
-]
-
 const COUNTRIES = [
   'Afghanistan', 'Albania', 'Algeria', 'Angola', 'Argentina', 'Armenia', 'Australia',
   'Austria', 'Azerbaijan', 'Bangladesh', 'Belgium', 'Benin', 'Bolivia', 'Bosnia and Herzegovina',
@@ -130,7 +123,6 @@ export default function ProfilePage() {
   const [deleting, setDeleting]           = useState(false)
 
   // Research Presence
-  const [discipline, setDiscipline]   = useState('')
   const [city, setCity]               = useState('')
   const [country, setCountry]         = useState('')
   const [presenceLat, setPresenceLat] = useState<number | null>(null)
@@ -170,7 +162,6 @@ export default function ProfilePage() {
         setProfile(profileResult.data)
         setAvatarUrl(profileResult.data.avatar_url ?? null)
         const p = profileResult.data as unknown as Record<string, unknown>
-        setDiscipline((p.research_discipline as string | null) ?? '')
         setCity((p.city as string | null) ?? '')
         setCountry((p.country as string | null) ?? '')
         setPresenceLat((p.lat as number | null) ?? null)
@@ -260,16 +251,15 @@ export default function ProfilePage() {
       : {}   // don't overwrite existing coordinates with null
 
     const result = await updateProfile(supabase, authUser.id, {
-      full_name:           profile.full_name,
-      title:               profile.title,
-      bio:                 profile.bio,
-      orcid_id:            profile.orcid_id,
-      phone:               profile.phone,
-      website:             profile.website,
-      research_discipline: discipline || null,
-      city:                city || null,
-      country:             country || null,
-      show_on_globe:       showOnGlobe,
+      full_name:     profile.full_name,
+      title:         profile.title,
+      bio:           profile.bio,
+      orcid_id:      profile.orcid_id,
+      phone:         profile.phone,
+      website:       profile.website,
+      city:          city || null,
+      country:       country || null,
+      show_on_globe: showOnGlobe,
       ...locationCoords,
     })
 
@@ -289,7 +279,6 @@ export default function ProfilePage() {
       setPresenceLat((saved.lat as number | null) ?? null)
       setPresenceLng((saved.lng as number | null) ?? null)
       setShowOnGlobe((saved.show_on_globe as boolean | null) ?? true)
-      setDiscipline((saved.research_discipline as string | null) ?? '')
     }
 
     toast.success('Profile saved')
@@ -805,25 +794,6 @@ export default function ProfilePage() {
                   <Globe className="h-4 w-4 text-[#0052CC]" />
                   <h2 className="text-sm font-semibold text-[#191c1e]">Research Presence</h2>
                   <span className="ml-auto text-[10px] text-[#A1A1AA] font-medium uppercase tracking-wide">Country shown on global map</span>
-                </div>
-
-                {/* Discipline */}
-                <div>
-                  <Label htmlFor="discipline">Research Discipline</Label>
-                  <div className="relative mt-1">
-                    <select
-                      id="discipline"
-                      value={discipline}
-                      onChange={e => setDiscipline(e.target.value)}
-                      className="w-full rounded-md border border-[#E4E4E7] px-3 py-2 pr-8 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-[#0052CC] bg-white"
-                    >
-                      <option value="">Select discipline…</option>
-                      {RESEARCH_AREAS.map(a => (
-                        <option key={a} value={a}>{a}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#A1A1AA] pointer-events-none" />
-                  </div>
                 </div>
 
                 {/* Location */}
