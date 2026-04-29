@@ -3,19 +3,19 @@ import { BrandLogo } from '@/components/layout/BrandLogo'
 
 const FEATURES = [
   {
-    icon: 'lock',
-    title: 'Cryptographic audit ledger',
-    desc: 'Every decision hash-chained. Journals verify without trusting researcher claims.',
+    icon: 'save',
+    title: 'Every step, automatically saved',
+    desc: 'From data import to final results, nothing gets lost or forgotten.',
   },
   {
     icon: 'insights',
-    title: 'Clinical-grade analysis',
-    desc: 'Survival analysis, regression, ROC curves — every parameter logged automatically.',
+    title: 'Run the right analysis',
+    desc: 'We guide you to the right method and run it — no statistics degree required.',
   },
   {
-    icon: 'verified',
-    title: 'Ethics submission built in',
-    desc: 'Protocol versions, amendments, and approvals tracked from day one.',
+    icon: 'group',
+    title: 'Work with your supervisor',
+    desc: 'Share results, get feedback, and move forward — together, in one place.',
   },
 ]
 
@@ -46,14 +46,14 @@ export function AuthBrandPanel() {
       {/* Main copy */}
       <div className="relative z-10 flex-1 flex flex-col justify-center px-10 pb-8">
         <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/40 mb-5">
-          Research Intelligence Platform
+          Built for researchers, everywhere
         </p>
         <h2 className="font-serif text-4xl xl:text-5xl leading-[1.08] text-white mb-6">
-          Protocol to<br />publication.<br />
-          <span className="text-[#93c5fd]">Every step audited.</span>
+          From data to<br />publication —<br />
+          <span className="text-[#93c5fd]">without the chaos.</span>
         </h2>
         <p className="text-white/50 text-sm leading-relaxed max-w-xs mb-10">
-          The end-to-end research management platform built for global health researchers who publish with verifiable integrity.
+          Run analysis, write up your findings, and export everything — all in one place.
         </p>
 
         {/* Feature list */}
@@ -72,15 +72,12 @@ export function AuthBrandPanel() {
         </div>
       </div>
 
-      {/* Bottom trust signal */}
+      {/* Bottom link */}
       <div className="relative z-10 px-10 pb-8">
         <div className="pt-6 border-t border-white/8">
-          <p className="text-white/30 text-xs leading-relaxed">
-            Trusted by researchers across Africa, Europe, Asia, and the Americas.<br />
-            <Link href="/" className="text-white/50 hover:text-white/70 transition-colors underline underline-offset-2">
-              Learn more about PLEXUS →
-            </Link>
-          </p>
+          <Link href="/" className="text-white/40 hover:text-white/60 transition-colors text-xs underline underline-offset-2">
+            Learn more about PLEXUS →
+          </Link>
         </div>
       </div>
     </div>

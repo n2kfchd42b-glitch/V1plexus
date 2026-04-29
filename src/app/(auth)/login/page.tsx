@@ -28,8 +28,15 @@ function LoginForm() {
     setLoading(true)
     setError('')
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) setError(error.message)
-    else router.push(redirect)
+    if (error) {
+      if (error.message.toLowerCase().includes('email not confirmed')) {
+        setError('Please confirm your email first. Check your inbox for the verification link we sent when you signed up.')
+      } else {
+        setError(error.message)
+      }
+    } else {
+      router.push(redirect)
+    }
     setLoading(false)
   }
 
@@ -48,7 +55,12 @@ function LoginForm() {
         />
       </div>
       <div>
-        <Label htmlFor="password">Password</Label>
+        <div className="flex items-center justify-between mb-1">
+          <Label htmlFor="password">Password</Label>
+          <Link href="/forgot-password" className="text-xs text-clinical-blue hover:underline">
+            Forgot password?
+          </Link>
+        </div>
         <Input
           id="password"
           type="password"

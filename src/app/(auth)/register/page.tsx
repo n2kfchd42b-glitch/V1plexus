@@ -4,6 +4,46 @@ import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { BrandLogo } from '@/components/layout/BrandLogo'
+import { createClient } from '@/lib/supabase/client'
+
+function ConfirmationPrompt({ email, redirect, emailRedirectTo }: { email: string; redirect: string; emailRedirectTo: string }) {
+  const [resending, setResending] = useState(false)
+  const [resent, setResent] = useState(false)
+  const supabase = createClient()
+
+  const handleResend = async () => {
+    setResending(true)
+    await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo } })
+    setResent(true)
+    setResending(false)
+  }
+
+  return (
+    <div className="text-center py-4">
+      <div className="mb-4 text-4xl">📧</div>
+      <h2 className="text-lg font-bold text-slate-900 mb-2">Check your email</h2>
+      <p className="text-slate-500 text-sm mb-1">
+        We sent a confirmation link to <strong>{email}</strong>.
+      </p>
+      <p className="text-slate-500 text-sm mb-6">
+        Click the link to confirm your account
+        {redirect !== '/dashboard' ? ' and complete your invitation.' : '.'}
+      </p>
+      {resent ? (
+        <p className="text-sm text-green-600">Link resent — check your inbox again.</p>
+      ) : (
+        <button
+          type="button"
+          onClick={handleResend}
+          disabled={resending}
+          className="text-sm text-clinical-blue hover:underline disabled:opacity-50"
+        >
+          {resending ? 'Resending…' : "Didn't receive it? Resend"}
+        </button>
+      )}
+    </div>
+  )
+}
 
 function RegisterForm() {
   const router = useRouter()
@@ -51,17 +91,11 @@ function RegisterForm() {
 
   if (confirming) {
     return (
-      <div className="text-center py-4">
-        <div className="mb-4 text-4xl">📧</div>
-        <h2 className="text-lg font-bold text-slate-900 mb-2">Check your email</h2>
-        <p className="text-slate-500 text-sm mb-1">
-          We sent a confirmation link to <strong>{email}</strong>.
-        </p>
-        <p className="text-slate-500 text-sm">
-          Click the link to confirm your account
-          {redirect !== '/dashboard' ? ' and complete your invitation.' : '.'}
-        </p>
-      </div>
+      <ConfirmationPrompt
+        email={email}
+        redirect={redirect}
+        emailRedirectTo={`${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback?next=${encodeURIComponent(redirect)}`}
+      />
     )
   }
 

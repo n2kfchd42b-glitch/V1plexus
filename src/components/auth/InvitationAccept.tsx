@@ -26,29 +26,21 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
 
   useEffect(() => {
     const lookupToken = async () => {
-      console.log('[InvitationAccept] Looking up token:', token)
-
       // RLS on invitation tables requires authentication — redirect to login first
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
-        console.log('[InvitationAccept] Not authenticated, redirecting to login')
         router.push(`/login?redirect=/invite/${token}`)
         return
       }
 
       // Try workspace invitation first
-      const { data: wsInvite, error: wsError } = await supabase
+      const { data: wsInvite } = await supabase
         .from('workspace_invitations')
         .select('*, workspace:workspaces(*)')
         .eq('token', token)
         .maybeSingle()
 
-      if (wsError) {
-        console.error('[InvitationAccept] Workspace invitation lookup error:', wsError)
-      }
-
       if (wsInvite) {
-        console.log('[InvitationAccept] Found workspace invitation')
         setInviteType('workspace')
         setWorkspaceInvite(wsInvite as WorkspaceInvitation)
         setLoading(false)
@@ -56,25 +48,19 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
       }
 
       // Try project invitation
-      const { data: projInvite, error: projError } = await supabase
+      const { data: projInvite } = await supabase
         .from('project_invitations')
         .select('*, project:projects(*)')
         .eq('token', token)
         .maybeSingle()
 
-      if (projError) {
-        console.error('[InvitationAccept] Project invitation lookup error:', projError)
-      }
-
       if (projInvite) {
-        console.log('[InvitationAccept] Found project invitation')
         setInviteType('project')
         setProjectInvite(projInvite as ProjectInvitation)
         setLoading(false)
         return
       }
 
-      console.error('[InvitationAccept] No invitation found for token:', token)
       setError('Invitation not found or has expired.')
       setLoading(false)
     }
@@ -84,21 +70,14 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
 
   const handleAccept = async () => {
     setAccepting(true)
-    console.log('[InvitationAccept] Accept clicked')
-    
+
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      console.log('[InvitationAccept] User not logged in, redirecting to login')
       router.push(`/login?redirect=/invite/${token}`)
       return
     }
 
-    console.log('[InvitationAccept] User logged in:', user.id)
-
     if (inviteType === 'workspace' && workspaceInvite) {
-      console.log('[InvitationAccept] Accepting workspace invitation')
-      
-      // Create workspace membership
       const { error: memErr } = await supabase
         .from('workspace_memberships')
         .upsert({
@@ -112,29 +91,19 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
         }, { onConflict: 'workspace_id,user_id' })
 
       if (memErr) {
-        console.error('[InvitationAccept] Workspace membership error:', memErr)
         toast.error(memErr.message)
         setAccepting(false)
         return
       }
 
-      // Mark invitation as accepted
-      const { error: updateErr } = await supabase
+      await supabase
         .from('workspace_invitations')
         .update({ status: 'accepted' })
         .eq('token', token)
 
-      if (updateErr) {
-        console.error('[InvitationAccept] Error marking invitation accepted:', updateErr)
-      }
-
-      console.log('[InvitationAccept] Workspace invitation accepted successfully')
       toast.success('You joined the workspace!')
       router.push('/dashboard')
     } else if (inviteType === 'project' && projectInvite) {
-      console.log('[InvitationAccept] Accepting project invitation')
-      
-      // Add as project member
       const { error: memErr } = await supabase
         .from('project_members')
         .upsert({
@@ -144,30 +113,22 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
         }, { onConflict: 'project_id,user_id' })
 
       if (memErr) {
-        console.error('[InvitationAccept] Project membership error:', memErr)
         toast.error(memErr.message)
         setAccepting(false)
         return
       }
 
-      // Mark workspace setup as completed so the middleware doesn't redirect
-      // new users to /setup when they land on the project page.
-      // Invited collaborators don't need their own workspace to get started.
+      // Invited collaborators don't need their own workspace to get started
       await supabase
         .from('profiles')
         .update({ workspace_setup_completed: true })
         .eq('id', user.id)
 
-      const { error: updateErr } = await supabase
+      await supabase
         .from('project_invitations')
         .update({ status: 'accepted' })
         .eq('token', token)
 
-      if (updateErr) {
-        console.error('[InvitationAccept] Error marking invitation accepted:', updateErr)
-      }
-
-      console.log('[InvitationAccept] Project invitation accepted successfully')
       toast.success('You joined the project!')
       router.push(`/projects/${projectInvite.project_id}`)
     }

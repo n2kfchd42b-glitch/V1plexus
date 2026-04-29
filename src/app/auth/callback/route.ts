@@ -19,8 +19,15 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const supabase = await createClient()
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
+      // Password-recovery tokens should land on the reset form, not the dashboard
+      if (data.session?.user && next === '/dashboard') {
+        const type = searchParams.get('type')
+        if (type === 'recovery') {
+          return NextResponse.redirect(`${origin}/reset-password`)
+        }
+      }
       return NextResponse.redirect(`${origin}${next}`)
     }
   }

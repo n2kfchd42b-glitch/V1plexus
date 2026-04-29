@@ -421,11 +421,33 @@ function PanelListItem({ dataset, isSelected, isArchived, onSelect, onDelete, on
           )}>
             {dataset.name}
           </p>
-          {version && (
+          {version && !isSelected && (
             <p className="data-mono text-[9px] text-[var(--text-tertiary)] mt-0.5 truncate">
               {version.row_count.toLocaleString()} · {version.column_count} cols
             </p>
           )}
+          {version && isSelected && (() => {
+            const schema = version.schema_info ?? []
+            const totalCells = version.row_count * schema.length
+            const totalMissing = schema.reduce((s: number, c: { null_count?: number }) => s + (c.null_count ?? 0), 0)
+            const missingPct = totalCells > 0 ? ((totalMissing / totalCells) * 100).toFixed(1) : '0.0'
+            const integrityPct = totalCells > 0 ? (100 - (totalMissing / totalCells) * 100).toFixed(1) : '100.0'
+            return (
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 mt-2 pr-1">
+                {[
+                  { label: 'Rows',      value: version.row_count.toLocaleString(), color: 'text-[var(--accent-blue)]' },
+                  { label: 'Cols',      value: String(version.column_count),        color: 'text-[var(--accent-blue)]' },
+                  { label: 'Missing',   value: `${missingPct}%`,                    color: parseFloat(missingPct) > 0 ? 'text-[var(--status-error)]' : 'text-[var(--accent-blue)]' },
+                  { label: 'Integrity', value: `${integrityPct}%`,                  color: 'text-[var(--accent-blue)]' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="flex flex-col">
+                    <span className={`data-mono text-[11px] font-bold tabular-nums leading-none ${color}`}>{value}</span>
+                    <span className="text-[9px] text-[var(--text-tertiary)] leading-none mt-0.5">{label}</span>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
         </div>
 
         {/* Hover actions */}

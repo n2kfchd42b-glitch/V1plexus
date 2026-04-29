@@ -40,12 +40,12 @@ const COUNTRIES = [
 
 export function IndividualSetup() {
   const [researchArea, setResearchArea] = useState('')
-  const [affiliation, setAffiliation] = useState('')
   const [orcid, setOrcid] = useState('')
   const [city, setCity] = useState('')
   const [country, setCountry] = useState('')
   const [lat, setLat] = useState<number | null>(null)
   const [lng, setLng] = useState<number | null>(null)
+  const [showOnGlobe, setShowOnGlobe] = useState(false)
   const [geoState, setGeoState] = useState<'idle' | 'detecting' | 'detected' | 'denied' | 'manual'>('idle')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
@@ -143,6 +143,12 @@ export function IndividualSetup() {
       })
     }
 
+    // Normalize ORCID: strip URL prefix and dashes to just the 16-digit ID
+    const normalizedOrcid = orcid.trim()
+      .replace(/^https?:\/\/orcid\.org\//i, '')
+      .replace(/\s/g, '')
+      || null
+
     await supabase
       .from('profiles')
       .update({
@@ -152,8 +158,9 @@ export function IndividualSetup() {
         country: country || null,
         lat: finalLat,
         lng: finalLng,
-        show_on_globe: true,
+        show_on_globe: showOnGlobe,
         research_discipline: researchArea || null,
+        orcid_id: normalizedOrcid,
       })
       .eq('id', user.id)
 
@@ -285,18 +292,7 @@ export function IndividualSetup() {
             </div>
 
             <div>
-              <Label htmlFor="affiliation">Affiliation <span className="text-gray-400 text-xs">(optional)</span></Label>
-              <Input
-                id="affiliation"
-                placeholder="Independent / University of Ghana"
-                value={affiliation}
-                onChange={e => setAffiliation(e.target.value)}
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="orcid">ORCID <span className="text-gray-400 text-xs">(optional)</span></Label>
+              <Label htmlFor="orcid">ORCID iD <span className="text-gray-400 text-xs">(optional)</span></Label>
               <Input
                 id="orcid"
                 placeholder="0000-0000-0000-0000"
@@ -306,10 +302,18 @@ export function IndividualSetup() {
               />
             </div>
 
-            <p className="text-xs text-gray-400">
-              Your city appears as a dot on the global researcher map.{' '}
-              You can opt out in profile settings anytime.
-            </p>
+            <div className="flex items-start gap-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
+              <input
+                id="showOnGlobe"
+                type="checkbox"
+                checked={showOnGlobe}
+                onChange={e => setShowOnGlobe(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-clinical-blue focus:ring-clinical-blue flex-shrink-0 cursor-pointer"
+              />
+              <label htmlFor="showOnGlobe" className="text-xs text-gray-500 leading-relaxed cursor-pointer">
+                Show my city as a dot on the global researcher map. You can change this anytime in profile settings.
+              </label>
+            </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Setting up…' : 'Set Up My Workspace →'}

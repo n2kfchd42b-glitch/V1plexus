@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ChartBuilder } from '@/components/explorer/ChartBuilder'
+import { ExploreGuide } from '@/components/explorer/ExploreGuide'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -53,6 +54,9 @@ export default function DatasetExplorePage() {
   const [initialChartType, setInitialChartType] = useState<ChartType | undefined>()
   const [initialConfig, setInitialConfig] = useState<ChartConfig | undefined>()
   const [explorationLoaded, setExplorationLoaded] = useState(false)
+
+  // 'guide' = show intent picker; 'build' = show ChartBuilder directly
+  const [phase, setPhase] = useState<'guide' | 'build'>('guide')
 
   const supabase = createClient()
 
@@ -136,6 +140,9 @@ export default function DatasetExplorePage() {
       return
     }
 
+    // Loading a saved exploration — skip the guide and go straight to the builder
+    setPhase('build')
+
     supabase
       .from('dataset_explorations')
       .select('*')
@@ -194,6 +201,12 @@ export default function DatasetExplorePage() {
     }
   }
 
+  function handleGuideComplete(chartType: ChartType, config: ChartConfig) {
+    setInitialChartType(chartType)
+    setInitialConfig(config)
+    setPhase('build')
+  }
+
   function handleBack() {
     router.push(`/projects/${projectId}/data/${datasetId}`)
   }
@@ -238,6 +251,17 @@ export default function DatasetExplorePage() {
           Go back
         </button>
       </div>
+    )
+  }
+
+  // Show the intent guide on fresh opens (no ?load= param, no prior session)
+  if (phase === 'guide') {
+    return (
+      <ExploreGuide
+        columns={parsedData.columns}
+        onComplete={handleGuideComplete}
+        onSkip={() => setPhase('build')}
+      />
     )
   }
 

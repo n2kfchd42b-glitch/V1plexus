@@ -34,13 +34,13 @@ export default function LandingPage() {
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#dde1ff] text-[#001453] text-[10px] uppercase tracking-widest font-bold mb-8">
                 <span className="material-symbols-outlined text-[14px]">verified</span>
-                Early Access · Built for Researchers and Institutions
+                Built for students, PhDs, and early-career researchers
               </div>
               <h1 className="font-serif text-5xl md:text-7xl tracking-tight leading-[0.92] text-[#191c1e] mb-6">
-                The RESEARCH<br />Platform for<br />Global Health
+                From data to<br />publication —<br />without the chaos.
               </h1>
               <p className="text-lg text-[#444653] leading-relaxed mb-10 max-w-lg">
-                Import from KoboToolbox or REDCap, run survival analysis and regression, generate manuscript-ready tables — every decision cryptographically logged to an immutable audit ledger.
+                Run analysis, generate results, and export your research — with every step automatically documented.
               </p>
               <div className="flex flex-col sm:flex-row items-start gap-4 mb-10">
                 <Link
@@ -57,9 +57,9 @@ export default function LandingPage() {
                   <span className="material-symbols-outlined">play_circle</span>
                 </a>
               </div>
-              {/* Trust signal */}
+              {/* Globe caption */}
               <p className="text-sm text-[#444653]/60 font-medium">
-                Join researchers active across 6 continents — see the live map →
+                Designed for researchers everywhere — wherever your field takes you →
               </p>
             </div>
 
@@ -76,9 +76,9 @@ export default function LandingPage() {
             {/* Main Dashboard Peek */}
             <div className="md:col-span-8 bg-white rounded-2xl overflow-hidden border border-[#c4c5d5]/10 shadow-sm relative group flex flex-col">
               <div className="p-8 pb-0">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#003D9B] mb-2 block">Central Intelligence</span>
-                <h3 className="text-2xl font-bold tracking-tight mb-2">Real-time Orchestration</h3>
-                <p className="text-[#444653] text-sm max-w-md">Monitor every study, data point, and ethical review across your entire institution in a single command center.</p>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#003D9B] mb-2 block">Your research hub</span>
+                <h3 className="text-2xl font-bold tracking-tight mb-2">Everything in one view</h3>
+                <p className="text-[#444653] text-sm max-w-md">See all your projects, data, and results without switching between tools.</p>
               </div>
               <div className="mt-8 flex-grow relative overflow-hidden mx-8 rounded-t-xl border-x border-t border-[#c4c5d5]/20 bg-white">
                 {/* Institution Study Pipeline Dashboard */}
@@ -205,9 +205,9 @@ export default function LandingPage() {
             {/* Immutable Audit Ledger Peek */}
             <div className="md:col-span-4 bg-[#2b3542] rounded-2xl overflow-hidden border border-[#c4c5d5]/10 shadow-sm flex flex-col">
               <div className="p-7">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#d9e3f4] mb-2 block">Immutable Audit Ledger</span>
-                <h3 className="text-2xl font-bold tracking-tight mb-2 text-white">Every Decision Logged</h3>
-                <p className="text-[#b2bccd] text-sm leading-relaxed">SHA-256 hash-chained blocks. Journals verify integrity without trusting researcher claims.</p>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#d9e3f4] mb-2 block">Your research trail</span>
+                <h3 className="text-2xl font-bold tracking-tight mb-2 text-white">Every step, automatically recorded</h3>
+                <p className="text-[#b2bccd] text-sm leading-relaxed">From data import to final results, everything is tracked — so you can always show how your work was done.</p>
               </div>
               <div className="flex-1 px-5 pb-5 flex flex-col gap-2">
                 {/* Genesis block */}
@@ -255,9 +255,9 @@ export default function LandingPage() {
             {/* Analysis Engine Peek */}
             <div className="md:col-span-4 bg-[#e7e8ea] rounded-2xl overflow-hidden border border-[#c4c5d5]/10 shadow-sm flex flex-col">
               <div className="p-7">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#003D9B] mb-2 block">Statistical Engine</span>
-                <h3 className="text-2xl font-bold tracking-tight mb-2">Clinical-Grade Analysis</h3>
-                <p className="text-[#444653] text-sm leading-relaxed">Survival analysis, regression, ROC curves — every parameter logged to the audit ledger automatically.</p>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#003D9B] mb-2 block">Built-in analysis</span>
+                <h3 className="text-2xl font-bold tracking-tight mb-2">Run the right analysis, every time</h3>
+                <p className="text-[#444653] text-sm leading-relaxed">Regression, survival analysis, and more — without complicated setup.</p>
               </div>
               <div className="flex-1 flex items-end justify-center px-5 pb-5 overflow-hidden">
                 {/* ROC Curve SVG */}
@@ -332,9 +332,9 @@ export default function LandingPage() {
                 <h3 className="text-3xl font-bold tracking-tight text-white mb-7">Supervisor Workflows Built In.</h3>
                 <div className="flex flex-col gap-5">
                   {([
-                    { icon: 'approval', text: 'Supervisors approve analysis parameters before runs execute' },
+                    { icon: 'approval', text: 'Your supervisor reviews and approves your work before you move forward' },
                     { icon: 'manage_accounts', text: 'Role-based access for students, supervisors, and departments' },
-                    { icon: 'verified', text: 'Every sign-off appended to the immutable audit ledger' },
+                    { icon: 'verified', text: 'Every approval is saved — so your process is always traceable' },
                   ] as { icon: string; text: string }[]).map(({ icon, text }) => (
                     <div key={text} className="flex items-start gap-3">
                       <span className="material-symbols-outlined text-blue-200 text-[18px] mt-0.5 shrink-0">{icon}</span>
@@ -377,14 +377,14 @@ export default function LandingPage() {
           <div className="max-w-7xl mx-auto px-6">
             <div className="mb-16">
               <h2 className="text-4xl font-bold tracking-tight mb-4">Built for every role.</h2>
-              <p className="text-[#444653] max-w-xl">Tailored interfaces and permission-sets for every member of the global health ecosystem.</p>
+              <p className="text-[#444653] max-w-xl">Whether you&apos;re just starting out or leading a team, Plexus fits how you work.</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {[
-                { icon: 'school', label: 'Students', bg: 'bg-[#dde1ff]', text: 'text-[#003D9B]', desc: 'Streamlined tools to design protocols and collect field data with ease.' },
-                { icon: 'psychology', label: 'Supervisors', bg: 'bg-[#d8e2ff]', text: 'text-[#0058be]', desc: 'Oversee multiple cohorts and provide real-time feedback on progress.' },
-                { icon: 'account_balance', label: 'Departments', bg: 'bg-[#d9e3f4]', text: 'text-[#2b3542]', desc: 'Manage resource allocation and ethics compliance across the faculty.' },
-                { icon: 'hub', label: 'Institutions', bg: 'bg-[#ffdad6]', text: 'text-[#93000a]', desc: 'Enterprise-grade security, data governance, and long-term registry.' },
+                { icon: 'school', label: 'Students', bg: 'bg-[#dde1ff]', text: 'text-[#003D9B]', desc: 'Design your study, collect data, and run analysis — all guided, step by step.' },
+                { icon: 'psychology', label: 'Supervisors', bg: 'bg-[#d8e2ff]', text: 'text-[#0058be]', desc: 'Review your students\' work, give feedback, and approve results — all in one place.' },
+                { icon: 'account_balance', label: 'Departments', bg: 'bg-[#d9e3f4]', text: 'text-[#2b3542]', desc: 'See what every team is working on and keep research on track.' },
+                { icon: 'hub', label: 'Institutions', bg: 'bg-[#ffdad6]', text: 'text-[#93000a]', desc: 'A single platform for all your research — secure, organized, and always audit-ready.' },
               ].map(({ icon, label, bg, text, desc }) => (
                 <div key={label} className="p-8 bg-[#edeef0] rounded-xl border border-transparent hover:border-[#003D9B]/20 transition-all">
                   <div className={`w-12 h-12 rounded-lg ${bg} flex items-center justify-center ${text} mb-6`}>
@@ -411,10 +411,10 @@ export default function LandingPage() {
           <div className="max-w-7xl mx-auto px-6 relative z-10">
             <div className="text-center mb-16">
               <span className="inline-block px-4 py-1.5 rounded-full bg-white/10 border border-white/20 text-blue-100 text-xs font-bold uppercase tracking-[0.2em] mb-6 font-geist">
-                Research Integrity Platform
+                How it works
               </span>
-              <h2 className="text-4xl md:text-6xl font-bold tracking-tighter mb-4 font-geist text-white">The Global Research Plexus</h2>
-              <p className="text-blue-100 text-lg max-w-2xl mx-auto opacity-80">Protocol to publication — every step auditable, every decision verifiable.</p>
+              <h2 className="text-4xl md:text-6xl font-bold tracking-tighter mb-4 font-geist text-white">From data to paper, in three steps.</h2>
+              <p className="text-blue-100 text-lg max-w-2xl mx-auto opacity-80">No manual tracking. No messy workflows. Everything is captured automatically.</p>
             </div>
             <div className="relative">
               <div className="hidden md:block absolute top-1/2 left-0 w-full h-[2px] flow-line -translate-y-1/2" />
@@ -423,8 +423,8 @@ export default function LandingPage() {
                   <div className="w-16 h-16 rounded-full bg-blue-400/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                     <span className="material-symbols-outlined text-blue-200 text-3xl">description</span>
                   </div>
-                  <h4 className="text-xl font-bold font-geist tracking-tight mb-2 text-white">Protocol Design</h4>
-                  <p className="text-sm text-blue-100 leading-relaxed opacity-80">Ethics submission built in. Every protocol version and amendment logged to the audit ledger from day one.</p>
+                  <h4 className="text-xl font-bold font-geist tracking-tight mb-2 text-white">Import your data</h4>
+                  <p className="text-sm text-blue-100 leading-relaxed opacity-80">Upload from your tools or spreadsheets — we handle the rest.</p>
                   <div className="mt-8 flex gap-2">
                     <div className="w-2 h-2 rounded-full bg-blue-300 animate-pulse" />
                     <div className="w-2 h-2 rounded-full bg-white/20" />
@@ -435,8 +435,8 @@ export default function LandingPage() {
                   <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center mb-6 shadow-lg shadow-blue-900/40">
                     <span className="material-symbols-outlined text-[#1E40AF] text-3xl">insights</span>
                   </div>
-                  <h4 className="text-xl font-bold font-geist tracking-tight mb-2 text-white">Analysis &amp; Audit</h4>
-                  <p className="text-sm text-blue-100 leading-relaxed">Survival analysis, regression, and encoding — every parameter automatically logged. No manual record-keeping.</p>
+                  <h4 className="text-xl font-bold font-geist tracking-tight mb-2 text-white">Run your analysis</h4>
+                  <p className="text-sm text-blue-100 leading-relaxed">Choose what you want to discover — we suggest the right approach and run it for you.</p>
                   <div className="mt-8 w-full h-12 flex items-end gap-1 px-4">
                     <div className="flex-1 bg-white/20 rounded-t h-4 animate-bounce" />
                     <div className="flex-1 bg-white/80 rounded-t h-10 animate-bounce [animation-delay:150ms]" />
@@ -448,8 +448,8 @@ export default function LandingPage() {
                   <div className="w-16 h-16 rounded-full bg-blue-400/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                     <span className="material-symbols-outlined text-blue-200 text-3xl">auto_stories</span>
                   </div>
-                  <h4 className="text-xl font-bold font-geist tracking-tight mb-2 text-white">Audit-Certified Export</h4>
-                  <p className="text-sm text-blue-100 leading-relaxed opacity-80">Generate manuscript-ready tables with embedded provenance. Attach your audit chain record to submissions.</p>
+                  <h4 className="text-xl font-bold font-geist tracking-tight mb-2 text-white">Export your results</h4>
+                  <p className="text-sm text-blue-100 leading-relaxed opacity-80">Download tables, methods, and your full research record — ready for submission or defence.</p>
                   <div className="mt-8 flex gap-2">
                     <div className="w-2 h-2 rounded-full bg-white/20" />
                     <div className="w-2 h-2 rounded-full bg-white/20" />
@@ -473,8 +473,8 @@ export default function LandingPage() {
         {/* Final CTA */}
         <section className="py-32 bg-[#f8f9fb] relative overflow-hidden">
           <div className="max-w-3xl mx-auto px-6 text-center">
-            <h2 className="text-5xl font-bold tracking-tight mb-8">Ready to transform your research ecosystem?</h2>
-            <p className="text-xl text-[#444653] mb-12">Designed for global health researchers, supervisors, and institutions that need to publish with verifiable integrity.</p>
+            <h2 className="text-5xl font-bold tracking-tight mb-8">Turn your data into results.</h2>
+            <p className="text-xl text-[#444653] mb-12">Built for students, researchers, and teams who need clarity, speed, and confidence.</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
               <Link
                 href="/register"
@@ -496,7 +496,7 @@ export default function LandingPage() {
           <div className="flex flex-col items-center md:items-start gap-4">
             <span className="text-lg font-bold text-slate-900">PLEXUS Research</span>
             <p className="text-sm leading-relaxed text-slate-500 text-center md:text-left max-w-xs">
-              © 2026 PLEXUS Research. All rights reserved. Global Health intelligence system.
+              © 2026 PLEXUS Research. All rights reserved. Research made simple, everywhere.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-8">
