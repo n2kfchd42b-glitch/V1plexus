@@ -50,13 +50,13 @@ function aggregateForLine(
   aggregation: string,
   colorCol?: string
 ): Array<Record<string, unknown>> {
+  const cleanRows = rows.filter(r => r[xCol] != null && r[xCol] !== '')
   const groups = new Map<string, DataRow[]>()
-  for (const row of rows) {
-    const xVal = row[xCol] != null ? String(row[xCol]) : '(null)'
+  for (const row of cleanRows) {
+    const xVal = String(row[xCol])
     groups.set(xVal, [...(groups.get(xVal) ?? []), row])
   }
 
-  // Sort keys (try numeric sort first)
   const keys = [...groups.keys()].sort((a, b) => {
     const na = Number(a), nb = Number(b)
     if (!isNaN(na) && !isNaN(nb)) return na - nb
@@ -64,7 +64,7 @@ function aggregateForLine(
   })
 
   if (colorCol && colorCol !== xCol) {
-    const colorValues = [...new Set(rows.map(r => r[colorCol] != null ? String(r[colorCol]) : '(null)'))]
+    const colorValues = [...new Set(cleanRows.map(r => r[colorCol] != null ? String(r[colorCol]) : '(null)'))]
     return keys.map(xVal => {
       const xRows = groups.get(xVal) ?? []
       const entry: Record<string, unknown> = { x: xVal }

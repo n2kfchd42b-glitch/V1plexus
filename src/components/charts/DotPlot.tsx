@@ -86,13 +86,13 @@ export function DotPlot({ data, config, columns: _columns, width = '100%' as `${
     )
   }
 
-  // Grouped by category — map categories to integer X positions
-  const categories = [...new Set(data.map(r => r[xCol] != null ? String(r[xCol]) : '(null)'))]
+  const cleanData = data.filter(r => r[xCol] != null && r[xCol] !== '')
+  const categories = [...new Set(cleanData.map(r => String(r[xCol])))]
   const catIndex = Object.fromEntries(categories.map((c, i) => [c, i]))
 
-  const allPoints: DotPoint[] = data
+  const allPoints: DotPoint[] = cleanData
     .map(row => {
-      const cat = row[xCol] != null ? String(row[xCol]) : '(null)'
+      const cat = String(row[xCol])
       const y = Number(row[yCol])
       return isNaN(y) ? null : { x: catIndex[cat], y, cat }
     })

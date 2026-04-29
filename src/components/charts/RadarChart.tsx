@@ -49,15 +49,17 @@ export function RadarChart({ data, config, columns: _columns, width = '100%' as 
   const colorCol = config.color
   const colors = PALETTES[config.palette ?? 'default']
 
+  const cleanData = data.filter(r => r[xCol] != null && r[xCol] !== '')
+
   if (colorCol) {
-    const categories = [...new Set(data.map(r => r[xCol] != null ? String(r[xCol]) : '(null)'))]
-    const seriesValues = [...new Set(data.map(r => r[colorCol] != null ? String(r[colorCol]) : '(null)'))]
+    const categories = [...new Set(cleanData.map(r => String(r[xCol])))]
+    const seriesValues = [...new Set(cleanData.map(r => r[colorCol] != null ? String(r[colorCol]) : '(null)'))]
 
     const radarData = categories.map(cat => {
       const entry: Record<string, unknown> = { subject: cat }
       for (const sv of seriesValues) {
-        const matching = data.filter(r =>
-          (r[xCol] != null ? String(r[xCol]) : '(null)') === cat &&
+        const matching = cleanData.filter(r =>
+          String(r[xCol]) === cat &&
           (r[colorCol] != null ? String(r[colorCol]) : '(null)') === sv
         )
         const nums = matching.map(r => Number(r[yCol])).filter(n => !isNaN(n))
@@ -89,9 +91,9 @@ export function RadarChart({ data, config, columns: _columns, width = '100%' as 
     )
   }
 
-  const categories = [...new Set(data.map(r => r[xCol] != null ? String(r[xCol]) : '(null)'))]
+  const categories = [...new Set(cleanData.map(r => String(r[xCol])))]
   const radarData = categories.map(cat => {
-    const rows = data.filter(r => (r[xCol] != null ? String(r[xCol]) : '(null)') === cat)
+    const rows = cleanData.filter(r => String(r[xCol]) === cat)
     const nums = rows.map(r => Number(r[yCol])).filter(n => !isNaN(n))
     const value = nums.length > 0 ? nums.reduce((a, b) => a + b, 0) / nums.length : 0
     return { subject: cat, value }

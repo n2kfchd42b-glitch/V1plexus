@@ -106,9 +106,10 @@ export function BoxPlot({ data, config, columns: _columns, height = 400 }: BoxPl
   let boxData: BoxStats[] = []
 
   if (xCol) {
+    const cleanData = data.filter(r => r[xCol] != null && r[xCol] !== '')
     const groups = new Map<string, number[]>()
-    for (const row of data) {
-      const xVal = row[xCol] != null ? String(row[xCol]) : '(null)'
+    for (const row of cleanData) {
+      const xVal = String(row[xCol])
       const yVal = Number(row[yCol])
       if (!isNaN(yVal)) {
         const arr = groups.get(xVal) ?? []

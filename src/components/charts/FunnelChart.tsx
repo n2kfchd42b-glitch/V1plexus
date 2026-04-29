@@ -46,9 +46,10 @@ export function FunnelChart({ data, config, columns: _columns, width = '100%' as
   const yCol = config.y_axis
   const colors = PALETTES[config.palette ?? 'default']
 
+  const cleanData = data.filter(r => r[xCol] != null && r[xCol] !== '')
   const groups = new Map<string, number>()
-  for (const row of data) {
-    const key = row[xCol] != null ? String(row[xCol]) : '(null)'
+  for (const row of cleanData) {
+    const key = String(row[xCol])
     const val = yCol != null ? Number(row[yCol]) : 1
     groups.set(key, (groups.get(key) ?? 0) + (isNaN(val) ? 0 : Math.abs(val)))
   }

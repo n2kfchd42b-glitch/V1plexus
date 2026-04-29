@@ -86,10 +86,10 @@ export function PieChart({ data, config, columns: _columns, chartType = 'pie', w
   const yCol = config.y_axis
   const aggregation = config.aggregation ?? 'count'
 
-  // Group by x column
+  const cleanData = data.filter(r => r[xCol] != null && r[xCol] !== '')
   const groups = new Map<string, DataRow[]>()
-  for (const row of data) {
-    const xVal = row[xCol] != null ? String(row[xCol]) : '(null)'
+  for (const row of cleanData) {
+    const xVal = String(row[xCol])
     const arr = groups.get(xVal) ?? []
     arr.push(row)
     groups.set(xVal, arr)

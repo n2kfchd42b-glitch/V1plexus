@@ -37,16 +37,16 @@ function aggregateData(
   colorCol?: string
 ): Array<Record<string, unknown>> {
   // Group by xCol (and colorCol if provided)
+  const cleanRows = rows.filter(r => r[xCol] != null && r[xCol] !== '')
   const groups = new Map<string, DataRow[]>()
 
-  for (const row of rows) {
-    const xVal = row[xCol] != null ? String(row[xCol]) : '(null)'
+  for (const row of cleanRows) {
+    const xVal = String(row[xCol])
     groups.set(xVal, [...(groups.get(xVal) ?? []), row])
   }
 
   if (colorCol && colorCol !== xCol) {
-    // Multi-series: group by x, sub-group by color
-    const colorValues = [...new Set(rows.map(r => r[colorCol] != null ? String(r[colorCol]) : '(null)'))]
+    const colorValues = [...new Set(cleanRows.map(r => r[colorCol] != null ? String(r[colorCol]) : '(null)'))]
     const result: Array<Record<string, unknown>> = []
 
     for (const [xVal, xRows] of groups) {
