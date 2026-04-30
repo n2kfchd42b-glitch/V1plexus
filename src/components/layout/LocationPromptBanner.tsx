@@ -183,19 +183,19 @@ export function LocationPromptBanner({ userId, onSaved }: Props) {
         {state === 'manual' && (
           <div className="space-y-2">
             <p className="text-sm font-medium text-slate-800">Select your country</p>
-            <div className="flex items-end gap-2 flex-wrap">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:flex-wrap">
               <input
                 type="text"
                 placeholder="City"
                 value={city}
                 onChange={e => setCity(e.target.value)}
-                className="w-36 rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-clinical-blue"
+                className="w-full sm:w-36 rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-clinical-blue"
               />
-              <div className="relative">
+              <div className="relative w-full sm:w-44">
                 <select
                   value={country}
                   onChange={e => setCountry(e.target.value)}
-                  className="w-44 appearance-none rounded-lg border border-slate-200 px-3 py-1.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-clinical-blue bg-white"
+                  className="w-full appearance-none rounded-lg border border-slate-200 px-3 py-1.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-clinical-blue bg-white"
                 >
                   <option value="">Country…</option>
                   {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -205,7 +205,7 @@ export function LocationPromptBanner({ userId, onSaved }: Props) {
               <button
                 onClick={save}
                 disabled={!city || !country}
-                className="rounded-lg bg-clinical-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-clinical-deep disabled:opacity-40 transition-colors"
+                className="w-full sm:w-auto rounded-lg bg-clinical-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-clinical-deep disabled:opacity-40 transition-colors"
               >
                 Save
               </button>

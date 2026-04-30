@@ -106,8 +106,8 @@ export function ResearcherGlobe() {
         <BrandLogo variant="standalone" href="/" />
       </div>
 
-      {/* Filters — top right: two dropdowns */}
-      <div className="absolute top-6 right-6 z-10 flex flex-col items-end gap-2">
+      {/* Filters — top right: two dropdowns. On small screens pushed below the modal close button */}
+      <div className="absolute top-14 sm:top-6 right-6 z-10 flex flex-col items-end gap-2">
         {/* Discipline + Country dropdowns — side by side */}
         <div className="flex items-center gap-2">
           {presentDisciplines.length > 0 && (
@@ -138,7 +138,7 @@ export function ResearcherGlobe() {
       </div>
 
       {/* Map — absolute fill so Safari doesn't collapse the SVG height to zero */}
-      <div className="absolute inset-0">
+      <div className="absolute inset-0" onClick={() => setTooltip(null)}>
         <ComposableMap
           projection="geoNaturalEarth1"
           projectionConfig={{ scale: 165, center: [10, 10] }}
@@ -184,7 +184,11 @@ export function ResearcherGlobe() {
                   if (rect) setTooltip({ cluster, x: e.clientX - rect.left, y: e.clientY - rect.top })
                 }}
                 onMouseLeave={() => setTooltip(null)}
-
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation()
+                  const rect = mapRef.current?.getBoundingClientRect()
+                  if (rect) setTooltip(prev => prev?.cluster === cluster ? null : { cluster, x: e.clientX - rect.left, y: e.clientY - rect.top })
+                }}
               >
                 {isOnline && !dimmed && (
                   <circle

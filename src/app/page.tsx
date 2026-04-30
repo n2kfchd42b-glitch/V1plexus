@@ -64,7 +64,7 @@ export default function LandingPage() {
             </div>
 
             {/* Right — live globe */}
-            <div className="hidden lg:block h-[540px] rounded-2xl overflow-hidden shadow-2xl shadow-[#003D9B]/10 ring-1 ring-white/60">
+            <div className="h-64 sm:h-80 lg:h-[540px] rounded-2xl overflow-hidden shadow-2xl shadow-[#003D9B]/10 ring-1 ring-white/60">
               <LandingGlobeWrapper />
             </div>
           </div>
