@@ -95,12 +95,13 @@ function SkeletonEntryRow() {
 // ── Main feed ───────────────────────────────────────────────────────────────
 
 export function TimelineFeed({ projectId }: Props) {
-  const [entries,  setEntries]  = useState<AuditLog[]>([])
-  const [groups,   setGroups]   = useState<DayGroup[]>([])
-  const [loading,  setLoading]  = useState(true)
-  const [hasMore,  setHasMore]  = useState(false)
-  const [offset,   setOffset]   = useState(0)
-  const [selected, setSelected] = useState<AuditLog | null>(null)
+  const [entries,     setEntries]     = useState<AuditLog[]>([])
+  const [groups,      setGroups]      = useState<DayGroup[]>([])
+  const [loading,     setLoading]     = useState(true)
+  const [hasMore,     setHasMore]     = useState(false)
+  const [offset,      setOffset]      = useState(0)
+  const [selected,    setSelected]    = useState<AuditLog | null>(null)
+  const [totalFetched, setTotalFetched] = useState(0)
 
   const supabase = createClient()
 
@@ -108,12 +109,18 @@ export function TimelineFeed({ projectId }: Props) {
     setLoading(true)
     const currentOffset = reset ? 0 : offset
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('audit_logs')
-      .select('*, actor:profiles(id, full_name, email, avatar_url)')
+      .select('*')
       .eq('project_id', projectId)
       .order('timestamp', { ascending: false })
       .range(currentOffset, currentOffset + PAGE_SIZE - 1)
+
+    if (error) {
+      console.error('[TimelineFeed] query error:', error)
+      setLoading(false)
+      return
+    }
 
     const rows = (data ?? []) as AuditLog[]
     const visible = rows.filter(e => isVisible(e.action))
@@ -123,6 +130,7 @@ export function TimelineFeed({ projectId }: Props) {
     setGroups(groupByDay(next))
     setOffset(currentOffset + rows.length)
     setHasMore(rows.length === PAGE_SIZE)
+    setTotalFetched(reset ? rows.length : totalFetched + rows.length)
     setLoading(false)
   }, [projectId, offset]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -134,14 +142,19 @@ export function TimelineFeed({ projectId }: Props) {
 
   // Empty state
   if (!loading && entries.length === 0) {
+    const hasSystemEvents = totalFetched > 0
     return (
       <div className="flex-1 flex">
         <div className="flex-1 flex items-center justify-center">
           <div className="empty-state">
             <Clock className="empty-state-icon h-8 w-8" />
-            <p className="empty-state-title">Your timeline is empty</p>
+            <p className="empty-state-title">
+              {hasSystemEvents ? 'No milestone events yet' : 'Your timeline is empty'}
+            </p>
             <p className="empty-state-description">
-              Upload a dataset or run an analysis — every action will appear here automatically.
+              {hasSystemEvents
+                ? 'System events are recorded in the audit chain but not shown here. Complete an analysis to see your first milestone.'
+                : 'Upload a dataset or run an analysis — every action will appear here automatically.'}
             </p>
           </div>
         </div>
