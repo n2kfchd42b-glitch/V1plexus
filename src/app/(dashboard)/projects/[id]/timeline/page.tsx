@@ -2,6 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { TimelineVerificationBar } from '@/components/timeline/TimelineVerificationBar'
 import { TimelineFeed } from '@/components/timeline/TimelineFeed'
+import { TimelinePageHeader } from '@/components/timeline/TimelinePageHeader'
 
 export default async function TimelinePage({
   params,
@@ -24,13 +25,7 @@ export default async function TimelinePage({
   return (
     <div className="page-shell">
 
-      {/* Page header */}
-      <div className="px-6 pt-6 pb-4 flex-shrink-0">
-        <h1 className="page-title">Timeline</h1>
-        <p className="text-xs text-[var(--text-tertiary)] mt-1">
-          Tamper-evident record of every action in this project.
-        </p>
-      </div>
+      <TimelinePageHeader />
 
       {/* Verification status bar */}
       <TimelineVerificationBar projectId={id} />
