@@ -121,7 +121,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         role === 'student'
           ? supabase
               .from('supervisor_assignments')
-              .select('*, supervisor:profiles!supervisor_id(*), department:departments(*)')
+              .select('*, supervisor:profiles!supervisor_id(*), department:departments!department_id(*)')
               .eq('student_id', userId)
               .eq('status', 'active')
               .maybeSingle()
@@ -129,7 +129,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         role === 'supervisor' || role === 'department_head'
           ? supabase
               .from('supervisor_assignments')
-              .select('*, student:profiles!student_id(*), department:departments(*)')
+              .select('*, student:profiles!student_id(*), department:departments!department_id(*)')
               .eq('supervisor_id', userId)
               .eq('status', 'active')
           : Promise.resolve({ data: [] }),

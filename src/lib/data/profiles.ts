@@ -28,7 +28,7 @@ import { DataResult, DataListResult, ok, okList, err } from './types'
 // Replaces:
 //   settings/page.tsx
 //   supabase.from('profiles')
-//     .select('*, institution:institutions(id,name,country), department:departments(id,name)')
+//     .select('*, institution:institutions(id,name,country), department:departments!department_id(id,name)')
 //     .eq('id', userId).maybeSingle()
 export async function getProfile(
   supabase: SupabaseClient,
@@ -36,7 +36,7 @@ export async function getProfile(
 ): Promise<DataResult<Profile | null>> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('*, institution:institutions(id,name,country), department:departments(id,name)')
+    .select('*, institution:institutions(id,name,country), department:departments!department_id(id,name)')
     .eq('id', userId)
     .maybeSingle()
   if (!error) return ok(data as Profile | null)
@@ -121,7 +121,7 @@ export async function updateProfile(
     .from('profiles')
     .update(updates)
     .eq('id', id)
-    .select('*, institution:institutions(id,name,country), department:departments(id,name)')
+    .select('*, institution:institutions(id,name,country), department:departments!department_id(id,name)')
     .single()
   if (error) return err(error.message)
   return ok(data as Profile)
