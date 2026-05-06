@@ -447,7 +447,7 @@ export function AnalysisHub({ projectId }: Props) {
         const backendHasSens = Array.isArray(reportData.sensitivity_scenarios) && reportData.sensitivity_scenarios.length > 0
         const localSens = backendHasSens
           ? null
-          : buildSensitivity(analysisType, analysisResultPayload)
+          : buildSensitivity(analysisType, analysisResultPayload, t)
         const validStatuses: AssumptionOverallStatus[] = ['stable', 'needs_review', 'high_risk']
         const normalizedStatus: AssumptionOverallStatus =
           validStatuses.includes(reportData.overall_status)
@@ -512,6 +512,7 @@ export function AnalysisHub({ projectId }: Props) {
           researchContext?.outcome_variable ?? null,
           researchContext?.exposure_variable ?? null,
           analysisResultPayload.n,
+          t,
         ))
       }
     } catch {
@@ -1994,6 +1995,7 @@ function eValueFromOR(or: number): number {
 function buildSensitivity(
   analysisType: string,
   effect: EffectPayload,
+  t: (key: string, fallback?: string) => string,
 ): { e_value: number | null; sensitivity_scenarios: SensitivityScenario[]; robustness: RobustnessBounds | null; metric_label: string } {
   const none = { e_value: null, sensitivity_scenarios: [], robustness: null, metric_label: '' }
 
@@ -2007,20 +2009,20 @@ function buildSensitivity(
     // γ = confounder association strength; adjusted OR = observed OR / γ
     const gammas = [1.0, 1.5, 2.0, 3.0, 5.0]
     const labels = [
-      'Observed — no unmeasured confounding',
-      'Weak confounder (γ\u2009=\u20091.5)',
-      'Moderate confounder (γ\u2009=\u20092.0)',
-      'Strong confounder (γ\u2009=\u20093.0)',
-      'Very strong confounder (γ\u2009=\u20095.0)',
+      t('sens.label.observed'),
+      t('sens.label.weakConfounder'),
+      t('sens.label.moderateConfounder'),
+      t('sens.label.strongConfounder'),
+      t('sens.label.veryStrongConfounder'),
     ]
     const scenarios: SensitivityScenario[] = gammas.map((g, i) => {
       const adj = round3(or / g)
       const adjLo = round3(lo / g)
       const adjHi = round3(hi / g)
       const interpretation =
-        adjLo > 1 ? 'OR remains significant (lower CI > 1)' :
-        adjHi < 1 ? 'Direction reversed under this level of confounding' :
-        'Effect no longer significant — confounding of this magnitude could explain the result'
+        adjLo > 1 ? t('sens.interp.orRemains') :
+        adjHi < 1 ? t('sens.interp.directionReversed') :
+        t('sens.interp.noLongerSignificant')
       return { delta: g - 1, label: labels[i], estimate: adj, ci_lower: adjLo, ci_upper: adjHi, interpretation }
     })
 
@@ -2047,20 +2049,20 @@ function buildSensitivity(
 
     const gammas = [1.0, 1.5, 2.0, 3.0, 5.0]
     const labels = [
-      'Observed — no unmeasured confounding',
-      'Weak confounder (γ\u2009=\u20091.5)',
-      'Moderate confounder (γ\u2009=\u20092.0)',
-      'Strong confounder (γ\u2009=\u20093.0)',
-      'Very strong confounder (γ\u2009=\u20095.0)',
+      t('sens.label.observed'),
+      t('sens.label.weakConfounder'),
+      t('sens.label.moderateConfounder'),
+      t('sens.label.strongConfounder'),
+      t('sens.label.veryStrongConfounder'),
     ]
     const scenarios: SensitivityScenario[] = gammas.map((g, i) => {
       const adj = round3(hr / g)
       const adjLo = round3(lo / g)
       const adjHi = round3(hi / g)
       const interpretation =
-        adjLo > 1 ? 'HR remains significant (lower CI > 1)' :
-        adjHi < 1 ? 'Direction reversed under this level of confounding' :
-        'Effect no longer significant — confounding of this magnitude could explain the result'
+        adjLo > 1 ? t('sens.interp.hrRemains') :
+        adjHi < 1 ? t('sens.interp.directionReversed') :
+        t('sens.interp.noLongerSignificant')
       return { delta: g - 1, label: labels[i], estimate: adj, ci_lower: adjLo, ci_upper: adjHi, interpretation }
     })
 
@@ -2087,11 +2089,11 @@ function buildSensitivity(
 
     const deltas = [0, 0.10, 0.20, 0.35, 0.50]
     const labels = [
-      'Observed — non-informative censoring assumed',
-      '10% of censored subjects had informative censoring',
-      '20% of censored subjects had informative censoring',
-      '35% of censored subjects had informative censoring',
-      '50% of censored subjects had informative censoring',
+      t('sens.label.kmObserved'),
+      t('sens.label.km10'),
+      t('sens.label.km20'),
+      t('sens.label.km35'),
+      t('sens.label.km50'),
     ]
     const scenarios: SensitivityScenario[] = deltas.map((d, i) => {
       const adj = Math.min(1, baseRate + d * (censored / n))
@@ -2099,9 +2101,9 @@ function buildSensitivity(
       const adjLo = Math.max(0, Math.round((adj - margin) * 1000) / 1000)
       const adjHi = Math.min(1, Math.round((adj + margin) * 1000) / 1000)
       const interpretation =
-        d === 0 ? `Observed event rate: ${(baseRate * 100).toFixed(1)}%` :
-        adj > baseRate * 1.25 ? 'Meaningful increase in event rate — informative censoring would substantially alter conclusions' :
-        'Event rate remains in a similar range — conclusions are robust to this level of informative censoring'
+        d === 0 ? t('sens.interp.observedEventRate').replace('{pct}', (baseRate * 100).toFixed(1)) :
+        adj > baseRate * 1.25 ? t('sens.interp.kmMeaningfulIncrease') :
+        t('sens.interp.kmRobust')
       return { delta: d, label: labels[i], estimate: Math.round(adj * 1000) / 1000, ci_lower: adjLo, ci_upper: adjHi, interpretation }
     })
 
@@ -2128,11 +2130,11 @@ function buildSensitivity(
     // delta = fraction of residual variance attributable to omitted variable
     const deltas = [0, 0.10, 0.20, 0.35, 0.50]
     const labels = [
-      'Observed — no omitted variable',
-      '10% additional R² (weak OVB)',
-      '20% additional R² (moderate OVB)',
-      '35% additional R² (strong OVB)',
-      '50% additional R² (severe OVB)',
+      t('sens.label.linObserved'),
+      t('sens.label.linWeak'),
+      t('sens.label.linModerate'),
+      t('sens.label.linStrong'),
+      t('sens.label.linSevere'),
     ]
     const crossesZero = (a: number, b: number) => a <= 0 && b >= 0
     const scenarios: SensitivityScenario[] = deltas.map((d, i) => {
@@ -2140,9 +2142,9 @@ function buildSensitivity(
       const adjLo = round4(lo    * (1 - d))
       const adjHi = round4(hi    * (1 - d))
       const interpretation =
-        crossesZero(adjLo, adjHi) ? 'Effect no longer significant — an omitted variable of this size could explain the result' :
-        (coeff > 0 ? adj > 0 : adj < 0) ? 'Coefficient direction preserved and significant' :
-        'Direction reversed under this degree of confounding'
+        crossesZero(adjLo, adjHi) ? t('sens.interp.linNoLonger') :
+        (coeff > 0 ? adj > 0 : adj < 0) ? t('sens.interp.linPreserved') :
+        t('sens.interp.directionReversed')
       return { delta: d, label: labels[i], estimate: adj, ci_lower: adjLo, ci_upper: adjHi, interpretation }
     })
 
@@ -2168,20 +2170,20 @@ function buildSensitivity(
     const e_value = rr === 1 ? 1 : Math.round(eValueFromOR(rr) * 100) / 100
     const gammas = [1.0, 1.5, 2.0, 3.0, 5.0]
     const labels = [
-      'Observed — no unmeasured confounding',
-      'Weak confounder (\u03b3\u2009=\u20091.5)',
-      'Moderate confounder (\u03b3\u2009=\u20092.0)',
-      'Strong confounder (\u03b3\u2009=\u20093.0)',
-      'Very strong confounder (\u03b3\u2009=\u20095.0)',
+      t('sens.label.observed'),
+      t('sens.label.weakConfounder'),
+      t('sens.label.moderateConfounder'),
+      t('sens.label.strongConfounder'),
+      t('sens.label.veryStrongConfounder'),
     ]
     const scenarios: SensitivityScenario[] = gammas.map((g, i) => {
       const adj = round3(rr / g)
       const adjLo = round3(lo / g)
       const adjHi = round3(hi / g)
       const interpretation =
-        adjLo > 1 ? 'IRR remains significant (lower CI > 1)' :
-        adjHi < 1 ? 'Direction reversed under this level of confounding' :
-        'Effect no longer significant — confounding of this magnitude could explain the result'
+        adjLo > 1 ? t('sens.interp.irrRemains') :
+        adjHi < 1 ? t('sens.interp.directionReversed') :
+        t('sens.interp.noLongerSignificant')
       return { delta: g - 1, label: labels[i], estimate: adj, ci_lower: adjLo, ci_upper: adjHi, interpretation }
     })
     const bpScenario = scenarios.find(s => s.ci_lower <= 1 && s.ci_upper >= 1)
@@ -2203,19 +2205,19 @@ function buildSensitivity(
   if ((analysisType === 'anova' || analysisType === 'kruskal_wallis') && etaSq != null) {
     const contamRates = [0, 0.05, 0.10, 0.20, 0.30]
     const labels = [
-      'Observed — no group contamination',
-      '5% group misassignment',
-      '10% group misassignment',
-      '20% group misassignment',
-      '30% group misassignment',
+      t('sens.label.anovaObserved'),
+      t('sens.label.anova5'),
+      t('sens.label.anova10'),
+      t('sens.label.anova20'),
+      t('sens.label.anova30'),
     ]
     const scenarios: SensitivityScenario[] = contamRates.map((c, i) => {
       const adj = round4(etaSq * Math.max(0, 1 - 2 * c) ** 2)
       const margin = round4(adj * 0.3)
       const interpretation =
-        adj < 0.01 ? 'Effect size negligible under this contamination level' :
-        adj < etaSq * 0.5 ? 'Substantial attenuation — contamination meaningfully reduces effect' :
-        'Effect direction and magnitude largely preserved'
+        adj < 0.01 ? t('sens.interp.anovaNegligible') :
+        adj < etaSq * 0.5 ? t('sens.interp.anovaSubstantial') :
+        t('sens.interp.anovaPreserved')
       return { delta: c, label: labels[i], estimate: adj, ci_lower: round4(Math.max(0, adj - margin)), ci_upper: round4(Math.min(1, adj + margin)), interpretation }
     })
     const bpScenario = scenarios.find(s => s.estimate < 0.01)
@@ -2237,19 +2239,19 @@ function buildSensitivity(
   if (analysisType === 't_test' && cohenD != null && isFinite(cohenD)) {
     const reliabilities = [1.0, 0.9, 0.8, 0.7, 0.6]
     const labels = [
-      'Observed — perfect measurement assumed',
-      '90% reliability (mild measurement error)',
-      '80% reliability (moderate measurement error)',
-      '70% reliability (substantial measurement error)',
-      '60% reliability (high measurement error)',
+      t('sens.label.ttestObserved'),
+      t('sens.label.ttest90'),
+      t('sens.label.ttest80'),
+      t('sens.label.ttest70'),
+      t('sens.label.ttest60'),
     ]
     const scenarios: SensitivityScenario[] = reliabilities.map((rel, i) => {
       const adj = round3(cohenD * rel)
       const margin = round3(Math.abs(adj) * 0.3)
       const interpretation =
-        Math.abs(adj) < 0.2 ? 'Effect size trivial — measurement error could eliminate the effect' :
-        Math.abs(adj) < 0.5 ? 'Small effect remains — conclusions largely unchanged' :
-        'Medium-to-large effect preserved despite measurement error'
+        Math.abs(adj) < 0.2 ? t('sens.interp.ttestTrivial') :
+        Math.abs(adj) < 0.5 ? t('sens.interp.ttestSmall') :
+        t('sens.interp.ttestLarge')
       return { delta: 1 - rel, label: labels[i], estimate: adj, ci_lower: round3(adj - margin), ci_upper: round3(adj + margin), interpretation }
     })
     const bpScenario = scenarios.find(s => Math.abs(s.estimate) < 0.2)
@@ -2271,19 +2273,19 @@ function buildSensitivity(
   if (analysisType === 'correlation' && rVal != null && Math.abs(rVal) > 0) {
     const reliabilities = [1.0, 0.9, 0.8, 0.7, 0.6]
     const labels = [
-      'Observed — perfect measurement assumed',
-      '90% reliability (mild measurement error)',
-      '80% reliability (moderate measurement error)',
-      '70% reliability (substantial measurement error)',
-      '60% reliability (high measurement error)',
+      t('sens.label.ttestObserved'),
+      t('sens.label.ttest90'),
+      t('sens.label.ttest80'),
+      t('sens.label.ttest70'),
+      t('sens.label.ttest60'),
     ]
     const scenarios: SensitivityScenario[] = reliabilities.map((rel, i) => {
       const adj = round3(rVal * rel)
       const margin = round3(Math.abs(adj) * 0.2)
       const interpretation =
-        Math.abs(adj) < 0.1 ? 'Correlation negligible — measurement error could explain the association' :
-        Math.abs(adj) < 0.3 ? 'Weak correlation — some attenuation but effect persists' :
-        'Moderate-to-strong correlation preserved despite measurement error'
+        Math.abs(adj) < 0.1 ? t('sens.interp.corrNegligible') :
+        Math.abs(adj) < 0.3 ? t('sens.interp.corrWeak') :
+        t('sens.interp.corrStrong')
       return { delta: 1 - rel, label: labels[i], estimate: adj, ci_lower: round3(Math.max(-1, adj - margin)), ci_upper: round3(Math.min(1, adj + margin)), interpretation }
     })
     const bpScenario = scenarios.find(s => Math.abs(s.estimate) < 0.1)
@@ -2305,19 +2307,19 @@ function buildSensitivity(
   if (analysisType === 'chi_square' && cv != null) {
     const miscRates = [0, 0.05, 0.10, 0.15, 0.20]
     const labels = [
-      'Observed — no misclassification',
-      '5% non-differential misclassification',
-      '10% non-differential misclassification',
-      '15% non-differential misclassification',
-      '20% non-differential misclassification',
+      t('sens.label.chiObserved'),
+      t('sens.label.chi5'),
+      t('sens.label.chi10'),
+      t('sens.label.chi15'),
+      t('sens.label.chi20'),
     ]
     const scenarios: SensitivityScenario[] = miscRates.map((r, i) => {
       const adj = round4(Math.max(0, cv * (1 - 2 * r)))
       const margin = round4(adj * 0.3)
       const interpretation =
-        adj < 0.1 ? 'Association negligible under this misclassification level' :
-        adj < cv * 0.5 ? 'Substantial attenuation — misclassification meaningfully reduces association' :
-        'Association largely preserved despite misclassification'
+        adj < 0.1 ? t('sens.interp.chiNegligible') :
+        adj < cv * 0.5 ? t('sens.interp.chiSubstantial') :
+        t('sens.interp.chiPreserved')
       return { delta: r, label: labels[i], estimate: adj, ci_lower: round4(Math.max(0, adj - margin)), ci_upper: round4(Math.min(1, adj + margin)), interpretation }
     })
     const bpScenario = scenarios.find(s => s.estimate < 0.1)
@@ -3039,6 +3041,7 @@ function checkResultToReport(
   outcomeVariable: string | null = null,
   exposureVariable: string | null = null,
   n: number | null = null,
+  t: (key: string) => string = (k) => k,
 ): PostAnalysisReport {
   const critical = result.critical_violations
   const moderate = result.moderate_violations
@@ -3070,7 +3073,7 @@ function checkResultToReport(
 
   const allChecks = result.checks ?? []
   const effectiveType = result.analysis_type ?? analysisTypeOverride
-  const sens = buildSensitivity(effectiveType, effect)
+  const sens = buildSensitivity(effectiveType, effect, t)
 
   return {
     overall_status,

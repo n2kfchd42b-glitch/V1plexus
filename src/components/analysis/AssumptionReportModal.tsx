@@ -454,6 +454,7 @@ function SensitivityTab({ report }: { report: PostAnalysisReport }) {
 
 function CopyBlock({ label, text }: { label: string; text: string }) {
   const { copied, copy } = useCopy(text)
+  const { t } = useLocale()
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
@@ -467,7 +468,7 @@ function CopyBlock({ label, text }: { label: string; text: string }) {
           }}
         >
           {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-          {copied ? 'Copied' : 'Copy'}
+          {copied ? t('hubTable.copied') : t('hubTable.copy')}
         </button>
       </div>
       <pre

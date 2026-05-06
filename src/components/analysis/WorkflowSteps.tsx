@@ -1,6 +1,7 @@
 "use client"
 
 import type { WorkflowStep } from '@/lib/decision-engine/types'
+import { useLocale } from '@/i18n/LocaleProvider'
 
 interface Props {
   steps: WorkflowStep[]
@@ -14,7 +15,16 @@ const BADGE_STYLES: Record<string, { bg: string; text: string }> = {
   'manual next step': { bg: 'rgba(245,158,11,0.1)', text: '#d97706' },
 }
 
+const BADGE_KEYS: Record<string, string> = {
+  'auto-generates Table 1': 'workflowBadge.autoTable1',
+  'primary analysis': 'workflowBadge.primaryAnalysis',
+  'auto-run': 'workflowBadge.autoRun',
+  'in results': 'workflowBadge.inResults',
+  'manual next step': 'workflowBadge.manualNextStep',
+}
+
 export function WorkflowSteps({ steps }: Props) {
+  const { t } = useLocale()
   return (
     <div className="relative space-y-0">
       {steps.map((step, idx) => {
@@ -55,7 +65,7 @@ export function WorkflowSteps({ steps }: Props) {
                     className="text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0"
                     style={{ background: badgeStyle.bg, color: badgeStyle.text }}
                   >
-                    {step.badge}
+                    {BADGE_KEYS[step.badge] ? t(BADGE_KEYS[step.badge]) : step.badge}
                   </span>
                 )}
               </div>

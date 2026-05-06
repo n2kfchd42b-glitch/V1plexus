@@ -3,16 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { FlaskConical } from 'lucide-react'
 import type { StudyDesign, ResearchContext } from '@/types/analysisIntegrity'
-
-const STUDY_DESIGNS: { value: StudyDesign; label: string }[] = [
-  { value: 'cross_sectional', label: 'Cross-Sectional Survey' },
-  { value: 'cohort',          label: 'Cohort Study' },
-  { value: 'case_control',    label: 'Case-Control Study' },
-  { value: 'rct',             label: 'Randomised Controlled Trial' },
-  { value: 'time_series',     label: 'Time-Series / Longitudinal' },
-  { value: 'meta_analysis',   label: 'Meta-Analysis / Systematic Review' },
-  { value: 'other',           label: 'Other / Not sure' },
-]
+import { useLocale } from '@/i18n/LocaleProvider'
 
 interface Props {
   isOpen: boolean
@@ -37,12 +28,12 @@ const selectStyle: React.CSSProperties = {
 }
 
 export function ResearchDesignModal({ isOpen, columns, onConfirm, onSkip, initialValues }: Props) {
+  const { t } = useLocale()
   const [design, setDesign] = useState<StudyDesign | ''>(initialValues?.study_design ?? '')
   const [question, setQuestion] = useState(initialValues?.research_question ?? '')
   const [outcome, setOutcome] = useState(initialValues?.outcome_variable ?? '')
   const [exposure, setExposure] = useState(initialValues?.exposure_variable ?? '')
 
-  // Sync when initialValues change (e.g. opening to edit a different context)
   useEffect(() => {
     setDesign(initialValues?.study_design ?? '')
     setQuestion(initialValues?.research_question ?? '')
@@ -64,7 +55,18 @@ export function ResearchDesignModal({ isOpen, columns, onConfirm, onSkip, initia
     })
   }
 
+  const STUDY_DESIGNS: { value: StudyDesign; labelKey: string }[] = [
+    { value: 'cross_sectional', labelKey: 'researchContext.design.crossSectional' },
+    { value: 'cohort',          labelKey: 'researchContext.design.cohort' },
+    { value: 'case_control',    labelKey: 'researchContext.design.caseControl' },
+    { value: 'rct',             labelKey: 'researchContext.design.rct' },
+    { value: 'time_series',     labelKey: 'researchContext.design.timeSeries' },
+    { value: 'meta_analysis',   labelKey: 'researchContext.design.metaAnalysis' },
+    { value: 'other',           labelKey: 'researchContext.design.other' },
+  ]
+
   const labelStyle: React.CSSProperties = { color: 'var(--text-secondary)' }
+  const optional = <span className="font-normal" style={{ color: 'var(--text-tertiary)' }}>{t('researchContext.optional')}</span>
 
   return (
     <div
@@ -96,10 +98,10 @@ export function ResearchDesignModal({ isOpen, columns, onConfirm, onSkip, initia
           </div>
           <div>
             <p className="text-sm font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-              {initialValues ? 'Edit Research Context' : 'Research Context'}
+              {initialValues ? t('researchContext.titleEdit') : t('researchContext.title')}
             </p>
             <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-              Tailors assumption checks and sensitivity analysis
+              {t('researchContext.subtitle')}
             </p>
           </div>
         </div>
@@ -109,7 +111,7 @@ export function ResearchDesignModal({ isOpen, columns, onConfirm, onSkip, initia
           {/* Study design */}
           <div className="pt-4">
             <label className="block text-xs font-semibold mb-1.5" style={labelStyle}>
-              Study design <span style={{ color: 'var(--status-error)' }}>*</span>
+              {t('researchContext.studyDesign')} <span style={{ color: 'var(--status-error)' }}>*</span>
             </label>
             <select
               value={design}
@@ -122,9 +124,9 @@ export function ResearchDesignModal({ isOpen, columns, onConfirm, onSkip, initia
               onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent-blue)' }}
               onBlur={e => { e.currentTarget.style.borderColor = 'var(--border-default)' }}
             >
-              <option value="" disabled>Select a design…</option>
+              <option value="" disabled>{t('researchContext.selectDesign')}</option>
               {STUDY_DESIGNS.map(d => (
-                <option key={d.value} value={d.value}>{d.label}</option>
+                <option key={d.value} value={d.value}>{t(d.labelKey)}</option>
               ))}
             </select>
           </div>
@@ -132,8 +134,7 @@ export function ResearchDesignModal({ isOpen, columns, onConfirm, onSkip, initia
           {/* Outcome variable */}
           <div>
             <label className="block text-xs font-semibold mb-1.5" style={labelStyle}>
-              Outcome variable{' '}
-              <span className="font-normal" style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
+              {t('researchContext.outcomeVar')}{' '}{optional}
             </label>
             {columns.length > 0 ? (
               <select
@@ -144,7 +145,7 @@ export function ResearchDesignModal({ isOpen, columns, onConfirm, onSkip, initia
                 onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent-blue)' }}
                 onBlur={e => { e.currentTarget.style.borderColor = 'var(--border-default)' }}
               >
-                <option value="">None selected</option>
+                <option value="">{t('researchContext.noneSelected')}</option>
                 {columns.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             ) : (
@@ -164,8 +165,7 @@ export function ResearchDesignModal({ isOpen, columns, onConfirm, onSkip, initia
           {/* Exposure variable */}
           <div>
             <label className="block text-xs font-semibold mb-1.5" style={labelStyle}>
-              Exposure / predictor{' '}
-              <span className="font-normal" style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
+              {t('researchContext.exposureVar')}{' '}{optional}
             </label>
             {columns.length > 0 ? (
               <select
@@ -176,7 +176,7 @@ export function ResearchDesignModal({ isOpen, columns, onConfirm, onSkip, initia
                 onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent-blue)' }}
                 onBlur={e => { e.currentTarget.style.borderColor = 'var(--border-default)' }}
               >
-                <option value="">None selected</option>
+                <option value="">{t('researchContext.noneSelected')}</option>
                 {columns.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             ) : (
@@ -196,8 +196,7 @@ export function ResearchDesignModal({ isOpen, columns, onConfirm, onSkip, initia
           {/* Research question */}
           <div>
             <label className="block text-xs font-semibold mb-1.5" style={labelStyle}>
-              Research question{' '}
-              <span className="font-normal" style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
+              {t('researchContext.researchQuestion')}{' '}{optional}
             </label>
             <textarea
               value={question}
@@ -227,7 +226,7 @@ export function ResearchDesignModal({ isOpen, columns, onConfirm, onSkip, initia
               onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-secondary)' }}
               onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)' }}
             >
-              Skip for now
+              {t('researchContext.skip')}
             </button>
             <button
               onClick={handleConfirm}
@@ -241,7 +240,7 @@ export function ResearchDesignModal({ isOpen, columns, onConfirm, onSkip, initia
               onMouseEnter={e => { if (canConfirm) e.currentTarget.style.background = 'var(--accent-blue-hover)' }}
               onMouseLeave={e => { if (canConfirm) e.currentTarget.style.background = 'var(--accent-blue)' }}
             >
-              {initialValues ? 'Save changes' : 'Continue →'}
+              {initialValues ? t('researchContext.save') : t('researchContext.continue')}
             </button>
           </div>
         </div>
