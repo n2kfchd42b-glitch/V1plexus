@@ -43,11 +43,15 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages]    = useState<Messages>(MESSAGE_MAP[DEFAULT_LOCALE])
 
   useLayoutEffect(() => {
-    const stored   = localStorage.getItem('plexus_locale')
-    const resolved = stored && isValidLocale(stored) ? stored : DEFAULT_LOCALE
-    if (resolved !== DEFAULT_LOCALE) {
-      setLocaleState(resolved)
-      setMessages(MESSAGE_MAP[resolved])
+    try {
+      const stored   = localStorage.getItem('plexus_locale')
+      const resolved = stored && isValidLocale(stored) ? stored : DEFAULT_LOCALE
+      if (resolved !== DEFAULT_LOCALE) {
+        setLocaleState(resolved)
+        setMessages(MESSAGE_MAP[resolved])
+      }
+    } catch {
+      // localStorage unavailable (e.g. strict privacy mode) — stay on default locale
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
