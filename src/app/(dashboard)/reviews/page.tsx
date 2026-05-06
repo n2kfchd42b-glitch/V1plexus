@@ -6,9 +6,11 @@ import { ClipboardList, CheckCircle } from 'lucide-react'
 import { ReviewQueue } from '@/components/review/ReviewQueue'
 import { ReviewWorkspace } from '@/components/review/ReviewWorkspace'
 import { useAuth } from '@/hooks/useAuth'
+import { useLocale } from '@/i18n/LocaleProvider'
 
 export default function ReviewsPage() {
   const { profile } = useAuth()
+  const { t } = useLocale()
   const searchParams = useSearchParams()
   const [activeReviewId, setActiveReviewId] = useState<string | null>(
     searchParams.get('id')
@@ -39,8 +41,8 @@ export default function ReviewsPage() {
               <div className="h-14 w-14 mx-auto mb-4 rounded-full bg-[var(--bg-inset)] flex items-center justify-center">
                 <ClipboardList className="h-6 w-6 text-[var(--text-tertiary)]" />
               </div>
-              <p className="text-base font-semibold text-[var(--text-primary)] mb-1">Select a review</p>
-              <p className="text-sm text-[var(--text-secondary)]">Choose a review from the queue to get started</p>
+              <p className="text-base font-semibold text-[var(--text-primary)] mb-1">{t('reviews.selectReview')}</p>
+              <p className="text-sm text-[var(--text-secondary)]">{t('reviews.selectReviewDesc')}</p>
             </div>
           </div>
         )}

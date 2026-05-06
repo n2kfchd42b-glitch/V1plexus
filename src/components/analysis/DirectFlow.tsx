@@ -1,6 +1,7 @@
 "use client"
 
 import { ArrowLeft, Compass, Play } from 'lucide-react'
+import { useLocale } from '@/i18n/LocaleProvider'
 import { AnalysisTypeGrid } from './AnalysisTypeGrid'
 import { ANALYSIS_REGISTRY } from '@/lib/decision-engine/analysisRegistry'
 import type { AnalysisTypeId, DatasetContext } from '@/lib/decision-engine/types'
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function DirectFlow({ dataset, selectedType, onSelectType, canRun, onRun, onSwitchToGuided, onBack }: Props) {
+  const { t } = useLocale()
   const meta = selectedType ? ANALYSIS_REGISTRY[selectedType] : null
 
   return (
@@ -36,7 +38,7 @@ export function DirectFlow({ dataset, selectedType, onSelectType, canRun, onRun,
           >
             <ArrowLeft className="h-3.5 w-3.5" />
           </button>
-          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Choose Analysis</span>
+          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{t('directFlow.title')}</span>
         </div>
         <button
           onClick={onSwitchToGuided}
@@ -46,20 +48,20 @@ export function DirectFlow({ dataset, selectedType, onSelectType, canRun, onRun,
           onMouseLeave={e => { e.currentTarget.style.background = '' }}
         >
           <Compass className="h-3.5 w-3.5" />
-          Guide me instead
+          {t('directFlow.guideMe')}
         </button>
       </div>
 
       {/* Type grid */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
-        <p className="subsection-label mb-2">Analysis Type</p>
+        <p className="subsection-label mb-2">{t('directFlow.analysisType')}</p>
         <AnalysisTypeGrid selectedType={selectedType} onSelect={onSelectType} />
         {selectedType && meta && (
           <div className="mt-4 px-3 py-2.5 rounded-lg" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-subtle)' }}>
             <p className="text-xs font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>{meta.icon} {meta.name}</p>
             <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{meta.when_to_use}</p>
             <p className="text-[11px] mt-2 rounded px-2 py-1" style={{ background: 'var(--accent-blue-subtle)', color: 'var(--text-secondary)', border: '1px solid var(--border-status-info)' }}>
-              {meta.reporting_guideline} reporting items will be auto-populated in results.
+              {meta.reporting_guideline} {t('directFlow.reportingNote')}
             </p>
           </div>
         )}
@@ -83,7 +85,7 @@ export function DirectFlow({ dataset, selectedType, onSelectType, canRun, onRun,
             style={{ background: 'linear-gradient(135deg,var(--color-clinical-deep),var(--color-clinical-blue))' }}
           >
             <Play className="h-3 w-3" />
-            Run Analysis
+            {t('directFlow.runAnalysis')}
           </button>
         </div>
       )}

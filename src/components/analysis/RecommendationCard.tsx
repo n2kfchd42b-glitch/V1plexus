@@ -4,6 +4,7 @@ import { Play, Settings2, AlertTriangle } from 'lucide-react'
 import { FeasibilityChecks } from './FeasibilityChecks'
 import { WorkflowSteps } from './WorkflowSteps'
 import type { AnalysisRecommendation, AnalysisTypeId } from '@/lib/decision-engine/types'
+import { useLocale } from '@/i18n/LocaleProvider'
 
 interface Props {
   recommendation: AnalysisRecommendation
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function RecommendationCard({ recommendation, onRun, onConfigureManually, onRunAlternative }: Props) {
+  const { t } = useLocale()
   const { primary_name, reasoning, feasibility, can_run, workflow_steps, alternatives, flags, strobe_items_auto, reporting_guideline } = recommendation
 
   return (
@@ -33,7 +35,7 @@ export function RecommendationCard({ recommendation, onRun, onConfigureManually,
             className="text-[10px] font-bold uppercase tracking-[0.08em] px-2 py-0.5 rounded"
             style={{ background: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.9)' }}
           >
-            PLEXUS recommends
+            {t('recommendation.plexusRecommends')}
           </span>
         </div>
         <h3
@@ -52,14 +54,14 @@ export function RecommendationCard({ recommendation, onRun, onConfigureManually,
 
         {/* Feasibility checks */}
         <div className="px-5 py-4">
-          <p className="subsection-label mb-3">Feasibility Checks</p>
+          <p className="subsection-label mb-3">{t('recommendation.feasibilityChecks')}</p>
           <FeasibilityChecks checks={feasibility} />
         </div>
 
         {/* Workflow steps */}
         {workflow_steps.length > 0 && (
           <div className="px-5 py-4">
-            <p className="subsection-label mb-3">Recommended Workflow</p>
+            <p className="subsection-label mb-3">{t('recommendation.recommendedWorkflow')}</p>
             <WorkflowSteps steps={workflow_steps} />
           </div>
         )}
@@ -67,7 +69,7 @@ export function RecommendationCard({ recommendation, onRun, onConfigureManually,
         {/* Alternatives */}
         {alternatives.length > 0 && (
           <div className="px-5 py-4">
-            <p className="subsection-label mb-2">Also Consider</p>
+            <p className="subsection-label mb-2">{t('recommendation.alsoConsider')}</p>
             <div className="flex flex-col gap-2">
               {alternatives.map(alt => (
                 <button
@@ -96,7 +98,7 @@ export function RecommendationCard({ recommendation, onRun, onConfigureManually,
                       className="text-[10px] font-semibold flex-shrink-0 transition-colors duration-150 opacity-40 group-hover:opacity-100"
                       style={{ color: 'var(--accent-blue)' }}
                     >
-                      Run →
+                      {t('recommendation.runAlt')}
                     </span>
                   </div>
                   <p className="text-[10px] mt-0.5 line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
@@ -112,8 +114,7 @@ export function RecommendationCard({ recommendation, onRun, onConfigureManually,
         {strobe_items_auto.length > 0 && (
           <div className="px-5 py-3">
             <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-              <span className="font-semibold">{reporting_guideline} items</span> that will be
-              auto-populated:{' '}
+              <span className="font-semibold">{reporting_guideline} items</span> {t('recommendation.autoPopulated')}{' '}
               <span
                 className="font-mono tabular-nums"
                 style={{ color: 'var(--accent-blue)' }}
@@ -167,8 +168,8 @@ export function RecommendationCard({ recommendation, onRun, onConfigureManually,
       >
         <p className="text-[11px] flex-1" style={{ color: 'var(--text-tertiary)' }}>
           {can_run
-            ? 'All checks passed. Ready to run.'
-            : 'Some checks failed. Review before running.'}
+            ? t('recommendation.allChecksPassed')
+            : t('recommendation.someChecksFailed')}
         </p>
         <button
           onClick={onConfigureManually}
@@ -182,7 +183,7 @@ export function RecommendationCard({ recommendation, onRun, onConfigureManually,
           onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-surface)' }}
         >
           <Settings2 className="h-3 w-3" />
-          Configure manually
+          {t('recommendation.configureManually')}
         </button>
         <button
           onClick={onRun}
@@ -191,7 +192,7 @@ export function RecommendationCard({ recommendation, onRun, onConfigureManually,
           style={{ background: 'linear-gradient(135deg,#003d9b,#0052cc)' }}
         >
           <Play className="h-3 w-3" />
-          Run Workflow
+          {t('recommendation.runWorkflow')}
         </button>
       </div>
     </div>

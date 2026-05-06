@@ -43,6 +43,7 @@ import { formatRelative } from '@/lib/utils'
 import { logAudit } from '@/lib/audit'
 import type { AnalysisRun, AnalysisType, DatasetColumn } from '@/types/database'
 import type { DataRow, AnalysisResult } from '@/lib/analysis/types'
+import { useLocale } from '@/i18n/LocaleProvider'
 
 // Heavy components and engines — lazy-loaded to split the initial bundle
 import dynamic from 'next/dynamic'
@@ -116,6 +117,7 @@ function ConfigComponent({ type, config, onChange, onRun, loading, columns }: {
   onChange: (c: Record<string, unknown>) => void
   onRun: () => void; loading: boolean; columns: DatasetColumn[]
 }) {
+  const { t } = useLocale()
   const p = { config, onChange, onRun, loading, columns }
   switch (type) {
     case 'descriptive':              return <DescriptiveConfig {...p} />
@@ -141,7 +143,7 @@ function ConfigComponent({ type, config, onChange, onRun, loading, columns }: {
     case 'spatial_analysis':         return <SpatialConfig {...p} />
     case 'outbreak_investigation':   return <OutbreakConfig {...p} />
     case 'sample_size':              return <SampleSizeConfig {...p} />
-    default: return <p className="text-sm text-[var(--text-tertiary)]">No configuration available.</p>
+    default: return <p className="text-sm text-[var(--text-tertiary)]">{t('analysis.noConfigAvailable')}</p>
   }
 }
 
@@ -208,6 +210,7 @@ const ANALYSIS_GROUPS: {
 // ── Main Component ──────────────────────────────────────
 export function AnalysisHub({ projectId }: Props) {
   const { profile } = useAuth()
+  const { t } = useLocale()
   const supabase = useMemo(() => createClient(), [])
 
   const [runs, setRuns]     = useState<AnalysisRun[]>([])
@@ -300,7 +303,7 @@ export function AnalysisHub({ projectId }: Props) {
       }))
       await handleData(parsed.rows as DataRow[], cols, ds.name, ds.id, ds.latestVersion.id)
     } catch {
-      toast.error('Failed to load dataset')
+      toast.error(t('analysis.toastLoadFailed'))
     } finally {
       setDatasetLoadingId(null)
     }
@@ -558,11 +561,11 @@ export function AnalysisHub({ projectId }: Props) {
 
   const handleDelete = async (id: string) => {
     const result = await softDeleteAnalysisRun(supabase, id)
-    if (result.status === 'error') { toast.error('Failed to delete analysis'); return }
+    if (result.status === 'error') { toast.error(t('analysis.toastDeleteFailed')); return }
     setRuns(prev => prev.filter(r => r.id !== id))
     if (viewingRunId === id) setViewingRunId(null)
     await logAudit('analysis.run.deleted', 'analysis_run', id, {}, projectId)
-    toast.success('Analysis deleted')
+    toast.success(t('analysis.toastDeleted'))
   }
 
   const RC_KEY = (dsId: string) => `plexus_rc_${dsId}`
@@ -922,7 +925,7 @@ export function AnalysisHub({ projectId }: Props) {
 
       setSavedRunId(run.id)
       setRuns(prev => [run as AnalysisRun, ...prev])
-      toast.success('Analysis saved')
+      toast.success(t('analysis.toastSaved'))
     }
   }
 
@@ -1047,7 +1050,7 @@ export function AnalysisHub({ projectId }: Props) {
             onMouseLeave={e => { e.currentTarget.style.background = '' }}
           >
             <Clock className="h-3.5 w-3.5" />
-            History
+            {t('analysis.historyBtn')}
             {runs.length > 0 && (
               <span className="ml-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold"
                 style={{ background: 'var(--bg-inset)', color: 'var(--text-tertiary)' }}>
@@ -1063,7 +1066,7 @@ export function AnalysisHub({ projectId }: Props) {
             onMouseLeave={e => (e.currentTarget.style.background = '')}
           >
             <Table2 className="h-3.5 w-3.5" />
-            Generate Table
+            {t('analysis.generateTable')}
           </button>
         </div>
       </div>
@@ -1085,7 +1088,7 @@ export function AnalysisHub({ projectId }: Props) {
               className="absolute inset-0 z-20 bg-[var(--bg-app)] flex flex-col"
             >
               <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-row)] flex-shrink-0">
-                <span className="text-sm font-semibold text-[var(--text-primary)]">History</span>
+                <span className="text-sm font-semibold text-[var(--text-primary)]">{t('analysis.historyTitle')}</span>
                 <button
                   onClick={() => setHistoryOpen(false)}
                   className="h-7 w-7 flex items-center justify-center rounded-md text-[var(--text-tertiary)] hover:bg-[var(--bg-row-hover)] hover:text-[var(--text-primary)] transition-colors"
@@ -1097,7 +1100,7 @@ export function AnalysisHub({ projectId }: Props) {
                 {runs.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center px-6 py-12">
                     <BarChart2 className="h-5 w-5 text-[var(--text-tertiary)] mb-2" />
-                    <p className="text-xs text-[var(--text-tertiary)]">No analyses yet</p>
+                    <p className="text-xs text-[var(--text-tertiary)]">{t('analysis.noAnalysesYet')}</p>
                   </div>
                 ) : (
                   <div>
@@ -1145,7 +1148,7 @@ export function AnalysisHub({ projectId }: Props) {
 
             {/* Dataset */}
             <div>
-              <p className="subsection-label mb-2">Dataset</p>
+              <p className="subsection-label mb-2">{t('analysis.datasetLabel')}</p>
 
               {dataLoaded ? (
                 <div className="flex flex-col gap-1.5">
@@ -1167,7 +1170,7 @@ export function AnalysisHub({ projectId }: Props) {
                       onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.background = 'var(--bg-row-hover)' }}
                       onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.background = '' }}
                     >
-                      <X className="h-3 w-3" />Change
+                      <X className="h-3 w-3" />{t('analysis.changeDataset')}
                     </button>
                   </div>
 
@@ -1184,7 +1187,7 @@ export function AnalysisHub({ projectId }: Props) {
                           {researchContext.outcome_variable ? ` · ${researchContext.outcome_variable}` : ''}
                         </p>
                       ) : (
-                        <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>No research context set</p>
+                        <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>{t('analysis.noContext')}</p>
                       )}
                     </div>
                     <button
@@ -1194,7 +1197,7 @@ export function AnalysisHub({ projectId }: Props) {
                       onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-blue-subtle)' }}
                       onMouseLeave={e => { e.currentTarget.style.background = '' }}
                     >
-                      {researchContext ? 'Edit' : 'Set'}
+                      {researchContext ? t('analysis.editContext') : t('analysis.setContext')}
                     </button>
                   </div>
                 </div>
@@ -1203,12 +1206,12 @@ export function AnalysisHub({ projectId }: Props) {
               ) : projectDatasets.length === 0 ? (
                 <div className="flex flex-col items-center text-center px-3 py-4 rounded-md" style={{ border: '1px dashed var(--border-strong)' }}>
                   <Database className="h-5 w-5 mb-1.5" style={{ color: 'var(--text-tertiary)' }} />
-                  <p className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>No datasets yet</p>
-                  <Link href={`/projects/${projectId}/data`} className="text-[11px] mt-1 hover:underline" style={{ color: 'var(--accent-blue)' }}>Go to Data Hub →</Link>
+                  <p className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{t('analysis.noDatasetsYet')}</p>
+                  <Link href={`/projects/${projectId}/data`} className="text-[11px] mt-1 hover:underline" style={{ color: 'var(--accent-blue)' }}>{t('analysis.goToDataHub')}</Link>
                 </div>
               ) : (
                 <div className="flex flex-col gap-1">
-                  <p className="text-[11px] mb-1" style={{ color: 'var(--text-tertiary)' }}>Click a dataset to load it for analysis</p>
+                  <p className="text-[11px] mb-1" style={{ color: 'var(--text-tertiary)' }}>{t('analysis.clickToLoad')}</p>
                   {projectDatasets.map(ds => {
                     const isLoading = datasetLoadingId === ds.id
                     const v = ds.latestVersion
@@ -1226,7 +1229,7 @@ export function AnalysisHub({ projectId }: Props) {
                           <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{ds.name}</p>
                           {v
                             ? <p className="data-mono-xs" style={{ color: 'var(--text-tertiary)' }}>{v.row_count?.toLocaleString() ?? '—'} rows · {v.column_count ?? '—'} cols</p>
-                            : <p className="text-[11px] italic" style={{ color: 'var(--text-tertiary)' }}>No version</p>}
+                            : <p className="text-[11px] italic" style={{ color: 'var(--text-tertiary)' }}>{t('analysis.noVersion')}</p>}
                         </div>
                         {isLoading && <div className="h-3.5 w-3.5 rounded-full border-2 border-t-transparent flex-shrink-0 animate-spin" style={{ borderColor: 'var(--accent-blue)', borderTopColor: 'transparent' }} />}
                       </button>
@@ -1240,10 +1243,10 @@ export function AnalysisHub({ projectId }: Props) {
             {dataLoaded && (
               <div className="flex items-center gap-1 -mt-1">
                 {([
-                  { key: 'dataset',  label: 'Dataset',    done: true,              active: !decisionMode && !result },
-                  { key: 'mode',     label: 'Mode',       done: !!decisionMode || !!result, active: decisionMode === 'entry' },
-                  { key: 'vars',     label: 'Variables',  done: (decisionMode === 'guided' || decisionMode === 'direct') || !!result, active: decisionMode === 'guided' || decisionMode === 'direct' },
-                  { key: 'result',   label: 'Result',     done: !!result && !resultIsStale, active: !!result && !decisionMode },
+                  { key: 'dataset',  label: t('analysis.step.dataset'),   done: true,              active: !decisionMode && !result },
+                  { key: 'mode',     label: t('analysis.step.mode'),      done: !!decisionMode || !!result, active: decisionMode === 'entry' },
+                  { key: 'vars',     label: t('analysis.step.variables'), done: (decisionMode === 'guided' || decisionMode === 'direct') || !!result, active: decisionMode === 'guided' || decisionMode === 'direct' },
+                  { key: 'result',   label: t('analysis.step.result'),    done: !!result && !resultIsStale, active: !!result && !decisionMode },
                 ] as { key: string; label: string; done: boolean; active: boolean }[]).map((step, idx) => (
                   <div key={step.key} className="flex items-center">
                     <div
@@ -1283,7 +1286,7 @@ export function AnalysisHub({ projectId }: Props) {
                 style={{ background: 'linear-gradient(135deg,var(--color-clinical-deep),var(--color-clinical-blue))' }}
               >
                 <Play className="h-3.5 w-3.5" />
-                Run Analysis
+                {t('analysis.runAnalysis')}
               </button>
             )}
 
@@ -1301,7 +1304,7 @@ export function AnalysisHub({ projectId }: Props) {
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-row-hover)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-surface)' }}
                 >
-                  Adjust
+                  {t('analysis.adjust')}
                 </button>
                 <button
                   onClick={() => {
@@ -1315,7 +1318,7 @@ export function AnalysisHub({ projectId }: Props) {
                   className="flex-1 py-2 rounded-lg text-xs font-bold text-white active:scale-[0.98] transition-all"
                   style={{ background: 'linear-gradient(135deg,var(--color-clinical-deep),var(--color-clinical-blue))' }}
                 >
-                  New Analysis
+                  {t('analysis.newAnalysis')}
                 </button>
               </div>
             )}
@@ -1324,19 +1327,19 @@ export function AnalysisHub({ projectId }: Props) {
             {(decisionMode === 'guided' || decisionMode === 'direct') && dataLoaded && engineSchema.length > 0 && (
               <div>
                 <div className="h-px mb-4" style={{ background: 'var(--border-row)' }} />
-                <p className="subsection-label mb-3">Variables</p>
+                <p className="subsection-label mb-3">{t('analysis.variablesLabel')}</p>
 
                 {/* ── DIRECT FLOW ── */}
                 {decisionMode === 'direct' && (
                   !engineSelectedType ? (
                     <p className="text-xs leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
-                      Choose an analysis type on the right to configure variables.
+                      {t('analysis.chooseTypeHint')}
                     </p>
                   ) : engineIsDesc ? (
                     /* Multi-variable select for descriptive statistics */
                     <div className="space-y-2">
                       <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-                        Leave all unchecked to describe every variable
+                        {t('analysis.leaveUnchecked')}
                       </p>
                       <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-default)' }}>
                         <div className="max-h-52 overflow-y-auto">
@@ -1379,7 +1382,7 @@ export function AnalysisHub({ projectId }: Props) {
                           onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-blue)' }}
                           onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)' }}
                         >
-                          Clear ({engineDescriptiveVars.length} selected)
+                          {t('analysis.clearSelected')} ({engineDescriptiveVars.length} selected)
                         </button>
                       )}
                     </div>
@@ -1387,28 +1390,28 @@ export function AnalysisHub({ projectId }: Props) {
                     <div className="space-y-3">
                       {engineIsSurvival ? (
                         <>
-                          <DecisionVariableSelector label="Time Variable" required schema={engineSchema} allowedTypes={['continuous', 'date']} value={engineTimeVar} onChange={setEngineTimeVar} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineTimeVar?.name)} />
-                          <DecisionVariableSelector label="Event Indicator (1=event, 0=censored)" required schema={engineSchema} allowedTypes={['binary', 'continuous']} value={engineEventVar} onChange={setEngineEventVar} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineEventVar?.name)} />
+                          <DecisionVariableSelector label={t('analysis.varTimeVariable')} required schema={engineSchema} allowedTypes={['continuous', 'date']} value={engineTimeVar} onChange={setEngineTimeVar} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineTimeVar?.name)} />
+                          <DecisionVariableSelector label={t('analysis.varEventIndicator')} required schema={engineSchema} allowedTypes={['binary', 'continuous']} value={engineEventVar} onChange={setEngineEventVar} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineEventVar?.name)} />
                           {engineSelectedType === 'kaplan_meier' && (
-                            <DecisionVariableSelector label="Group Variable (optional)" schema={engineSchema} allowedTypes={['binary', 'categorical']} value={engineExposure} onChange={setEngineExposure} placeholder="Leave empty for single curve" row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineExposure?.name)} />
+                            <DecisionVariableSelector label={t('analysis.varGroupOptional')} schema={engineSchema} allowedTypes={['binary', 'categorical']} value={engineExposure} onChange={setEngineExposure} placeholder={t('analysis.varLeaveEmptyCurve')} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineExposure?.name)} />
                           )}
                           {engineSelectedType === 'cox_ph' && (
-                            <DecisionVariableSelector label="Exposure / Primary Predictor" schema={engineSchema} allowedTypes={['binary', 'categorical', 'continuous']} value={engineExposure} onChange={setEngineExposure} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineExposure?.name)} />
+                            <DecisionVariableSelector label={t('analysis.varExposurePrimary')} schema={engineSchema} allowedTypes={['binary', 'categorical', 'continuous']} value={engineExposure} onChange={setEngineExposure} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineExposure?.name)} />
                           )}
-                          <DecisionVariableSelector label="Stratify by (optional)" schema={engineSchema} allowedTypes={['binary', 'categorical']} value={engineStratVar} onChange={setEngineStratVar} placeholder="Adjust for a known confounder" row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineStratVar?.name)} />
+                          <DecisionVariableSelector label={t('analysis.varStratifyBy')} schema={engineSchema} allowedTypes={['binary', 'categorical']} value={engineStratVar} onChange={setEngineStratVar} placeholder={t('analysis.varAdjustConfounder')} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineStratVar?.name)} />
                         </>
                       ) : (engineIsCorr || engineIsCat) ? (
                         <>
-                          <DecisionVariableSelector label={engineIsCat ? 'Variable 1 (Outcome)' : 'Variable 1'} required schema={engineSchema} allowedTypes={engineMeta && engineMeta.outcome_types.length > 0 ? engineMeta.outcome_types : undefined} value={engineOutcome} onChange={setEngineOutcome} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineOutcome?.name)} />
-                          <DecisionVariableSelector label={engineIsCat ? 'Variable 2 (Exposure)' : 'Variable 2'} required schema={engineSchema} allowedTypes={engineMeta && engineMeta.predictor_types.length > 0 ? engineMeta.predictor_types : undefined} value={engineExposure} onChange={setEngineExposure} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineExposure?.name)} />
+                          <DecisionVariableSelector label={engineIsCat ? t('analysis.varVariable1Outcome') : t('analysis.varVariable1')} required schema={engineSchema} allowedTypes={engineMeta && engineMeta.outcome_types.length > 0 ? engineMeta.outcome_types : undefined} value={engineOutcome} onChange={setEngineOutcome} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineOutcome?.name)} />
+                          <DecisionVariableSelector label={engineIsCat ? t('analysis.varVariable2Exposure') : t('analysis.varVariable2')} required schema={engineSchema} allowedTypes={engineMeta && engineMeta.predictor_types.length > 0 ? engineMeta.predictor_types : undefined} value={engineExposure} onChange={setEngineExposure} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineExposure?.name)} />
                         </>
                       ) : (
                         <>
                           {engineSelectedType !== 'prevalence_estimation' && (
-                            <DecisionVariableSelector label="Outcome Variable" required schema={engineSchema} allowedTypes={engineMeta && engineMeta.outcome_types.length > 0 ? engineMeta.outcome_types : undefined} value={engineOutcome} onChange={setEngineOutcome} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineOutcome?.name)} />
+                            <DecisionVariableSelector label={t('analysis.varOutcome')} required schema={engineSchema} allowedTypes={engineMeta && engineMeta.outcome_types.length > 0 ? engineMeta.outcome_types : undefined} value={engineOutcome} onChange={setEngineOutcome} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineOutcome?.name)} />
                           )}
                           <DecisionVariableSelector
-                            label={engineMeta?.requires_grouping ? 'Group Variable' : 'Exposure / Predictor'}
+                            label={engineMeta?.requires_grouping ? t('analysis.varGroupVariable') : t('analysis.varExposurePredictor')}
                             required={!!engineMeta?.requires_grouping}
                             schema={engineSchema}
                             allowedTypes={engineMeta && engineMeta.predictor_types.length > 0 ? engineMeta.predictor_types : undefined}
@@ -1418,7 +1421,7 @@ export function AnalysisHub({ projectId }: Props) {
                           {/* Covariates — regression types + cox_ph */}
                           {(['logistic_regression', 'linear_regression', 'poisson_regression', 'cox_ph'] as AnalysisTypeId[]).includes(engineSelectedType) && (
                             <MultiDecisionVariableSelector
-                              label="Covariates (optional)"
+                              label={t('analysis.varCovariates')}
                               schema={engineSchema}
                               value={engineCovariates}
                               onChange={setEngineCovariates}
@@ -1431,7 +1434,7 @@ export function AnalysisHub({ projectId }: Props) {
                       {/* Confidence level */}
                       {!engineIsCat && (
                         <div>
-                          <p className="text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Confidence Level</p>
+                          <p className="text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>{t('analysis.confidenceLevel')}</p>
                           <div className="flex gap-1.5">
                             {([0.90, 0.95, 0.99] as const).map(lvl => (
                               <button key={lvl} type="button" onClick={() => setEngineConfidenceLevel(lvl)}
@@ -1459,7 +1462,7 @@ export function AnalysisHub({ projectId }: Props) {
                   ) : engineIntent === 'describe' ? (
                     /* Multi-variable select for describe intent */
                     <div className="space-y-2">
-                      <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Leave all unchecked to describe every variable</p>
+                      <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>{t('analysis.leaveUnchecked')}</p>
                       <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-default)' }}>
                         <div className="max-h-52 overflow-y-auto">
                           {engineSchema.filter(c => c.type !== 'id' && c.type !== 'text').map(col => {
@@ -1499,27 +1502,27 @@ export function AnalysisHub({ projectId }: Props) {
                         <button onClick={() => setEngineDescriptiveVars([])} className="text-[11px] transition-colors" style={{ color: 'var(--text-tertiary)' }}
                           onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-blue)' }}
                           onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)' }}
-                        >Clear ({engineDescriptiveVars.length} selected)</button>
+                        >{t('analysis.clearSelected')} ({engineDescriptiveVars.length} selected)</button>
                       )}
                     </div>
                   ) : engineIntent === 'survive' ? (
                     <div className="space-y-3">
-                      <DecisionVariableSelector label="Time Variable" required schema={engineSchema} allowedTypes={['continuous', 'date']} value={engineTimeVar} onChange={setEngineTimeVar} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineTimeVar?.name)} />
-                      <DecisionVariableSelector label="Event Indicator (1=event, 0=censored)" required schema={engineSchema} allowedTypes={['binary', 'continuous']} value={engineEventVar} onChange={setEngineEventVar} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineEventVar?.name)} />
-                      <DecisionVariableSelector label="Group Variable (optional)" schema={engineSchema} allowedTypes={['binary', 'categorical']} value={engineExposure} onChange={setEngineExposure} placeholder="Leave empty for single curve" row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineExposure?.name)} />
-                      <DecisionVariableSelector label="Stratify by (optional)" schema={engineSchema} allowedTypes={['binary', 'categorical']} value={engineStratVar} onChange={setEngineStratVar} placeholder="Adjust for a known confounder" row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineStratVar?.name)} />
+                      <DecisionVariableSelector label={t('analysis.varTimeVariable')} required schema={engineSchema} allowedTypes={['continuous', 'date']} value={engineTimeVar} onChange={setEngineTimeVar} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineTimeVar?.name)} />
+                      <DecisionVariableSelector label={t('analysis.varEventIndicator')} required schema={engineSchema} allowedTypes={['binary', 'continuous']} value={engineEventVar} onChange={setEngineEventVar} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineEventVar?.name)} />
+                      <DecisionVariableSelector label={t('analysis.varGroupOptional')} schema={engineSchema} allowedTypes={['binary', 'categorical']} value={engineExposure} onChange={setEngineExposure} placeholder={t('analysis.varLeaveEmptyCurve')} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineExposure?.name)} />
+                      <DecisionVariableSelector label={t('analysis.varStratifyBy')} schema={engineSchema} allowedTypes={['binary', 'categorical']} value={engineStratVar} onChange={setEngineStratVar} placeholder={t('analysis.varAdjustConfounder')} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineStratVar?.name)} />
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <DecisionVariableSelector label="Outcome Variable" required schema={engineSchema} value={engineOutcome} onChange={setEngineOutcome} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineOutcome?.name)} />
+                      <DecisionVariableSelector label={t('analysis.varOutcome')} required schema={engineSchema} value={engineOutcome} onChange={setEngineOutcome} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineOutcome?.name)} />
                       <DecisionVariableSelector
-                        label={engineIntent === 'compare' ? 'Group Variable' : 'Exposure / Predictor'}
+                        label={engineIntent === 'compare' ? t('analysis.varGroupVariable') : t('analysis.varExposurePredictor')}
                         schema={engineSchema} value={engineExposure} onChange={setEngineExposure} row_count={data.length}
                         excludeNames={engineExcluded.filter(n => n !== engineExposure?.name)}
                       />
                       {(engineIntent === 'predict' || engineIntent === 'associate') && (
                         <MultiDecisionVariableSelector
-                          label="Covariates (optional)"
+                          label={t('analysis.varCovariates')}
                           schema={engineSchema}
                           value={engineCovariates}
                           onChange={setEngineCovariates}
@@ -1606,7 +1609,7 @@ export function AnalysisHub({ projectId }: Props) {
                   onClick={() => setViewingRunId(null)}
                   className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-row-hover)] px-2.5 py-1 rounded transition-colors"
                 >
-                  ← Back
+                  {t('analysis.backBtn')}
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto">
@@ -1615,12 +1618,12 @@ export function AnalysisHub({ projectId }: Props) {
                 ) : viewingRun.status === 'failed' ? (
                   <div className="flex flex-col items-center justify-center h-full text-center px-8">
                     <span className="status-dot status-dot--flagged mb-3" />
-                    <p className="text-sm text-[var(--text-primary)]">Analysis failed</p>
+                    <p className="text-sm text-[var(--text-primary)]">{t('analysis.analysisFailed')}</p>
                     <p className="text-xs text-[var(--text-tertiary)] mt-1">{(viewingRun as { error_message?: string }).error_message ?? 'An unknown error occurred.'}</p>
                   </div>
                 ) : (
                   <div className="flex items-center justify-center h-full">
-                    <p className="text-xs text-[var(--text-tertiary)]">No results available.</p>
+                    <p className="text-xs text-[var(--text-tertiary)]">{t('analysis.noResults')}</p>
                   </div>
                 )}
               </div>
@@ -1632,9 +1635,9 @@ export function AnalysisHub({ projectId }: Props) {
               <div className="w-8 h-8 rounded-full border-2 border-[var(--accent-blue)] border-t-transparent animate-spin mb-4" />
               {workflowProgress ? (
                 <>
-                  <p className="text-sm font-medium text-[var(--text-primary)] mb-1">Running Analysis Workflow</p>
+                  <p className="text-sm font-medium text-[var(--text-primary)] mb-1">{t('analysis.workflowRunning')}</p>
                   <p className="text-xs mb-6" style={{ color: 'var(--text-tertiary)' }}>
-                    Step {workflowProgress.current + 1} of {workflowProgress.total}: {workflowProgress.label}
+                    {t('analysis.stepLabel')} {workflowProgress.current + 1} {t('analysis.ofLabel')} {workflowProgress.total}: {workflowProgress.label}
                   </p>
                   <div className="flex items-center gap-2">
                     {Array.from({ length: workflowProgress.total }).map((_, i) => (
@@ -1654,7 +1657,7 @@ export function AnalysisHub({ projectId }: Props) {
                 </>
               ) : (
                 <>
-                  <p className="text-sm font-medium text-[var(--text-primary)]">Running analysis…</p>
+                  <p className="text-sm font-medium text-[var(--text-primary)]">{t('analysis.runningAnalysis')}</p>
                   <p className="text-xs text-[var(--text-tertiary)] mt-1">
                     {ANALYSIS_TYPES.find(t => t.type === selectedType)?.label ?? 'Processing'}
                   </p>
@@ -1671,7 +1674,7 @@ export function AnalysisHub({ projectId }: Props) {
                   className="flex items-center justify-between px-4 py-2 flex-shrink-0 text-xs"
                   style={{ background: 'var(--status-warning-bg)', borderBottom: '1px solid var(--border-status-warning)', color: 'var(--status-warning-text)' }}
                 >
-                  <span>Previous result — reconfigure in the left panel and run again.</span>
+                  <span>{t('analysis.staleResult')}</span>
                 </div>
               )}
               {/* Result header */}
@@ -1684,9 +1687,9 @@ export function AnalysisHub({ projectId }: Props) {
                       {fileName ? ` — ${fileName}` : ''}
                     </p>
                     <p className="data-mono-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                      {data.length > 0 ? `${data.length.toLocaleString()} observations` : ''}
-                      {result && ' · Completed just now'}
-                      {savedRunId && ' · Saved to ledger'}
+                      {data.length > 0 ? `${data.length.toLocaleString()} ${t('analysis.observations')}` : ''}
+                      {result && ` · ${t('analysis.completedJustNow')}`}
+                      {savedRunId && ` · ${t('analysis.savedToLedger')}`}
                     </p>
                   </div>
                 </div>
@@ -1712,7 +1715,7 @@ export function AnalysisHub({ projectId }: Props) {
                       className="relative px-3 py-2 text-xs font-medium transition-colors"
                       style={{ color: resultTab === tab ? 'var(--accent-blue)' : 'var(--text-tertiary)' }}
                     >
-                      {tab === 'results' ? 'Results' : 'Tables'}
+                      {tab === 'results' ? t('analysis.resultsTab') : t('analysis.tablesTab')}
                       {resultTab === tab && (
                         <span className="absolute bottom-0 left-3 right-3 h-[2px] rounded-t-sm" style={{ background: 'var(--accent-blue)' }} />
                       )}
@@ -1770,7 +1773,7 @@ export function AnalysisHub({ projectId }: Props) {
                     {/* Interpretation */}
                     {result.interpretation && (
                       <div className="px-4 py-3 rounded-lg bg-[var(--bg-row-hover)] border border-[var(--border-row)]">
-                        <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider mb-1.5 font-semibold">Interpretation</p>
+                        <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider mb-1.5 font-semibold">{t('analysis.interpretation')}</p>
                         <p className="text-sm text-[var(--text-primary)] leading-relaxed">{result.interpretation}</p>
                       </div>
                     )}
@@ -1778,7 +1781,7 @@ export function AnalysisHub({ projectId }: Props) {
                     {/* Plain language */}
                     {(result as { plainLanguage?: string }).plainLanguage && (
                       <div className="px-4 py-3 rounded-lg border border-[var(--accent-blue)]/15 bg-blue-50/40">
-                        <p className="text-[10px] text-[var(--accent-blue)] uppercase tracking-wider mb-1.5 font-semibold">Plain Language</p>
+                        <p className="text-[10px] text-[var(--accent-blue)] uppercase tracking-wider mb-1.5 font-semibold">{t('analysis.plainLanguage')}</p>
                         <p className="text-sm text-[var(--text-primary)] leading-relaxed">{(result as { plainLanguage?: string }).plainLanguage}</p>
                       </div>
                     )}
@@ -1787,7 +1790,7 @@ export function AnalysisHub({ projectId }: Props) {
                   /* Tables tab */
                   <div className="px-6 py-5 space-y-6">
                     {(result.tables ?? []).length === 0 ? (
-                      <p className="text-xs text-[var(--text-tertiary)] text-center py-8">No tables in this result.</p>
+                      <p className="text-xs text-[var(--text-tertiary)] text-center py-8">{t('analysis.noTables')}</p>
                     ) : (result.tables ?? []).map((table, i) => (
                       <div key={i}>
                         <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">{table.title}</p>
@@ -1830,7 +1833,7 @@ export function AnalysisHub({ projectId }: Props) {
             /* ── Error ── */
             <div className="flex flex-col items-center justify-center h-full text-center px-8">
               <div className="rounded-lg border border-[var(--timeline-flagged)]/20 bg-red-50 px-6 py-5 max-w-md">
-                <p className="text-sm font-semibold text-[var(--timeline-flagged)] mb-1">Analysis Error</p>
+                <p className="text-sm font-semibold text-[var(--timeline-flagged)] mb-1">{t('analysis.analysisError')}</p>
                 <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{String(result.summary.error)}</p>
               </div>
             </div>
@@ -1845,14 +1848,14 @@ export function AnalysisHub({ projectId }: Props) {
                 <BarChart2 className="h-7 w-7" style={{ color: 'var(--text-tertiary)' }} />
               </div>
               <p className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
-                {dataLoaded ? 'Ready to analyse' : 'Select a dataset to begin'}
+                {dataLoaded ? t('analysis.readyToAnalyse') : t('analysis.selectDatasetToBegin')}
               </p>
               <p className="text-xs max-w-[240px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
                 {dataLoaded
-                  ? 'Click "Run Analysis" on the left to start the guided or direct flow.'
+                  ? t('analysis.runAnalysisHint')
                   : runs.length > 0
-                    ? 'Pick a dataset on the left, or open History to revisit past results.'
-                    : 'Pick a dataset on the left to get started.'}
+                    ? t('analysis.historyHint')
+                    : t('analysis.getStartedHint')}
               </p>
               {runs.length > 0 && (
                 <button
@@ -1863,7 +1866,7 @@ export function AnalysisHub({ projectId }: Props) {
                   onMouseLeave={e => (e.currentTarget.style.background = '')}
                 >
                   <Clock className="h-3.5 w-3.5" />
-                  View History
+                  {t('analysis.viewHistory')}
                 </button>
               )}
             </div>

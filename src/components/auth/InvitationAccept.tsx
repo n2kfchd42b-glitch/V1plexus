@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { FlaskConical, CheckCircle, XCircle, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
+import { useTranslations } from '@/i18n/useTranslations'
 import { toast } from 'sonner'
 import type { WorkspaceInvitation, ProjectInvitation } from '@/types/database'
 
@@ -23,17 +24,16 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
   const [error, setError] = useState('')
   const router = useRouter()
   const supabase = createClient()
+  const { t } = useTranslations()
 
   useEffect(() => {
     const lookupToken = async () => {
-      // RLS on invitation tables requires authentication — redirect to login first
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         router.push(`/login?redirect=/invite/${token}`)
         return
       }
 
-      // Try workspace invitation first
       const { data: wsInvite } = await supabase
         .from('workspace_invitations')
         .select('*, workspace:workspaces(*)')
@@ -47,7 +47,6 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
         return
       }
 
-      // Try project invitation
       const { data: projInvite } = await supabase
         .from('project_invitations')
         .select('*, project:projects(*)')
@@ -61,12 +60,12 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
         return
       }
 
-      setError('Invitation not found or has expired.')
+      setError(t('invite.notFoundMessage', 'Invitation not found or has expired.'))
       setLoading(false)
     }
 
     lookupToken()
-  }, [token, supabase, router])
+  }, [token, supabase, router, t])
 
   const handleAccept = async () => {
     setAccepting(true)
@@ -101,7 +100,7 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
         .update({ status: 'accepted' })
         .eq('token', token)
 
-      toast.success('You joined the workspace!')
+      toast.success(t('invite.joinedWorkspace', 'You joined the workspace!'))
       router.push('/dashboard')
     } else if (inviteType === 'project' && projectInvite) {
       const { error: memErr } = await supabase
@@ -118,7 +117,6 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
         return
       }
 
-      // Invited collaborators don't need their own workspace to get started
       await supabase
         .from('profiles')
         .update({ workspace_setup_completed: true })
@@ -129,7 +127,7 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
         .update({ status: 'accepted' })
         .eq('token', token)
 
-      toast.success('You joined the project!')
+      toast.success(t('invite.joinedProject', 'You joined the project!'))
       router.push(`/projects/${projectInvite.project_id}`)
     }
 
@@ -149,10 +147,10 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center max-w-md w-full">
           <XCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-lg font-bold text-gray-900 mb-2">Invitation Not Found</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-2">{t('invite.notFound', 'Invitation Not Found')}</h2>
           <p className="text-gray-600 text-sm mb-6">{error}</p>
           <Button onClick={() => router.push('/dashboard')} className="w-full">
-            Go to Dashboard
+            {t('common.goToDashboard', 'Go to Dashboard')}
           </Button>
         </div>
       </div>
@@ -180,35 +178,39 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
           {isExpired ? (
             <>
               <Clock className="h-12 w-12 text-amber-400 mx-auto mb-4" />
-              <h2 className="text-lg font-bold text-gray-900 mb-2">Invitation Expired</h2>
+              <h2 className="text-lg font-bold text-gray-900 mb-2">{t('invite.expired', 'Invitation Expired')}</h2>
               <p className="text-gray-600 text-sm mb-6">
-                This invitation has expired. Please request a new one.
+                {t('invite.expiredMessage', 'This invitation has expired. Please request a new one.')}
               </p>
               <Button variant="outline" onClick={() => router.push('/dashboard')} className="w-full">
-                Go to Dashboard
+                {t('common.goToDashboard', 'Go to Dashboard')}
               </Button>
             </>
           ) : isAccepted ? (
             <>
               <CheckCircle className="h-12 w-12 text-green-400 mx-auto mb-4" />
-              <h2 className="text-lg font-bold text-gray-900 mb-2">Already Accepted</h2>
+              <h2 className="text-lg font-bold text-gray-900 mb-2">{t('invite.alreadyAccepted', 'Already Accepted')}</h2>
               <p className="text-gray-600 text-sm mb-6">
-                You&apos;ve already accepted this invitation.
+                {t('invite.alreadyAcceptedMessage', "You've already accepted this invitation.")}
               </p>
               <Button onClick={() => router.push('/dashboard')} className="w-full">
-                Go to Dashboard
+                {t('common.goToDashboard', 'Go to Dashboard')}
               </Button>
             </>
           ) : (
             <>
               <div className="mb-6">
-                <p className="text-gray-600 text-sm mb-1">You&apos;ve been invited to</p>
+                <p className="text-gray-600 text-sm mb-1">{t('invite.invitedTo', "You've been invited to")}</p>
                 <h2 className="text-xl font-bold text-gray-900">{inviteName}</h2>
                 {inviteType === 'workspace' && workspaceInvite && (
-                  <p className="text-sm text-gray-500 mt-1">Role: <span className="font-medium capitalize">{workspaceInvite.role}</span></p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {t('common.role', 'Role:')} <span className="font-medium capitalize">{workspaceInvite.role}</span>
+                  </p>
                 )}
                 {inviteType === 'project' && projectInvite && (
-                  <p className="text-sm text-gray-500 mt-1">Role: <span className="font-medium capitalize">{projectInvite.role.replace('_', ' ')}</span></p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {t('common.role', 'Role:')} <span className="font-medium capitalize">{projectInvite.role.replace('_', ' ')}</span>
+                  </p>
                 )}
               </div>
               <div className="flex gap-3">
@@ -217,14 +219,14 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
                   className="flex-1"
                   onClick={() => router.push('/dashboard')}
                 >
-                  Decline
+                  {t('invite.decline', 'Decline')}
                 </Button>
                 <Button
                   className="flex-1"
                   disabled={accepting}
                   onClick={handleAccept}
                 >
-                  {accepting ? 'Accepting…' : 'Accept Invitation'}
+                  {accepting ? t('invite.accepting', 'Accepting…') : t('invite.accept', 'Accept Invitation')}
                 </Button>
               </div>
             </>

@@ -2,10 +2,12 @@
 
 import { useAuth } from '@/hooks/useAuth'
 import { NotificationList } from '@/components/notification/NotificationList'
+import { useLocale } from '@/i18n/LocaleProvider'
 import { Bell } from 'lucide-react'
 
 export default function NotificationsPage() {
   const { profile, loading } = useAuth()
+  const { t } = useLocale()
 
   if (loading || !profile) {
     return (
@@ -26,7 +28,7 @@ export default function NotificationsPage() {
         ) : (
           <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg py-16 text-center">
             <Bell className="h-10 w-10 mx-auto text-[var(--text-tertiary)] mb-3" />
-            <p className="text-sm font-medium text-[var(--text-primary)]">Sign in to view notifications</p>
+            <p className="text-sm font-medium text-[var(--text-primary)]">{t('notifications.signIn')}</p>
           </div>
         )}
       </div>
@@ -36,8 +38,8 @@ export default function NotificationsPage() {
   return (
     <div className="px-6 py-5 max-w-3xl mx-auto">
       <div className="mb-5">
-        <h1 className="text-xl font-semibold text-[var(--text-primary)] tracking-tight">Inbox</h1>
-        <p className="text-sm text-[var(--text-tertiary)] mt-0.5">Your notifications and activity</p>
+        <h1 className="text-xl font-semibold text-[var(--text-primary)] tracking-tight">{t('notifications.inbox')}</h1>
+        <p className="text-sm text-[var(--text-tertiary)] mt-0.5">{t('notifications.subtitle')}</p>
       </div>
       <NotificationList userId={profile.id} />
     </div>

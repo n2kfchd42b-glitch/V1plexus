@@ -4,10 +4,12 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronDown, MapPin, Loader2, CheckCircle2 } from 'lucide-react'
 import { BrandLogo } from '@/components/layout/BrandLogo'
+import { LanguageSelector } from '@/components/i18n/LanguageSelector'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
+import { useTranslations } from '@/i18n/useTranslations'
 import { toast } from 'sonner'
 
 const RESEARCH_AREAS = [
@@ -50,6 +52,7 @@ export function IndividualSetup() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+  const { t } = useTranslations()
 
   const detectLocation = () => {
     if (!navigator.geolocation) {
@@ -62,7 +65,6 @@ export function IndividualSetup() {
         const { latitude, longitude } = pos.coords
         setLat(latitude)
         setLng(longitude)
-        // Reverse geocode to get city/country
         try {
           const res = await fetch(`/api/reverse-geocode?lat=${latitude}&lng=${longitude}`)
           if (res.ok) {
@@ -74,7 +76,6 @@ export function IndividualSetup() {
         setGeoState('detected')
       },
       () => {
-        // Permission denied or unavailable — fall back to manual
         setGeoState('denied')
       },
       { timeout: 8000 }
@@ -88,7 +89,6 @@ export function IndividualSetup() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setLoading(false); return }
 
-    // If we have city/country but no lat/lng yet (manual entry), geocode now
     let finalLat = lat
     let finalLng = lng
     if ((!finalLat || !finalLng) && city && country) {
@@ -102,7 +102,6 @@ export function IndividualSetup() {
       } catch { /* non-fatal */ }
     }
 
-    // Get or create personal workspace
     const { data: profile } = await supabase
       .from('profiles')
       .select('full_name')
@@ -129,7 +128,7 @@ export function IndividualSetup() {
         .single()
 
       if (wsErr) {
-        toast.error('Failed to create workspace')
+        toast.error(t('setup.workspaceFailed', 'Failed to create workspace'))
         setLoading(false)
         return
       }
@@ -143,7 +142,6 @@ export function IndividualSetup() {
       })
     }
 
-    // Normalize ORCID: strip URL prefix and dashes to just the 16-digit ID
     const normalizedOrcid = orcid.trim()
       .replace(/^https?:\/\/orcid\.org\//i, '')
       .replace(/\s/g, '')
@@ -164,7 +162,7 @@ export function IndividualSetup() {
       })
       .eq('id', user.id)
 
-    toast.success('Workspace created!')
+    toast.success(t('setup.workspaceCreated', 'Workspace created!'))
     router.push('/dashboard')
     setLoading(false)
   }
@@ -175,20 +173,25 @@ export function IndividualSetup() {
     <div className="min-h-screen bg-[#060d1c] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-2xl ring-1 ring-white/10 p-8">
+          {/* Header with logo and language selector */}
           <div className="text-center mb-8">
-            <div className="flex justify-center mb-3">
+            <div className="flex justify-between items-start mb-3">
+              <div className="flex-1" />
               <BrandLogo variant="standalone" href="/dashboard" />
+              <div className="flex-1 flex justify-end">
+                <LanguageSelector compact />
+              </div>
             </div>
-            <h2 className="text-xl font-bold text-gray-900">Set up your workspace</h2>
+            <h2 className="text-xl font-bold text-gray-900">{t('setup.title', 'Set up your workspace')}</h2>
             <p className="text-gray-500 mt-1 text-sm">
-              This is your private research space. You own everything here.
+              {t('setup.subtitle', 'This is your private research space. You own everything here.')}
             </p>
           </div>
 
           <form onSubmit={handleSetup} className="space-y-4">
             {/* Location */}
             <div>
-              <Label>Location</Label>
+              <Label>{t('setup.location', 'Location')}</Label>
               {geoState === 'idle' && (
                 <div className="mt-2 space-y-2">
                   <button
@@ -197,14 +200,14 @@ export function IndividualSetup() {
                     className="w-full flex items-center justify-center gap-2 rounded-lg border border-clinical-blue/30 bg-clinical-blue/5 px-4 py-2.5 text-sm font-medium text-clinical-blue hover:bg-clinical-blue/10 transition-colors"
                   >
                     <MapPin className="h-4 w-4" />
-                    Detect my location automatically
+                    {t('setup.detectLocation', 'Detect my location automatically')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setGeoState('manual')}
                     className="w-full text-xs text-gray-400 hover:text-gray-600 transition-colors py-1"
                   >
-                    Enter manually instead
+                    {t('setup.enterManually', 'Enter manually instead')}
                   </button>
                 </div>
               )}
@@ -212,7 +215,7 @@ export function IndividualSetup() {
               {geoState === 'detecting' && (
                 <div className="mt-2 flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-3 text-sm text-gray-500">
                   <Loader2 className="h-4 w-4 animate-spin text-clinical-blue" />
-                  Detecting your location…
+                  {t('setup.detecting', 'Detecting your location…')}
                 </div>
               )}
 
@@ -221,7 +224,7 @@ export function IndividualSetup() {
                   <div className="flex items-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-4 py-2.5 text-sm text-teal-700">
                     <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
                     <span>
-                      Located: <strong>{city}{city && country ? ', ' : ''}{country}</strong>
+                      {t('setup.located', 'Located:')} <strong>{city}{city && country ? ', ' : ''}{country}</strong>
                     </span>
                   </div>
                   <button
@@ -229,21 +232,21 @@ export function IndividualSetup() {
                     onClick={() => setGeoState('manual')}
                     className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
                   >
-                    Not right? Enter manually
+                    {t('setup.notRight', 'Not right? Enter manually')}
                   </button>
                 </div>
               )}
 
               {geoState === 'denied' && (
                 <p className="mt-1 text-xs text-amber-600">
-                  Location access denied — please enter manually below.
+                  {t('setup.locationDenied', 'Location access denied — please enter manually below.')}
                 </p>
               )}
 
               {showManual && geoState !== 'detected' && (
                 <div className="grid grid-cols-2 gap-3 mt-2">
                   <div>
-                    <Label htmlFor="city" className="text-xs text-gray-500">City</Label>
+                    <Label htmlFor="city" className="text-xs text-gray-500">{t('setup.city', 'City')}</Label>
                     <Input
                       id="city"
                       placeholder="Accra"
@@ -253,7 +256,7 @@ export function IndividualSetup() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="country" className="text-xs text-gray-500">Country</Label>
+                    <Label htmlFor="country" className="text-xs text-gray-500">{t('setup.country', 'Country')}</Label>
                     <div className="relative mt-1">
                       <select
                         id="country"
@@ -261,7 +264,7 @@ export function IndividualSetup() {
                         onChange={e => setCountry(e.target.value)}
                         className="w-full rounded-md border border-gray-200 px-3 py-2 pr-8 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-clinical-blue bg-white"
                       >
-                        <option value="">Select…</option>
+                        <option value="">{t('setup.selectCountry', 'Select…')}</option>
                         {COUNTRIES.map(c => (
                           <option key={c} value={c}>{c}</option>
                         ))}
@@ -274,7 +277,10 @@ export function IndividualSetup() {
             </div>
 
             <div>
-              <Label htmlFor="researchArea">Research Area <span className="text-gray-400 text-xs">(optional)</span></Label>
+              <Label htmlFor="researchArea">
+                {t('setup.researchArea', 'Research Area')}{' '}
+                <span className="text-gray-400 text-xs">{t('common.optional', '(optional)')}</span>
+              </Label>
               <div className="relative mt-1">
                 <select
                   id="researchArea"
@@ -282,7 +288,7 @@ export function IndividualSetup() {
                   onChange={e => setResearchArea(e.target.value)}
                   className="w-full rounded-md border border-gray-200 px-3 py-2 pr-8 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-clinical-blue bg-white"
                 >
-                  <option value="">Select research area…</option>
+                  <option value="">{t('setup.selectResearchArea', 'Select research area…')}</option>
                   {RESEARCH_AREAS.map(area => (
                     <option key={area} value={area}>{area}</option>
                   ))}
@@ -292,7 +298,10 @@ export function IndividualSetup() {
             </div>
 
             <div>
-              <Label htmlFor="orcid">ORCID iD <span className="text-gray-400 text-xs">(optional)</span></Label>
+              <Label htmlFor="orcid">
+                {t('setup.orcid', 'ORCID iD')}{' '}
+                <span className="text-gray-400 text-xs">{t('common.optional', '(optional)')}</span>
+              </Label>
               <Input
                 id="orcid"
                 placeholder="0000-0000-0000-0000"
@@ -311,12 +320,12 @@ export function IndividualSetup() {
                 className="mt-0.5 h-4 w-4 rounded border-gray-300 text-clinical-blue focus:ring-clinical-blue flex-shrink-0 cursor-pointer"
               />
               <label htmlFor="showOnGlobe" className="text-xs text-gray-500 leading-relaxed cursor-pointer">
-                Show my city as a dot on the global researcher map. You can change this anytime in profile settings.
+                {t('setup.showOnGlobe', 'Show my city as a dot on the global researcher map. You can change this anytime in profile settings.')}
               </label>
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Setting up…' : 'Set Up My Workspace →'}
+              {loading ? t('setup.setting', 'Setting up…') : t('setup.setupBtn', 'Set Up My Workspace →')}
             </Button>
           </form>
         </div>

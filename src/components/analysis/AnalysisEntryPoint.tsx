@@ -1,6 +1,7 @@
 "use client"
 
 import { Database, Compass, Zap } from 'lucide-react'
+import { useLocale } from '@/i18n/LocaleProvider'
 
 interface EntryDataset {
   id: string
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function AnalysisEntryPoint({ dataset, onGuided, onDirect }: Props) {
+  const { t } = useLocale()
   return (
     <div className="flex flex-col h-full items-center justify-center px-6 py-10">
 
@@ -48,10 +50,10 @@ export function AnalysisEntryPoint({ dataset, onGuided, onDirect }: Props) {
         className="text-xl font-bold tracking-tight text-center mb-1"
         style={{ fontFamily: 'var(--font-manrope)', color: 'var(--text-primary)' }}
       >
-        How would you like to proceed?
+        {t('entryPoint.howToProceed')}
       </h2>
       <p className="text-sm text-center mb-8" style={{ color: 'var(--text-secondary)' }}>
-        Choose your path — both lead to the same analysis engine.
+        {t('entryPoint.bothPaths')}
       </p>
 
       {/* Cards */}
@@ -91,15 +93,14 @@ export function AnalysisEntryPoint({ dataset, onGuided, onDirect }: Props) {
               className="text-sm font-bold mb-1 tracking-tight"
               style={{ fontFamily: 'var(--font-manrope)', color: 'var(--text-primary)' }}
             >
-              Guide me to the right test
+              {t('entryPoint.guideTitle')}
             </h3>
             <p className="text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>
-              Answer a few questions and PLEXUS will recommend the best statistical test for
-              your data and research question.
+              {t('entryPoint.guideDesc')}
             </p>
             {/* Audience tags */}
             <div className="flex flex-wrap gap-1.5 mb-4">
-              {['MPH students', 'Early career', 'Field teams'].map(tag => (
+              {[t('entryPoint.audienceMPH'), t('entryPoint.audienceEarlyCareer'), t('entryPoint.audienceField')].map(tag => (
                 <span
                   key={tag}
                   className="text-[11px] px-2 py-0.5 rounded-full font-medium"
@@ -120,7 +121,7 @@ export function AnalysisEntryPoint({ dataset, onGuided, onDirect }: Props) {
                 color: '#fff',
               }}
             >
-              Start guided flow
+              {t('entryPoint.startGuided')}
             </div>
           </div>
         </button>
@@ -159,15 +160,14 @@ export function AnalysisEntryPoint({ dataset, onGuided, onDirect }: Props) {
               className="text-sm font-bold mb-1 tracking-tight"
               style={{ fontFamily: 'var(--font-manrope)', color: 'var(--text-primary)' }}
             >
-              Choose my analysis directly
+              {t('entryPoint.directTitle')}
             </h3>
             <p className="text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>
-              Pick from 15 analysis types, configure variables, and run immediately. Full
-              control over every parameter.
+              {t('entryPoint.directDesc')}
             </p>
             {/* Audience tags */}
             <div className="flex flex-wrap gap-1.5 mb-4">
-              {['Biostatisticians', 'PhD researchers', 'Experienced users'].map(tag => (
+              {[t('entryPoint.audienceBiostat'), t('entryPoint.audiencePhD'), t('entryPoint.audienceExperienced')].map(tag => (
                 <span
                   key={tag}
                   className="text-[11px] px-2 py-0.5 rounded-full font-medium"
@@ -188,7 +188,7 @@ export function AnalysisEntryPoint({ dataset, onGuided, onDirect }: Props) {
                 color: '#fff',
               }}
             >
-              Select analysis
+              {t('entryPoint.selectAnalysis')}
             </div>
           </div>
         </button>
@@ -196,7 +196,7 @@ export function AnalysisEntryPoint({ dataset, onGuided, onDirect }: Props) {
 
       {/* Footer note */}
       <p className="text-xs mt-6 text-center" style={{ color: 'var(--text-tertiary)' }}>
-        Both paths use the same analysis engine. You can switch at any time.
+        {t('entryPoint.bothSameEngine')}
       </p>
     </div>
   )

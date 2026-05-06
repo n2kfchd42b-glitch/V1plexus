@@ -9,25 +9,10 @@ import {
   ClipboardList, Bell,
 } from 'lucide-react'
 import { BrandLogo } from '@/components/layout/BrandLogo'
+import { LanguageSelector } from '@/components/i18n/LanguageSelector'
+import { useTranslations } from '@/i18n/useTranslations'
 import { cn, getInitials } from '@/lib/utils'
 import type { Profile } from '@/types/database'
-
-const TOP_NAV = [
-  { href: '/projects',      label: 'Projects',       icon: FolderOpen      },
-  { href: '/reviews',       label: 'Reviews',        icon: ClipboardList   },
-  { href: '/notifications', label: 'Notifications',  icon: Bell            },
-  { href: '/settings',      label: 'Settings',       icon: Settings        },
-]
-
-const PROJECT_TABS = [
-  { slug: 'overview',  label: 'Overview',  icon: LayoutDashboard },
-  { slug: 'data',      label: 'Data',      icon: Database        },
-  { slug: 'analysis',  label: 'Analysis',  icon: BarChart2       },
-  { slug: 'timeline',  label: 'Timeline',  icon: Clock           },
-  { slug: 'documents', label: 'Documents', icon: BookOpen        },
-  { slug: 'report',    label: 'Report',    icon: FileText        },
-  { slug: 'settings',  label: 'Settings',  icon: Settings        },
-]
 
 interface MobileSidebarProps {
   profile: Profile | null
@@ -37,6 +22,7 @@ interface MobileSidebarProps {
 export function MobileSidebar({ profile, onSignOut }: MobileSidebarProps) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
+  const { t } = useTranslations()
 
   // Close drawer on any route change
   useEffect(() => { setOpen(false) }, [pathname])
@@ -46,13 +32,30 @@ export function MobileSidebar({ profile, onSignOut }: MobileSidebarProps) {
   const projectId    = projectMatch?.[1] ?? null
   const isInProject  = !!projectId && projectId !== 'new'
 
+  const TOP_NAV = [
+    { href: '/projects',      labelKey: 'nav.projects',      icon: FolderOpen    },
+    { href: '/reviews',       labelKey: 'nav.reviews',       icon: ClipboardList },
+    { href: '/notifications', labelKey: 'nav.notifications', icon: Bell          },
+    { href: '/settings',      labelKey: 'nav.settings',      icon: Settings      },
+  ]
+
+  const PROJECT_TABS = [
+    { slug: 'overview',  labelKey: 'nav.overview',   icon: LayoutDashboard },
+    { slug: 'data',      labelKey: 'nav.data',        icon: Database        },
+    { slug: 'analysis',  labelKey: 'nav.analysis',    icon: BarChart2       },
+    { slug: 'timeline',  labelKey: 'nav.timeline',    icon: Clock           },
+    { slug: 'documents', labelKey: 'nav.documents',   icon: BookOpen        },
+    { slug: 'report',    labelKey: 'nav.report',      icon: FileText        },
+    { slug: 'settings',  labelKey: 'nav.settings',    icon: Settings        },
+  ]
+
   return (
     <>
       {/* Hamburger button — sits inside the 64px header row */}
       <button
         className="md:hidden fixed top-0 left-0 z-50 h-16 w-12 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
         onClick={() => setOpen(true)}
-        aria-label="Open menu"
+        aria-label={t('nav.projects', 'Open menu')}
       >
         <Menu className="h-5 w-5" />
       </button>
@@ -65,7 +68,7 @@ export function MobileSidebar({ profile, onSignOut }: MobileSidebarProps) {
         />
       )}
 
-      {/* Drawer — responsive width, matches dark sidebar design */}
+      {/* Drawer */}
       <aside
         className={cn(
           'md:hidden fixed inset-y-0 left-0 z-50 flex flex-col',
@@ -87,7 +90,7 @@ export function MobileSidebar({ profile, onSignOut }: MobileSidebarProps) {
           <button
             onClick={() => setOpen(false)}
             className="h-10 w-10 flex items-center justify-center rounded-lg text-[var(--text-sidebar-icon)] hover:text-white hover:bg-white/10 transition-colors"
-            aria-label="Close menu"
+            aria-label={t('common.close', 'Close menu')}
           >
             <X className="h-5 w-5" />
           </button>
@@ -96,10 +99,11 @@ export function MobileSidebar({ profile, onSignOut }: MobileSidebarProps) {
         {/* Nav */}
         <nav className="relative z-10 flex-1 px-2 py-3 overflow-y-auto">
           <p className="px-2.5 pt-0.5 pb-1.5 text-[9px] font-medium uppercase tracking-[0.10em] text-[var(--text-sidebar-icon)]">
-            Workspace
+            {t('nav.workspace', 'Workspace')}
           </p>
 
-          {TOP_NAV.map(({ href, label, icon: Icon }) => {
+          {TOP_NAV.map(({ href, labelKey, icon: Icon }) => {
+            const label  = t(labelKey)
             const active = pathname === href || pathname.startsWith(href + '/')
             return (
               <Link key={href} href={href}>
@@ -124,9 +128,10 @@ export function MobileSidebar({ profile, onSignOut }: MobileSidebarProps) {
             <>
               <div className="my-2 h-px bg-white/10" />
               <p className="px-2.5 pt-0.5 pb-1.5 text-[9px] font-medium uppercase tracking-[0.10em] text-[var(--text-sidebar-icon)]">
-                This Project
+                {t('nav.thisProject', 'This Project')}
               </p>
-              {PROJECT_TABS.map(({ slug, label, icon: Icon }) => {
+              {PROJECT_TABS.map(({ slug, labelKey, icon: Icon }) => {
+                const label  = t(labelKey, slug)
                 const href   = `/projects/${projectId}/${slug}`
                 const active = pathname === href || pathname.startsWith(href + '/')
                 return (
@@ -149,36 +154,43 @@ export function MobileSidebar({ profile, onSignOut }: MobileSidebarProps) {
           <div className="my-2 h-px bg-white/10" />
 
           <p className="px-2.5 pt-0.5 pb-1.5 text-[9px] font-medium uppercase tracking-[0.10em] text-[var(--text-sidebar-icon)]">
-            Tools
+            {t('nav.tools', 'Tools')}
           </p>
 
           <div className="flex items-center gap-3 h-11 rounded-md px-3 mb-0.5 text-[var(--text-sidebar)] cursor-default select-none">
             <Command className="h-5 w-5 flex-shrink-0 text-[var(--text-sidebar-icon)]" />
-            <span className="text-sm font-medium flex-1">Command Palette</span>
+            <span className="text-sm font-medium flex-1">{t('nav.commandPalette', 'Command Palette')}</span>
             <kbd className="text-[10px] text-[var(--text-sidebar-icon)] bg-white/5 border border-white/10 rounded px-1.5 py-0.5 font-mono">⌘K</kbd>
           </div>
         </nav>
 
         {/* User footer */}
-        <div className="relative z-10 border-t border-white/10 px-3 py-3 flex items-center gap-3 flex-shrink-0">
-          <div className="h-9 w-9 rounded-full bg-[var(--accent-primary)] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-            {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
-            ) : (
-              getInitials(profile?.full_name)
-            )}
+        <div className="relative z-10 border-t border-white/10 flex-shrink-0">
+          <div className="px-3 py-3 flex items-center gap-3">
+            <div className="h-9 w-9 rounded-full bg-[var(--accent-primary)] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
+              ) : (
+                getInitials(profile?.full_name)
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-white/90 truncate leading-tight">{profile?.full_name ?? 'Researcher'}</p>
+              <p className="text-[11px] text-[var(--text-sidebar-icon)] truncate capitalize">{profile?.role ?? 'Researcher'}</p>
+            </div>
+            <button
+              onClick={() => { setOpen(false); onSignOut() }}
+              title={t('nav.signOut', 'Sign out')}
+              className="h-10 w-10 flex items-center justify-center rounded-lg text-[var(--text-sidebar-icon)] hover:text-[var(--status-error)] hover:bg-red-950/30 transition-colors flex-shrink-0"
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white/90 truncate leading-tight">{profile?.full_name ?? 'Researcher'}</p>
-            <p className="text-[11px] text-[var(--text-sidebar-icon)] truncate capitalize">{profile?.role ?? 'Researcher'}</p>
+
+          {/* Language selector */}
+          <div className="px-3 pb-3">
+            <LanguageSelector className="w-full" />
           </div>
-          <button
-            onClick={() => { setOpen(false); onSignOut() }}
-            title="Sign out"
-            className="h-10 w-10 flex items-center justify-center rounded-lg text-[var(--text-sidebar-icon)] hover:text-[var(--status-error)] hover:bg-red-950/30 transition-colors flex-shrink-0"
-          >
-            <LogOut className="h-5 w-5" />
-          </button>
         </div>
       </aside>
     </>

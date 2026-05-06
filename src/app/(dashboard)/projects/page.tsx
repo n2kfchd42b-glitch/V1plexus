@@ -21,6 +21,7 @@ import {
 import { getProjectsOffline } from '@/lib/offline'
 import { logAudit } from '@/lib/audit'
 import { cn, formatRelative } from '@/lib/utils'
+import { useTranslations } from '@/i18n/useTranslations'
 import { toast } from 'sonner'
 import type { Project } from '@/types/database'
 
@@ -56,16 +57,17 @@ function GlobeWireframe() {
 // ── Hero banner ────────────────────────────────────────────────────────────
 
 function HeroBanner({ projects, loading }: { projects: ProjectWithCounts[]; loading: boolean }) {
+  const { t } = useTranslations()
   const activeProjects  = projects.filter(p => p.status !== 'archived').length
   const totalDatasets   = projects.reduce((s, p) => s + p.dataset_count, 0)
   const totalAnalyses   = projects.reduce((s, p) => s + p.run_count, 0)
   const totalProjects   = projects.length
 
   const stats = [
-    { label: 'Active Projects',  value: loading ? '—' : String(activeProjects) },
-    { label: 'Datasets',         value: loading ? '—' : String(totalDatasets) },
-    { label: 'Analyses',         value: loading ? '—' : String(totalAnalyses) },
-    { label: 'Total Projects',   value: loading ? '—' : String(totalProjects) },
+    { label: t('projects.stat.activeProjects', 'Active Projects'), value: loading ? '—' : String(activeProjects) },
+    { label: t('projects.stat.datasets',       'Datasets'),        value: loading ? '—' : String(totalDatasets) },
+    { label: t('projects.stat.analyses',       'Analyses'),        value: loading ? '—' : String(totalAnalyses) },
+    { label: t('projects.stat.total',          'Total Projects'),  value: loading ? '—' : String(totalProjects) },
   ]
 
   return (
@@ -83,13 +85,13 @@ function HeroBanner({ projects, loading }: { projects: ProjectWithCounts[]; load
 
       <div className="relative z-10 px-6 py-5">
         <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-[var(--text-sidebar)] mb-2">
-          Global Health Research Infrastructure
+          {t('projects.banner.eyebrow', 'Global Health Research Infrastructure')}
         </p>
         <h2 className="text-2xl font-bold tracking-tight text-white font-manrope leading-none mb-1.5">
-          Research Projects
+          {t('projects.banner.title', 'Research Projects')}
         </h2>
         <p className="text-sm text-[var(--text-sidebar)] mb-5 max-w-sm leading-relaxed">
-          Design studies, manage datasets, and run statistical analyses — all in one auditable platform.
+          {t('projects.banner.subtitle', 'Design studies, manage datasets, and run statistical analyses — all in one auditable platform.')}
         </p>
 
         {/* Stats strip */}
@@ -125,6 +127,7 @@ function ProjectRow({
   project: ProjectWithCounts
   onArchive: (id: string, status: Project['status']) => void
 }) {
+  const { t } = useTranslations()
   const isArchived = project.status === 'archived'
   const isDraft    = project.status === 'draft'
 
@@ -154,7 +157,7 @@ function ProjectRow({
                   border:       '1px solid var(--border-status-warning)',
                 }}>
                 <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: 'var(--status-warning)' }} />
-                Draft
+                {t('common.draft', 'Draft')}
               </span>
             )}
           </div>
@@ -168,10 +171,10 @@ function ProjectRow({
           <p className="data-mono-xs text-[var(--text-tertiary)]">
             {formatRelative(project.updated_at)}
             {project.dataset_count > 0 && (
-              <> · {project.dataset_count} dataset{project.dataset_count !== 1 ? 's' : ''}</>
+              <> · {project.dataset_count} {t(project.dataset_count === 1 ? 'projects.datasetSingular' : 'projects.datasetPlural', project.dataset_count === 1 ? 'dataset' : 'datasets')}</>
             )}
             {project.run_count > 0 && (
-              <> · {project.run_count} {project.run_count === 1 ? 'analysis' : 'analyses'}</>
+              <> · {project.run_count} {t(project.run_count === 1 ? 'projects.analysisSingular' : 'projects.analysisPlural', project.run_count === 1 ? 'analysis' : 'analyses')}</>
             )}
           </p>
         </div>
@@ -184,7 +187,7 @@ function ProjectRow({
               e.stopPropagation()
               onArchive(project.id, isArchived ? 'active' : 'archived')
             }}
-            title={isArchived ? 'Unarchive' : 'Archive'}
+            title={isArchived ? t('projects.unarchive', 'Unarchive') : t('projects.archive', 'Archive')}
             className={cn(
               'row-action flex items-center justify-center h-6 w-6 rounded-md transition-colors duration-150',
               isArchived
@@ -225,6 +228,7 @@ function SkeletonRow() {
 export default function ProjectsPage() {
   const { profile, loading: authLoading } = useAuth()
   const { activeWorkspace } = useWorkspace()
+  const { t } = useTranslations()
   const searchParams = useSearchParams()
 
   const [projects, setProjects]         = useState<ProjectWithCounts[]>([])
@@ -294,13 +298,13 @@ export default function ProjectsPage() {
 
     if (result.status === 'error') {
       setProjects(prev => prev.filter(p => p.id !== tempId))
-      toast.error('Failed to create project')
+      toast.error(t('projects.toastCreateFailed', 'Failed to create project'))
     } else if (result.data) {
       setProjects(prev => prev.map(p => p.id === tempId
         ? { ...result.data!, dataset_count: 0, run_count: 0 }
         : p
       ))
-      toast.success('Project created')
+      toast.success(t('projects.toastCreated', 'Project created'))
     }
     setCreating(false)
   }
@@ -312,7 +316,7 @@ export default function ProjectsPage() {
     const result = await updateProjectStatus(supabase, id, status)
     if (result.status === 'error') {
       if (original) setProjects(prev => prev.map(p => p.id === id ? original : p))
-      toast.error('Failed to update project')
+      toast.error(t('projects.toastUpdateFailed', 'Failed to update project'))
       return
     }
     const action = status === 'archived' ? 'project.archived' : 'project.updated'
@@ -326,7 +330,7 @@ export default function ProjectsPage() {
       },
       id,
     )
-    toast.success(status === 'archived' ? 'Project archived' : 'Project restored')
+    toast.success(status === 'archived' ? t('projects.toastArchived', 'Project archived') : t('projects.toastRestored', 'Project restored'))
   }
 
   const archivedCount = projects.filter(p => p.status === 'archived').length
@@ -353,7 +357,7 @@ export default function ProjectsPage() {
               border: '1px solid rgba(180,83,9,0.2)',
             }}
           >
-            Cached data · connect to refresh
+            {t('projects.cachedData', 'Cached data · connect to refresh')}
           </span>
         </div>
       )}
@@ -364,7 +368,7 @@ export default function ProjectsPage() {
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--text-tertiary)]" />
           <input
             type="text"
-            placeholder="Search projects…"
+            placeholder={t('projects.searchPlaceholder', 'Search projects…')}
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full h-8 pl-8 pr-3 text-xs bg-[var(--bg-inset)] border border-transparent rounded-md outline-none focus:border-[var(--border-focus)] focus:bg-[var(--bg-surface)] placeholder:text-[var(--text-tertiary)] text-[var(--text-primary)] transition-all"
@@ -390,7 +394,7 @@ export default function ProjectsPage() {
             )}
           >
             <Archive className="h-3.5 w-3.5" />
-            {showArchived ? 'Hide archived' : 'Show archived'}
+            {showArchived ? t('projects.hideArchived', 'Hide archived') : t('projects.showArchived', 'Show archived')}
           </button>
         )}
 
@@ -399,7 +403,7 @@ export default function ProjectsPage() {
           className="ml-auto inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-white text-xs font-medium btn-press btn-primary"
         >
           <Plus className="h-3.5 w-3.5" />
-          New Project
+          {t('projects.newProject', 'New Project')}
         </button>
       </div>
 
@@ -416,16 +420,16 @@ export default function ProjectsPage() {
               <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-3" style={{ background: 'var(--accent-blue-subtle)' }}>
                 <FolderOpen className="h-6 w-6 text-[var(--accent-blue)]" />
               </div>
-              <p className="empty-state-title">Start your first project</p>
+              <p className="empty-state-title">{t('projects.emptyTitle', 'Start your first project')}</p>
               <p className="empty-state-description">
-                Create a project to begin building your research record.
+                {t('projects.emptyDesc', 'Create a project to begin building your research record.')}
               </p>
               <button
                 onClick={() => setShowNew(true)}
                 className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-white text-xs font-medium btn-primary"
               >
                 <Plus className="h-3.5 w-3.5" />
-                New Project
+                {t('projects.newProject', 'New Project')}
               </button>
             </div>
           )}
@@ -435,13 +439,13 @@ export default function ProjectsPage() {
               <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-3" style={{ background: 'var(--bg-inset)' }}>
                 <Search className="h-5 w-5 text-[var(--text-tertiary)]" />
               </div>
-              <p className="empty-state-title">No projects match</p>
-              <p className="empty-state-description">Try a different search term.</p>
+              <p className="empty-state-title">{t('projects.noMatchTitle', 'No projects match')}</p>
+              <p className="empty-state-description">{t('projects.noMatchDesc', 'Try a different search term.')}</p>
               <button
                 onClick={() => setSearch('')}
                 className="text-xs text-[var(--accent-blue)] hover:underline"
               >
-                Clear search
+                {t('projects.clearSearch', 'Clear search')}
               </button>
             </div>
           )}
@@ -461,18 +465,18 @@ export default function ProjectsPage() {
       <Dialog open={showNew} onOpenChange={setShowNew}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>New Project</DialogTitle>
+            <DialogTitle>{t('projects.dialogTitle', 'New Project')}</DialogTitle>
             <DialogDescription>
-              Give your research project a name to get started.
+              {t('projects.dialogDesc', 'Give your research project a name to get started.')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-1">
             <div>
               <Label className="text-xs font-medium text-[var(--text-secondary)]">
-                Project title
+                {t('projects.fieldTitle', 'Project title')}
               </Label>
               <input
-                placeholder="e.g. Income and Health Outcomes Study"
+                placeholder={t('projects.titlePlaceholder', 'e.g. Income and Health Outcomes Study')}
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleCreate()}
@@ -482,10 +486,10 @@ export default function ProjectsPage() {
             </div>
             <div>
               <Label className="text-xs font-medium text-[var(--text-secondary)]">
-                Description <span className="text-[var(--text-tertiary)] font-normal">(optional)</span>
+                {t('projects.fieldDesc', 'Description')} <span className="text-[var(--text-tertiary)] font-normal">{t('common.optional', '(optional)')}</span>
               </Label>
               <Textarea
-                placeholder="What are you investigating?"
+                placeholder={t('projects.descPlaceholder', 'What are you investigating?')}
                 value={description}
                 onChange={e => setDescription(e.target.value)}
                 className="mt-1.5 resize-none text-sm"
@@ -498,14 +502,14 @@ export default function ProjectsPage() {
               onClick={() => { setShowNew(false); setTitle(''); setDescription('') }}
               className="h-8 px-3 rounded-md text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-default)] transition-colors"
             >
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </button>
             <button
               onClick={handleCreate}
               disabled={creating || !title.trim()}
               className="h-8 px-4 rounded-md text-white text-xs font-medium disabled:cursor-not-allowed btn-press btn-primary"
             >
-              {creating ? 'Creating…' : 'Create Project'}
+              {creating ? t('projects.creating', 'Creating…') : t('projects.createBtn', 'Create Project')}
             </button>
           </DialogFooter>
         </DialogContent>

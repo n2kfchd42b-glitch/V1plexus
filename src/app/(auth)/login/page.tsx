@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from '@/i18n/useTranslations'
 
 function LoginForm() {
   const [email, setEmail] = useState('')
@@ -22,6 +23,7 @@ function LoginForm() {
   const redirect = searchParams.get('redirect') ?? '/dashboard'
   const confirmationFailed = searchParams.get('error') === 'confirmation_failed'
   const supabase = createClient()
+  const { t } = useTranslations()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,7 +32,7 @@ function LoginForm() {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
       if (error.message.toLowerCase().includes('email not confirmed')) {
-        setError('Please confirm your email first. Check your inbox for the verification link we sent when you signed up.')
+        setError(t('auth.confirmEmailFirst'))
       } else {
         setError(error.message)
       }
@@ -43,7 +45,7 @@ function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="email">{t('auth.email', 'Email')}</Label>
         <Input
           id="email"
           type="email"
@@ -56,9 +58,9 @@ function LoginForm() {
       </div>
       <div>
         <div className="flex items-center justify-between mb-1">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">{t('auth.password', 'Password')}</Label>
           <Link href="/forgot-password" className="text-xs text-clinical-blue hover:underline">
-            Forgot password?
+            {t('auth.forgotPassword', 'Forgot password?')}
           </Link>
         </div>
         <Input
@@ -73,7 +75,7 @@ function LoginForm() {
       </div>
       {confirmationFailed && (
         <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-700 text-sm">
-          The confirmation link has expired or is invalid. Please sign in if you already confirmed, or sign up again.
+          {t('auth.confirmationExpired')}
         </div>
       )}
       {error && (
@@ -82,15 +84,15 @@ function LoginForm() {
         </div>
       )}
       <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? 'Please wait...' : 'Sign In'}
+        {loading ? t('auth.pleaseWait', 'Please wait...') : t('auth.signIn', 'Sign In')}
       </Button>
       <p className="text-sm text-slate-500 text-center">
-        Don&apos;t have an account?{' '}
+        {t('auth.noAccount', "Don't have an account?")}{' '}
         <Link
           href={redirect !== '/dashboard' ? `/register?redirect=${encodeURIComponent(redirect)}` : '/register'}
           className="text-clinical-blue hover:underline font-medium"
         >
-          Sign up
+          {t('auth.signUp', 'Sign up')}
         </Link>
       </p>
     </form>
@@ -98,17 +100,17 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
+  const { t } = useTranslations()
+
   return (
     <>
-      {/* Logo — visible on mobile only (desktop sees the brand panel) */}
       <div className="flex justify-center mb-6 lg:hidden">
         <BrandLogo variant="standalone" href="/" />
       </div>
 
-      {/* Heading — always visible */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Welcome back</h1>
-        <p className="text-slate-500 text-sm mt-1">Sign in to your PLEXUS account</p>
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('auth.welcomeBack', 'Welcome back')}</h1>
+        <p className="text-slate-500 text-sm mt-1">{t('auth.signInToAccount', 'Sign in to your PLEXUS account')}</p>
       </div>
 
       <Suspense fallback={<div className="h-48 rounded-xl bg-slate-100 animate-pulse" />}>

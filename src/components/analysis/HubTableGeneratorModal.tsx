@@ -35,6 +35,7 @@ import {
 } from '@/lib/tableGeneratorUtils'
 import type { AnalysisRun, AnalysisType } from '@/types/database'
 import type { AnalysisResult } from '@/lib/analysis/types'
+import { useLocale } from '@/i18n/LocaleProvider'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -67,10 +68,11 @@ const MONO: React.CSSProperties = { fontFamily: 'var(--font-geist-mono)', textAl
 // ─── Step indicator ───────────────────────────────────────────────────────────
 
 function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
+  const { t } = useLocale()
   const steps = [
-    { n: 1, label: 'Template' },
-    { n: 2, label: 'Select Run' },
-    { n: 3, label: 'Configure' },
+    { n: 1, label: t('hubTable.step.template') },
+    { n: 2, label: t('hubTable.step.selectRun') },
+    { n: 3, label: t('hubTable.step.configure') },
   ] as const
   return (
     <div className="flex items-center gap-1">
@@ -156,6 +158,7 @@ function RunRow({
   multi: boolean
   onToggle: () => void
 }) {
+  const { t } = useLocale()
   return (
     <button
       onClick={onToggle}
@@ -184,7 +187,7 @@ function RunRow({
       </div>
       {multi && selected && (
         <span className="text-[10px] font-bold text-[#0040a2] bg-[rgba(0,64,162,0.08)] px-2 py-0.5 rounded-full shrink-0">
-          +group
+          {t('hubTable.groupBadge')}
         </span>
       )}
     </button>
@@ -194,6 +197,7 @@ function RunRow({
 // ─── Table 1 preview ──────────────────────────────────────────────────────────
 
 function Table1Preview({ spec }: { spec: Partial<Table1Spec> & { format: FormatOption } }) {
+  const { t } = useLocale()
   const variables = spec.variables ?? []
   const contVars = variables.filter((v): v is ContVar => v.type === 'continuous')
   const catVars  = variables.filter((v): v is CatVar  => v.type === 'categorical')
@@ -205,7 +209,7 @@ function Table1Preview({ spec }: { spec: Partial<Table1Spec> & { format: FormatO
       <table className="w-full" style={{ borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ borderTop: '2px solid #18181B' }}>
-            <th style={{ ...TH, textAlign: 'left' }}>Characteristic</th>
+            <th style={{ ...TH, textAlign: 'left' }}>{t('hubTable.preview.characteristic')}</th>
             {cols.map(c => (
               <th key={c.label} style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>
                 {c.label}<br />
@@ -260,14 +264,14 @@ function Table1Preview({ spec }: { spec: Partial<Table1Spec> & { format: FormatO
   // Simple
   const totalN = spec.totalN ?? 0
   if (contVars.length === 0 && catVars.length === 0) {
-    return <div className="py-8 text-center text-sm text-[#A1A1AA]">Select at least one variable.</div>
+    return <div className="py-8 text-center text-sm text-[#A1A1AA]">{t('hubTable.preview.selectVar')}</div>
   }
   return (
     <table className="w-full" style={{ borderCollapse: 'collapse' }}>
       <thead>
         <tr style={{ borderTop: '2px solid #18181B' }}>
-          <th style={{ ...TH, textAlign: 'left' }}>Characteristic</th>
-          <th style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>Overall (N={totalN.toLocaleString()})</th>
+          <th style={{ ...TH, textAlign: 'left' }}>{t('hubTable.preview.characteristic')}</th>
+          <th style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>{t('hubTable.preview.overall')} (N={totalN.toLocaleString()})</th>
         </tr>
       </thead>
       <tbody>
@@ -300,20 +304,21 @@ function Table1Preview({ spec }: { spec: Partial<Table1Spec> & { format: FormatO
 // ─── Table 2 preview ──────────────────────────────────────────────────────────
 
 function Table2Preview({ spec }: { spec: Partial<Table2Spec> }) {
+  const { t } = useLocale()
   const rows = spec.rows ?? []
   const showCrude = spec.showCrude ?? false
   const showAdj   = spec.showAdjusted ?? true
   const eff = spec.effectLabel ?? 'OR'
   const colCount = 1 + (showCrude ? 2 : 0) + (showAdj ? 2 : 0) + 1
-  if (rows.length === 0) return <div className="py-8 text-center text-sm text-[#A1A1AA]">No regression rows parsed.</div>
+  if (rows.length === 0) return <div className="py-8 text-center text-sm text-[#A1A1AA]">{t('hubTable.preview.noRegression')}</div>
   return (
     <table className="w-full" style={{ borderCollapse: 'collapse' }}>
       <thead>
         <tr style={{ borderTop: '2px solid #18181B' }}>
-          <th style={{ ...TH, textAlign: 'left' }}>Variable</th>
-          {showCrude && <><th style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>Crude {eff} (95% CI)</th><th style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>p</th></>}
-          {showAdj  && <><th style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>Adj. {eff} (95% CI)</th><th style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>p</th></>}
-          <th style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>Sig.</th>
+          <th style={{ ...TH, textAlign: 'left' }}>{t('hubTable.preview.variable')}</th>
+          {showCrude && <><th style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>{t('hubTable.preview.crude')} {eff} {t('hubTable.preview.ci')}</th><th style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>{t('hubTable.preview.p')}</th></>}
+          {showAdj  && <><th style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>{t('hubTable.preview.adjusted')} {eff} {t('hubTable.preview.ci')}</th><th style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>{t('hubTable.preview.p')}</th></>}
+          <th style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>{t('hubTable.preview.sig')}</th>
         </tr>
       </thead>
       <tbody>
@@ -340,20 +345,21 @@ function Table2Preview({ spec }: { spec: Partial<Table2Spec> }) {
 // ─── Table 3 preview ──────────────────────────────────────────────────────────
 
 function Table3Preview({ spec }: { spec: Partial<Table3Spec> }) {
+  const { t } = useLocale()
   const rows = spec.rows ?? []
   const hasGroup = rows.some(r => r.group)
   const colCount = hasGroup ? 6 : 5
-  if (rows.length === 0) return <div className="py-8 text-center text-sm text-[#A1A1AA]">No survival rows parsed.</div>
+  if (rows.length === 0) return <div className="py-8 text-center text-sm text-[#A1A1AA]">{t('hubTable.preview.noSurvival')}</div>
   return (
     <table className="w-full" style={{ borderCollapse: 'collapse' }}>
       <thead>
         <tr style={{ borderTop: '2px solid #18181B' }}>
-          {hasGroup && <th style={{ ...TH, textAlign: 'left' }}>Group</th>}
-          <th style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>N</th>
-          <th style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>{spec.eventLabel ?? 'Events'}</th>
-          <th style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>Event %</th>
-          <th style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>Median ({spec.timeUnit ?? 'months'})</th>
-          <th style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>95% CI</th>
+          {hasGroup && <th style={{ ...TH, textAlign: 'left' }}>{t('hubTable.preview.group')}</th>}
+          <th style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>{t('hubTable.preview.n')}</th>
+          <th style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>{spec.eventLabel ?? t('hubTable.preview.events')}</th>
+          <th style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>{t('hubTable.preview.eventPct')}</th>
+          <th style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>{t('hubTable.preview.median')} ({spec.timeUnit ?? 'months'})</th>
+          <th style={{ ...TH, textAlign: 'right', paddingLeft: 8 }}>{t('hubTable.preview.ci95')}</th>
         </tr>
       </thead>
       <tbody>
@@ -384,6 +390,7 @@ function Table3Preview({ spec }: { spec: Partial<Table3Spec> }) {
 export function HubTableGeneratorModal({ projectId, onClose }: Props) {
   const supabase = createClient()
   const { user } = useAuth()
+  const { t } = useLocale()
 
   // ── Navigation ────────────────────────────────────────────────────────────────
   const [step, setStep] = useState<1 | 2 | 3>(1)
@@ -611,14 +618,14 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
   // ── Save ──────────────────────────────────────────────────────────────────────
   async function handleSave() {
     const spec = buildSpec()
-    if (!spec) { toast.error('Nothing to save.'); return }
-    if (saveMode === 'insert' && !selectedDocId) { toast.error('Select a document.'); return }
+    if (!spec) { toast.error(t('hubTable.toast.nothingToSave')); return }
+    if (saveMode === 'insert' && !selectedDocId) { toast.error(t('hubTable.toast.selectDocument')); return }
 
     setSaving(true)
     try {
       if (saveMode === 'insert') {
         await insertTableIntoDocument(selectedDocId, spec, supabase)
-        toast.success('Table inserted', { description: `"${tableName}" added to the document.` })
+        toast.success(t('hubTable.toast.inserted'), { description: `"${tableName}" ${t('hubTable.toast.insertedDesc')}` })
       } else {
         const docContent = {
           type: 'doc',
@@ -637,11 +644,11 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
         if (newDoc && user) {
           logAudit('document.created', 'document', newDoc.id, { title: tableName, type: 'table' }, projectId)
         }
-        toast.success('Table saved', { description: `"${tableName}" is ready in Documents.` })
+        toast.success(t('hubTable.toast.saved'), { description: `"${tableName}" ${t('hubTable.toast.savedDesc')}` })
       }
       onClose()
     } catch (err) {
-      toast.error('Failed to save', { description: err instanceof Error ? err.message : String(err) })
+      toast.error(t('hubTable.toast.saveFailed'), { description: err instanceof Error ? err.message : String(err) })
     } finally {
       setSaving(false)
     }
@@ -714,10 +721,10 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
               <div className="flex items-center gap-2 mb-1">
                 <Table2 className="h-4 w-4 text-[#0052cc]" />
                 <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope">
-                  Hub Table Generator
+                  {t('hubTable.title')}
                 </span>
               </div>
-              <h2 className="font-manrope font-extrabold text-xl text-[#18181B]">Generate Table</h2>
+              <h2 className="font-manrope font-extrabold text-xl text-[#18181B]">{t('hubTable.generateTable')}</h2>
             </div>
           </div>
           <div className="flex items-center gap-6">
@@ -736,30 +743,30 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
           {step === 1 && (
             <div className="p-7 max-w-3xl mx-auto">
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#0040a2] font-manrope mb-6">
-                Choose Table Template
+                {t('hubTable.chooseTemplate')}
               </p>
               <div className="grid gap-4">
                 <TemplateCard
                   type="table1"
-                  badge="Table 1"
-                  title="Baseline Characteristics"
-                  description="Demographics and clinical characteristics for your study population. Supports stratified columns across multiple groups or time points by selecting multiple descriptive analysis runs."
+                  badge={t('hubTable.template.table1Badge')}
+                  title={t('hubTable.template.table1Title')}
+                  description={t('hubTable.template.table1Desc')}
                   selected={template === 'table1'}
                   onClick={() => setTemplate('table1')}
                 />
                 <TemplateCard
                   type="table2"
-                  badge="Table 2"
-                  title="Regression Results"
-                  description="Odds ratios, hazard ratios, or regression coefficients with confidence intervals and significance stars. Supports logistic, linear, Cox, Poisson, and other regression analyses."
+                  badge={t('hubTable.template.table2Badge')}
+                  title={t('hubTable.template.table2Title')}
+                  description={t('hubTable.template.table2Desc')}
                   selected={template === 'table2'}
                   onClick={() => setTemplate('table2')}
                 />
                 <TemplateCard
                   type="table3"
-                  badge="Table 3"
-                  title="Survival Summary"
-                  description="Median survival time, event counts, and 95% confidence intervals for Kaplan–Meier or Cox proportional hazard analyses."
+                  badge={t('hubTable.template.table3Badge')}
+                  title={t('hubTable.template.table3Title')}
+                  description={t('hubTable.template.table3Desc')}
                   selected={template === 'table3'}
                   onClick={() => setTemplate('table3')}
                 />
@@ -772,23 +779,23 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
             <div className="p-7">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#0040a2] font-manrope">
-                  Select Analysis Run{template === 'table1' ? 's' : ''}
+                  {template === 'table1' ? t('hubTable.selectRuns') : t('hubTable.selectRun')}
                 </p>
                 {template === 'table1' && selectedRunIds.length > 1 && (
                   <div className="flex items-center gap-1.5 text-xs text-[#0040a2]">
                     <Users className="h-3.5 w-3.5" />
-                    <span className="font-semibold">{selectedRunIds.length} runs selected — stratified table</span>
+                    <span className="font-semibold">{selectedRunIds.length} {t('hubTable.runsSelected')}</span>
                   </div>
                 )}
               </div>
 
               {runsLoading ? (
-                <div className="py-12 text-center text-sm text-[#A1A1AA]">Loading analyses…</div>
+                <div className="py-12 text-center text-sm text-[#A1A1AA]">{t('hubTable.loadingAnalyses')}</div>
               ) : filteredRuns.length === 0 ? (
                 <div className="py-12 text-center">
-                  <p className="text-sm font-semibold text-[#18181B] mb-1">No completed analyses found</p>
+                  <p className="text-sm font-semibold text-[#18181B] mb-1">{t('hubTable.noAnalyses')}</p>
                   <p className="text-xs text-[#A1A1AA]">
-                    Run a {template === 'table1' ? 'descriptive' : template === 'table2' ? 'regression' : 'survival'} analysis first.
+                    {template === 'table1' ? t('hubTable.runFirst.descriptive') : template === 'table2' ? t('hubTable.runFirst.regression') : t('hubTable.runFirst.survival')}
                   </p>
                 </div>
               ) : (
@@ -809,7 +816,7 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
               {template === 'table1' && selectedRunIds.length > 1 && (
                 <div className="mt-5 pt-5 border-t border-[#f2f4f6]">
                   <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#52525B] font-manrope mb-3">
-                    Column Labels (optional)
+                    {t('hubTable.columnLabels')}
                   </p>
                   <div className="grid grid-cols-2 gap-3">
                     {selectedRunIds.map(id => {
@@ -842,12 +849,12 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
               <div className="flex flex-col divide-y divide-[#f2f4f6]">
                 <div className="px-6 py-5 space-y-4">
                   <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope">
-                    Configuration
+                    {t('hubTable.configuration')}
                   </p>
 
                   {/* Table name */}
                   <div>
-                    <label className="block text-[11px] font-semibold text-[#52525B] mb-1.5 uppercase tracking-wide">Table Name</label>
+                    <label className="block text-[11px] font-semibold text-[#52525B] mb-1.5 uppercase tracking-wide">{t('hubTable.tableName')}</label>
                     <input value={tableName} onChange={e => setTableName(e.target.value)}
                       className="w-full rounded-lg px-3 py-2 text-sm text-[#18181B] bg-[#f7f9fb] border border-[rgba(195,198,214,0.3)] outline-none focus:border-[rgba(0,82,204,0.4)] focus:shadow-[0_0_0_3px_rgba(0,82,204,0.08)] transition-all" />
                   </div>
@@ -855,11 +862,11 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
                   {/* Table 1 options */}
                   {template === 'table1' && (
                     <div>
-                      <label className="block text-[11px] font-semibold text-[#52525B] mb-2 uppercase tracking-wide">Continuous Format</label>
+                      <label className="block text-[11px] font-semibold text-[#52525B] mb-2 uppercase tracking-wide">{t('hubTable.continuousFormat')}</label>
                       <div className="grid grid-cols-2 gap-2">
                         {([
-                          { value: 'mean_sd', label: 'Mean (SD)', hint: '45.2 (12.3)' },
-                          { value: 'median_iqr', label: 'Median [IQR]', hint: '44.0 [35–55]' },
+                          { value: 'mean_sd', label: t('hubTable.formatMeanSD'), hint: '45.2 (12.3)' },
+                          { value: 'median_iqr', label: t('hubTable.formatMedianIQR'), hint: '44.0 [35–55]' },
                         ] as const).map(opt => (
                           <button key={opt.value} onClick={() => setFormat(opt.value)}
                             className="text-left rounded-xl p-3 border transition-all"
@@ -889,8 +896,8 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
                         <button onClick={() => setShowCrude(v => !v)}
                           className="flex items-center justify-between w-full rounded-xl p-3 border border-[rgba(195,198,214,0.3)] bg-[#f7f9fb] hover:bg-[#f2f4f6] transition-colors">
                           <div>
-                            <p className="text-xs font-semibold text-[#18181B] text-left">Show Crude {effectLabel}</p>
-                            <p className="text-[10px] text-[#A1A1AA] text-left mt-0.5">Unadjusted estimates</p>
+                            <p className="text-xs font-semibold text-[#18181B] text-left">{t('hubTable.showCrude')} {effectLabel}</p>
+                            <p className="text-[10px] text-[#A1A1AA] text-left mt-0.5">{t('hubTable.unadjustedEstimates')}</p>
                           </div>
                           {showCrude ? <ToggleRight className="h-5 w-5 text-[#0052cc]" /> : <ToggleLeft className="h-5 w-5 text-[#A1A1AA]" />}
                         </button>
@@ -898,8 +905,8 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
                       <button onClick={() => setShowAdj(v => !v)}
                         className="flex items-center justify-between w-full rounded-xl p-3 border border-[rgba(195,198,214,0.3)] bg-[#f7f9fb] hover:bg-[#f2f4f6] transition-colors">
                         <div>
-                          <p className="text-xs font-semibold text-[#18181B] text-left">Show Adjusted {effectLabel}</p>
-                          <p className="text-[10px] text-[#A1A1AA] text-left mt-0.5">Multivariable-adjusted estimates</p>
+                          <p className="text-xs font-semibold text-[#18181B] text-left">{t('hubTable.showAdjusted')} {effectLabel}</p>
+                          <p className="text-[10px] text-[#A1A1AA] text-left mt-0.5">{t('hubTable.adjustedEstimates')}</p>
                         </div>
                         {showAdj ? <ToggleRight className="h-5 w-5 text-[#0052cc]" /> : <ToggleLeft className="h-5 w-5 text-[#A1A1AA]" />}
                       </button>
@@ -910,12 +917,12 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
                   {template === 'table3' && (
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-semibold text-[#52525B] mb-1.5 uppercase tracking-wide">Event Label</label>
+                        <label className="block text-[11px] font-semibold text-[#52525B] mb-1.5 uppercase tracking-wide">{t('hubTable.eventLabel')}</label>
                         <input value={eventLabel} onChange={e => setEventLabel(e.target.value)}
                           className="w-full rounded-lg px-3 py-2 text-sm text-[#18181B] bg-[#f7f9fb] border border-[rgba(195,198,214,0.3)] outline-none focus:border-[rgba(0,82,204,0.4)] transition-all" />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-semibold text-[#52525B] mb-1.5 uppercase tracking-wide">Time Unit</label>
+                        <label className="block text-[11px] font-semibold text-[#52525B] mb-1.5 uppercase tracking-wide">{t('hubTable.timeUnit')}</label>
                         <input value={timeUnit} onChange={e => setTimeUnit(e.target.value)}
                           className="w-full rounded-lg px-3 py-2 text-sm text-[#18181B] bg-[#f7f9fb] border border-[rgba(195,198,214,0.3)] outline-none focus:border-[rgba(0,82,204,0.4)] transition-all" />
                       </div>
@@ -926,8 +933,8 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
                   <button onClick={() => setIncludeFootnote(v => !v)}
                     className="flex items-center justify-between w-full rounded-xl p-3 border border-[rgba(195,198,214,0.3)] bg-[#f7f9fb] hover:bg-[#f2f4f6] transition-colors">
                     <div>
-                      <p className="text-xs font-semibold text-[#18181B] text-left">Include footnote</p>
-                      <p className="text-[10px] text-[#A1A1AA] text-left mt-0.5">Abbreviation key below the table</p>
+                      <p className="text-xs font-semibold text-[#18181B] text-left">{t('hubTable.includeFootnote')}</p>
+                      <p className="text-[10px] text-[#A1A1AA] text-left mt-0.5">{t('hubTable.abbreviationKey')}</p>
                     </div>
                     {includeFootnote ? <ToggleRight className="h-5 w-5 text-[#0052cc]" /> : <ToggleLeft className="h-5 w-5 text-[#A1A1AA]" />}
                   </button>
@@ -937,23 +944,23 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
                 {template === 'table1' && (
                   <div className="px-6 py-5 flex-1">
                     <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope mb-3">
-                      Variable Selection
+                      {t('hubTable.variableSelection')}
                     </p>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <div className="flex items-center justify-between mb-2">
-                          <p className="text-[11px] font-semibold text-[#52525B] uppercase tracking-wide">Continuous</p>
+                          <p className="text-[11px] font-semibold text-[#52525B] uppercase tracking-wide">{t('hubTable.continuous')}</p>
                           {parsedCont.length > 0 && (
                             <button onClick={() => setSelectedCont(
                               parsedCont.every(v => selectedCont.has(v.name)) ? new Set() : new Set(parsedCont.map(v => v.name))
                             )} className="text-[10px] font-bold text-[#0052cc] hover:text-[#003d9b] transition-colors">
-                              {parsedCont.every(v => selectedCont.has(v.name)) ? 'Deselect all' : 'Select all'}
+                              {parsedCont.every(v => selectedCont.has(v.name)) ? t('hubTable.deselectAll') : t('hubTable.selectAll')}
                             </button>
                           )}
                         </div>
                         <div className="space-y-0.5">
                           {parsedCont.length === 0
-                            ? <p className="text-xs text-[#A1A1AA] px-3 py-2">None</p>
+                            ? <p className="text-xs text-[#A1A1AA] px-3 py-2">{t('hubTable.none')}</p>
                             : parsedCont.map(v => (
                               <label key={v.name} className="flex items-center gap-2 py-1.5 px-3 rounded-lg cursor-pointer hover:bg-[#f7f9fb] transition-colors">
                                 <input type="checkbox" checked={selectedCont.has(v.name)}
@@ -967,18 +974,18 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
                       </div>
                       <div>
                         <div className="flex items-center justify-between mb-2">
-                          <p className="text-[11px] font-semibold text-[#52525B] uppercase tracking-wide">Categorical</p>
+                          <p className="text-[11px] font-semibold text-[#52525B] uppercase tracking-wide">{t('hubTable.categorical')}</p>
                           {parsedCat.length > 0 && (
                             <button onClick={() => setSelectedCat(
                               parsedCat.every(v => selectedCat.has(v.name)) ? new Set() : new Set(parsedCat.map(v => v.name))
                             )} className="text-[10px] font-bold text-[#0052cc] hover:text-[#003d9b] transition-colors">
-                              {parsedCat.every(v => selectedCat.has(v.name)) ? 'Deselect all' : 'Select all'}
+                              {parsedCat.every(v => selectedCat.has(v.name)) ? t('hubTable.deselectAll') : t('hubTable.selectAll')}
                             </button>
                           )}
                         </div>
                         <div className="space-y-0.5">
                           {parsedCat.length === 0
-                            ? <p className="text-xs text-[#A1A1AA] px-3 py-2">None</p>
+                            ? <p className="text-xs text-[#A1A1AA] px-3 py-2">{t('hubTable.none')}</p>
                             : parsedCat.map(v => (
                               <label key={v.name} className="flex items-center gap-2 py-1.5 px-3 rounded-lg cursor-pointer hover:bg-[#f7f9fb] transition-colors">
                                 <input type="checkbox" checked={selectedCat.has(v.name)}
@@ -998,7 +1005,7 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
               {/* Right: Preview */}
               <div className="px-6 py-5 flex flex-col min-h-[460px]">
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#0040a2] font-manrope mb-4">
-                  Live Preview
+                  {t('hubTable.livePreview')}
                 </p>
                 <div className="flex-1 bg-[#f7f9fb] rounded-xl p-5 overflow-auto border border-[rgba(195,198,214,0.2)]">
                   {tableName && (
@@ -1030,11 +1037,11 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
           {/* Save destination (step 3 only) */}
           {step === 3 && (
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-[11px] font-semibold text-[#52525B] uppercase tracking-wide">Save to:</span>
+              <span className="text-[11px] font-semibold text-[#52525B] uppercase tracking-wide">{t('hubTable.saveTo')}</span>
               <div className="flex gap-1.5">
                 {([
-                  { mode: 'new' as const, icon: FilePlus, label: 'New Document' },
-                  { mode: 'insert' as const, icon: FileText, label: 'Existing Document' },
+                  { mode: 'new' as const, icon: FilePlus, label: t('hubTable.newDocument') },
+                  { mode: 'insert' as const, icon: FileText, label: t('hubTable.existingDocument') },
                 ]).map(opt => (
                   <button key={opt.mode} onClick={() => setSaveMode(opt.mode)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
@@ -1053,7 +1060,7 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
                   className="ml-2 flex-1 rounded-lg px-3 py-1.5 text-xs text-[#18181B] bg-white border border-[rgba(195,198,214,0.4)] outline-none focus:border-[rgba(0,82,204,0.4)] transition-all"
                   style={{ maxWidth: 220 }}>
                   {documents.length === 0
-                    ? <option value="">Loading…</option>
+                    ? <option value="">{t('hubTable.loadingDocs')}</option>
                     : documents.map(d => <option key={d.id} value={d.id}>{d.title}</option>)
                   }
                 </select>
@@ -1065,13 +1072,13 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
             <div className="flex items-center gap-2">
               <button onClick={onClose}
                 className="text-sm font-medium text-[#52525B] hover:text-[#18181B] transition-colors px-4 py-2">
-                Cancel
+                {t('hubTable.cancel')}
               </button>
               {step > 1 && (
                 <button onClick={() => setStep(prev => (prev - 1) as 1 | 2 | 3)}
                   className="flex items-center gap-1.5 text-sm font-medium text-[#52525B] hover:text-[#18181B] transition-colors px-4 py-2">
                   <ChevronLeft className="h-4 w-4" />
-                  Back
+                  {t('hubTable.back')}
                 </button>
               )}
             </div>
@@ -1090,8 +1097,8 @@ export function HubTableGeneratorModal({ projectId, onClose }: Props) {
               style={{ background: 'linear-gradient(135deg, #003d9b 0%, #0052cc 100%)' }}
             >
               {step === 3
-                ? (saving ? 'Saving…' : saveMode === 'insert' ? 'Insert into Document' : 'Save to Documents')
-                : 'Continue'}
+                ? (saving ? t('hubTable.saving') : saveMode === 'insert' ? t('hubTable.insertIntoDocument') : t('hubTable.saveToDocuments'))
+                : t('hubTable.continue')}
               {!(step === 3 && saving) && <ChevronRight className="h-4 w-4" />}
             </button>
           </div>

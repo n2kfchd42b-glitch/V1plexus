@@ -4,16 +4,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Shield, CheckCircle2, Clock, AlertTriangle } from 'lucide-react'
 import type { SupervisorQueueItem, ApprovalRequestStatus } from '@/types/approvals'
+import { useLocale } from '@/i18n/LocaleProvider'
 
 type FilterTab = 'active' | 'pending' | 'in_review' | 'revision_requested' | 'approved' | 'rejected'
-
-const STATUS_CHIP: Record<ApprovalRequestStatus, { label: string; className: string }> = {
-  pending:             { label: 'Pending',           className: 'bg-amber-100 text-amber-700' },
-  in_review:           { label: 'In Review',         className: 'bg-blue-100 text-blue-700' },
-  approved:            { label: 'Approved',           className: 'bg-green-100 text-green-700' },
-  rejected:            { label: 'Declined',           className: 'bg-red-100 text-red-700' },
-  revision_requested:  { label: 'Revisions Needed',  className: 'bg-amber-100 text-amber-700' },
-}
 
 function relative(iso: string) {
   const diff = Date.now() - new Date(iso).getTime()
@@ -31,6 +24,7 @@ function AgeColor({ hours }: { hours: number }) {
 
 export default function ApprovalsPage() {
   const router = useRouter()
+  const { t } = useLocale()
   const [items, setItems] = useState<SupervisorQueueItem[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<FilterTab>('active')
@@ -53,17 +47,25 @@ export default function ApprovalsPage() {
 
   useEffect(() => { fetchQueue() }, [fetchQueue])
 
+  const STATUS_CHIP: Record<ApprovalRequestStatus, { label: string; className: string }> = {
+    pending:             { label: t('approvals.status.pending'),         className: 'bg-amber-100 text-amber-700' },
+    in_review:           { label: t('approvals.status.inReview'),        className: 'bg-blue-100 text-blue-700' },
+    approved:            { label: t('approvals.status.approved'),        className: 'bg-green-100 text-green-700' },
+    rejected:            { label: t('approvals.status.rejected'),        className: 'bg-red-100 text-red-700' },
+    revision_requested:  { label: t('approvals.status.revisionsNeeded'), className: 'bg-amber-100 text-amber-700' },
+  }
+
+  const TABS: { key: FilterTab; label: string }[] = [
+    { key: 'active',             label: t('approvals.tab.active') },
+    { key: 'pending',            label: t('approvals.tab.pending') },
+    { key: 'in_review',          label: t('approvals.tab.inReview') },
+    { key: 'revision_requested', label: t('approvals.tab.revisions') },
+  ]
+
   const filtered = items.filter((item) => {
     if (filter === 'active') return ['pending', 'in_review', 'revision_requested'].includes(item.status)
     return item.status === filter
   })
-
-  const TABS: { key: FilterTab; label: string }[] = [
-    { key: 'active', label: 'Active' },
-    { key: 'pending', label: 'Pending' },
-    { key: 'in_review', label: 'In Review' },
-    { key: 'revision_requested', label: 'Revisions' },
-  ]
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -71,27 +73,27 @@ export default function ApprovalsPage() {
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-[28px] font-extrabold text-[var(--text-primary)]" style={{ fontFamily: 'Manrope, sans-serif' }}>
-            Approvals
+            {t('approvals.title')}
           </h1>
           <p className="text-[13px] text-[var(--text-secondary)] mt-1">
-            Dataset versions awaiting your review
+            {t('approvals.subtitle')}
           </p>
         </div>
         <div className="flex gap-2 mt-1">
           {pending === 0 && inReview === 0 ? (
             <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-100 text-green-700 text-[11px] font-bold">
-              <CheckCircle2 className="h-3.5 w-3.5" /> All reviewed
+              <CheckCircle2 className="h-3.5 w-3.5" /> {t('approvals.allReviewed')}
             </span>
           ) : (
             <>
               {pending > 0 && (
                 <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-[11px] font-bold">
-                  {pending} Pending
+                  {pending} {t('approvals.status.pending')}
                 </span>
               )}
               {inReview > 0 && (
                 <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-[11px] font-bold">
-                  {inReview} In Review
+                  {inReview} {t('approvals.status.inReview')}
                 </span>
               )}
             </>
@@ -127,9 +129,9 @@ export default function ApprovalsPage() {
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <CheckCircle2 className="h-12 w-12 text-green-500 mb-3" />
           <p className="text-lg font-semibold text-[var(--text-primary)]" style={{ fontFamily: 'Manrope, sans-serif' }}>
-            All caught up
+            {t('approvals.emptyTitle')}
           </p>
-          <p className="text-[13px] text-[var(--text-secondary)] mt-1">No datasets awaiting your review.</p>
+          <p className="text-[13px] text-[var(--text-secondary)] mt-1">{t('approvals.emptySubtitle')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -174,19 +176,19 @@ export default function ApprovalsPage() {
                   <div className="flex gap-1.5 flex-wrap">
                     {item.operations_count > 0 && (
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">
-                        {item.operations_count} operations
+                        {item.operations_count} {t('approvals.operations')}
                       </span>
                     )}
                     {item.has_imputation && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">MICE applied</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">{t('approvals.mice')}</span>
                     )}
                     {item.has_duplicate_resolution && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Deduped</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">{t('approvals.deduped')}</span>
                     )}
                   </div>
 
                   <span className="text-[10px] text-[var(--text-tertiary)] flex items-center gap-1 ml-auto">
-                    <Shield className="h-3 w-3" /> {item.audit_entry_count} audit entries
+                    <Shield className="h-3 w-3" /> {item.audit_entry_count} {t('approvals.auditEntries')}
                   </span>
                 </div>
 
@@ -198,7 +200,7 @@ export default function ApprovalsPage() {
                     </p>
                   ) : <span />}
                   <span className="text-[12px] font-semibold text-[var(--accent-blue)] shrink-0">
-                    Review →
+                    {t('approvals.reviewLink')}
                   </span>
                 </div>
               </div>

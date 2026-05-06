@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { ArrowLeft, Zap } from 'lucide-react'
+import { useLocale } from '@/i18n/LocaleProvider'
 import { IntentSelector } from './IntentSelector'
 import { RecommendationCard } from './RecommendationCard'
 import { getRecommendation, buildExecutableWorkflow } from '@/lib/decision-engine/index'
@@ -45,6 +46,7 @@ export function GuidedFlow({
   recommendation, onRecommendation,
   onRunWorkflow, onRunAlternative, onSwitchToDirect, onBack,
 }: Props) {
+  const { t } = useLocale()
   const [thinking, setThinking] = useState(false)
 
   const handleFindApproach = async () => {
@@ -86,7 +88,7 @@ export function GuidedFlow({
           >
             <ArrowLeft className="h-3.5 w-3.5" />
           </button>
-          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Guided Analysis</span>
+          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{t('guidedFlow.title')}</span>
         </div>
         <button
           onClick={() => onSwitchToDirect()}
@@ -96,7 +98,7 @@ export function GuidedFlow({
           onMouseLeave={e => { e.currentTarget.style.background = '' }}
         >
           <Zap className="h-3.5 w-3.5" />
-          Choose directly
+          {t('guidedFlow.chooseDirect')}
         </button>
       </div>
 
@@ -106,7 +108,7 @@ export function GuidedFlow({
         {!recommendation ? (
           <>
             <div>
-              <p className="subsection-label mb-2">What is your research question?</p>
+              <p className="subsection-label mb-2">{t('guidedFlow.researchQuestion')}</p>
               <IntentSelector
                 value={intent}
                 onChange={v => { onIntentChange(v); onRecommendation(null) }}
@@ -120,7 +122,7 @@ export function GuidedFlow({
                   style={{ background: 'var(--accent-blue-subtle)', border: '1px solid var(--border-status-info)', color: 'var(--text-secondary)' }}
                 >
                   <span className="flex-shrink-0 mt-0.5">←</span>
-                  <span>Select your variables in the panel on the left, then find the best approach.</span>
+                  <span>{t('guidedFlow.selectVarsHint')}</span>
                 </div>
 
                 <button
@@ -132,10 +134,10 @@ export function GuidedFlow({
                   {thinking ? (
                     <span className="flex items-center justify-center gap-2">
                       <span className="h-3.5 w-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                      Finding best statistical approach…
+                      {t('guidedFlow.findingApproach')}
                     </span>
                   ) : (
-                    'Find Best Statistical Approach →'
+                    t('guidedFlow.findApproach')
                   )}
                 </button>
               </>
@@ -144,7 +146,7 @@ export function GuidedFlow({
         ) : (
           <>
             <div>
-              <p className="subsection-label mb-3">PLEXUS Recommendation</p>
+              <p className="subsection-label mb-3">{t('guidedFlow.recommendation')}</p>
               <RecommendationCard
                 recommendation={recommendation}
                 onRun={handleRun}
@@ -159,7 +161,7 @@ export function GuidedFlow({
               onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-blue)' }}
               onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)' }}
             >
-              ← Change selections
+              {t('guidedFlow.changeSelections')}
             </button>
           </>
         )}

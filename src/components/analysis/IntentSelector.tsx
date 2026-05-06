@@ -1,49 +1,15 @@
 "use client"
 
 import type { ResearchIntent } from '@/lib/decision-engine/types'
+import { useLocale } from '@/i18n/LocaleProvider'
 
-const INTENT_OPTIONS: {
-  id: ResearchIntent
-  icon: string
-  title: string
-  description: string
-}[] = [
-  {
-    id: 'describe',
-    icon: '📋',
-    title: 'Describe my population',
-    description: 'Summarise the characteristics of my study population',
-  },
-  {
-    id: 'associate',
-    icon: '🔗',
-    title: 'Test a relationship',
-    description: 'Is there an association between two variables?',
-  },
-  {
-    id: 'predict',
-    icon: '🎯',
-    title: 'Predict an outcome',
-    description: 'What factors predict or cause my outcome?',
-  },
-  {
-    id: 'compare',
-    icon: '⚖️',
-    title: 'Compare groups',
-    description: 'Do two or more groups differ on a measure?',
-  },
-  {
-    id: 'survive',
-    icon: '⏱️',
-    title: 'Analyse time to event',
-    description: 'How long until an event occurs? Survival analysis',
-  },
-  {
-    id: 'explore',
-    icon: '🔍',
-    title: 'Explore patterns',
-    description: 'Find clusters or patterns in my dataset',
-  },
+const INTENT_IDS: { id: ResearchIntent; icon: string }[] = [
+  { id: 'describe',   icon: '📋' },
+  { id: 'associate',  icon: '🔗' },
+  { id: 'predict',    icon: '🎯' },
+  { id: 'compare',    icon: '⚖️' },
+  { id: 'survive',    icon: '⏱️' },
+  { id: 'explore',    icon: '🔍' },
 ]
 
 interface Props {
@@ -52,9 +18,10 @@ interface Props {
 }
 
 export function IntentSelector({ value, onChange }: Props) {
+  const { t } = useLocale()
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-      {INTENT_OPTIONS.map(opt => {
+      {INTENT_IDS.map(opt => {
         const isSelected = value === opt.id
         return (
           <button
@@ -86,10 +53,10 @@ export function IntentSelector({ value, onChange }: Props) {
                 className="text-xs font-semibold leading-snug"
                 style={{ color: isSelected ? 'var(--accent-blue)' : 'var(--text-primary)' }}
               >
-                {opt.title}
+                {t(`intentSelector.${opt.id}.title`)}
               </p>
               <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                {opt.description}
+                {t(`intentSelector.${opt.id}.desc`)}
               </p>
             </div>
           </button>

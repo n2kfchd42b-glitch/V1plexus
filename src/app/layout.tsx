@@ -7,6 +7,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next'
 import { KeepaliveProvider } from '@/components/layout/KeepaliveProvider'
 import { ConnectionGuard } from '@/components/layout/ConnectionGuard'
 import { AuthProvider } from '@/components/auth/AuthProvider'
+import { LocaleProvider } from '@/i18n/LocaleProvider'
 import { SupabaseLockSuppressor } from '@/components/SupabaseLockSuppressor'
 import { OfflineStatusBar } from '@/components/layout/OfflineStatusBar'
 import { InstallPrompt } from '@/components/layout/InstallPrompt'
@@ -84,15 +85,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <OfflineStatusBar />
         <SyncStatusIndicator />
         <PendingJobsIndicator />
-        <AuthProvider>
-          <SyncProvider>
-            <KeepaliveProvider>
-              <ConnectionGuard>
-                {children}
-              </ConnectionGuard>
-            </KeepaliveProvider>
-          </SyncProvider>
-        </AuthProvider>
+        <LocaleProvider>
+          <AuthProvider>
+            <SyncProvider>
+              <KeepaliveProvider>
+                <ConnectionGuard>
+                  {children}
+                </ConnectionGuard>
+              </KeepaliveProvider>
+            </SyncProvider>
+          </AuthProvider>
+        </LocaleProvider>
         <SupabaseLockSuppressor />
         <Analytics />
         <SpeedInsights />

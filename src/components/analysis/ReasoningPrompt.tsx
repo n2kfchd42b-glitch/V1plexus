@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
+import { useLocale } from '@/i18n/LocaleProvider'
 
 interface Props {
   onSaveNote: (text: string) => Promise<void> | void
@@ -20,6 +21,7 @@ export function ReasoningPrompt({
   saveLabel = 'Save note',
   dismissLabel = 'Skip',
 }: Props) {
+  const { t } = useLocale()
   const [text, setText]     = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -43,7 +45,7 @@ export function ReasoningPrompt({
       {/* Label strip */}
       <div className="px-4 py-2.5 border-b border-[var(--border-row)] flex items-center justify-between">
         <p className="text-[10px] font-medium text-[var(--text-tertiary)] uppercase tracking-wider">
-          Why did you run this analysis?
+          {t('reasoningPrompt.question')}
         </p>
         <span className="data-mono-xs text-[var(--text-tertiary)]">
           {text.length}/{MAX_CHARS}
@@ -54,7 +56,7 @@ export function ReasoningPrompt({
       <textarea
         value={text}
         onChange={e => setText(e.target.value.slice(0, MAX_CHARS))}
-        placeholder="e.g. Testing whether group differences in outcome persist after controlling for age and sex…"
+        placeholder={t('reasoningPrompt.placeholder')}
         rows={3}
         className="w-full px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] bg-white resize-none outline-none leading-relaxed"
       />
@@ -72,7 +74,7 @@ export function ReasoningPrompt({
           disabled={!canSave || saving}
           className="px-3 py-1.5 text-xs font-medium rounded text-white disabled:opacity-40 btn-primary"
         >
-          {saving ? 'Saving…' : saveLabel}
+          {saving ? t('reasoningPrompt.saving') : saveLabel}
         </button>
       </div>
     </motion.div>

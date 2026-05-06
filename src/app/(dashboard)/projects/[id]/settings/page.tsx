@@ -12,12 +12,13 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import type { Project } from '@/types/database'
 import { logAudit } from '@/lib/audit'
+import { useTranslations } from '@/i18n/useTranslations'
 
-const STATUS_OPTIONS: { value: Project['status']; label: string }[] = [
-  { value: 'draft',     label: 'Draft' },
-  { value: 'active',    label: 'Active' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'archived',  label: 'Archived' },
+const STATUS_OPTION_KEYS: { value: Project['status']; labelKey: string }[] = [
+  { value: 'draft',     labelKey: 'common.draft' },
+  { value: 'active',    labelKey: 'common.active' },
+  { value: 'completed', labelKey: 'project.status.completed' },
+  { value: 'archived',  labelKey: 'project.status.archived' },
 ]
 
 const PHASE_OPTIONS = [
@@ -48,6 +49,7 @@ export default function ProjectSettingsPage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [shareLoading, setShareLoading] = useState(false)
   const [shareCopied, setShareCopied] = useState(false)
+  const { t } = useTranslations()
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -75,20 +77,20 @@ export default function ProjectSettingsPage() {
     setShareLoading(true)
     const token = crypto.randomUUID()
     const result = await updateProjectShareToken(supabase, projectId, token)
-    if (result.status === 'error') { toast.error('Failed to generate link'); setShareLoading(false); return }
+    if (result.status === 'error') { toast.error(t('projectSettings.toastShareFailed')); setShareLoading(false); return }
     setProject(prev => prev ? { ...prev, share_token: token } : prev)
     logAudit('project.share_link.generated', 'project', projectId, {}, projectId)
-    toast.success('Share link generated')
+    toast.success(t('projectSettings.toastShareGenerated'))
     setShareLoading(false)
   }
 
   const handleRevokeShareLink = async () => {
     setShareLoading(true)
     const result = await updateProjectShareToken(supabase, projectId, null)
-    if (result.status === 'error') { toast.error('Failed to revoke link'); setShareLoading(false); return }
+    if (result.status === 'error') { toast.error(t('projectSettings.toastRevokeFailed')); setShareLoading(false); return }
     setProject(prev => prev ? { ...prev, share_token: null } : prev)
     logAudit('project.share_link.revoked', 'project', projectId, {}, projectId)
-    toast.success('Share link revoked')
+    toast.success(t('projectSettings.toastRevoked'))
     setShareLoading(false)
   }
 
@@ -101,7 +103,7 @@ export default function ProjectSettingsPage() {
   }
 
   const handleSave = async () => {
-    if (!title.trim()) { toast.error('Project title is required'); return }
+    if (!title.trim()) { toast.error(t('projectSettings.titleRequired')); return }
     setSaving(true)
     const result = await updateProject(supabase, projectId, {
       title: title.trim(),
@@ -112,9 +114,9 @@ export default function ProjectSettingsPage() {
       end_date: endDate || null,
     })
     if (result.status === 'error') {
-      toast.error('Failed to save changes')
+      toast.error(t('projectSettings.toastSaveFailed'))
     } else {
-      toast.success('Project settings saved')
+      toast.success(t('projectSettings.toastSaved'))
       setProject(prev => prev ? { ...prev, title: title.trim(), description: description.trim() || null, status } : prev)
       logAudit('project.updated', 'project', projectId, { title: title.trim(), status, phase: phase || null }, projectId)
     }
@@ -123,21 +125,21 @@ export default function ProjectSettingsPage() {
 
   const handleArchive = async () => {
     const result = await updateProjectStatus(supabase, projectId, 'archived')
-    if (result.status === 'error') { toast.error('Failed to archive project'); return }
+    if (result.status === 'error') { toast.error(t('projectSettings.toastArchiveFailed')); return }
     logAudit('project.archived', 'project', projectId, { title: project?.title }, projectId)
-    toast.success('Project archived')
+    toast.success(t('projectSettings.toastArchived'))
     setStatus('archived')
   }
 
   const handleDelete = async () => {
     if (deleteConfirmText.trim().toLowerCase() !== project?.title.toLowerCase()) {
-      toast.error('Project title does not match')
+      toast.error(t('projectSettings.titleMismatch'))
       return
     }
     const result = await softDeleteProject(supabase, projectId)
-    if (result.status === 'error') { toast.error('Failed to delete project'); return }
+    if (result.status === 'error') { toast.error(t('projectSettings.toastDeleteFailed')); return }
     logAudit('project.deleted', 'project', projectId, { title: project?.title }, projectId)
-    toast.success('Project deleted')
+    toast.success(t('projectSettings.toastDeleted'))
     router.push('/projects')
   }
 
@@ -154,16 +156,16 @@ export default function ProjectSettingsPage() {
   return (
     <div className="p-8 max-w-2xl mx-auto space-y-8">
       <div>
-        <h2 className="text-lg font-semibold text-[var(--text-primary)]">Project Settings</h2>
-        <p className="text-sm text-[var(--text-tertiary)] mt-0.5">Manage metadata and lifecycle for this project.</p>
+        <h2 className="text-lg font-semibold text-[var(--text-primary)]">{t('projectSettings.title')}</h2>
+        <p className="text-sm text-[var(--text-tertiary)] mt-0.5">{t('projectSettings.subtitle')}</p>
       </div>
 
       {/* General */}
       <section className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-6 space-y-4">
-        <h3 className="text-sm font-semibold text-[var(--text-primary)]">General</h3>
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">{t('projectSettings.general')}</h3>
 
         <div>
-          <Label htmlFor="proj-title" className="text-xs font-medium text-[var(--text-secondary)]">Title</Label>
+          <Label htmlFor="proj-title" className="text-xs font-medium text-[var(--text-secondary)]">{t('projectSettings.fieldTitle')}</Label>
           <Input
             id="proj-title"
             value={title}
@@ -173,7 +175,7 @@ export default function ProjectSettingsPage() {
         </div>
 
         <div>
-          <Label htmlFor="proj-desc" className="text-xs font-medium text-[var(--text-secondary)]">Description</Label>
+          <Label htmlFor="proj-desc" className="text-xs font-medium text-[var(--text-secondary)]">{t('projectSettings.fieldDesc')}</Label>
           <Textarea
             id="proj-desc"
             value={description}
@@ -185,7 +187,7 @@ export default function ProjectSettingsPage() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="proj-status" className="text-xs font-medium text-[var(--text-secondary)]">Status</Label>
+            <Label htmlFor="proj-status" className="text-xs font-medium text-[var(--text-secondary)]">{t('projectSettings.fieldStatus')}</Label>
             <div className="relative">
               <select
                 id="proj-status"
@@ -193,14 +195,14 @@ export default function ProjectSettingsPage() {
                 onChange={e => setStatus(e.target.value as Project['status'])}
                 className="mt-1.5 w-full h-9 px-3 pr-8 text-sm appearance-none bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-md outline-none focus:border-[var(--border-focus)] focus:ring-2 focus:ring-[var(--accent-blue)]/20 text-[var(--text-primary)]"
               >
-                {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {STATUS_OPTION_KEYS.map(o => <option key={o.value} value={o.value}>{t(o.labelKey)}</option>)}
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
             </div>
           </div>
 
           <div>
-            <Label htmlFor="proj-start" className="text-xs font-medium text-[var(--text-secondary)]">Start Date</Label>
+            <Label htmlFor="proj-start" className="text-xs font-medium text-[var(--text-secondary)]">{t('projectSettings.fieldStartDate')}</Label>
             <Input
               id="proj-start"
               type="date"
@@ -213,7 +215,7 @@ export default function ProjectSettingsPage() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="proj-end" className="text-xs font-medium text-[var(--text-secondary)]">Target End Date</Label>
+            <Label htmlFor="proj-end" className="text-xs font-medium text-[var(--text-secondary)]">{t('projectSettings.fieldEndDate')}</Label>
             <Input
               id="proj-end"
               type="date"
@@ -226,17 +228,16 @@ export default function ProjectSettingsPage() {
 
         <Button onClick={handleSave} disabled={saving} className="gap-1.5">
           <Save className="h-3.5 w-3.5" />
-          {saving ? 'Saving…' : 'Save Changes'}
+          {saving ? t('projectSettings.saving') : t('projectSettings.saveChanges')}
         </Button>
       </section>
 
       {/* Share link */}
       <section className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-6 space-y-4">
         <div>
-          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Share Timeline</h3>
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">{t('projectSettings.shareTimeline')}</h3>
           <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
-            Generate a read-only public link to your research timeline. Anyone with the link can view it — no login required.
-            Revoking the link immediately deactivates it.
+            {t('projectSettings.shareTimelineDesc')}
           </p>
         </div>
 
@@ -251,7 +252,7 @@ export default function ProjectSettingsPage() {
                 className="flex items-center gap-1 text-xs font-medium text-[var(--accent-blue)] hover:opacity-80 flex-shrink-0"
               >
                 {shareCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                {shareCopied ? 'Copied' : 'Copy'}
+                {shareCopied ? t('projectSettings.copied') : t('projectSettings.copy')}
               </button>
             </div>
             {/* Revoke */}
@@ -263,7 +264,7 @@ export default function ProjectSettingsPage() {
               className="text-red-600 border-red-200 hover:bg-red-50 gap-1.5"
             >
               <X className="h-3.5 w-3.5" />
-              Revoke Link
+              {t('projectSettings.revokeLink')}
             </Button>
           </div>
         ) : (
@@ -275,19 +276,19 @@ export default function ProjectSettingsPage() {
             className="gap-1.5"
           >
             <Link2 className="h-3.5 w-3.5" />
-            {shareLoading ? 'Generating…' : 'Generate Share Link'}
+            {shareLoading ? t('projectSettings.generating') : t('projectSettings.generateShareLink')}
           </Button>
         )}
       </section>
 
       {/* Danger zone */}
       <section className="bg-[var(--bg-surface)] border border-red-200 rounded-xl p-6 space-y-4">
-        <h3 className="text-sm font-semibold text-red-600">Danger Zone</h3>
+        <h3 className="text-sm font-semibold text-red-600">{t('projectSettings.dangerZone')}</h3>
 
         <div className="flex items-center justify-between py-3 border-b border-[var(--border-subtle)]">
           <div>
-            <p className="text-sm font-medium text-[var(--text-primary)]">Archive project</p>
-            <p className="text-xs text-[var(--text-tertiary)] mt-0.5">Hides the project from the active list. Can be undone.</p>
+            <p className="text-sm font-medium text-[var(--text-primary)]">{t('projectSettings.archiveProject')}</p>
+            <p className="text-xs text-[var(--text-tertiary)] mt-0.5">{t('projectSettings.archiveProjectDesc')}</p>
           </div>
           <Button
             variant="outline"
@@ -296,14 +297,14 @@ export default function ProjectSettingsPage() {
             disabled={status === 'archived'}
             className="text-amber-600 border-amber-200 hover:bg-amber-50"
           >
-            Archive
+            {t('projectSettings.archiveProject')}
           </Button>
         </div>
 
         <div>
-          <p className="text-sm font-medium text-[var(--text-primary)]">Delete project</p>
+          <p className="text-sm font-medium text-[var(--text-primary)]">{t('projectSettings.deleteProject')}</p>
           <p className="text-xs text-[var(--text-tertiary)] mt-0.5 mb-3">
-            Permanently removes this project. Type <span className="font-mono font-semibold">{project.title}</span> to confirm.
+            {t('projectSettings.deleteProjectDescPrefix')} <span className="font-mono font-semibold">{project.title}</span> {t('projectSettings.deleteProjectDescSuffix')}
           </p>
           {!showDeleteConfirm ? (
             <Button
@@ -313,12 +314,12 @@ export default function ProjectSettingsPage() {
               className="text-red-600 border-red-200 hover:bg-red-50"
             >
               <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-              Delete Project
+              {t('projectSettings.deleteProject')}
             </Button>
           ) : (
             <div className="space-y-2">
               <Input
-                placeholder={`Type "${project.title}" to confirm`}
+                placeholder={`${t('projectSettings.typeToConfirmPrefix')} "${project.title}" ${t('projectSettings.typeToConfirmSuffix')}`}
                 value={deleteConfirmText}
                 onChange={e => setDeleteConfirmText(e.target.value)}
                 className="border-red-300 focus:border-red-400"
@@ -330,14 +331,14 @@ export default function ProjectSettingsPage() {
                   disabled={deleteConfirmText.trim().toLowerCase() !== project.title.toLowerCase()}
                   className="bg-red-600 hover:bg-red-700 text-white"
                 >
-                  Confirm Delete
+                  {t('projectSettings.confirmDelete')}
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText('') }}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
               </div>
             </div>

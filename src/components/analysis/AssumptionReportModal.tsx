@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useCallback } from 'react'
+import { useLocale } from '@/i18n/LocaleProvider'
 import {
   X,
   AlertOctagon,
@@ -28,11 +29,11 @@ import type {
 
 type Tab = 'issues' | 'sensitivity' | 'reporting' | 'review'
 
-const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: 'issues',      label: 'Issues',      icon: <AlertTriangle className="h-3.5 w-3.5" /> },
-  { id: 'sensitivity', label: 'Sensitivity', icon: <Shield className="h-3.5 w-3.5" /> },
-  { id: 'reporting',   label: 'Reporting',   icon: <FileText className="h-3.5 w-3.5" /> },
-  { id: 'review',      label: 'Peer Review', icon: <MessageSquare className="h-3.5 w-3.5" /> },
+const TABS: { id: Tab; icon: React.ReactNode }[] = [
+  { id: 'issues',      icon: <AlertTriangle className="h-3.5 w-3.5" /> },
+  { id: 'sensitivity', icon: <Shield className="h-3.5 w-3.5" /> },
+  { id: 'reporting',   icon: <FileText className="h-3.5 w-3.5" /> },
+  { id: 'review',      icon: <MessageSquare className="h-3.5 w-3.5" /> },
 ]
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -50,9 +51,15 @@ function statusIcon(s: string, severity: string) {
 }
 
 function overallBadge(status: string) {
-  if (status === 'stable')      return { bg: 'var(--status-success-bg)', text: 'var(--status-success-text)', label: 'Stable' }
-  if (status === 'needs_review') return { bg: 'var(--status-warning-bg)', text: 'var(--status-warning-text)', label: 'Needs Review' }
-  return { bg: 'var(--status-error-bg)', text: 'var(--status-error-text)', label: 'High Risk' }
+  if (status === 'stable')      return { bg: 'var(--status-success-bg)', text: 'var(--status-success-text)' }
+  if (status === 'needs_review') return { bg: 'var(--status-warning-bg)', text: 'var(--status-warning-text)' }
+  return { bg: 'var(--status-error-bg)', text: 'var(--status-error-text)' }
+}
+
+function overallBadgeKey(status: string) {
+  if (status === 'stable')      return 'assumptionModal.status.stable'
+  if (status === 'needs_review') return 'assumptionModal.status.needsReview'
+  return 'assumptionModal.status.highRisk'
 }
 
 function useCopy(text: string) {
@@ -69,6 +76,7 @@ function useCopy(text: string) {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function IssueCard({ issue }: { issue: PostAnalysisAssumptionIssue }) {
+  const { t } = useLocale()
   const [open, setOpen] = useState(false)
   const borderColor = severityColor(issue.severity)
 
@@ -98,26 +106,26 @@ function IssueCard({ issue }: { issue: PostAnalysisAssumptionIssue }) {
           style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-surface)' }}
         >
           <p className="text-[11px] pt-2.5" style={{ color: 'var(--text-secondary)' }}>
-            <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Finding: </span>
+            <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{t('assumptionModal.finding')}</span>
             {issue.finding}
           </p>
           {issue.suggested_action && (
             <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-              <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Suggested action: </span>
+              <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{t('assumptionModal.suggestedAction')}</span>
               {issue.suggested_action}
             </p>
           )}
           {issue.alternative_tests.length > 0 && (
             <div>
-              <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Alternatives:</p>
+              <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{t('assumptionModal.alternatives')}</p>
               <div className="flex flex-wrap gap-1">
-                {issue.alternative_tests.map(t => (
+                {issue.alternative_tests.map(alt => (
                   <span
-                    key={t}
+                    key={alt}
                     className="text-[10px] px-2 py-0.5 rounded"
                     style={{ background: 'var(--bg-inset)', color: 'var(--text-secondary)' }}
                   >
-                    {t}
+                    {alt}
                   </span>
                 ))}
               </div>
@@ -159,6 +167,7 @@ function GuidanceList({ items }: { items: DesignGuidanceItem[] }) {
 // ─── All-checks card (shows every check including passed/N-A) ────────────────
 
 function AllCheckCard({ check }: { check: AssumptionCheck }) {
+  const { t } = useLocale()
   const [open, setOpen] = useState(false)
   const expandable = check.status === 'violated' || check.status === 'warning' || !!check.suggested_action
 
@@ -208,17 +217,17 @@ function AllCheckCard({ check }: { check: AssumptionCheck }) {
         <div className="px-3.5 pb-3.5 space-y-2" style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-surface)' }}>
           {check.suggested_action && (
             <p className="text-[11px] pt-2.5" style={{ color: 'var(--text-secondary)' }}>
-              <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Suggested action: </span>
+              <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{t('assumptionModal.suggestedAction')}</span>
               {check.suggested_action}
             </p>
           )}
           {check.alternative_tests && check.alternative_tests.length > 0 && (
             <div>
-              <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Alternatives:</p>
+              <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{t('assumptionModal.alternatives')}</p>
               <div className="flex flex-wrap gap-1">
-                {check.alternative_tests.map(t => (
-                  <span key={t} className="text-[10px] px-2 py-0.5 rounded" style={{ background: 'var(--bg-inset)', color: 'var(--text-secondary)' }}>
-                    {t}
+                {check.alternative_tests.map(alt => (
+                  <span key={alt} className="text-[10px] px-2 py-0.5 rounded" style={{ background: 'var(--bg-inset)', color: 'var(--text-secondary)' }}>
+                    {alt}
                   </span>
                 ))}
               </div>
@@ -231,6 +240,7 @@ function AllCheckCard({ check }: { check: AssumptionCheck }) {
 }
 
 function AllChecksList({ checks }: { checks: AssumptionCheck[] }) {
+  const { t } = useLocale()
   const violations = [...checks.filter(c => c.status === 'violated' || c.status === 'warning')]
     .sort((a, b) => {
       const ord: Record<string, number> = { critical: 0, moderate: 1, minor: 2 }
@@ -252,59 +262,60 @@ function AllChecksList({ checks }: { checks: AssumptionCheck[] }) {
 
   return (
     <div className="space-y-4">
-      {violations.length > 0 && <Section title="Violations" items={violations} />}
-      {passed.length > 0 && <Section title="Passed" items={passed} />}
-      {na.length > 0 && <Section title="Not Applicable" items={na} />}
+      {violations.length > 0 && <Section title={t('assumptionModal.section.violations')} items={violations} />}
+      {passed.length > 0 && <Section title={t('assumptionModal.section.passed')} items={passed} />}
+      {na.length > 0 && <Section title={t('assumptionModal.section.notApplicable')} items={na} />}
     </div>
   )
 }
 
 // ─── Sensitivity tab ──────────────────────────────────────────────────────────
 
-function sensitivityMeta(analysisType: string): { heading: string; paramLabel: string; paramDisplay: (delta: number) => string } {
+function sensitivityMeta(analysisType: string, t: (key: string) => string): { heading: string; paramLabel: string; paramDisplay: (delta: number) => string } {
   if (analysisType === 'chi_square') {
     return {
-      heading: 'Sensitivity to non-differential misclassification',
+      heading: t('assumptionModal.sens.chiSquare'),
       paramLabel: 'δ (misclassification rate)',
       paramDisplay: (d) => `δ = ${(d * 100).toFixed(0)}%`,
     }
   }
   if (analysisType === 'anova' || analysisType === 'kruskal_wallis') {
     return {
-      heading: 'Sensitivity to group contamination',
+      heading: t('assumptionModal.sens.anova'),
       paramLabel: 'δ (contamination rate)',
       paramDisplay: (d) => `δ = ${(d * 100).toFixed(0)}%`,
     }
   }
   if (analysisType === 'linear_regression' || analysisType === 'simple_regression' || analysisType === 'multiple_regression') {
     return {
-      heading: 'Sensitivity to omitted-variable bias',
+      heading: t('assumptionModal.sens.regression'),
       paramLabel: 'δ (additional R²)',
       paramDisplay: (d) => `δ = ${(d * 100).toFixed(0)}%`,
     }
   }
   if (analysisType === 't_test' || analysisType === 'correlation') {
     return {
-      heading: 'Sensitivity to measurement error (attenuation)',
+      heading: t('assumptionModal.sens.ttest'),
       paramLabel: 'Measurement reliability',
       paramDisplay: (d) => `Reliability = ${((1 - d) * 100).toFixed(0)}%`,
     }
   }
   if (analysisType === 'kaplan_meier') {
     return {
-      heading: 'Sensitivity to informative censoring',
+      heading: t('assumptionModal.sens.kaplanMeier'),
       paramLabel: '\u03b4 (informative censoring rate)',
       paramDisplay: (d) => `Informative censoring = ${(d * 100).toFixed(0)}%`,
     }
   }
   return {
-    heading: 'Sensitivity to unmeasured confounding (\u03b3)',
+    heading: t('assumptionModal.sens.default'),
     paramLabel: '\u03b3 (confounder strength)',
     paramDisplay: (d) => `\u03b3 = ${(d + 1).toFixed(2)}`,
   }
 }
 
 function SensitivityTab({ report }: { report: PostAnalysisReport }) {
+  const { t } = useLocale()
   const [sliderIdx, setSliderIdx] = useState(0)
   const scenarios = report.sensitivity_scenarios
 
@@ -312,7 +323,7 @@ function SensitivityTab({ report }: { report: PostAnalysisReport }) {
     return (
       <div className="flex items-center justify-center h-40">
         <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-          Sensitivity analysis not available for this analysis type.
+          {t('assumptionModal.sens.notAvailable')}
         </p>
       </div>
     )
@@ -321,7 +332,7 @@ function SensitivityTab({ report }: { report: PostAnalysisReport }) {
   const current: SensitivityScenario = scenarios[sliderIdx]
   const observed = scenarios.find(s => s.delta === 0) ?? scenarios[0]
   const ml = report.metric_label
-  const meta = sensitivityMeta(report.analysis_type ?? '')
+  const meta = sensitivityMeta(report.analysis_type ?? '', t)
 
   const fmtEst = (v: number) => ml === 'β' ? v.toFixed(3) : v.toFixed(2)
 
@@ -334,7 +345,7 @@ function SensitivityTab({ report }: { report: PostAnalysisReport }) {
           style={{ background: 'var(--accent-blue-subtle)', border: '1px solid var(--border-status-info)' }}
         >
           <div className="flex items-center justify-between mb-1">
-            <p className="text-xs font-semibold" style={{ color: 'var(--accent-blue)' }}>E-value for unmeasured confounding</p>
+            <p className="text-xs font-semibold" style={{ color: 'var(--accent-blue)' }}>{t('assumptionModal.evalue.title')}</p>
             <span
               className="font-mono text-sm font-bold tabular-nums"
               style={{ color: 'var(--accent-blue)' }}
@@ -343,8 +354,8 @@ function SensitivityTab({ report }: { report: PostAnalysisReport }) {
             </span>
           </div>
           <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-            An unmeasured confounder would need a {report.e_value.toFixed(2)}× association with both exposure and
-            outcome to explain away the observed effect (VanderWeele &amp; Ding, 2017).
+            {t('assumptionModal.evalue.description')}{report.e_value.toFixed(2)}× association with both exposure and
+            outcome to explain away the observed effect ({t('assumptionModal.evalue.citation')}).
           </p>
         </div>
       )}
@@ -402,21 +413,21 @@ function SensitivityTab({ report }: { report: PostAnalysisReport }) {
       {/* Robustness bounds */}
       {report.robustness && (
         <div>
-          <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Robustness bounds</p>
+          <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>{t('assumptionModal.robustness.title')}</p>
           <div className="grid grid-cols-3 gap-2">
             {[
               {
-                label: 'Estimate range',
+                label: t('assumptionModal.robustness.estimateRange'),
                 value: `${fmtEst(report.robustness.estimate_range[0])} – ${fmtEst(report.robustness.estimate_range[1])}`,
               },
               {
-                label: 'Breaking point',
+                label: t('assumptionModal.robustness.breakingPoint'),
                 value: report.robustness.breaking_point_delta != null
                   ? `δ = ${report.robustness.breaking_point_delta > 0 ? '+' : ''}${report.robustness.breaking_point_delta}`
-                  : 'None in range',
+                  : t('assumptionModal.robustness.none'),
               },
               {
-                label: 'Stability',
+                label: t('assumptionModal.robustness.stability'),
                 value: `${report.robustness.stability_pct.toFixed(0)}%`,
               },
             ].map(({ label, value }) => (
@@ -431,8 +442,7 @@ function SensitivityTab({ report }: { report: PostAnalysisReport }) {
             ))}
           </div>
           <p className="text-[10px] mt-1.5" style={{ color: 'var(--text-tertiary)' }}>
-            Stability = percentage of scenarios where the result direction is maintained across all confounding levels.
-            Observed {ml}: {fmtEst(observed.estimate)}.
+            {t('assumptionModal.robustness.stabilityNote')} {ml}: {fmtEst(observed.estimate)}.
           </p>
         </div>
       )}
@@ -476,15 +486,16 @@ function CopyBlock({ label, text }: { label: string; text: string }) {
 }
 
 function ReportingTab({ report }: { report: PostAnalysisReport }) {
+  const { t } = useLocale()
   return (
     <div className="space-y-5">
       {report.methods_text
-        ? <CopyBlock label="Methods section" text={report.methods_text} />
-        : <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Methods text not available.</p>
+        ? <CopyBlock label={t('assumptionModal.methods.title')} text={report.methods_text} />
+        : <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{t('assumptionModal.methods.empty')}</p>
       }
       {report.limitations && report.limitations.length > 0 && (
         <div>
-          <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Limitations</p>
+          <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>{t('assumptionModal.limitations.title')}</p>
           <ul className="space-y-1.5">
             {report.limitations.map((l, i) => (
               <li key={i} className="flex items-start gap-2">
@@ -502,12 +513,13 @@ function ReportingTab({ report }: { report: PostAnalysisReport }) {
 // ─── Peer Review tab ──────────────────────────────────────────────────────────
 
 function ReviewTab({ report }: { report: PostAnalysisReport }) {
+  const { t } = useLocale()
   const [openIdx, setOpenIdx] = useState<number | null>(0)
 
   if (!report.reviewer_questions || report.reviewer_questions.length === 0) {
     return (
       <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-        No reviewer questions available.
+        {t('assumptionModal.noReviewerQuestions')}
       </p>
     )
   }
@@ -557,6 +569,7 @@ interface Props {
 }
 
 export function AssumptionReportModal({ isOpen, report, onClose }: Props) {
+  const { t } = useLocale()
   const [tab, setTab] = useState<Tab>('issues')
 
   if (!isOpen) return null
@@ -589,13 +602,13 @@ export function AssumptionReportModal({ isOpen, report, onClose }: Props) {
             <div>
               <div className="flex items-center gap-2">
                 <p className="text-sm font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-                  Assumption Report
+                  {t('assumptionModal.title')}
                 </p>
                 <span
                   className="text-[10px] font-semibold px-2 py-0.5 rounded"
                   style={{ background: badge.bg, color: badge.text }}
                 >
-                  {badge.label}
+                  {t(overallBadgeKey(report.overall_status))}
                 </span>
               </div>
               <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
@@ -623,17 +636,17 @@ export function AssumptionReportModal({ isOpen, report, onClose }: Props) {
           >
             {report.outcome_variable && (
               <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-                <span style={{ color: 'var(--text-tertiary)' }}>Outcome: </span>{report.outcome_variable}
+                <span style={{ color: 'var(--text-tertiary)' }}>{t('assumptionModal.outcome')}</span>{report.outcome_variable}
               </span>
             )}
             {report.exposure_variable && (
               <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-                <span style={{ color: 'var(--text-tertiary)' }}>Exposure: </span>{report.exposure_variable}
+                <span style={{ color: 'var(--text-tertiary)' }}>{t('assumptionModal.exposure')}</span>{report.exposure_variable}
               </span>
             )}
             {report.research_question && (
               <span className="text-[11px] w-full" style={{ color: 'var(--text-secondary)' }}>
-                <span style={{ color: 'var(--text-tertiary)' }}>Q: </span>{report.research_question}
+                <span style={{ color: 'var(--text-tertiary)' }}>{t('assumptionModal.question')}</span>{report.research_question}
               </span>
             )}
           </div>
@@ -644,19 +657,19 @@ export function AssumptionReportModal({ isOpen, report, onClose }: Props) {
           className="flex gap-0 px-5 flex-shrink-0"
           style={{ borderBottom: '1px solid var(--border-default)' }}
         >
-          {TABS.map(t => (
+          {TABS.map(tabItem => (
             <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
+              key={tabItem.id}
+              onClick={() => setTab(tabItem.id)}
               className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors relative"
               style={{
-                color: tab === t.id ? 'var(--accent-blue)' : 'var(--text-tertiary)',
-                borderBottom: tab === t.id ? '2px solid var(--accent-blue)' : '2px solid transparent',
+                color: tab === tabItem.id ? 'var(--accent-blue)' : 'var(--text-tertiary)',
+                borderBottom: tab === tabItem.id ? '2px solid var(--accent-blue)' : '2px solid transparent',
                 marginBottom: '-1px',
               }}
             >
-              {t.icon}
-              {t.label}
+              {tabItem.icon}
+              {t(`assumptionModal.tab.${tabItem.id}`)}
             </button>
           ))}
         </div>
@@ -693,7 +706,7 @@ export function AssumptionReportModal({ isOpen, report, onClose }: Props) {
                 >
                   <CheckCircle2 className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--status-success)' }} />
                   <p className="text-xs font-medium" style={{ color: 'var(--status-success-text)' }}>
-                    All assumption checks passed — full results below.
+                    {t('assumptionModal.allPassed')}
                   </p>
                 </div>
               )}
@@ -714,7 +727,7 @@ export function AssumptionReportModal({ isOpen, report, onClose }: Props) {
               {report.design_guidance && report.design_guidance.length > 0 && (
                 <div>
                   <p className="text-xs font-semibold mb-2.5" style={{ color: 'var(--text-primary)' }}>
-                    Design checklist
+                    {t('assumptionModal.designChecklist')}
                   </p>
                   <GuidanceList items={report.design_guidance} />
                 </div>

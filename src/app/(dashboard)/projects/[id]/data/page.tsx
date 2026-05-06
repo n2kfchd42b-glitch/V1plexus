@@ -25,6 +25,7 @@ import {
 import { toast } from 'sonner'
 import { logAudit } from '@/lib/audit'
 import { cn } from '@/lib/utils'
+import { useTranslations } from '@/i18n/useTranslations'
 import type { Dataset } from '@/types/database'
 
 // ─── Animations ───────────────────────────────────────────────────────────────
@@ -40,6 +41,7 @@ export default function ProjectDataPage() {
   const projectId = params.id as string
   const { user, loading: authLoading } = useAuth()
   const supabase  = createClient()
+  const { t }     = useTranslations()
 
   const [datasets,      setDatasets]      = useState<Dataset[]>([])
   const [archivedCount, setArchivedCount] = useState(0)
@@ -99,7 +101,7 @@ export default function ProjectDataPage() {
   const handleDelete = async (id: string) => {
     const target = datasets.find(d => d.id === id)
     const result = await softDeleteDataset(supabase, id)
-    if (result.status === 'error') { toast.error('Failed to delete dataset'); return }
+    if (result.status === 'error') { toast.error(t('data.toastDeleteFailed')); return }
     setDatasets(prev => prev.filter(d => d.id !== id))
     if (selectedId === id) { setSelectedId(null); setPanelOpen(true) }
     const res = await logAudit(
@@ -112,14 +114,14 @@ export default function ProjectDataPage() {
       },
       projectId,
     )
-    if (!res.success) toast.warning('Audit entry failed — retrying in background')
-    toast.success('Dataset deleted')
+    if (!res.success) toast.warning(t('data.toastAuditFailed'))
+    toast.success(t('data.toastDeleted'))
   }
 
   const handleArchive = async (id: string, archive: boolean) => {
     const target = datasets.find(d => d.id === id)
     const result = await setDatasetArchived(supabase, id, archive)
-    if (result.status === 'error') { toast.error(archive ? 'Failed to archive' : 'Failed to unarchive'); return }
+    if (result.status === 'error') { toast.error(archive ? t('data.toastArchiveFailed') : t('data.toastUnarchiveFailed')); return }
     setDatasets(prev => prev.filter(d => d.id !== id))
     if (selectedId === id) { setSelectedId(null); setPanelOpen(true) }
     const res = await logAudit(
@@ -132,8 +134,8 @@ export default function ProjectDataPage() {
       },
       projectId,
     )
-    if (!res.success) toast.warning('Audit entry failed — retrying in background')
-    toast.success(archive ? 'Dataset archived' : 'Dataset unarchived')
+    if (!res.success) toast.warning(t('data.toastAuditFailed'))
+    toast.success(archive ? t('data.toastArchived') : t('data.toastUnarchived'))
   }
 
   const selectedDataset = datasets.find(d => d.id === selectedId) ?? null
@@ -164,10 +166,10 @@ export default function ProjectDataPage() {
             {/* Panel header */}
             <div className="flex items-center justify-between px-3 pt-4 pb-3 shrink-0 border-b border-[var(--border-subtle)]">
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-[var(--text-primary)] truncate">Datasets</p>
+                <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{t('data.datasets')}</p>
                 {!listLoading && (
                   <p className="text-[10px] text-[var(--text-tertiary)]">
-                    {datasets.length} {showArchived ? 'archived' : 'active'}
+                    {datasets.length} {showArchived ? t('common.inactive', 'archived') : t('common.active')}
                     {isStale && !isOnline && (
                       <span
                         className="ml-1.5 inline-flex items-center px-1.5 rounded-full"
@@ -179,7 +181,7 @@ export default function ProjectDataPage() {
                           fontWeight: 600,
                         }}
                       >
-                        cached
+                        {t('data.cached')}
                       </span>
                     )}
                   </p>
@@ -191,12 +193,12 @@ export default function ProjectDataPage() {
                   className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[var(--accent-primary)] text-[var(--text-inverse)] text-[11px] font-semibold hover:opacity-90 transition-opacity"
                 >
                   <Upload className="h-3 w-3" />
-                  Import
+                  {t('data.import')}
                 </button>
                 <button
                   onClick={() => setPanelOpen(false)}
                   className="h-6 w-6 flex items-center justify-center rounded text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] transition-colors"
-                  title="Collapse panel"
+                  title={t('data.collapsePanel')}
                 >
                   <ChevronsLeft className="h-3.5 w-3.5" />
                 </button>
@@ -215,7 +217,7 @@ export default function ProjectDataPage() {
                       : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
                   )}
                 >
-                  Active
+                  {t('common.active')}
                 </button>
                 <button
                   onClick={() => setShowArchived(true)}
@@ -226,7 +228,7 @@ export default function ProjectDataPage() {
                       : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
                   )}
                 >
-                  Archived <span className="opacity-60">{archivedCount}</span>
+                  {t('projects.archive', 'Archived')} <span className="opacity-60">{archivedCount}</span>
                 </button>
               </div>
             )}
@@ -249,11 +251,11 @@ export default function ProjectDataPage() {
                 <div className="flex flex-col items-center justify-center py-12 px-3 text-center gap-2">
                   <Database className="h-5 w-5 text-[var(--text-tertiary)]" />
                   <p className="text-xs text-[var(--text-secondary)] font-medium">
-                    {showArchived ? 'No archived datasets' : 'No datasets yet'}
+                    {showArchived ? t('data.noArchivedDatasets') : t('data.noDatasetsYet')}
                   </p>
                   {!showArchived && (
                     <button onClick={() => setShowUpload(true)} className="text-xs text-[var(--accent-blue)] hover:underline">
-                      Import first dataset
+                      {t('data.importFirstDataset')}
                     </button>
                   )}
                 </div>
@@ -281,14 +283,14 @@ export default function ProjectDataPage() {
             <button
               onClick={() => setPanelOpen(true)}
               className="h-7 w-7 flex items-center justify-center rounded text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] transition-colors"
-              title="Expand panel"
+              title={t('data.expandPanel')}
             >
               <ChevronsRight className="h-3.5 w-3.5" />
             </button>
             <button
               onClick={() => setShowUpload(true)}
               className="h-7 w-7 flex items-center justify-center rounded text-[var(--text-tertiary)] hover:text-[var(--accent-blue)] hover:bg-[var(--accent-blue-subtle)] transition-colors"
-              title="Import dataset"
+              title={t('data.importDataset')}
             >
               <Upload className="h-3.5 w-3.5" />
             </button>
@@ -310,7 +312,7 @@ export default function ProjectDataPage() {
             className="md:hidden flex items-center gap-2 px-4 h-11 border-b border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors flex-shrink-0"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to datasets
+            {t('data.backToDatasets')}
           </button>
         )}
 
@@ -330,9 +332,9 @@ export default function ProjectDataPage() {
               <div className="w-12 h-12 rounded-xl bg-[var(--bg-inset)] flex items-center justify-center">
                 <Database className="h-5 w-5 text-[var(--text-tertiary)]" />
               </div>
-              <p className="text-sm font-semibold text-[var(--text-secondary)]">Select a dataset</p>
+              <p className="text-sm font-semibold text-[var(--text-secondary)]">{t('data.selectDataset')}</p>
               <p className="text-xs text-[var(--text-tertiary)] max-w-xs leading-relaxed">
-                Choose a dataset from the panel to view schema, clean data, check quality, and explore.
+                {t('data.selectDatasetDesc')}
               </p>
             </div>
           )}
@@ -343,7 +345,7 @@ export default function ProjectDataPage() {
       <Dialog open={showUpload} onOpenChange={setShowUpload}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Import Dataset</DialogTitle>
+            <DialogTitle>{t('data.importDataset')}</DialogTitle>
           </DialogHeader>
           <DatasetUpload
             projectId={projectId}
@@ -369,24 +371,25 @@ interface PanelListItemProps {
 
 function PanelListItem({ dataset, isSelected, isArchived, onSelect, onDelete, onArchive }: PanelListItemProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const { t } = useTranslations()
   const version = dataset.latest_version
 
   if (confirmingDelete) {
     return (
       <div className="mx-1 mb-0.5 rounded-md px-2 py-2 bg-[var(--status-error-bg)] border border-[var(--border-status-error)]">
-        <p className="text-[10px] text-[var(--status-error-text)] font-medium truncate mb-1.5">Delete &ldquo;{dataset.name}&rdquo;?</p>
+        <p className="text-[10px] text-[var(--status-error-text)] font-medium truncate mb-1.5">{t('common.delete')} &ldquo;{dataset.name}&rdquo;?</p>
         <div className="flex gap-1">
           <button
             onClick={() => { onDelete(dataset.id); setConfirmingDelete(false) }}
             className="flex-1 py-0.5 rounded text-[10px] font-semibold bg-[var(--status-error)] text-white hover:bg-[var(--status-error-hover)] transition-colors"
           >
-            Delete
+            {t('common.delete')}
           </button>
           <button
             onClick={() => setConfirmingDelete(false)}
             className="flex-1 py-0.5 rounded text-[10px] font-medium border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--bg-row-hover)] transition-colors"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
         </div>
       </div>
@@ -435,10 +438,10 @@ function PanelListItem({ dataset, isSelected, isArchived, onSelect, onDelete, on
             return (
               <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 mt-2 pr-1">
                 {[
-                  { label: 'Rows',      value: version.row_count.toLocaleString(), color: 'text-[var(--accent-blue)]' },
-                  { label: 'Cols',      value: String(version.column_count),        color: 'text-[var(--accent-blue)]' },
-                  { label: 'Missing',   value: `${missingPct}%`,                    color: parseFloat(missingPct) > 0 ? 'text-[var(--status-error)]' : 'text-[var(--accent-blue)]' },
-                  { label: 'Integrity', value: `${integrityPct}%`,                  color: 'text-[var(--accent-blue)]' },
+                  { label: t('data.statRows'),      value: version.row_count.toLocaleString(), color: 'text-[var(--accent-blue)]' },
+                  { label: t('data.statCols'),      value: String(version.column_count),        color: 'text-[var(--accent-blue)]' },
+                  { label: t('data.statMissing'),   value: `${missingPct}%`,                    color: parseFloat(missingPct) > 0 ? 'text-[var(--status-error)]' : 'text-[var(--accent-blue)]' },
+                  { label: t('data.statIntegrity'), value: `${integrityPct}%`,                  color: 'text-[var(--accent-blue)]' },
                 ].map(({ label, value, color }) => (
                   <div key={label} className="flex flex-col">
                     <span className={`data-mono text-[11px] font-bold tabular-nums leading-none ${color}`}>{value}</span>
@@ -458,14 +461,14 @@ function PanelListItem({ dataset, isSelected, isArchived, onSelect, onDelete, on
           <button
             onClick={() => onArchive(dataset.id, !isArchived)}
             className="h-5 w-5 flex items-center justify-center rounded text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-active)] transition-colors"
-            title={isArchived ? 'Unarchive' : 'Archive'}
+            title={isArchived ? t('data.unarchive') : t('common.archive', 'Archive')}
           >
             {isArchived ? <ArchiveRestore className="h-3 w-3" /> : <Archive className="h-3 w-3" />}
           </button>
           <button
             onClick={() => setConfirmingDelete(true)}
             className="h-5 w-5 flex items-center justify-center rounded text-[var(--text-tertiary)] hover:text-[var(--status-error)] hover:bg-[var(--status-error-bg)] transition-colors"
-            title="Delete"
+            title={t('common.delete')}
           >
             <Trash2 className="h-3 w-3" />
           </button>

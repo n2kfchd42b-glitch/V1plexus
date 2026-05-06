@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { getInitials } from '@/lib/utils'
 import { LanguageSelector } from '@/components/i18n/LanguageSelector'
+import { useLocale } from '@/i18n/LocaleProvider'
 import { AlertTriangle, ExternalLink, ChevronRight, CheckCircle2, Globe, MapPin, Loader2, ChevronDown } from 'lucide-react'
 import type { Profile } from '@/types/database'
 import type { User } from '@supabase/supabase-js'
@@ -85,16 +86,17 @@ const COUNTRIES = [
 
 type Tab = 'overview' | 'edit' | 'security' | 'billing' | 'danger'
 
-const NAV: { id: Tab; label: string; icon: string }[] = [
-  { id: 'overview',  label: 'Profile Overview', icon: 'account_circle' },
-  { id: 'edit',      label: 'Edit Profile',      icon: 'edit' },
-  { id: 'security',  label: 'Security',          icon: 'shield_lock' },
-  { id: 'danger',    label: 'Danger Zone',       icon: 'warning' },
+const NAV: { id: Tab; labelKey: string; icon: string }[] = [
+  { id: 'overview',  labelKey: 'profileSettings.navOverview', icon: 'account_circle' },
+  { id: 'edit',      labelKey: 'profileSettings.navEdit',     icon: 'edit' },
+  { id: 'security',  labelKey: 'profileSettings.navSecurity', icon: 'shield_lock' },
+  { id: 'danger',    labelKey: 'profileSettings.navDanger',   icon: 'warning' },
 ]
 
 /* ── page ────────────────────────────────────────────────────────────────── */
 export default function ProfilePage() {
   const supabase = useMemo(() => createClient(), [])
+  const { t } = useLocale()
 
   const [activeTab, setActiveTab]           = useState<Tab>('overview')
   const [profile, setProfile]               = useState<Partial<Profile>>({})
@@ -155,7 +157,7 @@ export default function ProfilePage() {
       ])
 
       if (profileResult.status === 'error') {
-        toast.error('Failed to load profile — please refresh the page')
+        toast.error(t('profileSettings.toastLoadFailed'))
       } else if (profileResult.data) {
         setProfile(profileResult.data)
         setAvatarUrl(profileResult.data.avatar_url ?? null)
@@ -179,7 +181,7 @@ export default function ProfilePage() {
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !authUser) return
-    if (file.size > 5 * 1024 * 1024) { toast.error('Image must be under 5 MB'); return }
+    if (file.size > 5 * 1024 * 1024) { toast.error(t('profileSettings.toastAvatarTooLarge')); return }
     setAvatarUploading(true)
     const ext  = file.name.split('.').pop()
     const path = `${authUser.id}/avatar.${ext}`
@@ -189,7 +191,7 @@ export default function ProfilePage() {
     await updateProfileAvatar(supabase, authUser.id, publicUrl)
     setAvatarUrl(publicUrl)
     setProfile(p => ({ ...p, avatar_url: publicUrl }))
-    toast.success('Profile picture updated')
+    toast.success(t('profileSettings.toastAvatarUpdated'))
     setAvatarUploading(false)
   }
 
@@ -210,11 +212,11 @@ export default function ProfilePage() {
             setCountry(data.country ?? '')
             setGeoState('detected')
           } else {
-            toast.error('Could not detect location — enter it manually')
+            toast.error(t('profileSettings.toastLocationFailed'))
             setGeoState('idle')
           }
         } catch {
-          toast.error('Could not detect location — enter it manually')
+          toast.error(t('profileSettings.toastLocationFailed'))
           setGeoState('idle')
         }
       },
@@ -279,19 +281,19 @@ export default function ProfilePage() {
       setShowOnGlobe((saved.show_on_globe as boolean | null) ?? true)
     }
 
-    toast.success('Profile saved')
+    toast.success(t('profileSettings.toastProfileSaved'))
     setSaving(false)
   }
 
   /* ── change password ────────────────────────────────────────────────────── */
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (newPw !== confirmPw) { toast.error('Passwords do not match'); return }
-    if (newPw.length < 8)    { toast.error('Minimum 8 characters'); return }
+    if (newPw !== confirmPw) { toast.error(t('profileSettings.toastPasswordMismatch')); return }
+    if (newPw.length < 8)    { toast.error(t('profileSettings.toastPasswordTooShort')); return }
     setChangingPw(true)
     const { error } = await supabase.auth.updateUser({ password: newPw })
     if (error) toast.error(error.message)
-    else { toast.success('Password updated'); setNewPw(''); setConfirmPw('') }
+    else { toast.success(t('profileSettings.toastPasswordUpdated')); setNewPw(''); setConfirmPw('') }
     setChangingPw(false)
   }
 
@@ -320,7 +322,7 @@ export default function ProfilePage() {
     if (dbErr) {
       toast.error('Uploaded but failed to record: ' + dbErr.message)
     } else {
-      toast.success('Credential uploaded — pending verification')
+      toast.success(t('profileSettings.toastCredUploaded'))
       // Refresh the uploads list immediately
       const { data: fresh } = await supabase
         .from('credential_uploads')
@@ -342,7 +344,7 @@ export default function ProfilePage() {
       const res = await fetch('/api/account/delete', { method: 'DELETE' })
       if (!res.ok) {
         const { error } = await res.json()
-        toast.error(error ?? 'Failed to delete account. Please try again.')
+        toast.error(error ?? t('profileSettings.toastDeleteFailed'))
         setDeleting(false)
         return
       }
@@ -350,7 +352,7 @@ export default function ProfilePage() {
       await supabase.auth.signOut()
       window.location.href = '/'
     } catch {
-      toast.error('Something went wrong. Please try again.')
+      toast.error(t('profileSettings.toastDeleteError'))
       setDeleting(false)
     }
   }
@@ -370,7 +372,8 @@ export default function ProfilePage() {
     || authUser?.email?.split('@')[0]
     || 'Your Name'
 
-  const roleLabel   = ROLE_LABELS[profile.role ?? ''] ?? profile.role ?? 'Researcher'
+  const roleKey     = profile.role ? `role.${profile.role}` : 'role.researcher'
+  const roleLabel   = t(roleKey, ROLE_LABELS[profile.role ?? ''] ?? profile.role ?? 'Researcher')
   const tier        = (profile.subscription_tier ?? 'free') as string
   const institution = (profile as any).institution?.name ?? '—'
   const department  = (profile as any).department?.name ?? null
@@ -384,10 +387,10 @@ export default function ProfilePage() {
       {/* ── Left mini-nav ─────────────────────────────────────────────────── */}
       <aside className="w-52 flex-shrink-0 border-r border-[#E4E4E7] bg-white flex flex-col pt-6 px-3 gap-1">
         <p className="px-2 mb-3 text-[10px] font-bold uppercase tracking-widest text-[#52525B]">
-          Navigation
+          {t('profileSettings.navHeader')}
         </p>
 
-        {NAV.map(({ id, label, icon }) => {
+        {NAV.map(({ id, labelKey, icon }) => {
           const isActive = activeTab === id
           const isDanger = id === 'danger'
           return (
@@ -402,7 +405,7 @@ export default function ProfilePage() {
               ].join(' ')}
             >
               <span className="material-symbols-outlined text-[18px]">{icon}</span>
-              {label}
+              {t(labelKey)}
             </button>
           )
         })}
@@ -413,14 +416,14 @@ export default function ProfilePage() {
             className="w-full flex items-center gap-2 text-xs font-semibold text-[#0052CC] hover:bg-[#EFF6FF] px-2 py-2 rounded-lg transition-colors"
           >
             <span className="material-symbols-outlined text-[16px]">verified</span>
-            Manage Credentials
+            {t('profileSettings.manageCredentials')}
           </button>
           <a
             href="/dashboard"
             className="w-full flex items-center gap-2 text-xs font-medium text-[#52525B] hover:bg-[#F4F7FF] px-2 py-2 rounded-lg transition-colors"
           >
             <span className="material-symbols-outlined text-[16px]">help_outline</span>
-            Support
+            {t('profileSettings.support')}
           </a>
         </div>
       </aside>
@@ -500,17 +503,17 @@ export default function ProfilePage() {
                 onClick={() => setActiveTab('edit')}
                 className="bg-[#0052CC] text-white px-5 py-2 rounded-lg font-semibold text-sm shadow-sm hover:bg-[var(--accent-primary)] transition-colors flex-shrink-0"
               >
-                Edit Profile
+                {t('profileSettings.editProfileBtn')}
               </button>
             </header>
 
             {/* Metrics row — smaller cards */}
             <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
-                { label: 'Total Projects',  value: projectCount,  sub: null },
-                { label: 'Pending Reviews', value: reviewCount,   sub: null },
-                { label: 'Plan',            value: tier.charAt(0).toUpperCase() + tier.slice(1), sub: null },
-                { label: 'ORCID',           value: profile.orcid_id ? 'Linked' : 'Not linked',  sub: profile.orcid_id ? 'Verified' : null },
+                { label: t('profileSettings.metricProjects'), value: projectCount,  sub: null },
+                { label: t('profileSettings.metricReviews'),  value: reviewCount,   sub: null },
+                { label: t('profileSettings.metricPlan'),     value: tier.charAt(0).toUpperCase() + tier.slice(1), sub: null },
+                { label: t('profileSettings.metricOrcid'),    value: profile.orcid_id ? t('profileSettings.linked') : t('profileSettings.notLinked'), sub: profile.orcid_id ? t('profileSettings.verified') : null },
               ].map(({ label, value, sub }) => (
                 <div
                   key={label}
@@ -529,14 +532,14 @@ export default function ProfilePage() {
               {/* ── Left: Recent Projects ──────────────────────────────────── */}
               <section className="lg:col-span-2 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-base font-bold text-[#191c1e] font-manrope">Recent Projects</h2>
-                  <a href="/projects" className="text-xs font-semibold text-[#0052CC] hover:underline">View All</a>
+                  <h2 className="text-base font-bold text-[#191c1e] font-manrope">{t('profileSettings.recentProjects')}</h2>
+                  <a href="/projects" className="text-xs font-semibold text-[#0052CC] hover:underline">{t('profileSettings.viewAll')}</a>
                 </div>
 
                 {recentProjects.length === 0 ? (
                   <div className="bg-white rounded-xl border border-[#E4E4E7] p-6 text-center">
-                    <p className="text-sm text-[#A1A1AA]">No projects yet.{' '}
-                      <a href="/projects" className="text-[#0052CC] hover:underline font-medium">Start one →</a>
+                    <p className="text-sm text-[#A1A1AA]">{t('profileSettings.noProjects')}{' '}
+                      <a href="/projects" className="text-[#0052CC] hover:underline font-medium">{t('profileSettings.startOne')}</a>
                     </p>
                   </div>
                 ) : (
@@ -557,7 +560,7 @@ export default function ProfilePage() {
                             {p.title}
                           </h3>
                           <p className="text-[11px] text-[#A1A1AA] mt-0.5">
-                            {PHASE_LABELS[p.phase] ?? p.phase?.replace('_', ' ')}
+                            {t(`project.phase.${p.phase}`, p.phase?.replace('_', ' ') ?? '')}
                             {' · '}
                             {new Date(p.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                           </p>
@@ -573,7 +576,7 @@ export default function ProfilePage() {
                 {/* Bio card */}
                 {profile.bio && (
                   <div className="bg-white p-4 rounded-xl border border-[#E4E4E7] mt-3">
-                    <h2 className="text-xs font-bold text-[#191c1e] font-manrope mb-2 uppercase tracking-wide">About</h2>
+                    <h2 className="text-xs font-bold text-[#191c1e] font-manrope mb-2 uppercase tracking-wide">{t('profileSettings.about')}</h2>
                     <p className="text-sm text-[#52525B] leading-relaxed">{profile.bio}</p>
                   </div>
                 )}
@@ -585,7 +588,7 @@ export default function ProfilePage() {
                 {/* Active Contributions — real phase-based progress */}
                 {recentProjects.length > 0 && (
                   <div className="bg-white p-4 rounded-xl border border-[#E4E4E7] space-y-3">
-                    <h3 className="text-xs font-bold text-[#191c1e] font-manrope uppercase tracking-wide">Active Contributions</h3>
+                    <h3 className="text-xs font-bold text-[#191c1e] font-manrope uppercase tracking-wide">{t('profileSettings.activeContributions')}</h3>
                     <div className="space-y-2.5">
                       {recentProjects.slice(0, 3).map(p => {
                         // Phase order index → real progress percentage
@@ -620,22 +623,22 @@ export default function ProfilePage() {
                 <div className="bg-white p-4 rounded-xl border border-[#E4E4E7] space-y-3">
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-[#0052CC] text-[18px]">shield_lock</span>
-                    <h3 className="text-xs font-bold text-[#191c1e] font-manrope uppercase tracking-wide">Security &amp; Access</h3>
+                    <h3 className="text-xs font-bold text-[#191c1e] font-manrope uppercase tracking-wide">{t('profileSettings.securityAccess')}</h3>
                   </div>
 
                   <div className="space-y-2.5">
                     <div>
-                      <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-wide">Email</p>
+                      <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-wide">{t('profileSettings.emailLabel')}</p>
                       <p className="text-xs font-medium text-[#52525B] truncate">{profile.email ?? authUser?.email ?? '—'}</p>
                     </div>
                     <div>
-                      <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-wide">Last Sign-In</p>
+                      <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-wide">{t('profileSettings.lastSignInLabel')}</p>
                       <p className="text-xs font-medium text-[#52525B]">{lastSignIn}</p>
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-wide">Session</p>
-                        <p className="text-xs font-semibold text-emerald-600">Active — this device</p>
+                        <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-wide">{t('profileSettings.sessionLabel')}</p>
+                        <p className="text-xs font-semibold text-emerald-600">{t('profileSettings.activeThisDevice')}</p>
                       </div>
                       <span className="material-symbols-outlined text-emerald-500 text-[18px]"
                         style={{ fontVariationSettings: "'FILL' 1" }}>
@@ -648,7 +651,7 @@ export default function ProfilePage() {
                     onClick={() => setActiveTab('security')}
                     className="text-xs font-semibold text-[#0052CC] hover:underline"
                   >
-                    Manage security →
+                    {t('profileSettings.manageSecurityLink')}
                   </button>
                 </div>
 
@@ -656,7 +659,7 @@ export default function ProfilePage() {
                 {/* Contact */}
                 {(profile.website || profile.phone) && (
                   <div className="bg-white p-4 rounded-xl border border-[#E4E4E7] space-y-2">
-                    <h3 className="text-xs font-bold text-[#191c1e] font-manrope uppercase tracking-wide">Contact</h3>
+                    <h3 className="text-xs font-bold text-[#191c1e] font-manrope uppercase tracking-wide">{t('profileSettings.contact')}</h3>
                     {profile.website && (
                       <a href={profile.website} target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-2 text-xs text-[#0052CC] hover:underline">
@@ -681,8 +684,8 @@ export default function ProfilePage() {
         {activeTab === 'edit' && (
           <div className="max-w-2xl space-y-6">
             <div>
-              <h1 className="text-xl font-bold text-[#191c1e] font-manrope">Edit Profile</h1>
-              <p className="text-sm text-[#52525B] mt-0.5">How you appear on PLEXUS Research.</p>
+              <h1 className="text-xl font-bold text-[#191c1e] font-manrope">{t('profileSettings.editTitle')}</h1>
+              <p className="text-sm text-[#52525B] mt-0.5">{t('profileSettings.editSubtitle')}</p>
             </div>
 
             {/* Avatar */}
@@ -707,9 +710,9 @@ export default function ProfilePage() {
               </div>
               <div>
                 <button onClick={() => fileInputRef.current?.click()} className="text-sm font-semibold text-[#0052CC] hover:underline">
-                  {avatarUploading ? 'Uploading…' : 'Upload photo'}
+                  {avatarUploading ? t('profileSettings.uploading') : t('profileSettings.uploadPhoto')}
                 </button>
-                <p className="text-xs text-[#A1A1AA] mt-0.5">JPG, PNG · max 5 MB</p>
+                <p className="text-xs text-[#A1A1AA] mt-0.5">{t('profileSettings.photoHint')}</p>
               </div>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
             </div>
@@ -717,28 +720,28 @@ export default function ProfilePage() {
             <form onSubmit={handleSaveProfile} className="space-y-5">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="title">Title</Label>
-                  <Input id="title" placeholder="Dr., Prof.…" value={profile.title ?? ''} onChange={e => setProfile(p => ({ ...p, title: e.target.value }))} className="mt-1" />
+                  <Label htmlFor="title">{t('profileSettings.titleField')}</Label>
+                  <Input id="title" placeholder={t('profileSettings.titlePlaceholder')} value={profile.title ?? ''} onChange={e => setProfile(p => ({ ...p, title: e.target.value }))} className="mt-1" />
                 </div>
                 <div>
-                  <Label htmlFor="fullName">Full Name <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="fullName">{t('profileSettings.fullName')} <span className="text-red-500">*</span></Label>
                   <Input id="fullName" required value={profile.full_name ?? ''} onChange={e => setProfile(p => ({ ...p, full_name: e.target.value }))} className="mt-1" />
                 </div>
               </div>
 
               <div>
-                <Label htmlFor="email">Email address</Label>
+                <Label htmlFor="email">{t('profileSettings.emailField')}</Label>
                 <Input id="email" value={profile.email ?? authUser?.email ?? ''} disabled className="mt-1 opacity-60 cursor-not-allowed" />
-                <p className="text-xs text-[#A1A1AA] mt-1">Email is managed via your sign-in provider.</p>
+                <p className="text-xs text-[#A1A1AA] mt-1">{t('profileSettings.emailHint')}</p>
               </div>
 
               <div>
-                <Label htmlFor="bio">Short Bio</Label>
-                <Textarea id="bio" rows={3} placeholder="A brief introduction about your research background…" value={profile.bio ?? ''} onChange={e => setProfile(p => ({ ...p, bio: e.target.value }))} className="mt-1 resize-none" />
+                <Label htmlFor="bio">{t('profileSettings.shortBio')}</Label>
+                <Textarea id="bio" rows={3} placeholder={t('profileSettings.bioPH')} value={profile.bio ?? ''} onChange={e => setProfile(p => ({ ...p, bio: e.target.value }))} className="mt-1 resize-none" />
               </div>
 
               <div>
-                <Label htmlFor="orcid">ORCID iD</Label>
+                <Label htmlFor="orcid">{t('profileSettings.orcidField')}</Label>
                 <div className="relative mt-1">
                   <Input id="orcid" placeholder="0000-0000-0000-0000" value={profile.orcid_id ?? ''} onChange={e => setProfile(p => ({ ...p, orcid_id: e.target.value }))} className="pr-9" />
                   {profile.orcid_id && (
@@ -748,18 +751,18 @@ export default function ProfilePage() {
                   )}
                 </div>
                 <p className="text-xs text-[#A1A1AA] mt-1">
-                  Your unique researcher ID.{' '}
-                  <a href="https://orcid.org/register" target="_blank" rel="noopener noreferrer" className="text-[#0052cc] hover:underline">Register at orcid.org</a>
+                  {t('profileSettings.orcidHint')}{' '}
+                  <a href="https://orcid.org/register" target="_blank" rel="noopener noreferrer" className="text-[#0052cc] hover:underline">{t('profileSettings.orcidRegister')}</a>
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="phone">Phone</Label>
+                  <Label htmlFor="phone">{t('profileSettings.phoneField')}</Label>
                   <Input id="phone" type="tel" placeholder="+1 (555) 000-0000" value={profile.phone ?? ''} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} className="mt-1" />
                 </div>
                 <div>
-                  <Label htmlFor="website">Website / Lab URL</Label>
+                  <Label htmlFor="website">{t('profileSettings.websiteField')}</Label>
                   <Input id="website" type="url" placeholder="https://yourlab.edu" value={profile.website ?? ''} onChange={e => setProfile(p => ({ ...p, website: e.target.value }))} className="mt-1" />
                 </div>
               </div>
@@ -768,13 +771,13 @@ export default function ProfilePage() {
               <div className="border border-[#E4E4E7] rounded-xl p-5 space-y-4">
                 <div className="flex items-center gap-2">
                   <Globe className="h-4 w-4 text-[#0052CC]" />
-                  <h2 className="text-sm font-semibold text-[#191c1e]">Research Presence</h2>
-                  <span className="ml-auto text-[10px] text-[#A1A1AA] font-medium uppercase tracking-wide">Country shown on global map</span>
+                  <h2 className="text-sm font-semibold text-[#191c1e]">{t('profileSettings.researchPresence')}</h2>
+                  <span className="ml-auto text-[10px] text-[#A1A1AA] font-medium uppercase tracking-wide">{t('profileSettings.countryShownHint')}</span>
                 </div>
 
                 {/* Location */}
                 <div>
-                  <Label>Location</Label>
+                  <Label>{t('profileSettings.locationLabel')}</Label>
                   <div className="mt-2 space-y-2">
                     {/* Confirmed state — shown whenever city or country is set */}
                     {(city || country) && geoState !== 'denied' ? (
@@ -788,7 +791,7 @@ export default function ProfilePage() {
                           onClick={() => { setCity(''); setCountry(''); setPresenceLat(null); setPresenceLng(null); setGeoState('denied') }}
                           className="text-xs text-emerald-600 hover:underline ml-3 flex-shrink-0"
                         >
-                          Change
+                          {t('profileSettings.changeBtn')}
                         </button>
                       </div>
                     ) : (
@@ -803,13 +806,13 @@ export default function ProfilePage() {
                           {geoState === 'detecting'
                             ? <Loader2 className="h-4 w-4 animate-spin" />
                             : <MapPin className="h-4 w-4" />}
-                          {geoState === 'detecting' ? 'Detecting…' : 'Detect my location'}
+                          {geoState === 'detecting' ? t('profileSettings.detecting') : t('profileSettings.detectLocation')}
                         </button>
 
                         {/* Manual city + country */}
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <Label htmlFor="settingsCity" className="text-xs text-[#52525B]">City</Label>
+                            <Label htmlFor="settingsCity" className="text-xs text-[#52525B]">{t('profileSettings.cityField')}</Label>
                             <Input
                               id="settingsCity"
                               placeholder="Accra"
@@ -819,7 +822,7 @@ export default function ProfilePage() {
                             />
                           </div>
                           <div>
-                            <Label htmlFor="settingsCountry" className="text-xs text-[#52525B]">Country</Label>
+                            <Label htmlFor="settingsCountry" className="text-xs text-[#52525B]">{t('profileSettings.countryField')}</Label>
                             <div className="relative mt-1">
                               <select
                                 id="settingsCountry"
@@ -844,8 +847,8 @@ export default function ProfilePage() {
                 {/* Show on globe toggle */}
                 <label className="flex items-center justify-between cursor-pointer">
                   <div>
-                    <p className="text-sm font-medium text-[#191c1e]">Show my country on the global researcher map</p>
-                    <p className="text-xs text-[#A1A1AA]">Only your country is shown — your exact address is never shared.</p>
+                    <p className="text-sm font-medium text-[#191c1e]">{t('profileSettings.showOnGlobe')}</p>
+                    <p className="text-xs text-[#A1A1AA]">{t('profileSettings.showOnGlobeHint')}</p>
                   </div>
                   <button
                     type="button"
@@ -858,16 +861,16 @@ export default function ProfilePage() {
               </div>
 
               <Button type="submit" disabled={saving} className="bg-[#0052CC] hover:bg-[var(--accent-primary)]">
-                {saving ? 'Saving…' : 'Save Changes'}
+                {saving ? t('profileSettings.saving') : t('profileSettings.saveChanges')}
               </Button>
             </form>
 
             <div className="border-t border-[#E4E4E7] pt-6">
               <div className="flex items-center gap-2 mb-1">
                 <Globe className="h-4 w-4 text-[#A1A1AA]" />
-                <h2 className="text-sm font-semibold text-[#191c1e]">Interface Language</h2>
+                <h2 className="text-sm font-semibold text-[#191c1e]">{t('profileSettings.interfaceLanguage')}</h2>
               </div>
-              <p className="text-xs text-[#A1A1AA] mb-4">Applies to navigation, labels, and status messages.</p>
+              <p className="text-xs text-[#A1A1AA] mb-4">{t('profileSettings.interfaceLanguageDesc')}</p>
               <LanguageSelector />
             </div>
           </div>
@@ -877,39 +880,39 @@ export default function ProfilePage() {
         {activeTab === 'security' && (
           <div className="max-w-2xl space-y-6">
             <div>
-              <h1 className="text-xl font-bold text-[#191c1e] font-manrope">Security</h1>
-              <p className="text-sm text-[#52525B] mt-0.5">Manage your password and account access.</p>
+              <h1 className="text-xl font-bold text-[#191c1e] font-manrope">{t('profileSettings.securityTitle')}</h1>
+              <p className="text-sm text-[#52525B] mt-0.5">{t('profileSettings.securitySubtitle')}</p>
             </div>
 
             <div className="bg-white border border-[#E4E4E7] rounded-xl p-6 space-y-5">
-              <h2 className="text-sm font-bold text-[#191c1e] font-manrope">Change Password</h2>
+              <h2 className="text-sm font-bold text-[#191c1e] font-manrope">{t('profileSettings.changePasswordTitle')}</h2>
               <form onSubmit={handleChangePassword} className="space-y-4">
                 <div>
-                  <Label htmlFor="newPw">New Password</Label>
+                  <Label htmlFor="newPw">{t('profileSettings.newPassword')}</Label>
                   <Input id="newPw" type="password" value={newPw} onChange={e => setNewPw(e.target.value)} required minLength={8} className="mt-1" />
                 </div>
                 <div>
-                  <Label htmlFor="confirmPw">Confirm New Password</Label>
+                  <Label htmlFor="confirmPw">{t('profileSettings.confirmPassword')}</Label>
                   <Input id="confirmPw" type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} required className="mt-1" />
                 </div>
                 <Button type="submit" disabled={changingPw} className="bg-[#0052CC] hover:bg-[var(--accent-primary)]">
-                  {changingPw ? 'Updating…' : 'Update Password'}
+                  {changingPw ? t('profileSettings.updatingPassword') : t('profileSettings.updatePassword')}
                 </Button>
               </form>
             </div>
 
             <div className="bg-white border border-[#E4E4E7] rounded-xl p-6 space-y-4">
-              <h2 className="text-sm font-bold text-[#191c1e] font-manrope">Active Session</h2>
+              <h2 className="text-sm font-bold text-[#191c1e] font-manrope">{t('profileSettings.activeSessionTitle')}</h2>
               <div className="space-y-2">
-                <p className="text-sm text-[#52525B]">Signed in as <span className="font-medium text-[#191c1e]">{profile.email ?? authUser?.email}</span></p>
-                <p className="text-sm text-[#A1A1AA]">Last sign-in: {lastSignIn}</p>
+                <p className="text-sm text-[#52525B]">{t('profileSettings.signedInAs')} <span className="font-medium text-[#191c1e]">{profile.email ?? authUser?.email}</span></p>
+                <p className="text-sm text-[#A1A1AA]">{t('profileSettings.lastSignInFull')} {lastSignIn}</p>
               </div>
               <Button variant="outline" className="text-sm" onClick={() => {
                 document.cookie = 'workspace_ready=; path=/; max-age=0'
                 supabase.auth.signOut()   // global scope — revokes all sessions
                 window.location.href = '/login'
               }}>
-                Sign out of all devices
+                {t('profileSettings.signOutAll')}
               </Button>
             </div>
           </div>
@@ -971,25 +974,25 @@ export default function ProfilePage() {
         {activeTab === 'danger' && (
           <div className="max-w-2xl space-y-6">
             <div>
-              <h1 className="text-xl font-bold text-red-600 font-manrope">Danger Zone</h1>
-              <p className="text-sm text-[#52525B] mt-0.5">Irreversible actions. Proceed with caution.</p>
+              <h1 className="text-xl font-bold text-red-600 font-manrope">{t('profileSettings.dangerTitle')}</h1>
+              <p className="text-sm text-[#52525B] mt-0.5">{t('profileSettings.dangerSubtitle')}</p>
             </div>
 
             <div className="border border-red-200 rounded-xl overflow-hidden">
               <div className="bg-red-50 px-5 py-4 flex items-start gap-3">
                 <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-semibold text-red-700">Delete your account</p>
+                  <p className="text-sm font-semibold text-red-700">{t('profileSettings.deleteAccountTitle')}</p>
                   <p className="text-sm text-[#52525B] mt-0.5">
-                    This will permanently delete your account, all projects, documents, and data.{' '}
-                    <strong>This cannot be undone.</strong>
+                    {t('profileSettings.deleteAccountDesc')}{' '}
+                    <strong>{t('profileSettings.deleteCannotUndo')}</strong>
                   </p>
                 </div>
               </div>
               <div className="p-5 space-y-4 bg-white">
                 <div>
                   <Label htmlFor="deleteConfirm" className="text-sm">
-                    Type <span className="font-mono font-bold text-red-600">DELETE</span> to confirm
+                    {t('profileSettings.typeDeletePrefix')} <span className="font-mono font-bold text-red-600">DELETE</span> {t('profileSettings.typeDeleteSuffix')}
                   </Label>
                   <Input
                     id="deleteConfirm"
@@ -1004,7 +1007,7 @@ export default function ProfilePage() {
                   disabled={deleteConfirm !== 'DELETE' || deleting}
                   onClick={handleDeleteAccount}
                 >
-                  {deleting ? 'Processing…' : 'Delete Account'}
+                  {deleting ? t('profileSettings.processing') : t('profileSettings.deleteAccountBtn')}
                 </Button>
               </div>
             </div>
@@ -1020,8 +1023,8 @@ export default function ProfilePage() {
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-[#0052CC] text-[24px]">verified</span>
               <div>
-                <h2 className="text-lg font-bold text-[#191c1e] font-manrope">Manage Credentials</h2>
-                <p className="text-xs text-[#52525B]">Upload institutional documents for verification</p>
+                <h2 className="text-lg font-bold text-[#191c1e] font-manrope">{t('profileSettings.credTitle')}</h2>
+                <p className="text-xs text-[#52525B]">{t('profileSettings.credDesc')}</p>
               </div>
             </div>
 
@@ -1031,18 +1034,18 @@ export default function ProfilePage() {
                   <span className="material-symbols-outlined text-[#0052CC] text-[32px]">description</span>
                   <p className="text-sm font-medium text-[#191c1e]">{credFile.name}</p>
                   <p className="text-xs text-[#A1A1AA]">{(credFile.size / 1024).toFixed(0)} KB</p>
-                  <button onClick={() => setCredFile(null)} className="text-xs text-red-500 hover:underline">Remove</button>
+                  <button onClick={() => setCredFile(null)} className="text-xs text-red-500 hover:underline">{t('profileSettings.remove')}</button>
                 </div>
               ) : (
                 <div className="space-y-2">
                   <span className="material-symbols-outlined text-[#A1A1AA] text-[32px]">upload_file</span>
-                  <p className="text-sm text-[#52525B]">Drop a file or click to browse</p>
-                  <p className="text-xs text-[#A1A1AA]">PDF, JPG, PNG · max 10 MB</p>
+                  <p className="text-sm text-[#52525B]">{t('profileSettings.dropFile')}</p>
+                  <p className="text-xs text-[#A1A1AA]">{t('profileSettings.fileHint')}</p>
                   <button
                     onClick={() => credInputRef.current?.click()}
                     className="text-xs font-semibold text-[#0052CC] hover:underline"
                   >
-                    Browse files
+                    {t('profileSettings.browseFiles')}
                   </button>
                 </div>
               )}
@@ -1057,27 +1060,27 @@ export default function ProfilePage() {
 
             <div className="flex gap-3 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setCredentialsOpen(false)}>
-                Cancel
+                {t('profileSettings.cancel')}
               </Button>
               <Button
                 className="flex-1 bg-[#0052CC] hover:bg-[var(--accent-primary)]"
                 disabled={!credFile || uploading}
                 onClick={handleCredentialUpload}
               >
-                {uploading ? 'Uploading…' : 'Upload'}
+                {uploading ? t('profileSettings.uploading') : t('profileSettings.upload')}
               </Button>
             </div>
 
             {/* Past uploads with real verification status */}
             {credUploads.length > 0 && (
               <div className="border-t border-[#E4E4E7] pt-4 space-y-2">
-                <p className="text-xs font-bold text-[#52525B] uppercase tracking-wide">Previous Uploads</p>
+                <p className="text-xs font-bold text-[#52525B] uppercase tracking-wide">{t('profileSettings.previousUploads')}</p>
                 {credUploads.map(u => {
                   const statusConfig: Record<string, { label: string; cls: string }> = {
-                    pending:      { label: 'Pending',      cls: 'bg-amber-50 text-amber-700' },
-                    under_review: { label: 'Under Review', cls: 'bg-blue-50 text-blue-700' },
-                    approved:     { label: 'Approved',     cls: 'bg-emerald-50 text-emerald-700' },
-                    rejected:     { label: 'Rejected',     cls: 'bg-red-50 text-red-600' },
+                    pending:      { label: t('profileSettings.cred.pending'),     cls: 'bg-amber-50 text-amber-700' },
+                    under_review: { label: t('profileSettings.cred.underReview'), cls: 'bg-blue-50 text-blue-700' },
+                    approved:     { label: t('profileSettings.cred.approved'),    cls: 'bg-emerald-50 text-emerald-700' },
+                    rejected:     { label: t('profileSettings.cred.rejected'),    cls: 'bg-red-50 text-red-600' },
                   }
                   const sc = statusConfig[u.status] ?? statusConfig.pending
                   return (

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronRight, Search } from 'lucide-react'
 import { NotificationBell } from '@/components/notification/NotificationBell'
+import { useTranslations } from '@/i18n/useTranslations'
 import { cn, getInitials } from '@/lib/utils'
 import type { Profile } from '@/types/database'
 
@@ -14,33 +15,33 @@ interface HeaderProps {
   onSearchClick?: () => void
 }
 
-function useBreadcrumbs(pathname: string) {
+function useBreadcrumbs(pathname: string, t: (key: string, fallback?: string) => string) {
   const segments = pathname.split('/').filter(Boolean)
   const crumbs: { label: string; href: string }[] = []
 
   const labelMap: Record<string, string> = {
-    dashboard:     'Dashboard',
-    projects:      'Projects',
-    reviews:       'Reviews',
-    notifications: 'Notifications',
-    analysis:      'Analysis',
-    documents:     'Documents',
-    new:           'New',
-    settings:      'Settings',
-    data:          'Data',
-    timeline:      'Timeline',
-    output:        'Report',
-    overview:      'Overview',
-    report:        'Report',
-    ethics:        'Ethics',
-    team:          'Team',
-    audit:         'Audit',
+    dashboard:     t('nav.dashboard',     'Dashboard'),
+    projects:      t('nav.projects',      'Projects'),
+    reviews:       t('nav.reviews',       'Reviews'),
+    notifications: t('nav.notifications', 'Notifications'),
+    analysis:      t('nav.analysis',      'Analysis'),
+    documents:     t('nav.documents',     'Documents'),
+    new:           t('nav.new',           'New'),
+    settings:      t('nav.settings',      'Settings'),
+    data:          t('nav.data',          'Data'),
+    timeline:      t('nav.timeline',      'Timeline'),
+    output:        t('nav.report',        'Report'),
+    overview:      t('nav.overview',      'Overview'),
+    report:        t('nav.report',        'Report'),
+    ethics:        t('nav.ethics',        'Ethics'),
+    team:          t('nav.team',          'Team'),
+    audit:         t('nav.audit',         'Audit'),
   }
 
   segments.forEach((seg, i) => {
     const href = '/' + segments.slice(0, i + 1).join('/')
     const isId = /^[0-9a-f-]{36}$/.test(seg) || /^[0-9a-f]{20,}$/.test(seg)
-    if (isId) return // skip UUIDs — they add noise without meaning
+    if (isId) return
     const label = labelMap[seg] ?? seg.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
     crumbs.push({ label, href })
   })
@@ -50,17 +51,16 @@ function useBreadcrumbs(pathname: string) {
 
 export function Header({ profile, title, onSearchClick }: HeaderProps) {
   const pathname    = usePathname()
-  const breadcrumbs = useBreadcrumbs(pathname)
+  const { t }       = useTranslations()
+  const breadcrumbs = useBreadcrumbs(pathname, t)
   const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
-    // Query inside the effect so we always get the current DOM element
     const el = document.querySelector<HTMLElement>('main')
     if (!el) return
     const handler = () => setScrolled(el.scrollTop > 4)
     el.addEventListener('scroll', handler, { passive: true })
     return () => el.removeEventListener('scroll', handler)
-  // Re-attach if the pathname changes (Next.js may swap the <main> element)
   }, [pathname])
 
   return (
@@ -104,14 +104,14 @@ export function Header({ profile, title, onSearchClick }: HeaderProps) {
           className="hidden md:flex items-center gap-2 bg-[var(--bg-inset)] border border-[var(--border-row)] rounded-lg px-3.5 py-2 text-xs w-56 text-[var(--text-tertiary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-text"
         >
           <Search className="h-3.5 w-3.5 flex-shrink-0" />
-          <span className="flex-1 text-left">Search…</span>
+          <span className="flex-1 text-left">{t('header.searchPlaceholder', 'Search…')}</span>
           <kbd className="text-[10px] font-mono bg-[var(--bg-surface)] border border-[var(--border-default)] rounded px-1.5 py-0.5 text-[var(--text-tertiary)]">⌘K</kbd>
         </button>
 
         {/* Mobile search icon — 48 × 48 tap target */}
         <button
           onClick={onSearchClick}
-          aria-label="Search"
+          aria-label={t('common.search', 'Search')}
           className="md:hidden flex items-center justify-center h-12 w-12 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] transition-colors"
         >
           <Search className="h-5 w-5" />

@@ -2,6 +2,7 @@
 
 import { ANALYSIS_REGISTRY, ANALYSIS_CATEGORIES } from '@/lib/decision-engine/analysisRegistry'
 import type { AnalysisTypeId, AnalysisCategory } from '@/lib/decision-engine/types'
+import { useLocale } from '@/i18n/LocaleProvider'
 
 const MOST_COMMON: AnalysisTypeId[] = ['logistic_regression', 'kaplan_meier']
 
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export function AnalysisTypeGrid({ selectedType, onSelect }: Props) {
+  const { t } = useLocale()
   // Group types by category
   const byCategory: Record<AnalysisCategory, AnalysisTypeId[]> = {
     descriptive: [],
@@ -32,7 +34,7 @@ export function AnalysisTypeGrid({ selectedType, onSelect }: Props) {
             className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-2"
             style={{ color: 'var(--text-tertiary)' }}
           >
-            {cat.label}
+            {t(`analysisGrid.cat.${cat.id}`)}
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {byCategory[cat.id].map(typeId => {
@@ -71,7 +73,7 @@ export function AnalysisTypeGrid({ selectedType, onSelect }: Props) {
                         border: '1px solid var(--border-status-info)',
                       }}
                     >
-                      popular
+                      {t('analysisGrid.popular')}
                     </span>
                   )}
                   <span className="text-lg block mb-1">{meta.icon}</span>

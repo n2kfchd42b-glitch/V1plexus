@@ -5,11 +5,13 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { BrandLogo } from '@/components/layout/BrandLogo'
 import { createClient } from '@/lib/supabase/client'
+import { useTranslations } from '@/i18n/useTranslations'
 
 function ConfirmationPrompt({ email, redirect, emailRedirectTo }: { email: string; redirect: string; emailRedirectTo: string }) {
   const [resending, setResending] = useState(false)
   const [resent, setResent] = useState(false)
   const supabase = createClient()
+  const { t } = useTranslations()
 
   const handleResend = async () => {
     setResending(true)
@@ -21,16 +23,16 @@ function ConfirmationPrompt({ email, redirect, emailRedirectTo }: { email: strin
   return (
     <div className="text-center py-4">
       <div className="mb-4 text-4xl">📧</div>
-      <h2 className="text-lg font-bold text-slate-900 mb-2">Check your email</h2>
+      <h2 className="text-lg font-bold text-slate-900 mb-2">{t('auth.checkEmail', 'Check your email')}</h2>
       <p className="text-slate-500 text-sm mb-1">
-        We sent a confirmation link to <strong>{email}</strong>.
+        {t('auth.confirmationSentTo', 'We sent a confirmation link to')} <strong>{email}</strong>.
       </p>
       <p className="text-slate-500 text-sm mb-6">
-        Click the link to confirm your account
-        {redirect !== '/dashboard' ? ' and complete your invitation.' : '.'}
+        {t('auth.clickToConfirm', 'Click the link to confirm your account')}
+        {redirect !== '/dashboard' ? ` ${t('auth.andCompleteInvitation', 'and complete your invitation.')}` : '.'}
       </p>
       {resent ? (
-        <p className="text-sm text-green-600">Link resent — check your inbox again.</p>
+        <p className="text-sm text-green-600">{t('auth.linkResent', 'Link resent — check your inbox again.')}</p>
       ) : (
         <button
           type="button"
@@ -38,7 +40,7 @@ function ConfirmationPrompt({ email, redirect, emailRedirectTo }: { email: strin
           disabled={resending}
           className="text-sm text-clinical-blue hover:underline disabled:opacity-50"
         >
-          {resending ? 'Resending…' : "Didn't receive it? Resend"}
+          {resending ? t('auth.resending', 'Resending…') : t('auth.didntReceive', "Didn't receive it? Resend")}
         </button>
       )}
     </div>
@@ -56,6 +58,7 @@ function RegisterForm() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const { t } = useTranslations()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -73,7 +76,7 @@ function RegisterForm() {
     const json = await res.json() as { userId?: string; error?: string }
 
     if (!res.ok) {
-      setError(json.error ?? 'Registration failed. Please try again.')
+      setError(json.error ?? t('auth.registrationFailed', 'Registration failed. Please try again.'))
       setLoading(false)
       return
     }
@@ -81,8 +84,6 @@ function RegisterForm() {
     setConfirming(true)
     setLoading(false)
 
-    // If Supabase auto-confirmed the session (e.g. email confirmations disabled),
-    // redirect immediately. This path is uncommon in production.
     if (res.status === 200) {
       router.push(redirect)
       router.refresh()
@@ -102,7 +103,7 @@ function RegisterForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">Full name</label>
+        <label className="block text-sm font-medium text-slate-700 mb-1">{t('auth.fullName', 'Full name')}</label>
         <input
           type="text"
           required
@@ -113,7 +114,7 @@ function RegisterForm() {
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+        <label className="block text-sm font-medium text-slate-700 mb-1">{t('auth.email', 'Email')}</label>
         <input
           type="email"
           required
@@ -124,7 +125,7 @@ function RegisterForm() {
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+        <label className="block text-sm font-medium text-slate-700 mb-1">{t('auth.password', 'Password')}</label>
         <input
           type="password"
           required
@@ -132,7 +133,7 @@ function RegisterForm() {
           value={password}
           onChange={e => setPassword(e.target.value)}
           className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-clinical-blue"
-          placeholder="Min 6 characters"
+          placeholder={t('auth.minChars', 'Min 6 characters')}
         />
       </div>
 
@@ -147,15 +148,15 @@ function RegisterForm() {
           className="mt-0.5 h-4 w-4 rounded border-slate-300 text-clinical-blue focus:ring-clinical-blue flex-shrink-0 cursor-pointer"
         />
         <label htmlFor="consent" className="text-xs text-slate-500 leading-relaxed cursor-pointer">
-          I have read and agree to the{' '}
+          {t('auth.termsPrefix', 'I have read and agree to the')}{' '}
           <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-clinical-blue hover:underline font-medium">
-            Terms of Service
+            {t('auth.termsOfService', 'Terms of Service')}
           </a>{' '}
-          and{' '}
+          {t('auth.and', 'and')}{' '}
           <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-clinical-blue hover:underline font-medium">
-            Privacy Policy
+            {t('auth.privacyPolicy', 'Privacy Policy')}
           </a>
-          . I consent to PLEXUS processing my personal data as described therein, in accordance with the GDPR.
+          {t('auth.gdprSuffix', '. I consent to PLEXUS processing my personal data as described therein, in accordance with the GDPR.')}
         </label>
       </div>
 
@@ -168,16 +169,16 @@ function RegisterForm() {
         disabled={loading || !consentAccepted}
         className="w-full bg-gradient-to-r from-clinical-deep to-clinical-blue text-white rounded-lg py-2.5 text-sm font-bold hover:opacity-90 disabled:opacity-50 transition-all shadow-[0_4px_20px_rgba(0,82,204,0.22)]"
       >
-        {loading ? 'Creating account…' : 'Create account'}
+        {loading ? t('auth.creatingAccount', 'Creating account…') : t('auth.createAccountBtn', 'Create account')}
       </button>
 
       <p className="text-center text-sm text-slate-500">
-        Already have an account?{' '}
+        {t('auth.alreadyAccount', 'Already have an account?')}{' '}
         <Link
           href={redirect !== '/dashboard' ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'}
           className="text-clinical-blue hover:underline font-medium"
         >
-          Sign in
+          {t('auth.signIn', 'Sign in')}
         </Link>
       </p>
     </form>
@@ -185,17 +186,17 @@ function RegisterForm() {
 }
 
 export default function RegisterPage() {
+  const { t } = useTranslations()
+
   return (
     <>
-      {/* Logo — visible on mobile only */}
       <div className="flex justify-center mb-6 lg:hidden">
         <BrandLogo variant="standalone" href="/" />
       </div>
 
-      {/* Heading — always visible */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Create your account</h1>
-        <p className="text-slate-500 text-sm mt-1">Join researchers publishing with verifiable integrity</p>
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('auth.createAccount', 'Create your account')}</h1>
+        <p className="text-slate-500 text-sm mt-1">{t('auth.joinResearchers', 'Join researchers publishing with verifiable integrity')}</p>
       </div>
 
       <Suspense fallback={<div className="h-64 rounded-xl bg-slate-100 animate-pulse" />}>
