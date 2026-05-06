@@ -39,7 +39,6 @@
   "common.optional": "(facultatif)",
   "common.goToDashboard": "Aller au tableau de bord",
   "common.role": "Rôle :",
-
   "nav.dashboard": "Tableau de bord",
   "nav.projects": "Projets",
   "nav.reviews": "Révisions",
@@ -70,11 +69,8 @@
   "nav.signOut": "Se déconnecter",
   "nav.collapse": "Réduire",
   "nav.expand": "Développer",
-
   "header.searchPlaceholder": "Rechercher…",
-
   "workspace.subtitle": "Laboratoire de recherche",
-
   "auth.welcomeBack": "Bienvenue",
   "auth.signInToAccount": "Connectez-vous à votre compte PLEXUS",
   "auth.email": "E-mail",
@@ -129,7 +125,6 @@
   "auth.requestNewLink": "demandez un nouveau lien",
   "auth.passwordsDontMatch": "Les mots de passe ne correspondent pas.",
   "auth.passwordTooShort": "Le mot de passe doit contenir au moins 6 caractères.",
-
   "setup.title": "Configurer votre espace de travail",
   "setup.subtitle": "Cet espace de recherche vous appartient entièrement.",
   "setup.location": "Localisation",
@@ -150,7 +145,6 @@
   "setup.setupBtn": "Configurer mon espace de travail →",
   "setup.workspaceCreated": "Espace de travail créé !",
   "setup.workspaceFailed": "Échec de la création de l'espace de travail",
-
   "invite.notFound": "Invitation introuvable",
   "invite.notFoundMessage": "Invitation introuvable ou expirée.",
   "invite.expired": "Invitation expirée",
@@ -163,7 +157,6 @@
   "invite.accepting": "Acceptation…",
   "invite.joinedWorkspace": "Vous avez rejoint l'espace de travail !",
   "invite.joinedProject": "Vous avez rejoint le projet !",
-
   "project.create": "Créer un projet",
   "project.phase.concept": "Concept",
   "project.phase.protocol": "Protocole",
@@ -172,17 +165,14 @@
   "project.phase.analysis": "Analyse",
   "project.phase.writing": "Rédaction",
   "project.phase.publication": "Publication",
-
   "ethics.status.approved": "Approuvé",
   "ethics.status.expired": "Expiré",
   "ethics.status.pending": "En attente",
   "ethics.status.rejected": "Rejeté",
-
   "analysis.run": "Lancer l'analyse",
   "analysis.results": "Résultats d'analyse",
   "analysis.variables": "Variables",
   "analysis.configure": "Configurer l'analyse",
-
   "network.title": "Réseau de recherche",
   "network.subtitle": "Découvrez et partagez des données de recherche entre institutions",
   "network.searchPlaceholder": "Rechercher des jeux de données, sujets, maladies...",
@@ -210,7 +200,6 @@
   "network.accessRequest.intendedUse": "Usage prévu",
   "network.accessRequest.agreement": "J'accepte l'accord de partage de données",
   "network.accessRequest.submit": "Soumettre la demande",
-
   "compliance.title": "Moteur de conformité",
   "compliance.subtitle": "Configurez des profils de conformité réglementaire et exécutez des vérifications automatisées",
   "compliance.profiles": "Profils de conformité",
@@ -235,7 +224,6 @@
   "compliance.check.pass": "Réussi",
   "compliance.check.fail": "Échec",
   "compliance.check.warning": "Avertissement",
-
   "consent.title": "Consentement numérique",
   "consent.subtitle": "Créez, déployez et gérez des formulaires de consentement éclairé",
   "consent.newForm": "Nouveau formulaire",
@@ -260,9 +248,8 @@
   "consent.withdrawal.dataAnonymized": "Données anonymisées",
   "consent.withdrawal.dataDeleted": "Données supprimées",
   "consent.withdrawal.dataRetained": "Données conservées avec justification",
-
   "dmp.title": "Plans de gestion des données",
-  "dmp.subtitle": "Générez des plans de gestion des données spécifiques aux bailleurs de fonds à partir de vos données de projet",
+  "dmp.subtitle": "Générez des plans de gestion de données spécifiques aux bailleurs à partir des données de votre projet",
   "dmp.generate": "Générer un PGD",
   "dmp.funder.nih": "Plan de gestion et de partage des données NIH",
   "dmp.funder.wellcome": "Plan de gestion des données Wellcome Trust",
@@ -277,7 +264,6 @@
   "dmp.section.sharing": "Plan de partage",
   "dmp.section.ethics": "Éthique",
   "dmp.exportPDF": "Exporter en PDF",
-
   "settings.language": "Langue",
   "settings.languageDescription": "Choisissez votre langue préférée pour l'interface",
   "settings.languages.en": "English",
@@ -286,10 +272,8 @@
   "settings.profile": "Profil",
   "settings.notifications": "Notifications",
   "settings.security": "Sécurité",
-
   "nav.thisProject": "Ce projet",
   "nav.commandPalette": "Palette de commandes",
-
   "projects.banner.eyebrow": "Infrastructure mondiale de recherche en santé",
   "projects.banner.title": "Projets de recherche",
   "projects.banner.subtitle": "Concevez des études, gérez des jeux de données et exécutez des analyses statistiques — sur une plateforme auditée.",
@@ -326,12 +310,10 @@
   "projects.datasetPlural": "jeux de données",
   "projects.analysisSingular": "analyse",
   "projects.analysisPlural": "analyses",
-
   "project.status.completed": "Terminé",
   "project.status.on_hold": "En attente",
   "project.status.archived": "Archivé",
   "project.phase.ethics_review": "Examen éthique",
-
   "days.sun": "Dim",
   "days.mon": "Lun",
   "days.tue": "Mar",
@@ -339,7 +321,6 @@
   "days.thu": "Jeu",
   "days.fri": "Ven",
   "days.sat": "Sam",
-
   "overview.sectionTimeline": "Chronologie de la recherche",
   "overview.sectionGlance": "En un coup d'œil",
   "overview.activityThisWeek": "Activité cette semaine",
@@ -352,7 +333,6 @@
   "overview.phaseRemaining": "phase restante",
   "overview.phasesRemaining": "phases restantes",
   "overview.starts": "Début",
-
   "data.datasets": "Jeux de données",
   "data.import": "Importer",
   "data.collapsePanel": "Réduire le panneau",
@@ -377,13 +357,10 @@
   "data.toastUnarchived": "Jeu de données désarchivé",
   "data.toastAuditFailed": "Échec de l'entrée d'audit — nouvelle tentative en arrière-plan",
   "data.cached": "en cache",
-
   "timeline.title": "Chronologie",
   "timeline.subtitle": "Enregistrement infalsifiable de chaque action dans ce projet.",
-
   "documents.noDocuments": "Aucun document",
   "documents.createFirst": "Créez votre premier document en utilisant le panneau de gauche",
-
   "projectSettings.title": "Paramètres du projet",
   "projectSettings.subtitle": "Gérez les métadonnées et le cycle de vie de ce projet.",
   "projectSettings.general": "Général",
@@ -422,7 +399,6 @@
   "projectSettings.toastRevoked": "Lien de partage révoqué",
   "projectSettings.toastDeleteFailed": "Échec de la suppression du projet",
   "projectSettings.toastDeleted": "Projet supprimé",
-
   "gantt.myDeliverables": "Mes livrables",
   "gantt.today": "AUJOURD'HUI",
   "gantt.addDates": "Ajouter des dates",
@@ -450,19 +426,15 @@
   "gantt.zoom.week": "Semaine",
   "gantt.zoom.month": "Mois",
   "gantt.networkError": "Erreur réseau — vérifiez votre connexion",
-
   "notifications.inbox": "Boîte de réception",
   "notifications.subtitle": "Vos notifications et activité",
   "notifications.signIn": "Connectez-vous pour voir les notifications",
-
   "reviews.selectReview": "Sélectionner une évaluation",
   "reviews.selectReviewDesc": "Choisissez une évaluation dans la file d'attente pour commencer",
-
   "role.researcher": "Chercheur",
   "role.pi": "Chercheur principal",
   "role.coordinator": "Coordinateur",
   "role.admin": "Administrateur",
-
   "profileSettings.navHeader": "Navigation",
   "profileSettings.navOverview": "Aperçu du profil",
   "profileSettings.navEdit": "Modifier le profil",
@@ -470,7 +442,6 @@
   "profileSettings.navDanger": "Zone dangereuse",
   "profileSettings.manageCredentials": "Gérer les justificatifs",
   "profileSettings.support": "Assistance",
-
   "profileSettings.editProfileBtn": "Modifier le profil",
   "profileSettings.metricProjects": "Projets totaux",
   "profileSettings.metricReviews": "Évaluations en attente",
@@ -492,7 +463,6 @@
   "profileSettings.activeThisDevice": "Actif — cet appareil",
   "profileSettings.manageSecurityLink": "Gérer la sécurité →",
   "profileSettings.contact": "Contact",
-
   "profileSettings.editTitle": "Modifier le profil",
   "profileSettings.editSubtitle": "Apparence sur PLEXUS Research.",
   "profileSettings.uploadPhoto": "Télécharger une photo",
@@ -524,7 +494,6 @@
   "profileSettings.saving": "Enregistrement…",
   "profileSettings.interfaceLanguage": "Langue de l'interface",
   "profileSettings.interfaceLanguageDesc": "S'applique à la navigation, aux libellés et aux messages de statut.",
-
   "profileSettings.securityTitle": "Sécurité",
   "profileSettings.securitySubtitle": "Gérez votre mot de passe et l'accès à votre compte.",
   "profileSettings.changePasswordTitle": "Modifier le mot de passe",
@@ -536,7 +505,6 @@
   "profileSettings.signedInAs": "Connecté en tant que",
   "profileSettings.lastSignInFull": "Dernière connexion :",
   "profileSettings.signOutAll": "Se déconnecter de tous les appareils",
-
   "profileSettings.dangerTitle": "Zone dangereuse",
   "profileSettings.dangerSubtitle": "Actions irréversibles. Procédez avec prudence.",
   "profileSettings.deleteAccountTitle": "Supprimer votre compte",
@@ -546,7 +514,6 @@
   "profileSettings.typeDeleteSuffix": "pour confirmer",
   "profileSettings.deleteAccountBtn": "Supprimer le compte",
   "profileSettings.processing": "Traitement…",
-
   "profileSettings.credTitle": "Gérer les justificatifs",
   "profileSettings.credDesc": "Télécharger des documents institutionnels pour vérification",
   "profileSettings.dropFile": "Déposez un fichier ou cliquez pour parcourir",
@@ -560,7 +527,6 @@
   "profileSettings.cred.underReview": "En cours d'examen",
   "profileSettings.cred.approved": "Approuvé",
   "profileSettings.cred.rejected": "Rejeté",
-
   "profileSettings.toastAvatarUpdated": "Photo de profil mise à jour",
   "profileSettings.toastAvatarTooLarge": "L'image doit être inférieure à 5 Mo",
   "profileSettings.toastProfileSaved": "Profil enregistré",
@@ -572,19 +538,14 @@
   "profileSettings.toastDeleteError": "Une erreur s'est produite. Veuillez réessayer.",
   "profileSettings.toastLocationFailed": "Impossible de détecter la position — saisissez-la manuellement",
   "profileSettings.toastLoadFailed": "Impossible de charger le profil — veuillez actualiser la page",
-
   "audit.title": "Mon activité",
   "audit.subtitle": "Chaque action effectuée dans vos projets — enregistrée cryptographiquement et infalsifiable.",
   "audit.loading": "Chargement...",
   "audit.loadFailed": "Impossible de charger la session utilisateur.",
-
   "exports.title": "Historique des exports",
   "exports.subtitle": "Les documents que vous exportez sont téléchargés directement sur votre appareil.",
   "exports.emptyTitle": "Aucun historique d'export",
   "exports.emptyDesc": "Exportez un document via le bouton Exporter dans l'éditeur. Les fichiers sont téléchargés directement sur votre appareil.",
-
-  "dmp.title": "Plans de gestion des données",
-  "dmp.subtitle": "Générez des plans de gestion de données spécifiques aux bailleurs à partir des données de votre projet",
   "dmp.comingSoon": "Générateur de PGD bientôt disponible.",
   "dmp.subtitle2": "Génération assistée par IA, pré-remplie à partir des données réelles de votre projet, dans le format exact requis par chaque bailleur.",
   "dmp.soon": "Bientôt",
@@ -599,7 +560,6 @@
   "dmp.feature.pdfDesc": "Exportez le PGD final en PDF dans le format requis par le bailleur, prêt à être téléchargé sur les portails de subventions.",
   "dmp.feature.livingLabel": "Plans évolutifs",
   "dmp.feature.livingDesc": "Mettez à jour les PGD à mesure que votre projet évolue — la collecte de données s'élargit, de nouveaux jeux de données sont ajoutés ou les plans de partage changent.",
-
   "approvals.title": "Approbations",
   "approvals.subtitle": "Versions de jeux de données en attente de votre examen",
   "approvals.allReviewed": "Tout examiné",
@@ -619,7 +579,6 @@
   "approvals.status.approved": "Approuvé",
   "approvals.status.rejected": "Refusé",
   "approvals.status.revisionsNeeded": "Révisions requises",
-
   "analysis.historyBtn": "Historique",
   "analysis.generateTable": "Générer un tableau",
   "analysis.historyTitle": "Historique",
@@ -689,7 +648,6 @@
   "analysis.toastDeleteFailed": "Échec de la suppression de l'analyse",
   "analysis.toastDeleted": "Analyse supprimée",
   "analysis.toastSaved": "Analyse enregistrée",
-
   "guidedFlow.title": "Analyse guidée",
   "guidedFlow.chooseDirect": "Choisir directement",
   "guidedFlow.researchQuestion": "Quelle est votre question de recherche ?",
@@ -698,13 +656,11 @@
   "guidedFlow.findApproach": "Trouver la meilleure approche statistique →",
   "guidedFlow.recommendation": "Recommandation PLEXUS",
   "guidedFlow.changeSelections": "← Modifier les sélections",
-
   "directFlow.title": "Choisir une analyse",
   "directFlow.guideMe": "Me guider",
   "directFlow.analysisType": "Type d'analyse",
   "directFlow.reportingNote": "les éléments de rapport seront auto-remplis dans les résultats.",
   "directFlow.runAnalysis": "Lancer l'analyse",
-
   "entryPoint.howToProceed": "Comment souhaitez-vous procéder ?",
   "entryPoint.bothPaths": "Choisissez votre approche — les deux mènent au même moteur d'analyse.",
   "entryPoint.guideTitle": "Me guider vers le bon test",
@@ -720,11 +676,9 @@
   "entryPoint.audienceExperienced": "Utilisateurs expérimentés",
   "entryPoint.selectAnalysis": "Sélectionner une analyse",
   "entryPoint.bothSameEngine": "Les deux chemins utilisent le même moteur d'analyse. Vous pouvez changer à tout moment.",
-
   "reasoningPrompt.question": "Pourquoi avez-vous effectué cette analyse ?",
   "reasoningPrompt.placeholder": "Ex. : Tester si les différences de groupe persistent après contrôle de l'âge et du sexe…",
   "reasoningPrompt.saving": "Enregistrement…",
-
   "assumptionBar.stable": "Hypothèses robustes",
   "assumptionBar.needsReview": "Révision recommandée",
   "assumptionBar.highRisk": "Hypothèses à risque",
@@ -734,7 +688,6 @@
   "assumptionBar.issue": "problème",
   "assumptionBar.issues": "problèmes",
   "assumptionBar.detected": "détecté(s) — cliquez pour examiner",
-
   "assumptionModal.title": "Rapport d'hypothèses",
   "assumptionModal.tab.issues": "Problèmes",
   "assumptionModal.tab.sensitivity": "Sensibilité",
@@ -774,7 +727,6 @@
   "assumptionModal.exposure": "Exposition : ",
   "assumptionModal.question": "Q : ",
   "assumptionModal.allPassed": "Tous les contrôles d'hypothèses réussis — résultats complets ci-dessous.",
-
   "hubTable.step.template": "Modèle",
   "hubTable.step.selectRun": "Sélect. analyse",
   "hubTable.step.configure": "Configurer",
@@ -961,5 +913,68 @@
   "sens.interp.corrStrong": "Corrélation modérée à forte préservée malgré l'erreur de mesure",
   "sens.interp.misclassNegligible": "Association négligeable sous ce niveau de mauvaise classification",
   "sens.interp.misclassSubstantial": "Atténuation substantielle — la mauvaise classification réduit significativement l'association",
-  "sens.interp.misclassPreserved": "Association largement préservée malgré la mauvaise classification"
+  "sens.interp.misclassPreserved": "Association largement préservée malgré la mauvaise classification",
+  "landing.nav.login": "Connexion",
+  "landing.nav.signUp": "S’inscrire",
+  "landing.hero.badge": "Conçu pour les étudiants, doctorants et jeunes chercheurs",
+  "landing.hero.line1": "Des données au",
+  "landing.hero.line2": "manuscrit —",
+  "landing.hero.line3": "sans le chaos.",
+  "landing.hero.sub": "Effectuez vos analyses, générez vos résultats et exportez votre recherche — chaque étape automatiquement documentée.",
+  "landing.hero.cta.getStarted": "Commencer gratuitement",
+  "landing.hero.cta.seeHow": "Voir comment ça marche",
+  "landing.hero.globeCaption": "Conçu pour les chercheurs du monde entier — où que votre domaine vous mène →",
+  "landing.bento.hub.label": "Votre centre de recherche",
+  "landing.bento.hub.title": "Tout en un coup d’œil",
+  "landing.bento.hub.desc": "Visualisez tous vos projets, données et résultats sans changer d’outil.",
+  "landing.bento.trail.label": "Votre piste de recherche",
+  "landing.bento.trail.title": "Chaque étape, automatiquement enregistrée",
+  "landing.bento.trail.desc": "De l’importation des données aux résultats finaux, tout est tracé — vous pouvez toujours montrer comment votre travail a été réalisé.",
+  "landing.bento.analysis.label": "Analyse intégrée",
+  "landing.bento.analysis.title": "La bonne analyse, à chaque fois",
+  "landing.bento.analysis.desc": "Régression, analyse de survie et plus encore — sans configuration complexe.",
+  "landing.bento.supervisor.title": "Flux de travail superviseur intégrés.",
+  "landing.bento.supervisor.item1": "Votre superviseur examine et approuve votre travail avant que vous puissiez avancer",
+  "landing.bento.supervisor.item2": "Accès basé sur les rôles pour les étudiants, superviseurs et départements",
+  "landing.bento.supervisor.item3": "Chaque approbation est sauvegardée — votre processus est toujours traçable",
+  "landing.roles.heading": "Conçu pour chaque rôle.",
+  "landing.roles.desc": "Que vous débutiez ou dirigiez une équipe, Plexus s’adapte à votre façon de travailler.",
+  "landing.roles.students.label": "Étudiants",
+  "landing.roles.students.desc": "Concevez votre étude, collectez des données et effectuez des analyses — guidé pas à pas.",
+  "landing.roles.supervisors.label": "Superviseurs",
+  "landing.roles.supervisors.desc": "Examinez le travail de vos étudiants, donnez des retours et approuvez les résultats — tout en un seul endroit.",
+  "landing.roles.departments.label": "Départements",
+  "landing.roles.departments.desc": "Voyez ce sur quoi chaque équipe travaille et maintenez la recherche sur la bonne voie.",
+  "landing.roles.institutions.label": "Institutions",
+  "landing.roles.institutions.desc": "Une plateforme unique pour toute votre recherche — sécurisée, organisée et toujours prête pour l’audit.",
+  "landing.howItWorks.badge": "Comment ça marche",
+  "landing.howItWorks.heading": "Des données au papier, en trois étapes.",
+  "landing.howItWorks.desc": "Pas de suivi manuel. Pas de flux de travail compliqués. Tout est capturé automatiquement.",
+  "landing.howItWorks.step1.title": "Importez vos données",
+  "landing.howItWorks.step1.desc": "Téléchargez depuis vos outils ou tableurs — nous gérons le reste.",
+  "landing.howItWorks.step2.title": "Lancez votre analyse",
+  "landing.howItWorks.step2.desc": "Choisissez ce que vous souhaitez découvrir — nous suggérons la bonne approche et l’exécutons pour vous.",
+  "landing.howItWorks.step3.title": "Exportez vos résultats",
+  "landing.howItWorks.step3.desc": "Téléchargez les tableaux, les méthodes et l’intégralité de votre dossier — prêt pour la soumission ou la soutenance.",
+  "landing.howItWorks.cta": "En savoir plus",
+  "landing.cta.heading": "Transformez vos données en résultats.",
+  "landing.cta.desc": "Conçu pour les étudiants, chercheurs et équipes qui ont besoin de clarté, de rapidité et de confiance.",
+  "landing.cta.getStarted": "Commencer gratuitement",
+  "landing.cta.contact": "Contacter notre équipe institutionnelle",
+  "landing.footer.copyright": "© 2026 PLEXUS Research. Tous droits réservés. La recherche simplifiée, partout.",
+  "landing.footer.privacy": "Politique de confidentialité",
+  "landing.footer.terms": "Conditions d’utilisation",
+  "landing.footer.contact": "Contacter le support",
+  "authPanel.badge": "Conçu pour les chercheurs, partout dans le monde",
+  "authPanel.headlinePart1": "Des données au",
+  "authPanel.headlinePart2": "manuscrit —",
+  "authPanel.highlight": "sans le chaos.",
+  "authPanel.desc": "Effectuez vos analyses, rédigez vos résultats et exportez tout — en un seul endroit.",
+  "authPanel.feature1.title": "Chaque étape, automatiquement sauvegardée",
+  "authPanel.feature1.desc": "De l’importation des données aux résultats finaux, rien n’est perdu ou oublié.",
+  "authPanel.feature2.title": "La bonne analyse",
+  "authPanel.feature2.desc": "Nous vous guidons vers la bonne méthode et l’exécutons — aucun diplôme en statistiques requis.",
+  "authPanel.feature3.title": "Travaillez avec votre superviseur",
+  "authPanel.feature3.desc": "Partagez des résultats, recevez des retours et avancez — ensemble, en un seul endroit.",
+  "authPanel.learnMore": "En savoir plus sur PLEXUS →"
 }

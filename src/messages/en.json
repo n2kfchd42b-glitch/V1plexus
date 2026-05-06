@@ -39,7 +39,6 @@
   "common.optional": "(optional)",
   "common.goToDashboard": "Go to Dashboard",
   "common.role": "Role:",
-
   "nav.dashboard": "Dashboard",
   "nav.projects": "Projects",
   "nav.reviews": "Reviews",
@@ -70,11 +69,8 @@
   "nav.signOut": "Sign out",
   "nav.collapse": "Collapse",
   "nav.expand": "Expand",
-
   "header.searchPlaceholder": "Search…",
-
   "workspace.subtitle": "Research Lab",
-
   "auth.welcomeBack": "Welcome back",
   "auth.signInToAccount": "Sign in to your PLEXUS account",
   "auth.email": "Email",
@@ -129,7 +125,6 @@
   "auth.requestNewLink": "request a new link",
   "auth.passwordsDontMatch": "Passwords do not match.",
   "auth.passwordTooShort": "Password must be at least 6 characters.",
-
   "setup.title": "Set up your workspace",
   "setup.subtitle": "This is your private research space. You own everything here.",
   "setup.location": "Location",
@@ -150,7 +145,6 @@
   "setup.setupBtn": "Set Up My Workspace →",
   "setup.workspaceCreated": "Workspace created!",
   "setup.workspaceFailed": "Failed to create workspace",
-
   "invite.notFound": "Invitation Not Found",
   "invite.notFoundMessage": "Invitation not found or has expired.",
   "invite.expired": "Invitation Expired",
@@ -163,7 +157,6 @@
   "invite.accepting": "Accepting…",
   "invite.joinedWorkspace": "You joined the workspace!",
   "invite.joinedProject": "You joined the project!",
-
   "project.create": "Create Project",
   "project.phase.concept": "Concept",
   "project.phase.protocol": "Protocol",
@@ -172,17 +165,14 @@
   "project.phase.analysis": "Analysis",
   "project.phase.writing": "Writing",
   "project.phase.publication": "Publication",
-
   "ethics.status.approved": "Approved",
   "ethics.status.expired": "Expired",
   "ethics.status.pending": "Pending",
   "ethics.status.rejected": "Rejected",
-
   "analysis.run": "Run Analysis",
   "analysis.results": "Analysis Results",
   "analysis.variables": "Variables",
   "analysis.configure": "Configure Analysis",
-
   "network.title": "Research Network",
   "network.subtitle": "Discover and share research data across institutions",
   "network.searchPlaceholder": "Search datasets, topics, diseases...",
@@ -210,7 +200,6 @@
   "network.accessRequest.intendedUse": "Intended Use",
   "network.accessRequest.agreement": "I agree to the data sharing agreement",
   "network.accessRequest.submit": "Submit Request",
-
   "compliance.title": "Compliance Engine",
   "compliance.subtitle": "Configure regulatory compliance profiles and run automated checks",
   "compliance.profiles": "Compliance Profiles",
@@ -235,7 +224,6 @@
   "compliance.check.pass": "Pass",
   "compliance.check.fail": "Fail",
   "compliance.check.warning": "Warning",
-
   "consent.title": "Digital Consent",
   "consent.subtitle": "Build, deploy, and manage informed consent forms",
   "consent.newForm": "New Consent Form",
@@ -260,7 +248,6 @@
   "consent.withdrawal.dataAnonymized": "Data Anonymized",
   "consent.withdrawal.dataDeleted": "Data Deleted",
   "consent.withdrawal.dataRetained": "Data Retained with Justification",
-
   "dmp.title": "Data Management Plans",
   "dmp.subtitle": "Generate funder-specific data management plans from your project data",
   "dmp.generate": "Generate DMP",
@@ -277,7 +264,6 @@
   "dmp.section.sharing": "Sharing Plan",
   "dmp.section.ethics": "Ethics",
   "dmp.exportPDF": "Export as PDF",
-
   "settings.language": "Language",
   "settings.languageDescription": "Choose your preferred language for the interface",
   "settings.languages.en": "English",
@@ -286,10 +272,8 @@
   "settings.profile": "Profile",
   "settings.notifications": "Notifications",
   "settings.security": "Security",
-
   "nav.thisProject": "This Project",
   "nav.commandPalette": "Command Palette",
-
   "projects.banner.eyebrow": "Global Health Research Infrastructure",
   "projects.banner.title": "Research Projects",
   "projects.banner.subtitle": "Design studies, manage datasets, and run statistical analyses — all in one auditable platform.",
@@ -326,12 +310,10 @@
   "projects.datasetPlural": "datasets",
   "projects.analysisSingular": "analysis",
   "projects.analysisPlural": "analyses",
-
   "project.status.completed": "Completed",
   "project.status.on_hold": "On Hold",
   "project.status.archived": "Archived",
   "project.phase.ethics_review": "Ethics Review",
-
   "days.sun": "Sun",
   "days.mon": "Mon",
   "days.tue": "Tue",
@@ -339,7 +321,6 @@
   "days.thu": "Thu",
   "days.fri": "Fri",
   "days.sat": "Sat",
-
   "overview.sectionTimeline": "Research Timeline",
   "overview.sectionGlance": "At a Glance",
   "overview.activityThisWeek": "Activity This Week",
@@ -352,7 +333,6 @@
   "overview.phaseRemaining": "phase remaining",
   "overview.phasesRemaining": "phases remaining",
   "overview.starts": "Starts",
-
   "data.datasets": "Datasets",
   "data.import": "Import",
   "data.collapsePanel": "Collapse panel",
@@ -377,13 +357,10 @@
   "data.toastUnarchived": "Dataset unarchived",
   "data.toastAuditFailed": "Audit entry failed — retrying in background",
   "data.cached": "cached",
-
   "timeline.title": "Timeline",
   "timeline.subtitle": "Tamper-evident record of every action in this project.",
-
   "documents.noDocuments": "No documents yet",
   "documents.createFirst": "Create your first document using the panel on the left",
-
   "projectSettings.title": "Project Settings",
   "projectSettings.subtitle": "Manage metadata and lifecycle for this project.",
   "projectSettings.general": "General",
@@ -422,7 +399,6 @@
   "projectSettings.toastRevoked": "Share link revoked",
   "projectSettings.toastDeleteFailed": "Failed to delete project",
   "projectSettings.toastDeleted": "Project deleted",
-
   "gantt.myDeliverables": "My Deliverables",
   "gantt.today": "TODAY",
   "gantt.addDates": "Add dates",
@@ -450,19 +426,15 @@
   "gantt.zoom.week": "Week",
   "gantt.zoom.month": "Month",
   "gantt.networkError": "Network error — check your connection",
-
   "notifications.inbox": "Inbox",
   "notifications.subtitle": "Your notifications and activity",
   "notifications.signIn": "Sign in to view notifications",
-
   "reviews.selectReview": "Select a review",
   "reviews.selectReviewDesc": "Choose a review from the queue to get started",
-
   "role.researcher": "Researcher",
   "role.pi": "Principal Investigator",
   "role.coordinator": "Coordinator",
   "role.admin": "Administrator",
-
   "profileSettings.navHeader": "Navigation",
   "profileSettings.navOverview": "Profile Overview",
   "profileSettings.navEdit": "Edit Profile",
@@ -470,7 +442,6 @@
   "profileSettings.navDanger": "Danger Zone",
   "profileSettings.manageCredentials": "Manage Credentials",
   "profileSettings.support": "Support",
-
   "profileSettings.editProfileBtn": "Edit Profile",
   "profileSettings.metricProjects": "Total Projects",
   "profileSettings.metricReviews": "Pending Reviews",
@@ -492,7 +463,6 @@
   "profileSettings.activeThisDevice": "Active — this device",
   "profileSettings.manageSecurityLink": "Manage security →",
   "profileSettings.contact": "Contact",
-
   "profileSettings.editTitle": "Edit Profile",
   "profileSettings.editSubtitle": "How you appear on PLEXUS Research.",
   "profileSettings.uploadPhoto": "Upload photo",
@@ -524,7 +494,6 @@
   "profileSettings.saving": "Saving…",
   "profileSettings.interfaceLanguage": "Interface Language",
   "profileSettings.interfaceLanguageDesc": "Applies to navigation, labels, and status messages.",
-
   "profileSettings.securityTitle": "Security",
   "profileSettings.securitySubtitle": "Manage your password and account access.",
   "profileSettings.changePasswordTitle": "Change Password",
@@ -536,7 +505,6 @@
   "profileSettings.signedInAs": "Signed in as",
   "profileSettings.lastSignInFull": "Last sign-in:",
   "profileSettings.signOutAll": "Sign out of all devices",
-
   "profileSettings.dangerTitle": "Danger Zone",
   "profileSettings.dangerSubtitle": "Irreversible actions. Proceed with caution.",
   "profileSettings.deleteAccountTitle": "Delete your account",
@@ -546,7 +514,6 @@
   "profileSettings.typeDeleteSuffix": "to confirm",
   "profileSettings.deleteAccountBtn": "Delete Account",
   "profileSettings.processing": "Processing…",
-
   "profileSettings.credTitle": "Manage Credentials",
   "profileSettings.credDesc": "Upload institutional documents for verification",
   "profileSettings.dropFile": "Drop a file or click to browse",
@@ -560,7 +527,6 @@
   "profileSettings.cred.underReview": "Under Review",
   "profileSettings.cred.approved": "Approved",
   "profileSettings.cred.rejected": "Rejected",
-
   "profileSettings.toastAvatarUpdated": "Profile picture updated",
   "profileSettings.toastAvatarTooLarge": "Image must be under 5 MB",
   "profileSettings.toastProfileSaved": "Profile saved",
@@ -572,19 +538,14 @@
   "profileSettings.toastDeleteError": "Something went wrong. Please try again.",
   "profileSettings.toastLocationFailed": "Could not detect location — enter it manually",
   "profileSettings.toastLoadFailed": "Failed to load profile — please refresh the page",
-
   "audit.title": "My Activity",
   "audit.subtitle": "Every action you have performed across your projects — cryptographically recorded and tamper-evident.",
   "audit.loading": "Loading...",
   "audit.loadFailed": "Could not load user session.",
-
   "exports.title": "Export History",
   "exports.subtitle": "Documents you export download directly to your device.",
   "exports.emptyTitle": "No export history yet",
   "exports.emptyDesc": "Export any document using the Export button in the document editor. Files download directly to your device.",
-
-  "dmp.title": "Data Management Plans",
-  "dmp.subtitle": "Generate funder-specific data management plans from your project data",
   "dmp.comingSoon": "DMP generator coming soon.",
   "dmp.subtitle2": "AI-assisted DMP generation, pre-filled from your actual project data, in the exact format each funder requires.",
   "dmp.soon": "Soon",
@@ -599,7 +560,6 @@
   "dmp.feature.pdfDesc": "Export the final DMP as a PDF in the funder's required format, ready to upload to grant portals.",
   "dmp.feature.livingLabel": "Living Plans",
   "dmp.feature.livingDesc": "Update DMPs as your project evolves — data collection expands, new datasets are added, or sharing plans change.",
-
   "approvals.title": "Approvals",
   "approvals.subtitle": "Dataset versions awaiting your review",
   "approvals.allReviewed": "All reviewed",
@@ -619,12 +579,10 @@
   "approvals.status.approved": "Approved",
   "approvals.status.rejected": "Declined",
   "approvals.status.revisionsNeeded": "Revisions Needed",
-
   "analysis.historyBtn": "History",
   "analysis.generateTable": "Generate Table",
   "analysis.historyTitle": "History",
   "analysis.noAnalysesYet": "No analyses yet",
-
   "analysis.datasetLabel": "Dataset",
   "analysis.changeDataset": "Change",
   "analysis.noContext": "No research context set",
@@ -634,23 +592,19 @@
   "analysis.goToDataHub": "Go to Data Hub →",
   "analysis.clickToLoad": "Click a dataset to load it for analysis",
   "analysis.noVersion": "No version",
-
   "analysis.step.dataset": "Dataset",
   "analysis.step.mode": "Mode",
   "analysis.step.variables": "Variables",
   "analysis.step.result": "Result",
-
   "analysis.runAnalysis": "Run Analysis",
   "analysis.adjust": "Adjust",
   "analysis.newAnalysis": "New Analysis",
-
   "analysis.variablesLabel": "Variables",
   "analysis.chooseTypeHint": "Choose an analysis type on the right to configure variables.",
   "analysis.leaveUnchecked": "Leave all unchecked to describe every variable",
   "analysis.clearSelected": "Clear",
   "analysis.chooseQuestionHint": "Choose your research question on the right to configure variables.",
   "analysis.confidenceLevel": "Confidence Level",
-
   "analysis.varTimeVariable": "Time Variable",
   "analysis.varEventIndicator": "Event Indicator (1=event, 0=censored)",
   "analysis.varGroupOptional": "Group Variable (optional)",
@@ -666,7 +620,6 @@
   "analysis.varVariable1": "Variable 1",
   "analysis.varVariable2Exposure": "Variable 2 (Exposure)",
   "analysis.varVariable2": "Variable 2",
-
   "analysis.backBtn": "← Back",
   "analysis.analysisFailed": "Analysis failed",
   "analysis.noResults": "No results available.",
@@ -691,12 +644,10 @@
   "analysis.getStartedHint": "Pick a dataset on the left to get started.",
   "analysis.viewHistory": "View History",
   "analysis.noConfigAvailable": "No configuration available.",
-
   "analysis.toastLoadFailed": "Failed to load dataset",
   "analysis.toastDeleteFailed": "Failed to delete analysis",
   "analysis.toastDeleted": "Analysis deleted",
   "analysis.toastSaved": "Analysis saved",
-
   "guidedFlow.title": "Guided Analysis",
   "guidedFlow.chooseDirect": "Choose directly",
   "guidedFlow.researchQuestion": "What is your research question?",
@@ -705,13 +656,11 @@
   "guidedFlow.findApproach": "Find Best Statistical Approach →",
   "guidedFlow.recommendation": "PLEXUS Recommendation",
   "guidedFlow.changeSelections": "← Change selections",
-
   "directFlow.title": "Choose Analysis",
   "directFlow.guideMe": "Guide me instead",
   "directFlow.analysisType": "Analysis Type",
   "directFlow.reportingNote": "reporting items will be auto-populated in results.",
   "directFlow.runAnalysis": "Run Analysis",
-
   "entryPoint.howToProceed": "How would you like to proceed?",
   "entryPoint.bothPaths": "Choose your path — both lead to the same analysis engine.",
   "entryPoint.guideTitle": "Guide me to the right test",
@@ -727,11 +676,9 @@
   "entryPoint.audienceExperienced": "Experienced users",
   "entryPoint.selectAnalysis": "Select analysis",
   "entryPoint.bothSameEngine": "Both paths use the same analysis engine. You can switch at any time.",
-
   "reasoningPrompt.question": "Why did you run this analysis?",
   "reasoningPrompt.placeholder": "e.g. Testing whether group differences in outcome persist after controlling for age and sex…",
   "reasoningPrompt.saving": "Saving…",
-
   "assumptionBar.stable": "Assumptions robust",
   "assumptionBar.needsReview": "Review recommended",
   "assumptionBar.highRisk": "Assumptions at risk",
@@ -741,7 +688,6 @@
   "assumptionBar.issue": "issue",
   "assumptionBar.issues": "issues",
   "assumptionBar.detected": "detected — click to review",
-
   "assumptionModal.title": "Assumption Report",
   "assumptionModal.tab.issues": "Issues",
   "assumptionModal.tab.sensitivity": "Sensitivity",
@@ -781,7 +727,6 @@
   "assumptionModal.exposure": "Exposure: ",
   "assumptionModal.question": "Q: ",
   "assumptionModal.allPassed": "All assumption checks passed — full results below.",
-
   "hubTable.step.template": "Template",
   "hubTable.step.selectRun": "Select Run",
   "hubTable.step.configure": "Configure",
@@ -968,5 +913,68 @@
   "sens.interp.corrStrong": "Moderate-to-strong correlation preserved despite measurement error",
   "sens.interp.misclassNegligible": "Association negligible under this misclassification level",
   "sens.interp.misclassSubstantial": "Substantial attenuation — misclassification meaningfully reduces association",
-  "sens.interp.misclassPreserved": "Association largely preserved despite misclassification"
+  "sens.interp.misclassPreserved": "Association largely preserved despite misclassification",
+  "landing.nav.login": "Login",
+  "landing.nav.signUp": "Sign Up",
+  "landing.hero.badge": "Built for students, PhDs, and early-career researchers",
+  "landing.hero.line1": "From data to",
+  "landing.hero.line2": "manuscript —",
+  "landing.hero.line3": "without the chaos.",
+  "landing.hero.sub": "Run analysis, generate results, and export your research — with every step automatically documented.",
+  "landing.hero.cta.getStarted": "Get Started Free",
+  "landing.hero.cta.seeHow": "See How It Works",
+  "landing.hero.globeCaption": "Designed for researchers everywhere — wherever your field takes you →",
+  "landing.bento.hub.label": "Your research hub",
+  "landing.bento.hub.title": "Everything in one view",
+  "landing.bento.hub.desc": "See all your projects, data, and results without switching between tools.",
+  "landing.bento.trail.label": "Your research trail",
+  "landing.bento.trail.title": "Every step, automatically recorded",
+  "landing.bento.trail.desc": "From data import to final results, everything is tracked — so you can always show how your work was done.",
+  "landing.bento.analysis.label": "Built-in analysis",
+  "landing.bento.analysis.title": "Run the right analysis, every time",
+  "landing.bento.analysis.desc": "Regression, survival analysis, and more — without complicated setup.",
+  "landing.bento.supervisor.title": "Supervisor Workflows Built In.",
+  "landing.bento.supervisor.item1": "Your supervisor reviews and approves your work before you move forward",
+  "landing.bento.supervisor.item2": "Role-based access for students, supervisors, and departments",
+  "landing.bento.supervisor.item3": "Every approval is saved — so your process is always traceable",
+  "landing.roles.heading": "Built for every role.",
+  "landing.roles.desc": "Whether you’re just starting out or leading a team, Plexus fits how you work.",
+  "landing.roles.students.label": "Students",
+  "landing.roles.students.desc": "Design your study, collect data, and run analysis — all guided, step by step.",
+  "landing.roles.supervisors.label": "Supervisors",
+  "landing.roles.supervisors.desc": "Review your students’ work, give feedback, and approve results — all in one place.",
+  "landing.roles.departments.label": "Departments",
+  "landing.roles.departments.desc": "See what every team is working on and keep research on track.",
+  "landing.roles.institutions.label": "Institutions",
+  "landing.roles.institutions.desc": "A single platform for all your research — secure, organized, and always audit-ready.",
+  "landing.howItWorks.badge": "How it works",
+  "landing.howItWorks.heading": "From data to paper, in three steps.",
+  "landing.howItWorks.desc": "No manual tracking. No messy workflows. Everything is captured automatically.",
+  "landing.howItWorks.step1.title": "Import your data",
+  "landing.howItWorks.step1.desc": "Upload from your tools or spreadsheets — we handle the rest.",
+  "landing.howItWorks.step2.title": "Run your analysis",
+  "landing.howItWorks.step2.desc": "Choose what you want to discover — we suggest the right approach and run it for you.",
+  "landing.howItWorks.step3.title": "Export your results",
+  "landing.howItWorks.step3.desc": "Download tables, methods, and your full research record — ready for submission or defence.",
+  "landing.howItWorks.cta": "Explore More",
+  "landing.cta.heading": "Turn your data into results.",
+  "landing.cta.desc": "Built for students, researchers, and teams who need clarity, speed, and confidence.",
+  "landing.cta.getStarted": "Get Started for Free",
+  "landing.cta.contact": "Contact our Institutional Team",
+  "landing.footer.copyright": "© 2026 PLEXUS Research. All rights reserved. Research made simple, everywhere.",
+  "landing.footer.privacy": "Privacy Policy",
+  "landing.footer.terms": "Terms of Service",
+  "landing.footer.contact": "Contact Support",
+  "authPanel.badge": "Built for researchers, everywhere",
+  "authPanel.headlinePart1": "From data to",
+  "authPanel.headlinePart2": "manuscript —",
+  "authPanel.highlight": "without the chaos.",
+  "authPanel.desc": "Run analysis, write up your findings, and export everything — all in one place.",
+  "authPanel.feature1.title": "Every step, automatically saved",
+  "authPanel.feature1.desc": "From data import to final results, nothing gets lost or forgotten.",
+  "authPanel.feature2.title": "Run the right analysis",
+  "authPanel.feature2.desc": "We guide you to the right method and run it — no statistics degree required.",
+  "authPanel.feature3.title": "Work with your supervisor",
+  "authPanel.feature3.desc": "Share results, get feedback, and move forward — together, in one place.",
+  "authPanel.learnMore": "Learn more about PLEXUS →"
 }
