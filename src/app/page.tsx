@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { BrandLogo } from '@/components/layout/BrandLogo'
 import { LandingGlobeWrapper } from '@/components/landing/LandingGlobeWrapper'
+import { LanguageSelector } from '@/components/i18n/LanguageSelector'
 import { useLocale } from '@/i18n/LocaleProvider'
 
 export default function LandingPage() {
@@ -41,6 +42,7 @@ export default function LandingPage() {
           {/* Logo */}
           <BrandLogo variant="light" href="/" />
           <div className="flex items-center gap-4">
+            <LanguageSelector compact />
             <Link href="/login" className="text-slate-600 hover:text-blue-800 transition-colors px-4 py-2 text-sm font-medium">
               {t('landing.nav.login')}
             </Link>
