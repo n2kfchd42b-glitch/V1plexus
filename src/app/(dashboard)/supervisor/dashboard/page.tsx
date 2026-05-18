@@ -1,10 +1,13 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { AlertTriangle, UserPlus, ChevronRight, Grid3X3, List, BarChart2, Filter, SortAsc } from 'lucide-react'
+import {
+  AlertTriangle, UserPlus, ChevronRight, ChevronDown,
+  Grid3X3, List, BarChart2, Filter, SortAsc, Check,
+} from 'lucide-react'
 import { InviteStudentModal } from '@/components/supervisor-student/InviteStudentModal'
-import { PhaseBar, PhasePill } from '@/components/ui/phase-bar'
+import { PhaseBar, PhasePill, PHASE_ORDER, type ResearchPhase } from '@/components/ui/phase-bar'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
@@ -35,7 +38,7 @@ interface StudentAssignment {
   blocker?: string | null
 }
 
-type FlagType = 'urgent' | 'review' | 'draft' | 'stale' | null
+type FlagType = 'urgent' | 'review' | null
 
 function deriveFlag(s: StudentAssignment): FlagType {
   if (s.milestone_summary.overdue > 0) return 'urgent'
@@ -79,16 +82,6 @@ function FlagBadge({ flag }: { flag: FlagType }) {
       Review
     </span>
   )
-  if (flag === 'draft') return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-accent-blue-subtle text-accent-blue border border-blue-200">
-      New draft
-    </span>
-  )
-  if (flag === 'stale') return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-bg-surface text-text-secondary border border-border-default">
-      Silent
-    </span>
-  )
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-green-50 text-green-700 border border-green-200">
       On track
@@ -112,22 +105,14 @@ function StudentCard({ student }: { student: StudentAssignment }) {
         {flag === 'urgent' && (
           <div className="absolute top-0 left-0 bottom-0 w-0.5 rounded-l-lg bg-status-error" />
         )}
-
-        {/* Header row */}
         <div className="flex items-center gap-2.5">
           <Avatar name={name} email={email} size={32} />
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold text-text-primary truncate">
-              {name ?? email}
-            </div>
-            <div className="text-[11px] text-text-tertiary font-mono">
-              {role}
-            </div>
+            <div className="text-sm font-semibold text-text-primary truncate">{name ?? email}</div>
+            <div className="text-[11px] text-text-tertiary font-mono">{role}</div>
           </div>
           <FlagBadge flag={flag} />
         </div>
-
-        {/* Phase bar */}
         <div className="mt-3">
           <PhaseBar phase={phase} height={5} />
           <div className="flex items-center gap-1.5 mt-1.5">
@@ -137,8 +122,6 @@ function StudentCard({ student }: { student: StudentAssignment }) {
             </span>
           </div>
         </div>
-
-        {/* Blocker note */}
         {flag === 'urgent' && student.milestone_summary.overdue > 0 && (
           <div className="mt-2.5 px-2 py-1.5 bg-bg-inset rounded flex items-center gap-1.5">
             <AlertTriangle className="h-3 w-3 text-amber-500 flex-shrink-0" />
@@ -160,7 +143,139 @@ function StudentCard({ student }: { student: StudentAssignment }) {
   )
 }
 
-type ViewMode = 'grid' | 'list'
+// ── Dropdown helper ───────────────────────────────────────────────────────────
+function Dropdown<T extends string>({
+  value, options, label, icon: Icon, onChange,
+}: {
+  value: T
+  options: { value: T; label: string }[]
+  label: string
+  icon: React.ElementType
+  onChange: (v: T) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [])
+
+  const current = options.find(o => o.value === value)
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className={cn(
+          'flex items-center gap-1.5 h-8 px-3 rounded-md border text-xs font-semibold transition-colors',
+          open
+            ? 'border-accent-blue bg-accent-blue-subtle text-accent-blue'
+            : 'border-border-default text-text-secondary hover:text-text-primary hover:bg-bg-surface-hover'
+        )}
+      >
+        <Icon className="h-3 w-3" />
+        {label}{current && value !== (options[0].value) ? `: ${current.label}` : ''}
+        <ChevronDown className="h-3 w-3" />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 w-44 bg-bg-surface border border-border-default rounded-lg shadow-lg py-1 z-20">
+          {options.map(o => (
+            <button
+              key={o.value}
+              onClick={() => { onChange(o.value); setOpen(false) }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-text-primary hover:bg-bg-surface-hover transition-colors text-left"
+            >
+              <span className={cn('w-3.5 h-3.5 flex items-center justify-center', value === o.value ? 'text-accent-blue' : 'text-transparent')}>
+                <Check className="h-3 w-3" />
+              </span>
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Pipeline view (kanban by phase) ──────────────────────────────────────────
+function PipelineView({ students }: { students: StudentAssignment[] }) {
+  const phases = PHASE_ORDER
+  const byPhase: Record<string, StudentAssignment[]> = {}
+  for (const p of phases) byPhase[p] = []
+  for (const s of students) byPhase[s.phase ?? 'concept']?.push(s)
+
+  return (
+    <div className="flex gap-3 overflow-x-auto pb-4 -mx-1 px-1">
+      {phases.map(phase => {
+        const col = byPhase[phase] ?? []
+        return (
+          <div key={phase} className="flex-shrink-0 w-52">
+            {/* Column header */}
+            <div className="flex items-center gap-2 mb-2 px-1">
+              <PhasePill phase={phase} />
+              <span className="font-mono text-[10px] text-text-tertiary ml-auto">{col.length}</span>
+            </div>
+            {/* Cards */}
+            <div className="space-y-2">
+              {col.length === 0 ? (
+                <div className="h-16 rounded-lg border border-dashed border-border-default flex items-center justify-center text-[11px] text-text-tertiary">
+                  none
+                </div>
+              ) : (
+                col.map(s => (
+                  <Link key={s.id} href={`/supervisor/students/${s.student_id}`}>
+                    <div className={cn(
+                      'bg-bg-surface rounded-lg border p-3 hover:bg-bg-surface-hover transition-colors cursor-pointer',
+                      deriveFlag(s) === 'urgent' ? 'border-red-300' : 'border-border-default'
+                    )}>
+                      <div className="flex items-center gap-2">
+                        <Avatar name={s.student.full_name} email={s.student.email} size={24} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-semibold text-text-primary truncate">
+                            {s.student.full_name ?? s.student.email}
+                          </div>
+                          <div className="text-[10px] text-text-tertiary font-mono truncate">
+                            {s.student.title ?? 'Researcher'}
+                          </div>
+                        </div>
+                      </div>
+                      {deriveFlag(s) && (
+                        <div className="mt-2">
+                          <FlagBadge flag={deriveFlag(s)} />
+                        </div>
+                      )}
+                    </div>
+                  </Link>
+                ))
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+type ViewMode = 'grid' | 'list' | 'pipeline'
+type FilterMode = 'all' | 'urgent' | 'review' | 'on_track'
+type SortMode = 'needs_me' | 'name' | 'phase'
+
+const FILTER_OPTIONS: { value: FilterMode; label: string }[] = [
+  { value: 'all',      label: 'All students' },
+  { value: 'urgent',   label: 'Needs you' },
+  { value: 'review',   label: 'Awaiting review' },
+  { value: 'on_track', label: 'On track' },
+]
+
+const SORT_OPTIONS: { value: SortMode; label: string }[] = [
+  { value: 'needs_me', label: 'Needs me first' },
+  { value: 'name',     label: 'Name A–Z' },
+  { value: 'phase',    label: 'Phase' },
+]
 
 export default function SupervisorDashboardPage() {
   const [students, setStudents] = useState<StudentAssignment[]>([])
@@ -170,6 +285,8 @@ export default function SupervisorDashboardPage() {
   const [workspaceName, setWorkspaceName] = useState('')
   const [supervisorId, setSupervisorId] = useState<string | null>(null)
   const [view, setView] = useState<ViewMode>('grid')
+  const [filterMode, setFilterMode] = useState<FilterMode>('all')
+  const [sortMode, setSortMode] = useState<SortMode>('needs_me')
 
   const load = useCallback(async () => {
     const res = await fetch('/api/supervisor/students')
@@ -196,9 +313,44 @@ export default function SupervisorDashboardPage() {
     })
   }, [load])
 
+  // Apply filter
+  const filtered = students.filter(s => {
+    if (filterMode === 'all') return true
+    const flag = deriveFlag(s)
+    if (filterMode === 'urgent') return flag === 'urgent'
+    if (filterMode === 'review') return flag === 'review'
+    if (filterMode === 'on_track') return flag === null
+    return true
+  })
+
+  // Apply sort
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortMode === 'name') {
+      return (a.student.full_name ?? a.student.email).localeCompare(b.student.full_name ?? b.student.email)
+    }
+    if (sortMode === 'phase') {
+      return PHASE_ORDER.indexOf((a.phase ?? 'concept') as ResearchPhase) -
+             PHASE_ORDER.indexOf((b.phase ?? 'concept') as ResearchPhase)
+    }
+    // needs_me: urgent > review > on_track
+    const flagRank = (s: StudentAssignment) => {
+      const f = deriveFlag(s)
+      if (f === 'urgent') return 0
+      if (f === 'review') return 1
+      return 2
+    }
+    return flagRank(a) - flagRank(b)
+  })
+
   const urgent = students.filter(s => s.milestone_summary.overdue > 0)
   const needsReview = students.filter(s => s.milestone_summary.pending_review > 0)
   const attentionCount = urgent.length + (urgent.length === 0 ? needsReview.length : 0)
+
+  const VIEW_BUTTONS: { id: ViewMode; label: string; icon: React.ElementType }[] = [
+    { id: 'grid',     label: 'Grid',     icon: Grid3X3 },
+    { id: 'list',     label: 'List',     icon: List },
+    { id: 'pipeline', label: 'Pipeline', icon: BarChart2 },
+  ]
 
   if (loading) return (
     <div className="flex items-center justify-center h-64 text-text-tertiary text-sm font-mono">
@@ -225,40 +377,42 @@ export default function SupervisorDashboardPage() {
           <div className="flex items-center gap-2">
             {/* View toggle */}
             <div className="flex border border-border-default rounded-md overflow-hidden">
-              <button
-                onClick={() => setView('grid')}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 h-8 text-xs font-semibold transition-colors',
-                  view === 'grid' ? 'bg-bg-surface text-text-primary' : 'text-text-secondary hover:text-text-primary'
-                )}
-              >
-                <Grid3X3 className="h-3.5 w-3.5" /> Grid
-              </button>
-              <div className="w-px bg-border-default" />
-              <button
-                onClick={() => setView('list')}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 h-8 text-xs font-semibold transition-colors',
-                  view === 'list' ? 'bg-bg-surface text-text-primary' : 'text-text-secondary hover:text-text-primary'
-                )}
-              >
-                <List className="h-3.5 w-3.5" /> List
-              </button>
-              <div className="w-px bg-border-default" />
-              <button
-                className="flex items-center gap-1.5 px-3 h-8 text-xs font-semibold text-text-secondary hover:text-text-primary transition-colors"
-              >
-                <BarChart2 className="h-3.5 w-3.5" /> Pipeline
-              </button>
+              {VIEW_BUTTONS.map((btn, i) => {
+                const Icon = btn.icon
+                return (
+                  <div key={btn.id} className="flex">
+                    {i > 0 && <div className="w-px bg-border-default" />}
+                    <button
+                      onClick={() => setView(btn.id)}
+                      className={cn(
+                        'flex items-center gap-1.5 px-3 h-8 text-xs font-semibold transition-colors',
+                        view === btn.id
+                          ? 'bg-bg-surface text-text-primary'
+                          : 'text-text-secondary hover:text-text-primary hover:bg-bg-surface-hover'
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5" /> {btn.label}
+                    </button>
+                  </div>
+                )
+              })}
             </div>
 
-            <button className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-border-default text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-bg-surface-hover transition-colors">
-              <Filter className="h-3 w-3" /> Filter
-            </button>
+            <Dropdown
+              value={filterMode}
+              options={FILTER_OPTIONS}
+              label="Filter"
+              icon={Filter}
+              onChange={setFilterMode}
+            />
 
-            <button className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-border-default text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-bg-surface-hover transition-colors">
-              <SortAsc className="h-3 w-3" /> Sort
-            </button>
+            <Dropdown
+              value={sortMode}
+              options={SORT_OPTIONS}
+              label="Sort"
+              icon={SortAsc}
+              onChange={setSortMode}
+            />
 
             {workspaceId && supervisorId && (
               <button
@@ -276,7 +430,7 @@ export default function SupervisorDashboardPage() {
           <div className="rounded-lg border border-amber-300 bg-gradient-to-b from-amber-50 to-white p-4 mb-6">
             <div className="flex items-center gap-3.5">
               <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="h-4.5 w-4.5 text-amber-600" />
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
               </div>
               <div className="flex-1">
                 <div className="text-sm font-semibold text-text-primary">
@@ -287,7 +441,6 @@ export default function SupervisorDashboardPage() {
                   {needsReview.length > 0 && `${needsReview.length} awaiting review`}
                 </div>
               </div>
-
               <div className="flex items-center gap-2">
                 {[...urgent, ...needsReview].slice(0, 2).map(s => (
                   <Link
@@ -306,7 +459,6 @@ export default function SupervisorDashboardPage() {
                     </div>
                   </Link>
                 ))}
-
                 <Link
                   href="/supervisor/students"
                   className="flex items-center gap-1 h-8 px-3 rounded-md border border-amber-300 text-xs font-semibold text-amber-700 hover:bg-amber-50 transition-colors"
@@ -320,24 +472,45 @@ export default function SupervisorDashboardPage() {
 
         {/* Section label */}
         <div className="flex items-center gap-2.5 mb-3">
-          <span className="text-[10px] font-semibold tracking-widest text-text-tertiary uppercase">All students</span>
+          <span className="text-[10px] font-semibold tracking-widest text-text-tertiary uppercase">
+            {filterMode === 'all' ? 'All students' : FILTER_OPTIONS.find(f => f.value === filterMode)?.label}
+          </span>
           <div className="flex-1 h-px bg-border-default" />
-          <span className="font-mono text-[10px] text-text-tertiary">{students.length}</span>
+          <span className="font-mono text-[10px] text-text-tertiary">{sorted.length}</span>
         </div>
 
-        {/* Grid */}
-        {students.length === 0 ? (
+        {/* No results */}
+        {sorted.length === 0 && (
           <div className="text-center py-20 text-text-tertiary">
-            <div className="text-sm font-medium mb-1">No students yet</div>
-            <div className="text-xs">Invite a student to get started</div>
+            {students.length === 0 ? (
+              <>
+                <div className="text-sm font-medium mb-1">No students yet</div>
+                <div className="text-xs">Invite a student to get started</div>
+              </>
+            ) : (
+              <>
+                <div className="text-sm font-medium mb-1">No students match this filter</div>
+                <button
+                  onClick={() => setFilterMode('all')}
+                  className="text-xs text-accent-blue hover:underline mt-1"
+                >
+                  Clear filter
+                </button>
+              </>
+            )}
           </div>
-        ) : (
+        )}
+
+        {/* Views */}
+        {sorted.length > 0 && view === 'pipeline' && (
+          <PipelineView students={sorted} />
+        )}
+
+        {sorted.length > 0 && view !== 'pipeline' && (
           <div className={cn(
-            view === 'grid'
-              ? 'grid grid-cols-4 gap-3'
-              : 'flex flex-col gap-2'
+            view === 'grid' ? 'grid grid-cols-4 gap-3' : 'flex flex-col gap-2'
           )}>
-            {students.map(s => (
+            {sorted.map(s => (
               view === 'grid' ? (
                 <StudentCard key={s.id} student={s} />
               ) : (
@@ -348,9 +521,9 @@ export default function SupervisorDashboardPage() {
                       <span className="text-sm font-semibold text-text-primary truncate">
                         {s.student.full_name ?? s.student.email}
                       </span>
-                      <span className="text-[11px] text-text-tertiary ml-2 font-mono">
-                        {s.student.title ?? ''}
-                      </span>
+                      {s.student.title && (
+                        <span className="text-[11px] text-text-tertiary ml-2 font-mono">{s.student.title}</span>
+                      )}
                     </div>
                     <PhasePill phase={s.phase ?? 'concept'} />
                     <FlagBadge flag={deriveFlag(s)} />
