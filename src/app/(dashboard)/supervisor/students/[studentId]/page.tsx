@@ -2,15 +2,18 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
+import Link from 'next/link'
+import {
+  ArrowLeft, Plus, FolderOpen, ChevronRight,
+  Shield, Download, MessageSquare, CheckCircle2,
+  PenLine, BarChart2, Database, Filter, X,
+} from 'lucide-react'
 import { StudentMilestone } from '@/types/database'
 import { MilestoneRoadmap } from '@/components/supervisor-student/MilestoneRoadmap'
 import { MilestoneReviewModal } from '@/components/supervisor-student/MilestoneReviewModal'
 import { AddMilestoneModal } from '@/components/supervisor-student/AddMilestoneModal'
-import {
-  ArrowLeft, Plus, FolderOpen,
-  ChevronRight, Clock, CheckCircle2, AlertCircle,
-} from 'lucide-react'
-import Link from 'next/link'
+import { VerifyBadge } from '@/components/ui/verify-badge'
+import { PhaseBar, PhasePill, PHASE_ORDER, type ResearchPhase } from '@/components/ui/phase-bar'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatRelative } from '@/lib/utils'
 
@@ -18,106 +21,66 @@ interface ResearchProject {
   id: string
   title: string
   status: string
+  phase?: string
   updated_at: string
-  datasets: { id: string; name: string; updated_at: string }[]
-  analysis_runs: { id: string; analysis_type: string; status: string; created_at: string }[]
-  documents: { id: string; title: string; updated_at: string }[]
 }
 
-const RUN_STATUS: Record<string, { label: string; color: string }> = {
-  completed: { label: 'Done',       color: 'text-emerald-600' },
-  running:   { label: 'Running',    color: 'text-blue-600' },
-  failed:    { label: 'Failed',     color: 'text-red-500' },
-  pending:   { label: 'Pending',    color: 'text-amber-600' },
+interface Annotation {
+  id: string
+  content: string
+  artifact_type: string
+  artifact_id: string
+  anchor: string
+  created_at: string
+  is_resolved: boolean
 }
 
-function SectionCard({
-  title, icon: Icon, count, href, children, emptyText,
-}: {
-  title: string
-  icon: React.ElementType
-  count: number
-  href?: string
-  children: React.ReactNode
-  emptyText: string
-}) {
-  return (
-    <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-50">
-        <div className="flex items-center gap-2">
-          <Icon className="h-4 w-4 text-slate-400" />
-          <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">{title}</span>
-          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">{count}</span>
-        </div>
-        {href && count > 0 && (
-          <Link href={href} className="text-[10px] font-semibold text-indigo-500 hover:text-indigo-700 flex items-center gap-0.5">
-            Open all <ChevronRight className="h-3 w-3" />
-          </Link>
-        )}
-      </div>
-      {count === 0
-        ? <p className="text-xs text-slate-400 italic px-4 py-3">{emptyText}</p>
-        : <div className="divide-y divide-slate-50">{children}</div>
-      }
-    </div>
-  )
+interface LedgerEntry {
+  id: string
+  t: string
+  who: string
+  action: string
+  kind: 'edit' | 'analysis' | 'data' | 'approve' | 'msg'
+  hot?: boolean
 }
 
-function ResearchPanel({ studentId, projects }: { studentId: string; projects: ResearchProject[] }) {
-  if (projects.length === 0) {
-    return (
-      <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6 text-center">
-        <FolderOpen className="h-8 w-8 text-slate-200 mx-auto mb-2" />
-        <p className="text-sm text-slate-400">No shared projects</p>
-        <p className="text-xs text-slate-300 mt-0.5 max-w-xs mx-auto">
-          The student must share a project with you from their project overview before it appears here.
-        </p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-3">
-      {projects.map(project => (
-        <Link key={project.id} href={`/supervisor/projects/${project.id}`}>
-          <div className="flex items-center gap-3 px-4 py-3 bg-white rounded-xl border border-slate-100 shadow-sm hover:border-indigo-200 hover:shadow-md transition-all group">
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
-              <FolderOpen className="h-4 w-4 text-indigo-500" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-slate-800 truncate group-hover:text-indigo-700 transition-colors">
-                {project.title}
-              </p>
-              <p className="text-[10px] text-slate-400 mt-0.5">Updated {formatRelative(project.updated_at)}</p>
-            </div>
-            <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-indigo-400 flex-shrink-0 transition-colors" />
-          </div>
-        </Link>
-      ))}
-    </div>
-  )
+const KIND_ICON: Record<string, React.ElementType> = {
+  edit: PenLine,
+  analysis: BarChart2,
+  data: Database,
+  approve: CheckCircle2,
+  msg: MessageSquare,
 }
 
 export default function StudentDetailPage() {
   const { studentId } = useParams<{ studentId: string }>()
   const [milestones, setMilestones] = useState<StudentMilestone[]>([])
   const [projects, setProjects] = useState<ResearchProject[]>([])
-  const [studentProfile, setStudentProfile] = useState<{ full_name: string | null; email: string; title: string | null } | null>(null)
+  const [studentProfile, setStudentProfile] = useState<{
+    full_name: string | null; email: string; title: string | null
+  } | null>(null)
+  const [annotations, setAnnotations] = useState<Annotation[]>([])
   const [reviewing, setReviewing] = useState<StudentMilestone | null>(null)
   const [addingMilestone, setAddingMilestone] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'milestones' | 'research'>('milestones')
+  const [activeTab, setActiveTab] = useState<'overview' | 'milestones' | 'research'>('overview')
+  const [ledgerFilter, setLedgerFilter] = useState<'all' | 'data' | 'edits' | 'analyses' | 'approvals'>('all')
   const supabase = createClient()
 
   const load = useCallback(async () => {
-    const [milestonesRes, profileRes, researchRes] = await Promise.all([
+    const [milestonesRes, profileRes, researchRes, annotationsRes] = await Promise.all([
       fetch(`/api/milestones?student_id=${studentId}`),
       supabase.from('profiles').select('full_name, email, title').eq('id', studentId).single(),
       fetch(`/api/supervisor/students/${studentId}/research`),
+      fetch(`/api/supervision/annotations?student_id=${studentId}&artifact_type=all`),
     ])
     if (milestonesRes.ok) setMilestones(await milestonesRes.json())
     if (profileRes.data) setStudentProfile(profileRes.data)
     if (researchRes.ok) setProjects(await researchRes.json())
+    if (annotationsRes.ok) {
+      const data = await annotationsRes.json()
+      if (Array.isArray(data)) setAnnotations(data)
+    }
     setLoading(false)
   }, [studentId, supabase])
 
@@ -126,98 +89,374 @@ export default function StudentDetailPage() {
   const pendingReview = milestones.filter(m => ['submitted', 'under_review'].includes(m.status)).length
   const approved = milestones.filter(m => m.status === 'approved').length
 
+  // Build ledger entries from annotations + milestones
+  const ledgerEntries: LedgerEntry[] = [
+    ...annotations.slice(0, 12).map((a): LedgerEntry => ({
+      id: a.id,
+      t: formatRelative(a.created_at),
+      who: 'You',
+      action: `left a note on ${a.artifact_type}`,
+      kind: 'msg',
+      hot: !a.is_resolved,
+    })),
+    ...milestones
+      .filter(m => m.status === 'approved')
+      .slice(0, 4)
+      .map((m): LedgerEntry => ({
+        id: m.id,
+        t: formatRelative(m.updated_at),
+        who: 'You',
+        action: `approved: ${m.title}`,
+        kind: 'approve',
+        hot: false,
+      })),
+    ...milestones
+      .filter(m => ['submitted', 'under_review'].includes(m.status))
+      .slice(0, 3)
+      .map((m): LedgerEntry => ({
+        id: m.id + '_sub',
+        t: formatRelative(m.updated_at),
+        who: studentProfile?.full_name?.split(' ')[0] ?? 'Student',
+        action: `submitted: ${m.title}`,
+        kind: 'edit',
+        hot: true,
+      })),
+  ].sort((a, b) => 0) // keep insertion order for now
+
+  const filteredLedger = ledgerFilter === 'all'
+    ? ledgerEntries
+    : ledgerEntries.filter(e => {
+        if (ledgerFilter === 'data') return e.kind === 'data'
+        if (ledgerFilter === 'edits') return e.kind === 'edit'
+        if (ledgerFilter === 'analyses') return e.kind === 'analysis'
+        if (ledgerFilter === 'approvals') return e.kind === 'approve'
+        return true
+      })
+
+  // Primary phase: pick from first project with a phase
+  const primaryPhase: ResearchPhase = ((projects[0] as ResearchProject & { phase?: string })?.phase as ResearchPhase) ?? 'concept'
+  const phaseIdx = PHASE_ORDER.indexOf(primaryPhase)
+
+  const name = studentProfile?.full_name ?? 'Student'
+
   if (loading) return (
-    <div className="flex items-center justify-center h-64 text-slate-400 text-sm">Loading…</div>
+    <div className="flex items-center justify-center h-64 text-text-tertiary text-sm font-mono">Loading…</div>
   )
 
-  return (
-    <div className="px-8 py-6 max-w-5xl mx-auto">
-      <Link
-        href="/supervisor/dashboard"
-        className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-6 transition-colors"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to cohort
-      </Link>
+  const TABS = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'milestones', label: `Milestones (${milestones.length})`, badge: pendingReview },
+    { id: 'research', label: `Projects (${projects.length})` },
+  ] as const
 
-      {/* Student header */}
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-            {studentProfile?.full_name ?? 'Student'}
-          </h1>
-          <p className="text-sm text-slate-500 mt-0.5">{studentProfile?.email}</p>
-          {studentProfile?.title && (
-            <p className="text-xs text-slate-400 mt-0.5">{studentProfile.title}</p>
+  return (
+    <div className="flex h-full overflow-hidden">
+
+      {/* ── Main column ─────────────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto min-w-0">
+        <div className="px-7 py-6 pb-12">
+
+          {/* Back */}
+          <Link
+            href="/supervisor/dashboard"
+            className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary mb-5 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to cohort
+          </Link>
+
+          {/* Hero */}
+          <div className="flex items-start gap-4 mb-5">
+            {/* Avatar */}
+            <div
+              className="w-14 h-14 rounded-full flex-shrink-0 flex items-center justify-center font-mono font-semibold text-white text-xl"
+              style={{ background: '#1B3A5C' }}
+            >
+              {name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-[28px] font-serif italic font-normal leading-tight text-text-primary">
+                  {name}
+                </h1>
+                {studentProfile?.title && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-bg-surface-active text-text-secondary border border-border-default">
+                    {studentProfile.title}
+                  </span>
+                )}
+                <VerifyBadge />
+              </div>
+              <div className="mt-1.5 text-sm text-text-secondary truncate">
+                {studentProfile?.email}
+                {projects.length > 0 && ` · ${projects.length} project${projects.length !== 1 ? 's' : ''}`}
+              </div>
+            </div>
+            <button
+              onClick={() => setAddingMilestone(true)}
+              className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md bg-accent-primary text-white text-xs font-semibold hover:opacity-90 transition-opacity flex-shrink-0"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add Milestone
+            </button>
+          </div>
+
+          {/* Phase track */}
+          {projects.length > 0 && (
+            <div className="bg-bg-surface border border-border-default rounded-lg p-3.5 mb-5">
+              <div className="flex items-center gap-3 mb-2.5">
+                <span className="text-[11px] text-text-tertiary font-medium uppercase tracking-wide truncate">
+                  {projects[0].title}
+                </span>
+                <div className="flex-1" />
+                <PhasePill phase={primaryPhase} />
+                <span className="text-[11px] text-text-tertiary font-mono whitespace-nowrap">
+                  phase {phaseIdx + 1} of 7
+                </span>
+              </div>
+              <PhaseBar phase={primaryPhase} showLabels height={8} />
+            </div>
+          )}
+
+          {/* Tabs */}
+          <div className="flex gap-0 border-b border-border-default mb-5">
+            {TABS.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'relative px-4 py-2.5 text-sm font-semibold transition-colors',
+                  activeTab === tab.id ? 'text-text-primary' : 'text-text-secondary hover:text-text-primary'
+                )}
+              >
+                {tab.label}
+                {'badge' in tab && tab.badge > 0 && (
+                  <span className="ml-1.5 inline-flex items-center justify-center h-4 w-4 rounded-full bg-amber-500 text-white text-[9px] font-bold">
+                    {tab.badge}
+                  </span>
+                )}
+                {activeTab === tab.id && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent-primary rounded-full" />
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Overview tab */}
+          {activeTab === 'overview' && (
+            <div className="grid grid-cols-[1.4fr_1fr] gap-4">
+              {/* Projects card */}
+              <div className="bg-bg-surface border border-border-default rounded-lg p-4">
+                <div className="flex items-center mb-3">
+                  <span className="text-sm font-semibold text-text-primary">Projects</span>
+                  <span className="ml-auto text-[11px] text-text-tertiary font-mono">
+                    {projects.length} active
+                  </span>
+                </div>
+                {projects.length === 0 ? (
+                  <div className="text-xs text-text-tertiary italic py-4 text-center">
+                    No shared projects yet
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border-subtle">
+                    {projects.map((p, i) => (
+                      <Link key={p.id} href={`/supervisor/projects/${p.id}`}>
+                        <div className="flex items-center gap-3 py-2.5 hover:opacity-80 transition-opacity min-w-0">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-sm font-medium text-text-primary truncate">{p.title}</span>
+                            </div>
+                            <div className="text-xs text-text-secondary mt-0.5 truncate">
+                              Updated {formatRelative(p.updated_at)}
+                            </div>
+                          </div>
+                          {(p as ResearchProject & { phase?: string }).phase && (
+                            <PhasePill phase={(p as ResearchProject & { phase?: string }).phase!} />
+                          )}
+                          <ChevronRight className="h-3.5 w-3.5 text-text-tertiary flex-shrink-0" />
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Stats card */}
+              <div className="bg-bg-surface border border-border-default rounded-lg p-4">
+                <div className="flex items-center mb-3">
+                  <span className="text-sm font-semibold text-text-primary">Progress</span>
+                </div>
+                <div className="space-y-3">
+                  {[
+                    { label: 'Approved', value: approved, color: 'text-green-600', bg: 'bg-green-50' },
+                    { label: 'Awaiting review', value: pendingReview, color: 'text-amber-600', bg: 'bg-amber-50' },
+                    { label: 'Total milestones', value: milestones.length, color: 'text-text-secondary', bg: 'bg-bg-inset' },
+                  ].map(s => (
+                    <div key={s.label} className="flex items-center gap-3">
+                      <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-lg font-bold', s.bg, s.color)}>
+                        {s.value}
+                      </div>
+                      <span className="text-sm text-text-secondary">{s.label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Open annotations */}
+                {annotations.filter(a => !a.is_resolved).length > 0 && (
+                  <>
+                    <div className="h-px bg-border-default my-3" />
+                    <div className="text-[11px] text-text-tertiary uppercase tracking-wider font-semibold mb-2">
+                      Signals
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-accent-blue-subtle text-accent-blue border border-blue-200">
+                        {annotations.filter(a => !a.is_resolved).length} open notes
+                      </span>
+                      {pendingReview > 0 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                          Review needed
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Milestones tab */}
+          {activeTab === 'milestones' && (
+            <MilestoneRoadmap
+              milestones={milestones}
+              role="supervisor"
+              onReview={(m) => setReviewing(m)}
+            />
+          )}
+
+          {/* Research tab */}
+          {activeTab === 'research' && (
+            <div className="space-y-2">
+              {projects.length === 0 ? (
+                <div className="text-center py-16 text-text-tertiary">
+                  <FolderOpen className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                  <p className="text-sm">No shared projects</p>
+                  <p className="text-xs mt-1 text-text-tertiary opacity-70 max-w-xs mx-auto">
+                    The student must share a project with you from their project overview.
+                  </p>
+                </div>
+              ) : (
+                projects.map(p => (
+                  <Link key={p.id} href={`/supervisor/projects/${p.id}`}>
+                    <div className="flex items-center gap-3 px-4 py-3 bg-bg-surface border border-border-default rounded-lg hover:bg-bg-surface-hover transition-colors">
+                      <div className="w-8 h-8 rounded-lg bg-accent-blue-subtle flex items-center justify-center flex-shrink-0">
+                        <FolderOpen className="h-4 w-4 text-accent-blue" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-text-primary truncate">{p.title}</p>
+                        <p className="text-[10px] text-text-tertiary mt-0.5">
+                          Updated {formatRelative(p.updated_at)}
+                        </p>
+                      </div>
+                      {(p as ResearchProject & { phase?: string }).phase && (
+                        <PhasePill phase={(p as ResearchProject & { phase?: string }).phase!} />
+                      )}
+                      <ChevronRight className="h-4 w-4 text-text-tertiary" />
+                    </div>
+                  </Link>
+                ))
+              )}
+            </div>
           )}
         </div>
-        <button
-          onClick={() => setAddingMilestone(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#0052CC] text-white text-sm font-semibold hover:bg-blue-700 transition-colors flex-shrink-0"
-        >
-          <Plus className="h-4 w-4" />
-          Add Milestone
-        </button>
       </div>
 
-      {/* Quick stats */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        {[
-          { icon: CheckCircle2, label: 'Approved', value: approved, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-          { icon: Clock, label: 'Awaiting review', value: pendingReview, color: 'text-amber-500', bg: 'bg-amber-50' },
-          { icon: FolderOpen, label: 'Projects', value: projects.length, color: 'text-indigo-500', bg: 'bg-indigo-50' },
-        ].map(s => (
-          <div key={s.label} className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-3">
-            <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0', s.bg)}>
-              <s.icon className={cn('h-4 w-4', s.color)} />
-            </div>
-            <div>
-              <p className="text-xl font-extrabold text-slate-900 tabular-nums leading-none">{s.value}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">{s.label}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* ── Ledger panel ────────────────────────────────────────── */}
+      <aside className="w-80 flex-shrink-0 border-l border-border-default bg-bg-surface flex flex-col">
+        {/* Panel header */}
+        <div className="px-4 py-3.5 border-b border-border-default flex items-center gap-2">
+          <Shield className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+          <span className="text-sm font-semibold">Ledger</span>
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-bg-surface-active text-text-secondary border border-border-default">
+            this student
+          </span>
+          <span className="ml-auto">
+            <kbd className="inline-flex items-center px-1 py-0.5 border border-b-2 border-border-default rounded font-mono text-[10px] text-text-tertiary bg-bg-surface">
+              ⌘L
+            </kbd>
+          </span>
+        </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 mb-5 border-b border-slate-100">
-        {(['milestones', 'research'] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={cn(
-              'px-4 py-2.5 text-sm font-semibold capitalize transition-colors relative',
-              activeTab === tab
-                ? 'text-indigo-600'
-                : 'text-slate-500 hover:text-slate-700'
-            )}
-          >
-            {tab}
-            {tab === 'milestones' && pendingReview > 0 && (
-              <span className="ml-1.5 inline-flex items-center justify-center h-4 w-4 rounded-full bg-amber-500 text-white text-[9px] font-bold">
-                {pendingReview}
-              </span>
-            )}
-            {activeTab === tab && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-full" />
-            )}
+        {/* Filter chips */}
+        <div className="px-3 py-2 border-b border-border-subtle flex gap-1.5 flex-wrap">
+          {(['all', 'data', 'edits', 'analyses', 'approvals'] as const).map(f => (
+            <button
+              key={f}
+              onClick={() => setLedgerFilter(f)}
+              className={cn(
+                'inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border transition-colors capitalize',
+                ledgerFilter === f
+                  ? 'bg-accent-blue-subtle text-accent-blue border-blue-200'
+                  : 'bg-bg-surface text-text-secondary border-border-default hover:bg-bg-surface-hover'
+              )}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+
+        {/* Ledger entries */}
+        <div className="flex-1 overflow-y-auto px-3.5 py-2">
+          {filteredLedger.length === 0 ? (
+            <div className="text-center py-10 text-text-tertiary text-xs">
+              No activity recorded yet
+            </div>
+          ) : (
+            filteredLedger.map((entry, i) => {
+              const Icon = KIND_ICON[entry.kind] ?? PenLine
+              return (
+                <div key={entry.id} className="flex gap-2 py-2.5 border-t first:border-t-0 border-border-subtle relative">
+                  {/* Timeline dot + line */}
+                  <div className="w-4 flex flex-col items-center flex-shrink-0">
+                    <div
+                      className={cn(
+                        'w-2 h-2 rounded-sm mt-1.5 flex-shrink-0',
+                        entry.hot ? 'bg-accent-blue' : 'bg-text-tertiary'
+                      )}
+                    />
+                    {i < filteredLedger.length - 1 && (
+                      <div className="flex-1 w-px bg-border-default mt-1" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start gap-1.5 min-w-0">
+                      <Icon className="h-3 w-3 text-text-tertiary flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-text-primary leading-tight truncate">
+                          <span className="font-semibold">{entry.who}</span>{' '}
+                          <span className="text-text-secondary">{entry.action}</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="font-mono text-[10px] text-text-tertiary">{entry.t}</span>
+                          <VerifyBadge />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-3 py-3 border-t border-border-default flex gap-2">
+          <button className="flex-1 flex items-center justify-center gap-1.5 h-7 px-2 rounded border border-border-default text-[11px] font-medium text-text-secondary hover:bg-bg-surface-hover transition-colors">
+            <Download className="h-3 w-3" /> Export
           </button>
-        ))}
-      </div>
+          <button className="flex-1 flex items-center justify-center gap-1.5 h-7 px-2 rounded border border-border-default text-[11px] font-medium text-text-secondary hover:bg-bg-surface-hover transition-colors">
+            <Shield className="h-3 w-3" /> Verify chain
+          </button>
+        </div>
+      </aside>
 
-      {/* Tab content */}
-      {activeTab === 'milestones' && (
-        <MilestoneRoadmap
-          milestones={milestones}
-          role="supervisor"
-          onReview={(m) => setReviewing(m)}
-        />
-      )}
-
-      {activeTab === 'research' && (
-        <ResearchPanel studentId={studentId} projects={projects} />
-      )}
-
+      {/* Modals */}
       {reviewing && (
         <MilestoneReviewModal
           milestone={reviewing}
@@ -225,7 +464,6 @@ export default function StudentDetailPage() {
           onSuccess={() => { setReviewing(null); load() }}
         />
       )}
-
       {addingMilestone && (
         <AddMilestoneModal
           studentId={studentId}

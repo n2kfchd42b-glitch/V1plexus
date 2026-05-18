@@ -5,7 +5,7 @@ import { format } from 'date-fns'
 import {
   ArrowLeft, CheckCircle2, Clock, RotateCcw, Circle,
   Database, BarChart2, FileText, ExternalLink, MessageSquare,
-  FolderOpen, AlertCircle,
+  FolderOpen, AlertCircle, Shield,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SupervisionRecordsPanel } from '@/components/supervisor-student/SupervisionRecordsPanel'
@@ -159,6 +159,13 @@ export default async function SupervisorProjectPage({
                 {PHASE_LABELS[project.phase] ?? project.phase}
               </span>
             )}
+            <Link
+              href={`/supervisor/projects/${id}/integrity`}
+              className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors"
+              title="View integrity ledger"
+            >
+              <Shield className="h-3 w-3" /> Ledger
+            </Link>
           </span>
         </div>
       </div>
