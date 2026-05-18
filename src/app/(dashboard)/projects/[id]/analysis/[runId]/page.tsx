@@ -10,6 +10,7 @@ import {
 import { ResultsPanel } from '@/components/analysis/results/ResultsPanel'
 import { SensitivityPanel } from '@/components/analysis/SensitivityPanel'
 import { GenerateTableModal } from '@/components/analysis/GenerateTableModal'
+import { StudentSupervisorNotes } from '@/components/supervisor-student/StudentSupervisorNotes'
 import { createClient } from '@/lib/supabase/client'
 import { formatDateTime } from '@/lib/utils'
 import type { AnalysisRun, AnalysisType } from '@/types/database'
@@ -215,6 +216,14 @@ export default function AnalysisRunPage() {
               versionId={run.version_id ?? null}
               savedChartConfig={run.chart_config ?? null}
             />
+
+            {/* Supervisor feedback */}
+            <div className="mt-6">
+              <StudentSupervisorNotes
+                artifactId={run.id}
+                artifactType="analysis"
+              />
+            </div>
 
             {run.dataset_id && run.version_id &&
              ['linear_regression', 'multiple_linear_regression', 'logistic_regression', 'kaplan_meier'].includes(run.analysis_type) &&

@@ -12,11 +12,15 @@ interface CommentsSidebarProps {
   documentId: string
   currentProfile: Profile | null
   onClose: () => void
+  pendingAnchorText?: string | null
+  onClearPending?: () => void
 }
 
-export function CommentsSidebar({ documentId, currentProfile, onClose }: CommentsSidebarProps) {
+export function CommentsSidebar({ documentId, currentProfile, onClose, pendingAnchorText, onClearPending }: CommentsSidebarProps) {
   const [comments, setComments] = useState<DocumentComment[]>([])
   const [showResolved, setShowResolved] = useState(false)
+  const [newCommentText, setNewCommentText] = useState('')
+  const [submittingNew, setSubmittingNew] = useState(false)
   const supabase = createClient()
 
   const fetchComments = useCallback(async () => {
@@ -47,6 +51,22 @@ export function CommentsSidebar({ documentId, currentProfile, onClose }: Comment
   }, [documentId, supabase])
 
   useEffect(() => { fetchComments() }, [fetchComments])
+
+  const handleAddComment = async () => {
+    if (!newCommentText.trim() || !currentProfile) return
+    setSubmittingNew(true)
+    await supabase.from('document_comments').insert({
+      document_id: documentId,
+      author_id: currentProfile.id,
+      content: newCommentText.trim(),
+      anchor_text: pendingAnchorText ?? null,
+      parent_id: null,
+    })
+    setNewCommentText('')
+    onClearPending?.()
+    setSubmittingNew(false)
+    fetchComments()
+  }
 
   const handleResolve = async (id: string) => {
     if (!currentProfile) return
@@ -94,6 +114,38 @@ export function CommentsSidebar({ documentId, currentProfile, onClose }: Comment
           </Button>
         </div>
       </div>
+
+      {/* Compose new comment */}
+      {pendingAnchorText && (
+        <div className="p-3 border-b bg-yellow-50/60 space-y-2">
+          <div className="px-2 py-1 bg-yellow-100 border-l-2 border-yellow-400 text-xs text-muted-foreground italic rounded-r">
+            &ldquo;{pendingAnchorText.slice(0, 100)}{pendingAnchorText.length > 100 ? '…' : ''}&rdquo;
+          </div>
+          <textarea
+            autoFocus
+            placeholder="Add your comment…"
+            value={newCommentText}
+            onChange={e => setNewCommentText(e.target.value)}
+            rows={3}
+            className="w-full text-xs border border-slate-200 rounded-md px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white"
+          />
+          <div className="flex gap-1.5 justify-end">
+            <button
+              onClick={() => { setNewCommentText(''); onClearPending?.() }}
+              className="px-2 py-1 text-xs rounded border border-slate-200 text-slate-600 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAddComment}
+              disabled={submittingNew || !newCommentText.trim()}
+              className="px-2 py-1 text-xs rounded bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {submittingNew ? 'Saving…' : 'Comment'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-3">

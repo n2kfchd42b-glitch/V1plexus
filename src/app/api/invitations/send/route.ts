@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
     }
     
-    const { type, email, role, workspaceId, projectId, departmentId, message, workspaceName, projectTitle } = body
+    const { type, email, role, workspaceId, projectId, departmentId, supervisorId, message, workspaceName, projectTitle } = body
 
     if (!type || !email || !role) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
           email: normalizedEmail,
           role,
           department_id: departmentId || null,
+          supervisor_id: supervisorId || null,
           token,
           invited_by: user.id,
           status: 'pending',

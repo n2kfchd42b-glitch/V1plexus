@@ -62,11 +62,15 @@ export async function getProjectsOffline(
 
   if (navigator.onLine) {
     try {
+      const { data: user } = await supabase.auth.getUser()
+      const uid = user?.user?.id ?? ''
+
       const { data: rows, error } = await withTimeout(
         supabase
           .from('projects')
           .select('*, datasets(count), analysis_runs(count)')
           .is('deleted_at', null)
+          .eq('owner_id', uid)
           .order('updated_at', { ascending: false })
           .limit(200)
           .then(r => r)
@@ -91,6 +95,7 @@ export async function getProjectsOffline(
         _synced_at: now(),
       }))
 
+      await db.projects.clear()
       await db.projects.bulkPut(locals)
       return { data: locals, error: null, source: 'network' }
     } catch {

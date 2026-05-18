@@ -19,6 +19,7 @@ import {
 import { MinimalEditor } from '@/components/document/MinimalEditor'
 import { DocumentListPanel } from '@/components/document/DocumentListPanel'
 import { ExportDropdown } from '@/components/export/ExportDropdown'
+import { StudentSupervisorNotes } from '@/components/supervisor-student/StudentSupervisorNotes'
 
 // ── Pillar 1 & 5 ──────────────────────────────────────────────────────────────
 import { VersionHistory as VersionHistoryEnhanced } from '@/components/document/VersionHistoryEnhanced'
@@ -54,6 +55,7 @@ export default function DocumentPage() {
   const [rightPanel, setRightPanel] = useState<RightPanel>(null)
   const [showAbstractModal, setShowAbstractModal] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
+  const [isViewer, setIsViewer] = useState(false)
 
   const triggerSaveRef = useRef<(() => Promise<void>) | null>(null)
   const insertContentRef = useRef<((html: string) => void) | null>(null)
@@ -69,7 +71,18 @@ export default function DocumentPage() {
       const result = await getDocument(supabase, docId)
       if (result.data) setDocument(result.data)
     }
+    const checkRole = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: project } = await supabase
+        .from('projects')
+        .select('owner_id')
+        .eq('id', projectId)
+        .single()
+      if (project && project.owner_id !== user.id) setIsViewer(true)
+    }
     fetchDoc()
+    checkRole()
     fetchVersions()
     fetchAuthors()
   }, [docId]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -180,11 +193,15 @@ export default function DocumentPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuItem onClick={() => setShowAbstractModal(true)}>
-                <FileText className="h-4 w-4 mr-2 text-text-tertiary" />
-                Abstract builder
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              {!isViewer && (
+                <>
+                  <DropdownMenuItem onClick={() => setShowAbstractModal(true)}>
+                    <FileText className="h-4 w-4 mr-2 text-text-tertiary" />
+                    Abstract builder
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuItem onClick={() => togglePanel('versions')}>
                 <History className="h-4 w-4 mr-2 text-text-tertiary" />
                 <span>Version history</span>
@@ -199,31 +216,35 @@ export default function DocumentPage() {
                   <span className="ml-auto h-1.5 w-1.5 rounded-full bg-accent-blue" />
                 )}
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => togglePanel('security')}>
-                <Shield className="h-4 w-4 mr-2 text-text-tertiary" />
-                <span>Security & ethics</span>
-                {rightPanel === 'security' && (
-                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-accent-blue" />
-                )}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => togglePanel('translation')}>
-                <Languages className="h-4 w-4 mr-2 text-text-tertiary" />
-                <span>Translation</span>
-                {rightPanel === 'translation' && (
-                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-accent-blue" />
-                )}
-              </DropdownMenuItem>
-              {deleteState === 'idle' && (
+              {!isViewer && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={handleDelete}
-                    className="text-status-error focus:text-status-error focus:bg-status-error-bg"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete document
+                  <DropdownMenuItem onClick={() => togglePanel('security')}>
+                    <Shield className="h-4 w-4 mr-2 text-text-tertiary" />
+                    <span>Security & ethics</span>
+                    {rightPanel === 'security' && (
+                      <span className="ml-auto h-1.5 w-1.5 rounded-full bg-accent-blue" />
+                    )}
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => togglePanel('translation')}>
+                    <Languages className="h-4 w-4 mr-2 text-text-tertiary" />
+                    <span>Translation</span>
+                    {rightPanel === 'translation' && (
+                      <span className="ml-auto h-1.5 w-1.5 rounded-full bg-accent-blue" />
+                    )}
+                  </DropdownMenuItem>
+                  {deleteState === 'idle' && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={handleDelete}
+                        className="text-status-error focus:text-status-error focus:bg-status-error-bg"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete document
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </>
               )}
             </DropdownMenuContent>
@@ -251,6 +272,13 @@ export default function DocumentPage() {
         </div>
       </nav>
 
+      {/* ── Supervisor feedback strip — only for document owners ──────────── */}
+      {!isViewer && (
+        <div className="flex-shrink-0 max-h-64 overflow-y-auto border-b border-[var(--border-subtle)]">
+          <StudentSupervisorNotes artifactId={docId} artifactType="document" />
+        </div>
+      )}
+
       {/* ── Body: editor + pillar right panels ───────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
 
@@ -267,7 +295,9 @@ export default function DocumentPage() {
             triggerSaveRef={triggerSaveRef}
             insertContentRef={insertContentRef}
             closeEditorPanelRef={closeEditorPanelRef}
-            readOnly={false}
+            readOnly={isViewer}
+            canComment={isViewer}
+            canReadComments={!isViewer}
             onFocusModeChange={setFocusMode}
             onEditorPanelOpen={() => setRightPanel(null)}
           />

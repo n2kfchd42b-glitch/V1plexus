@@ -27,12 +27,14 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
   Plus, Loader2, X, BookOpen,
-  AlignLeft, Maximize2, Minimize2,
+  AlignLeft, Maximize2, Minimize2, MessageSquare,
 } from 'lucide-react'
+import { CommentsSidebar } from './CommentsSidebar'
+import type { Profile } from '@/types/database'
 import type { CslCitation } from '@/components/publication/CitationSearch'
 import { formatCitation } from '@/components/publication/BibliographyGenerator'
 
-type RightPanel = 'citations' | 'data' | null
+type RightPanel = 'citations' | 'comments' | null
 type ReferenceStyle = 'vancouver' | 'apa7' | 'harvard' | 'numbered'
 
 function extractText(node: Record<string, unknown>): string {
@@ -94,6 +96,8 @@ interface MinimalEditorProps {
   insertContentRef?: { current: ((html: string) => void) | null }
   closeEditorPanelRef?: { current: (() => void) | null }
   readOnly?: boolean
+  canComment?: boolean
+  canReadComments?: boolean
   onFocusModeChange?: (active: boolean) => void
   onEditorPanelOpen?: () => void
 }
@@ -109,6 +113,8 @@ export function MinimalEditor({
   insertContentRef,
   closeEditorPanelRef,
   readOnly = false,
+  canComment = false,
+  canReadComments = false,
   onFocusModeChange,
   onEditorPanelOpen,
 }: MinimalEditorProps) {
@@ -123,6 +129,9 @@ export function MinimalEditor({
   const [focusMode, setFocusMode] = useState(false)
   const [citations, setCitations] = useState<CslCitation[]>(() => extractCitationsFromContent(initialContent))
   const [citationStyle, setCitationStyle] = useState<ReferenceStyle>('vancouver')
+
+  const [currentProfile, setCurrentProfile] = useState<Profile | null>(null)
+  const [pendingAnchor, setPendingAnchor] = useState<string | null>(null)
 
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
   const handleAutoSaveRef = useRef<((content: Record<string, unknown>) => Promise<void>) | null>(null)
@@ -146,6 +155,15 @@ export function MinimalEditor({
   }, [documentId, supabase, onSave])
 
   useEffect(() => { handleAutoSaveRef.current = handleAutoSave }, [handleAutoSave])
+
+  useEffect(() => {
+    if (!canComment) return
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      supabase.from('profiles').select('*').eq('id', user.id).single()
+        .then(({ data }) => { if (data) setCurrentProfile(data as Profile) })
+    })
+  }, [canComment, supabase])
 
   const editor = useEditor({
     extensions: [
@@ -340,6 +358,21 @@ export function MinimalEditor({
                     />
                   </>
                 )}
+                {readOnly && canComment && (
+                  <FloatingSelectionToolbar
+                    editor={editor}
+                    commentOnly
+                    onAddComment={() => {
+                      const sel = editor?.state.selection
+                      if (sel && !sel.empty) {
+                        const text = editor.state.doc.textBetween(sel.from, sel.to, ' ')
+                        setPendingAnchor(text || null)
+                      }
+                      setRightPanel('comments')
+                      setOutlineOpen(false)
+                    }}
+                  />
+                )}
               </div>
             </article>
 
@@ -400,17 +433,19 @@ export function MinimalEditor({
         rightPanel ? (
           /* Expanded panel */
           <div className="w-[280px] shrink-0 bg-bg-surface flex flex-col overflow-hidden border-l border-border-subtle animate-slide-in-right">
-            <div className="h-10 flex items-center justify-between px-4 border-b border-border-subtle shrink-0">
-              <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider">
-                {rightPanel === 'citations' ? `Citations${citations.length > 0 ? ` · ${citations.length}` : ''}` : 'Data'}
-              </span>
-              <button
-                onClick={() => setRightPanel(null)}
-                className="h-6 w-6 flex items-center justify-center rounded text-text-tertiary hover:text-text-primary hover:bg-bg-surface-hover transition-colors"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
+            {rightPanel !== 'comments' && (
+              <div className="h-10 flex items-center justify-between px-4 border-b border-border-subtle shrink-0">
+                <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider">
+                  {rightPanel === 'citations' ? `Citations${citations.length > 0 ? ` · ${citations.length}` : ''}` : 'Panel'}
+                </span>
+                <button
+                  onClick={() => setRightPanel(null)}
+                  className="h-6 w-6 flex items-center justify-center rounded text-text-tertiary hover:text-text-primary hover:bg-bg-surface-hover transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
             <div className="flex-1 overflow-hidden">
               {rightPanel === 'citations' && (
                 <CitationPanel
@@ -421,23 +456,43 @@ export function MinimalEditor({
                   onRemove={(idx) => setCitations(prev => prev.filter((_, i) => i !== idx))}
                 />
               )}
+              {rightPanel === 'comments' && (
+                <CommentsSidebar
+                  documentId={documentId}
+                  currentProfile={currentProfile}
+                  onClose={() => setRightPanel(null)}
+                  pendingAnchorText={pendingAnchor}
+                  onClearPending={() => setPendingAnchor(null)}
+                />
+              )}
             </div>
           </div>
         ) : (
           /* Collapsed icon strip */
           <div className="w-10 shrink-0 flex flex-col items-center py-4 gap-1 border-l border-border-subtle bg-bg-app">
-            <button
-              onClick={() => toggleRightPanel('citations')}
-              className="relative h-7 w-7 flex items-center justify-center rounded text-text-tertiary/50 hover:text-text-primary hover:bg-bg-surface-hover transition-colors"
-              title="Citations (⌘+/)"
-            >
-              <BookOpen className="h-3.5 w-3.5" />
-              {citations.length > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-accent-blue text-white text-[8px] font-black flex items-center justify-center leading-none">
-                  {citations.length}
-                </span>
-              )}
-            </button>
+            {!readOnly && (
+              <button
+                onClick={() => toggleRightPanel('citations')}
+                className="relative h-7 w-7 flex items-center justify-center rounded text-text-tertiary/50 hover:text-text-primary hover:bg-bg-surface-hover transition-colors"
+                title="Citations (⌘+/)"
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                {citations.length > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-accent-blue text-white text-[8px] font-black flex items-center justify-center leading-none">
+                    {citations.length}
+                  </span>
+                )}
+              </button>
+            )}
+            {(canComment || canReadComments) && (
+              <button
+                onClick={() => toggleRightPanel('comments')}
+                className="h-7 w-7 flex items-center justify-center rounded text-text-tertiary/50 hover:text-text-primary hover:bg-bg-surface-hover transition-colors"
+                title={canComment ? 'Comments' : 'Supervisor Comments'}
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+              </button>
+            )}
             <div className="flex-1" />
 
             <button

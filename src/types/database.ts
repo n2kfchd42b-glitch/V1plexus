@@ -5,6 +5,9 @@ export type WorkspaceMemberStatus = 'invited' | 'active' | 'suspended' | 'left'
 export type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'expired'
 export type ProjectInviteRole = 'co_pi' | 'researcher' | 'collaborator' | 'reviewer' | 'viewer'
 export type SupervisorAssignmentStatus = 'active' | 'ended' | 'transferred'
+export type SupervisorRole = 'primary' | 'co_supervisor'
+export type MilestoneStatus = 'pending' | 'submitted' | 'under_review' | 'revision_requested' | 'approved'
+export type MilestoneDecision = 'approved' | 'revision_requested'
 export type DatasetSource = 'upload' | 'kobo' | 'redcap' | 'csv' | 'excel' | 'spss' | 'merge' | 'append' | 'clean' | 'branch'
 export type AnalysisEngine = 'r' | 'python'
 export type AnalysisStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
@@ -142,12 +145,66 @@ export interface SupervisorAssignment {
   supervisor_id: string
   student_id: string
   assigned_by: string | null
+  role: SupervisorRole
   status: SupervisorAssignmentStatus
   assigned_at: string
   ended_at: string | null
   supervisor?: Profile
   student?: Profile
   department?: Department
+}
+
+export interface MilestoneTemplate {
+  id: string
+  workspace_id: string
+  department_id: string | null
+  created_by: string
+  title: string
+  description: string | null
+  order_index: number
+  requires_document: boolean
+  created_at: string
+  updated_at: string
+  creator?: Profile
+}
+
+export interface StudentMilestone {
+  id: string
+  workspace_id: string
+  student_id: string
+  supervisor_id: string
+  template_id: string | null
+  title: string
+  description: string | null
+  order_index: number
+  status: MilestoneStatus
+  due_date: string | null
+  approved_by: string | null
+  approved_at: string | null
+  created_at: string
+  updated_at: string
+  student?: Profile
+  supervisor?: Profile
+  approver?: Profile
+  latest_submission?: MilestoneSubmission
+}
+
+export interface MilestoneSubmission {
+  id: string
+  milestone_id: string
+  student_id: string
+  round: number
+  note: string | null
+  document_id:     string | null
+  dataset_id:      string | null
+  analysis_run_id: string | null
+  submitted_at: string
+  reviewed_by: string | null
+  reviewed_at: string | null
+  decision: MilestoneDecision | null
+  feedback: string | null
+  student?: Profile
+  reviewer?: Profile
 }
 
 export interface Project {

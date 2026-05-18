@@ -10,9 +10,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Users, UserPlus, Crown, Trash2, Search, X, Mail, Clock } from 'lucide-react'
+import { Users, UserPlus, Crown, Trash2, Search, X, Mail, Clock, Eye } from 'lucide-react'
 import { toast } from 'sonner'
 import { logAudit } from '@/lib/audit'
+import { ProjectSupervisorAccess } from '@/components/supervisor-student/ProjectSupervisorAccess'
 import type { ProjectMember, Profile } from '@/types/database'
 
 
@@ -363,6 +364,22 @@ export default function ProjectTeamPage() {
           </div>
         )}
       </div>
+
+      {/* Supervisor access — only shown to project owner */}
+      {isOwner && (
+        <div className="mt-8 border border-[var(--border-default)] rounded-2xl p-5 bg-[var(--bg-surface)]">
+          <div className="flex items-center gap-2.5 mb-4">
+            <div className="h-8 w-8 rounded-lg bg-indigo-50 flex items-center justify-center">
+              <Eye className="h-4 w-4 text-indigo-500" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">Supervisor Access</h3>
+              <p className="text-xs text-[var(--text-tertiary)]">Control which of your supervisors can view this project</p>
+            </div>
+          </div>
+          <ProjectSupervisorAccess projectId={projectId} />
+        </div>
+      )}
 
       {/* Add Member / Invite Modal */}
       <Dialog open={showAdd} onOpenChange={v => { setShowAdd(v); if (!v) resetDialog() }}>

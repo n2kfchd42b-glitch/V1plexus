@@ -101,7 +101,7 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
         .eq('token', token)
 
       toast.success(t('invite.joinedWorkspace', 'You joined the workspace!'))
-      router.push('/dashboard')
+      router.push(workspaceInvite.role === 'student' ? '/student/milestones' : '/dashboard')
     } else if (inviteType === 'project' && projectInvite) {
       const { error: memErr } = await supabase
         .from('project_members')

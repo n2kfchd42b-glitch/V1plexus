@@ -12,6 +12,8 @@ const typeIcons = {
   comment:             MessageSquare,
   gate_approved:       CheckCircle,
   invitation_received: UserPlus,
+  supervisor_note:     MessageSquare,
+  supervision_session: FileText,
 }
 
 const typeColors = {
@@ -21,6 +23,8 @@ const typeColors = {
   comment:             'text-purple-600 bg-purple-50',
   gate_approved:       'text-[var(--status-success-text)] bg-[var(--status-success-bg)]',
   invitation_received: 'text-emerald-600 bg-emerald-50',
+  supervisor_note:     'text-indigo-600 bg-indigo-50',
+  supervision_session: 'text-indigo-600 bg-indigo-50',
 }
 
 interface NotificationItemProps {

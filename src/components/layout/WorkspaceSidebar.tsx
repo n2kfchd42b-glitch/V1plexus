@@ -6,7 +6,10 @@ import { usePathname } from 'next/navigation'
 import {
   FolderOpen, LogOut, ChevronLeft, ChevronRight, Command,
   LayoutDashboard, Database, BarChart2, Clock, BookOpen, FileText, Settings,
+  Users, GraduationCap, Building2,
 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { WorkspaceMemberRole } from '@/types/database'
 import { BrandLogo } from '@/components/layout/BrandLogo'
 import { LanguageSelector } from '@/components/i18n/LanguageSelector'
 import { useTranslations } from '@/i18n/useTranslations'
@@ -23,6 +26,19 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
   const pathname = usePathname()
   const { t } = useTranslations()
   const [collapsed, setCollapsed] = useState(true)
+  const [workspaceRole, setWorkspaceRole] = useState<WorkspaceMemberRole | null>(null)
+
+  useEffect(() => {
+    if (!profile) return
+    const supabase = createClient()
+    supabase
+      .from('workspace_memberships')
+      .select('role')
+      .eq('user_id', profile.id)
+      .eq('status', 'active')
+      .single()
+      .then(({ data }) => { if (data) setWorkspaceRole(data.role as WorkspaceMemberRole) })
+  }, [profile])
 
   const PROJECT_TABS = [
     { slug: 'overview',   labelKey: 'nav.overview',   icon: LayoutDashboard },
@@ -31,6 +47,7 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
     { slug: 'timeline',   labelKey: 'nav.timeline',    icon: Clock           },
     { slug: 'documents',  labelKey: 'nav.documents',   icon: BookOpen        },
     { slug: 'report',     labelKey: 'nav.report',      icon: FileText        },
+    { slug: 'team',       labelKey: 'nav.team',        icon: Users           },
     { slug: 'settings',   labelKey: 'nav.settings',    icon: Settings        },
   ]
 
@@ -171,6 +188,85 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
 
         {/* Divider */}
         <div className="my-2 h-px bg-white/10" />
+
+        {/* Role-based nav — supervisor */}
+        {workspaceRole === 'supervisor' && (() => {
+          const studentsHref = '/supervisor/dashboard'
+          const deptHref = '/department'
+          const studentsActive = pathname.startsWith('/supervisor')
+          const deptActive = pathname.startsWith('/department')
+          return (
+            <>
+              {!collapsed && (
+                <p className="px-2.5 pt-0.5 pb-1.5 text-[9px] font-medium uppercase tracking-[0.10em] text-[var(--text-sidebar-icon)]">
+                  Supervision
+                </p>
+              )}
+              <Link href={studentsHref} title={collapsed ? 'My Students' : undefined}>
+                <div className={cn(
+                  'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
+                  collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
+                  studentsActive
+                    ? 'bg-[var(--bg-sidebar-active)] text-[var(--text-sidebar-active)]'
+                    : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
+                )}>
+                  {studentsActive && (
+                    <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-primary)]" />
+                  )}
+                  <Users className={cn('flex-shrink-0 h-4 w-4', studentsActive ? 'text-white' : 'text-[var(--text-sidebar-icon)]')} />
+                  {!collapsed && <span className="text-sm font-medium">{t('nav.myStudents', 'My Students')}</span>}
+                </div>
+              </Link>
+              <Link href={deptHref} title={collapsed ? 'Department' : undefined}>
+                <div className={cn(
+                  'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
+                  collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
+                  deptActive
+                    ? 'bg-[var(--bg-sidebar-active)] text-[var(--text-sidebar-active)]'
+                    : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
+                )}>
+                  {deptActive && (
+                    <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-primary)]" />
+                  )}
+                  <Building2 className={cn('flex-shrink-0 h-4 w-4', deptActive ? 'text-white' : 'text-[var(--text-sidebar-icon)]')} />
+                  {!collapsed && <span className="text-sm font-medium">Department</span>}
+                </div>
+              </Link>
+              <div className="my-2 h-px bg-white/10" />
+            </>
+          )
+        })()}
+
+        {/* Role-based nav — student */}
+        {workspaceRole === 'student' && (() => {
+          const href = '/student/milestones'
+          const active = pathname.startsWith('/student')
+          return (
+            <>
+              {!collapsed && (
+                <p className="px-2.5 pt-0.5 pb-1.5 text-[9px] font-medium uppercase tracking-[0.10em] text-[var(--text-sidebar-icon)]">
+                  My Research
+                </p>
+              )}
+              <Link href={href} title={collapsed ? 'My Roadmap' : undefined}>
+                <div className={cn(
+                  'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
+                  collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
+                  active
+                    ? 'bg-[var(--bg-sidebar-active)] text-[var(--text-sidebar-active)]'
+                    : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
+                )}>
+                  {active && (
+                    <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-primary)]" />
+                  )}
+                  <GraduationCap className={cn('flex-shrink-0 h-4 w-4', active ? 'text-white' : 'text-[var(--text-sidebar-icon)]')} />
+                  {!collapsed && <span className="text-sm font-medium">{t('nav.myRoadmap', 'My Roadmap')}</span>}
+                </div>
+              </Link>
+              <div className="my-2 h-px bg-white/10" />
+            </>
+          )
+        })()}
 
         {/* Section label — tools */}
         {!collapsed && (
