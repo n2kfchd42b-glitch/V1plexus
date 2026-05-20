@@ -119,7 +119,7 @@ function isOverdue(p: PhaseItem): boolean {
 }
 
 function shortLabel(name: string): string {
-  return name.length > 4 ? name.slice(0, 3) + '…' : name
+  return name
 }
 
 // ── Popover ───────────────────────────────────────────────────────────────────
