@@ -118,6 +118,19 @@ export default function StudentMilestonesPage() {
   const approvedCount = milestones.filter(m => m.status === 'approved').length
   const unresolvedNotes = notes.filter(n => !n.is_resolved)
 
+  async function markNoteRead(noteId: string) {
+    await fetch('/api/supervision/annotations', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: noteId, is_resolved: true }),
+    })
+    setNotes(prev => prev.map(n => n.id === noteId ? { ...n, is_resolved: true } : n))
+  }
+
+  async function markAllRead() {
+    await Promise.all(unresolvedNotes.map(n => markNoteRead(n.id)))
+  }
+
   const supervisorName = supervisor
     ? (supervisor.supervisor as { full_name: string | null }).full_name ?? 'Your supervisor'
     : 'Your supervisor'
@@ -305,9 +318,17 @@ export default function StudentMilestonesPage() {
                       {supervisorName}
                     </span>
                     {unresolvedNotes.length > 0 && (
-                      <span className="ml-auto inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-accent-blue-subtle text-accent-blue border border-blue-200 flex-shrink-0">
-                        {unresolvedNotes.length}
-                      </span>
+                      <>
+                        <span className="ml-auto inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-accent-blue-subtle text-accent-blue border border-blue-200 flex-shrink-0">
+                          {unresolvedNotes.length}
+                        </span>
+                        <button
+                          onClick={markAllRead}
+                          className="text-[10px] font-semibold text-text-tertiary hover:text-text-primary transition-colors flex-shrink-0"
+                        >
+                          Mark all read
+                        </button>
+                      </>
                     )}
                   </div>
 
@@ -318,7 +339,7 @@ export default function StudentMilestonesPage() {
                   ) : (
                     <div className="divide-y divide-border-subtle">
                       {[...unresolvedNotes, ...notes.filter(n => n.is_resolved)].slice(0, 5).map(note => (
-                        <div key={note.id} className="flex gap-2 items-start px-3 py-2.5 relative">
+                        <div key={note.id} className="group flex gap-2 items-start px-3 py-2.5 relative hover:bg-bg-surface-hover transition-colors">
                           {!note.is_resolved && (
                             <div className="absolute left-1 top-4 w-1.5 h-1.5 rounded-full bg-accent-blue flex-shrink-0" />
                           )}
@@ -331,6 +352,15 @@ export default function StudentMilestonesPage() {
                               {note.content}
                             </div>
                           </div>
+                          {!note.is_resolved && (
+                            <button
+                              onClick={() => markNoteRead(note.id)}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5 text-[10px] font-semibold text-text-tertiary hover:text-accent-blue"
+                              title="Mark as read"
+                            >
+                              ✓
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>

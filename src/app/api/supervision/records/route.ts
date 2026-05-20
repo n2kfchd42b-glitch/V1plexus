@@ -13,6 +13,7 @@ const CreateSchema = z.object({
 })
 
 // GET /api/supervision/records?projectId=X&studentId=Y
+// Students fetch their own records; supervisors fetch their students' records.
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -22,13 +23,16 @@ export async function GET(req: NextRequest) {
   const projectId = searchParams.get('projectId')
   const studentId = searchParams.get('studentId')
 
+  // Scope: caller can only see records where they are the student OR the supervisor
   let query = supabase
     .from('supervision_records')
     .select(`*, supervisor:profiles!supervisor_id(id, full_name)`)
+    .or(`student_id.eq.${user.id},supervisor_id.eq.${user.id}`)
     .order('created_at', { ascending: false })
 
   if (projectId) query = query.eq('project_id', projectId)
-  if (studentId) query = query.eq('student_id', studentId)
+  // If a specific studentId is requested, honour it (supervisor viewing a student's records)
+  if (studentId && studentId !== user.id) query = query.eq('student_id', studentId)
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

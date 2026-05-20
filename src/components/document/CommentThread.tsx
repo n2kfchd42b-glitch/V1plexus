@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn, formatRelative, getInitials } from '@/lib/utils'
-import { createClient } from '@/lib/supabase/client'
 import type { DocumentComment, Profile } from '@/types/database'
 
 interface CommentThreadProps {
@@ -20,16 +19,14 @@ export function CommentThread({ comment, currentProfile, onResolve, onRefresh }:
   const [showReply, setShowReply] = useState(false)
   const [replyText, setReplyText] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const supabase = createClient()
 
   const handleReply = async () => {
     if (!replyText.trim() || !currentProfile) return
     setSubmitting(true)
-    await supabase.from('document_comments').insert({
-      document_id: comment.document_id,
-      author_id: currentProfile.id,
-      content: replyText.trim(),
-      parent_id: comment.id,
+    await fetch(`/api/documents/${comment.document_id}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: replyText.trim(), parent_id: comment.id }),
     })
     setReplyText('')
     setShowReply(false)

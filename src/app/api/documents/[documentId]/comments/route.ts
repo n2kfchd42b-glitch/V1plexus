@@ -48,19 +48,21 @@ export async function POST(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Notify document owner if the commenter is someone else
-  if (doc.created_by !== user.id) {
-    const { data: commenter } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', user.id)
-      .single()
+  // Resolve commenter name once — used in both notification paths below
+  const { data: commenterProfile } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('id', user.id)
+    .single()
+  const commenterName = commenterProfile?.full_name ?? 'Someone'
+  const svc = createServiceClient()
+  const notified = new Set<string>()
 
-    const commenterName = commenter?.full_name ?? 'Someone'
+  // Notify document owner if they are not the commenter
+  if (doc.created_by !== user.id) {
     const anchorSuffix = parsed.data.anchor_text
       ? ` · "${parsed.data.anchor_text.slice(0, 60)}${parsed.data.anchor_text.length > 60 ? '…' : ''}"`
       : ''
-
     await sendNotification(
       doc.created_by,
       'document_comment',
@@ -68,8 +70,30 @@ export async function POST(
       parsed.data.content.slice(0, 100) + (parsed.data.content.length > 100 ? '…' : '') + anchorSuffix,
       `/projects/${doc.project_id}/documents/${documentId}`,
       { resource_type: 'document', resource_id: documentId },
-      createServiceClient(),
+      svc,
     )
+    notified.add(doc.created_by)
+  }
+
+  // On replies: also notify the parent comment's author if not already notified
+  if (parsed.data.parent_id) {
+    const { data: parent } = await supabase
+      .from('document_comments')
+      .select('author_id')
+      .eq('id', parsed.data.parent_id)
+      .single()
+
+    if (parent && parent.author_id !== user.id && !notified.has(parent.author_id)) {
+      await sendNotification(
+        parent.author_id,
+        'document_comment',
+        `${commenterName} replied to your comment`,
+        parsed.data.content.slice(0, 100) + (parsed.data.content.length > 100 ? '…' : ''),
+        `/projects/${doc.project_id}/documents/${documentId}`,
+        { resource_type: 'document', resource_id: documentId },
+        svc,
+      )
+    }
   }
 
   return NextResponse.json(data, { status: 201 })
