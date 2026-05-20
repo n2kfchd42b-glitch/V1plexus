@@ -1,17 +1,18 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft, Plus, FolderOpen, ChevronRight,
   Shield, Download, MessageSquare, CheckCircle2,
-  PenLine, BarChart2, Database, Filter, X,
+  PenLine, BarChart2, Database, Filter, X, ClipboardList,
 } from 'lucide-react'
 import { StudentMilestone } from '@/types/database'
 import { MilestoneRoadmap } from '@/components/supervisor-student/MilestoneRoadmap'
 import { MilestoneReviewModal } from '@/components/supervisor-student/MilestoneReviewModal'
 import { AddMilestoneModal } from '@/components/supervisor-student/AddMilestoneModal'
+import { SupervisionRecordModal } from '@/components/supervisor-student/SupervisionRecordModal'
 import { VerifyBadge } from '@/components/ui/verify-badge'
 import { PhaseBar, PhasePill, PHASE_ORDER, type ResearchPhase } from '@/components/ui/phase-bar'
 import { createClient } from '@/lib/supabase/client'
@@ -31,6 +32,8 @@ interface Annotation {
   artifact_type: string
   artifact_id: string
   anchor: string
+  anchor_label: string | null
+  project_id: string
   created_at: string
   is_resolved: boolean
 }
@@ -41,6 +44,7 @@ interface LedgerEntry {
   who: string
   action: string
   kind: 'edit' | 'analysis' | 'data' | 'approve' | 'msg'
+  href?: string
   hot?: boolean
 }
 
@@ -54,6 +58,7 @@ const KIND_ICON: Record<string, React.ElementType> = {
 
 export default function StudentDetailPage() {
   const { studentId } = useParams<{ studentId: string }>()
+  const searchParams = useSearchParams()
   const [milestones, setMilestones] = useState<StudentMilestone[]>([])
   const [projects, setProjects] = useState<ResearchProject[]>([])
   const [studentProfile, setStudentProfile] = useState<{
@@ -62,8 +67,10 @@ export default function StudentDetailPage() {
   const [annotations, setAnnotations] = useState<Annotation[]>([])
   const [reviewing, setReviewing] = useState<StudentMilestone | null>(null)
   const [addingMilestone, setAddingMilestone] = useState(false)
+  const [recordingSession, setRecordingSession] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'overview' | 'milestones' | 'research'>('overview')
+  const initialTab = searchParams.get('tab') as 'overview' | 'milestones' | 'research' | null
+  const [activeTab, setActiveTab] = useState<'overview' | 'milestones' | 'research'>(initialTab ?? 'overview')
   const [ledgerFilter, setLedgerFilter] = useState<'all' | 'data' | 'edits' | 'analyses' | 'approvals'>('all')
   const supabase = createClient()
 
@@ -72,7 +79,7 @@ export default function StudentDetailPage() {
       fetch(`/api/milestones?student_id=${studentId}`),
       supabase.from('profiles').select('full_name, email, title').eq('id', studentId).single(),
       fetch(`/api/supervisor/students/${studentId}/research`),
-      fetch(`/api/supervision/annotations?student_id=${studentId}&artifact_type=all`),
+      fetch(`/api/supervision/annotations?studentId=${studentId}`),
     ])
     if (milestonesRes.ok) setMilestones(await milestonesRes.json())
     if (profileRes.data) setStudentProfile(profileRes.data)
@@ -89,14 +96,24 @@ export default function StudentDetailPage() {
   const pendingReview = milestones.filter(m => ['submitted', 'under_review'].includes(m.status)).length
   const approved = milestones.filter(m => m.status === 'approved').length
 
+  const primaryProjectId = projects[0]?.id
+
+  function artifactHref(a: Annotation): string {
+    const base = `/supervisor/projects/${a.project_id}`
+    if (a.artifact_type === 'dataset')  return `${base}/datasets/${a.artifact_id}`
+    if (a.artifact_type === 'analysis') return `${base}/analyses/${a.artifact_id}`
+    return `${base}/documents/${a.artifact_id}`
+  }
+
   // Build ledger entries from annotations + milestones
   const ledgerEntries: LedgerEntry[] = [
     ...annotations.slice(0, 12).map((a): LedgerEntry => ({
       id: a.id,
       t: formatRelative(a.created_at),
       who: 'You',
-      action: `left a note on ${a.artifact_type}`,
+      action: `note on ${a.anchor_label ?? a.artifact_type}`,
       kind: 'msg',
+      href: artifactHref(a),
       hot: !a.is_resolved,
     })),
     ...milestones
@@ -108,6 +125,7 @@ export default function StudentDetailPage() {
         who: 'You',
         action: `approved: ${m.title}`,
         kind: 'approve',
+        href: `/supervisor/students/${studentId}?tab=milestones`,
         hot: false,
       })),
     ...milestones
@@ -119,6 +137,7 @@ export default function StudentDetailPage() {
         who: studentProfile?.full_name?.split(' ')[0] ?? 'Student',
         action: `submitted: ${m.title}`,
         kind: 'edit',
+        href: `/supervisor/students/${studentId}?tab=milestones`,
         hot: true,
       })),
   ].sort((a, b) => 0) // keep insertion order for now
@@ -190,12 +209,20 @@ export default function StudentDetailPage() {
                 {projects.length > 0 && ` · ${projects.length} project${projects.length !== 1 ? 's' : ''}`}
               </div>
             </div>
-            <button
-              onClick={() => setAddingMilestone(true)}
-              className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md bg-accent-primary text-white text-xs font-semibold hover:opacity-90 transition-opacity flex-shrink-0"
-            >
-              <Plus className="h-3.5 w-3.5" /> Add Milestone
-            </button>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={() => setRecordingSession(true)}
+                className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border-default text-xs font-semibold text-text-secondary hover:bg-bg-surface-hover transition-colors"
+              >
+                <ClipboardList className="h-3.5 w-3.5" /> Log Session
+              </button>
+              <button
+                onClick={() => setAddingMilestone(true)}
+                className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md bg-accent-primary text-white text-xs font-semibold hover:opacity-90 transition-opacity"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add Milestone
+              </button>
+            </div>
           </div>
 
           {/* Phase track */}
@@ -306,13 +333,19 @@ export default function StudentDetailPage() {
                       Signals
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-accent-blue-subtle text-accent-blue border border-blue-200">
+                      <Link
+                        href="/supervisor/inbox"
+                        className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-accent-blue-subtle text-accent-blue border border-blue-200 hover:bg-blue-100 transition-colors"
+                      >
                         {annotations.filter(a => !a.is_resolved).length} open notes
-                      </span>
+                      </Link>
                       {pendingReview > 0 && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                        <button
+                          onClick={() => setActiveTab('milestones')}
+                          className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors"
+                        >
                           Review needed
-                        </span>
+                        </button>
                       )}
                     </div>
                   </>
@@ -326,6 +359,7 @@ export default function StudentDetailPage() {
             <MilestoneRoadmap
               milestones={milestones}
               role="supervisor"
+              projectId={primaryProjectId}
               onReview={(m) => setReviewing(m)}
             />
           )}
@@ -410,8 +444,8 @@ export default function StudentDetailPage() {
           ) : (
             filteredLedger.map((entry, i) => {
               const Icon = KIND_ICON[entry.kind] ?? PenLine
-              return (
-                <div key={entry.id} className="flex gap-2 py-2.5 border-t first:border-t-0 border-border-subtle relative">
+              const inner = (
+                <>
                   {/* Timeline dot + line */}
                   <div className="w-4 flex flex-col items-center flex-shrink-0">
                     <div
@@ -439,6 +473,19 @@ export default function StudentDetailPage() {
                       </div>
                     </div>
                   </div>
+                </>
+              )
+              return entry.href ? (
+                <Link
+                  key={entry.id}
+                  href={entry.href}
+                  className="flex gap-2 py-2.5 border-t first:border-t-0 border-border-subtle relative hover:bg-bg-surface-hover transition-colors rounded-md px-1 -mx-1"
+                >
+                  {inner}
+                </Link>
+              ) : (
+                <div key={entry.id} className="flex gap-2 py-2.5 border-t first:border-t-0 border-border-subtle relative">
+                  {inner}
                 </div>
               )
             })
@@ -467,8 +514,18 @@ export default function StudentDetailPage() {
       {addingMilestone && (
         <AddMilestoneModal
           studentId={studentId}
+          projectId={primaryProjectId}
           onClose={() => setAddingMilestone(false)}
           onSuccess={() => { setAddingMilestone(false); load() }}
+        />
+      )}
+      {recordingSession && primaryProjectId && (
+        <SupervisionRecordModal
+          projectId={primaryProjectId}
+          studentId={studentId}
+          open={recordingSession}
+          onClose={() => setRecordingSession(false)}
+          onCreated={() => { setRecordingSession(false); load() }}
         />
       )}
     </div>
