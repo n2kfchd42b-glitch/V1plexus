@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { ChevronDown, UploadCloud, FileText, X, Loader2 } from "lucide-react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { TemplatePicker } from "@/components/document/TemplatePicker";
@@ -163,11 +163,14 @@ async function extractPdf(file: File): Promise<string> {
 }
 
 export default function NewDocumentPage() {
-  const router = useRouter();
-  const params = useParams();
-  const projectId = params.id as string;
+  const router       = useRouter();
+  const params       = useParams();
+  const searchParams = useSearchParams();
+  const projectId    = params.id as string;
 
-  const [mode, setMode] = useState<Mode>("write");
+  const [mode, setMode] = useState<Mode>(
+    searchParams.get("mode") === "upload" ? "upload" : "write"
+  );
   const [title, setTitle] = useState("");
   const [docType, setDocType] = useState("general");
   const [templates, setTemplates] = useState<DocumentTemplate[]>([]);

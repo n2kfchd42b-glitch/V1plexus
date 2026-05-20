@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import {
   Plus, ChevronLeft, ChevronRight, FileText, Loader2,
-  MoreVertical, Trash2, AlertTriangle, Check, X,
+  MoreVertical, Trash2, AlertTriangle, Check, X, Upload,
 } from 'lucide-react'
 import { cn, formatRelativeTime, statusColor, statusLabel } from '@/lib/utils'
 import type { Document } from '@/lib/types/database'
@@ -296,8 +296,8 @@ export function DocumentListPanel({
         )}
       </div>
 
-      {/* Footer: new doc */}
-      <div className="shrink-0 border-t border-border-subtle px-3 py-2">
+      {/* Footer: new doc + import */}
+      <div className="shrink-0 border-t border-border-subtle px-3 py-2 flex flex-col gap-0.5">
         <button
           onClick={handleNew}
           disabled={creating}
@@ -308,6 +308,13 @@ export function DocumentListPanel({
             : <Plus className="h-3.5 w-3.5" />
           }
           New document
+        </button>
+        <button
+          onClick={() => router.push(`/projects/${projectId}/documents/new?mode=upload`)}
+          className="w-full flex items-center gap-2 h-7 px-2 rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-surface-hover transition-colors text-[11px]"
+        >
+          <Upload className="h-3.5 w-3.5" />
+          Import file
         </button>
       </div>
     </div>
