@@ -141,18 +141,24 @@ const ZOOM_KEYS: Record<ZoomLevel, string> = {
 export function ProjectGantt({ projectId, userId, initialPhases, initialNotes, readOnly = false }: Props) {
   const { t, locale } = useTranslations()
 
-  const [phases, setPhases] = useState<GanttPhase[]>(() =>
-    PHASE_CONFIG.map((cfg, i) => {
+  const [phases, setPhases] = useState<GanttPhase[]>(() => {
+    const builtIn = PHASE_CONFIG.map((cfg, i) => {
       const found = initialPhases.find(p => p.phase_key === cfg.key)
       return found ?? { phase_key: cfg.key, start_date: null, end_date: null, completed_at: null, disabled: false, sort_order: i }
     })
-  )
-  const activePhaseConfig = PHASE_CONFIG
-    .filter(cfg => !phases.find(p => p.phase_key === cfg.key)?.disabled)
-    .sort((a, b) => {
-      const aOrder = phases.find(p => p.phase_key === a.key)?.sort_order ?? 99
-      const bOrder = phases.find(p => p.phase_key === b.key)?.sort_order ?? 99
-      return aOrder - bOrder
+    const custom = initialPhases.filter(p => !PHASE_CONFIG.find(c => c.key === p.phase_key))
+    return [...builtIn, ...custom]
+  })
+  const activePhases = phases
+    .filter(p => !p.disabled)
+    .sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99))
+    .map(p => {
+      const builtIn = PHASE_CONFIG.find(c => c.key === p.phase_key)
+      return {
+        key:   p.phase_key,
+        label: p.name ?? (builtIn ? t(builtIn.labelKey) : p.phase_key),
+        color: p.color ?? builtIn?.color ?? 'var(--phase-concept)',
+      }
     })
   const [zoom,         setZoom]         = useState<ZoomLevel>('month')
   const [editingKey,   setEditingKey]   = useState<string | null>(null)
@@ -192,8 +198,11 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes, r
     el.scrollLeft      = Math.max(0, todayPx - visibleWidth * 0.10)
   }, [zoom, canvasWidth, todayPct])
 
-  const logsCfg    = PHASE_CONFIG.find(c => c.key === logsPanelKey)
-  const panelNotes = notes.filter(n => n.details.operation?.phase === logsPanelKey)
+  const logsPhase      = phases.find(p => p.phase_key === logsPanelKey)
+  const _logsBuiltIn   = PHASE_CONFIG.find(c => c.key === logsPanelKey)
+  const logsColor      = logsPhase?.color ?? _logsBuiltIn?.color ?? 'var(--phase-concept)'
+  const logsPhaseLabel = logsPhase?.name ?? (_logsBuiltIn ? t(_logsBuiltIn.labelKey) : logsPanelKey ?? '')
+  const panelNotes     = notes.filter(n => n.details.operation?.phase === logsPanelKey)
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -390,7 +399,7 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes, r
             className="data-mono text-[9px] rounded px-1.5 py-0.5 font-semibold ml-auto"
             style={{ background: 'var(--border-subtle)', color: 'var(--text-tertiary)' }}
           >
-            {phases.filter(p => p.completed_at).length} / 7
+            {phases.filter(p => p.completed_at && !p.disabled).length} / {phases.filter(p => !p.disabled).length}
           </span>
         </div>
         <div className="flex-1 flex items-center justify-end px-4">
@@ -433,15 +442,15 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes, r
             style={{ height: 40, borderBottom: '1px solid var(--border-subtle)' }}
           />
 
-          {activePhaseConfig.map((cfg, idx) => {
+          {activePhases.map((cfg, idx) => {
             const phase      = phases.find(p => p.phase_key === cfg.key)!
             const isComplete = !!phase.completed_at
             const hasBar     = !!(phase.start_date && phase.end_date)
             const isEditing  = editingKey   === cfg.key
             const isLogsOpen = logsPanelKey === cfg.key
             const noteCount  = notes.filter(n => n.details.operation?.phase === cfg.key).length
-            const phaseLabel = phase.name ?? t(cfg.labelKey)
-            const phaseColor = phase.color ?? cfg.color
+            const phaseLabel = cfg.label
+            const phaseColor = cfg.color
 
             return (
               <div
@@ -615,15 +624,15 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes, r
                   />
                 )}
 
-                {activePhaseConfig.map((cfg, idx) => {
+                {activePhases.map((cfg, idx) => {
                   const phase      = phases.find(p => p.phase_key === cfg.key)!
                   const hasBar     = !!(phase.start_date && phase.end_date)
                   const isComplete = !!phase.completed_at
                   const isEditing  = editingKey   === cfg.key
                   const isLogsOpen = logsPanelKey === cfg.key
                   const isEven     = idx % 2 === 0
-                  const phaseLabel = phase.name ?? t(cfg.labelKey)
-                  const phaseColor = phase.color ?? cfg.color
+                  const phaseLabel = cfg.label
+                  const phaseColor = cfg.color
 
                   let barLeft = 0, barWidth = 0
                   if (hasBar) {
@@ -656,7 +665,7 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes, r
                         readOnly ? (
                           <div
                             title={`${fmtDate(phase.start_date!, 'en')} → ${fmtDate(phase.end_date!, 'en')}`}
-                            className="absolute top-1/2 -translate-y-1/2"
+                            className="absolute top-1/2 -translate-y-1/2 overflow-hidden flex items-center px-2"
                             style={{
                               left:         `${Math.max(0.5, barLeft)}%`,
                               width:        `${Math.max(2, barWidth)}%`,
@@ -668,12 +677,18 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes, r
                               boxShadow:    `0 1px 4px color-mix(in srgb, ${phaseColor} 50%, transparent)`,
                               cursor:       'default',
                             }}
-                          />
+                          >
+                            {barWidth > 8 && (
+                              <span className="text-white font-semibold truncate pointer-events-none select-none" style={{ fontSize: 10, lineHeight: 1 }}>
+                                {phaseLabel}
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <button
                             onClick={() => openEdit(phase)}
                             title={`${phase.start_date} → ${phase.end_date}`}
-                            className="absolute top-1/2 -translate-y-1/2 transition-all duration-150 hover:brightness-110 active:scale-y-95"
+                            className="absolute top-1/2 -translate-y-1/2 overflow-hidden flex items-center px-2 transition-all duration-150 hover:brightness-110 active:scale-y-95"
                             style={{
                               left:         `${Math.max(0.5, barLeft)}%`,
                               width:        `${Math.max(2, barWidth)}%`,
@@ -684,7 +699,13 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes, r
                               zIndex:        1,
                               boxShadow:    `0 1px 4px color-mix(in srgb, ${phaseColor} 50%, transparent)`,
                             }}
-                          />
+                          >
+                            {barWidth > 8 && (
+                              <span className="text-white font-semibold truncate pointer-events-none select-none" style={{ fontSize: 10, lineHeight: 1 }}>
+                                {phaseLabel}
+                              </span>
+                            )}
+                          </button>
                         )
                       ) : readOnly ? (
                         <div
@@ -758,7 +779,7 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes, r
         </div>
 
         {/* ── Notes & Logs slide-in panel ─────────────────────────────────── */}
-        {logsPanelKey && logsCfg && (
+        {logsPanelKey && logsPhase && (
           <>
             <div
               className="absolute inset-0 z-30"
@@ -781,14 +802,14 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes, r
               >
                 <div
                   className="rounded-full flex-shrink-0"
-                  style={{ width: 8, height: 8, background: logsCfg.color }}
+                  style={{ width: 8, height: 8, background: logsColor }}
                 />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-manrope)' }}>
                     {t('gantt.myNotesLogs')}
                   </p>
                   <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                    {t(logsCfg.labelKey)}
+                    {logsPhaseLabel}
                   </p>
                 </div>
                 <button
@@ -826,7 +847,7 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes, r
                         <div className="flex items-center gap-1.5 mb-1.5">
                           <div
                             className="rounded-full flex-shrink-0"
-                            style={{ width: 5, height: 5, background: logsCfg.color }}
+                            style={{ width: 5, height: 5, background: logsColor }}
                           />
                           <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>
                             {note.actor?.full_name ?? t('gantt.personalLog')}
@@ -894,10 +915,10 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes, r
           }}
         >
           {(() => {
-            const cfg        = PHASE_CONFIG.find(c => c.key === editingKey)!
+            const builtInCfg = PHASE_CONFIG.find(c => c.key === editingKey)
             const editPhase  = phases.find(p => p.phase_key === editingKey)
-            const phaseLabel = editPhase?.name ?? t(cfg.labelKey)
-            const phaseColor = editPhase?.color ?? cfg.color
+            const phaseLabel = editPhase?.name ?? (builtInCfg ? t(builtInCfg.labelKey) : editingKey ?? '')
+            const phaseColor = editPhase?.color ?? builtInCfg?.color ?? 'var(--phase-concept)'
             return (
               <div className="flex items-start gap-3">
                 <div
