@@ -27,28 +27,122 @@ const DOC_TYPES = [
 
 type Mode = "write" | "upload";
 
-/** Convert plain text into a minimal TipTap JSON document */
-function textToTipTap(text: string) {
-  const paragraphs = text
-    .split(/\n{2,}/)
-    .map((block) => block.trim())
-    .filter(Boolean);
-
-  return {
-    type: "doc",
-    content: paragraphs.map((p) => ({
-      type: "paragraph",
-      content: [{ type: "text", text: p }],
-    })),
-  };
+// ── TipTap node types ─────────────────────────────────────────────────────────
+type TipTapMark = { type: string; attrs?: Record<string, unknown> }
+type TipTapNode = {
+  type: string
+  attrs?: Record<string, unknown>
+  content?: TipTapNode[]
+  marks?: TipTapMark[]
+  text?: string
 }
 
-/** Extract text from a DOCX file using mammoth (dynamic import to keep bundle lean) */
-async function extractDocx(file: File): Promise<string> {
-  const mammoth = await import("mammoth");
-  const arrayBuffer = await file.arrayBuffer();
-  const result = await mammoth.extractRawText({ arrayBuffer });
-  return result.value;
+/** Walk inline children (text, bold, italic, underline, links, br) */
+function parseInline(el: Element, activeMarks: TipTapMark[] = []): TipTapNode[] {
+  const nodes: TipTapNode[] = []
+  for (const node of Array.from(el.childNodes)) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent ?? ""
+      if (text) {
+        const n: TipTapNode = { type: "text", text }
+        if (activeMarks.length > 0) n.marks = [...activeMarks]
+        nodes.push(n)
+      }
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const child = node as Element
+      const tag   = child.tagName.toLowerCase()
+      if (tag === "br") { nodes.push({ type: "hardBreak" }); continue }
+      const marks = [...activeMarks]
+      if (tag === "strong" || tag === "b")  marks.push({ type: "bold" })
+      if (tag === "em"     || tag === "i")  marks.push({ type: "italic" })
+      if (tag === "u")                       marks.push({ type: "underline" })
+      if (tag === "a") {
+        const href = child.getAttribute("href")
+        if (href) marks.push({ type: "link", attrs: { href } })
+      }
+      nodes.push(...parseInline(child, marks))
+    }
+  }
+  return nodes
+}
+
+/** Parse a single block-level HTML node into TipTap node(s) */
+function parseBlock(node: Node): TipTapNode | null {
+  if (node.nodeType === Node.TEXT_NODE) {
+    const text = node.textContent?.trim() ?? ""
+    if (!text) return null
+    return { type: "paragraph", content: [{ type: "text", text }] }
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE) return null
+  const el  = node as Element
+  const tag = el.tagName.toLowerCase()
+
+  if (/^h[1-6]$/.test(tag)) {
+    const inline = parseInline(el)
+    return { type: "heading", attrs: { level: parseInt(tag[1]) }, content: inline.length ? inline : undefined }
+  }
+  if (tag === "p") {
+    const inline = parseInline(el)
+    return { type: "paragraph", content: inline.length ? inline : undefined }
+  }
+  if (tag === "ul" || tag === "ol") {
+    const items = Array.from(el.children)
+      .filter(c => c.tagName.toLowerCase() === "li")
+      .map(li => {
+        // A list item may contain nested lists — split inline vs block children
+        const inlineContent = parseInline(li)
+        return { type: "listItem", content: [{ type: "paragraph", content: inlineContent }] }
+      })
+    return {
+      type:    tag === "ul" ? "bulletList" : "orderedList",
+      attrs:   tag === "ol" ? { start: 1 } : undefined,
+      content: items,
+    }
+  }
+  if (tag === "table") {
+    const rows = Array.from(el.querySelectorAll("tr")).map(row => ({
+      type:    "tableRow",
+      content: Array.from(row.children).map(cell => ({
+        type:    cell.tagName.toLowerCase() === "th" ? "tableHeader" : "tableCell",
+        attrs:   { colspan: 1, rowspan: 1 },
+        content: [{ type: "paragraph", content: parseInline(cell) }],
+      })),
+    }))
+    return { type: "table", content: rows }
+  }
+  // Fallback: treat as paragraph
+  const inline = parseInline(el)
+  return inline.length ? { type: "paragraph", content: inline } : null
+}
+
+/** Convert mammoth HTML to a full TipTap JSON document, preserving formatting */
+function htmlToTipTap(html: string): Record<string, unknown> {
+  const doc     = new DOMParser().parseFromString(html, "text/html")
+  const content = Array.from(doc.body.childNodes)
+    .map(parseBlock)
+    .filter((n): n is TipTapNode => n !== null)
+  return { type: "doc", content: content.length ? content : [{ type: "paragraph" }] }
+}
+
+/** Fallback for PDFs: split plain text into paragraphs */
+function textToTipTap(text: string): Record<string, unknown> {
+  const paragraphs = text.split(/\n{2,}/).map(b => b.trim()).filter(Boolean)
+  return {
+    type:    "doc",
+    content: paragraphs.length
+      ? paragraphs.map(p => ({ type: "paragraph", content: [{ type: "text", text: p }] }))
+      : [{ type: "paragraph" }],
+  }
+}
+
+/** Extract and convert a DOCX file — returns TipTap JSON + word count */
+async function extractDocx(file: File): Promise<{ content: Record<string, unknown>; wordCount: number }> {
+  const mammoth    = await import("mammoth")
+  const arrayBuffer = await file.arrayBuffer()
+  const { value: html } = await mammoth.convertToHtml({ arrayBuffer })
+  const content   = htmlToTipTap(html)
+  const wordCount = html.replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length
+  return { content, wordCount }
 }
 
 /** Extract text from a PDF using the PDF.js CDN worker */
@@ -83,11 +177,13 @@ export default function NewDocumentPage() {
   const [loading, setLoading] = useState(false);
 
   // Upload state
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [extracting, setExtracting] = useState(false);
-  const [extractedText, setExtractedText] = useState<string>("");
-  const [extractError, setExtractError] = useState<string | null>(null);
-  const dropRef = useRef<HTMLDivElement>(null);
+  const [uploadFile,       setUploadFile]       = useState<File | null>(null);
+  const [extracting,       setExtracting]       = useState(false);
+  const [extractedText,    setExtractedText]    = useState<string>("");          // PDF raw text
+  const [extractedTipTap,  setExtractedTipTap]  = useState<Record<string, unknown> | null>(null); // DOCX rich content
+  const [extractedWordCount, setExtractedWordCount] = useState(0);
+  const [extractError,     setExtractError]     = useState<string | null>(null);
+  const dropRef  = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -111,18 +207,22 @@ export default function NewDocumentPage() {
     setUploadFile(file);
     setExtractError(null);
     setExtracting(true);
+    setExtractedText("");
+    setExtractedTipTap(null);
+    setExtractedWordCount(0);
     try {
-      let text = "";
       if (file.type === "application/pdf") {
-        text = await extractPdf(file);
+        const text = await extractPdf(file);
+        setExtractedText(text);
+        setExtractedWordCount(text.split(/\s+/).filter(Boolean).length);
       } else {
-        text = await extractDocx(file);
+        const { content, wordCount } = await extractDocx(file);
+        setExtractedTipTap(content);
+        setExtractedWordCount(wordCount);
       }
-      setExtractedText(text);
-      // Auto-fill title from filename if blank
       if (!title) setTitle(file.name.replace(/\.[^/.]+$/, ""));
     } catch {
-      setExtractError("Could not extract text from this file. Try a different file.");
+      setExtractError("Could not extract content from this file. Try a different file.");
     } finally {
       setExtracting(false);
     }
@@ -142,6 +242,8 @@ export default function NewDocumentPage() {
   function clearFile() {
     setUploadFile(null);
     setExtractedText("");
+    setExtractedTipTap(null);
+    setExtractedWordCount(0);
     setExtractError(null);
     if (inputRef.current) inputRef.current.value = "";
   }
@@ -161,9 +263,10 @@ export default function NewDocumentPage() {
     let content: any = selectedTemplate?.content ?? {};
     let wordCount = 0;
 
-    if (mode === "upload" && extractedText) {
-      content = textToTipTap(extractedText);
-      wordCount = extractedText.split(/\s+/).filter(Boolean).length;
+    if (mode === "upload") {
+      // DOCX: rich TipTap JSON already parsed; PDF: convert plain text
+      content   = extractedTipTap ?? textToTipTap(extractedText);
+      wordCount = extractedWordCount || extractedText.split(/\s+/).filter(Boolean).length;
     }
 
     const { data, error } = await supabase
@@ -188,9 +291,10 @@ export default function NewDocumentPage() {
     }
   }
 
+  const hasExtractedContent = extractedTipTap !== null || extractedText.length > 0;
   const canSubmit =
     title.trim().length > 0 &&
-    (mode === "write" || (mode === "upload" && extractedText.length > 0));
+    (mode === "write" || (mode === "upload" && hasExtractedContent));
 
   return (
     <div className="p-8 max-w-xl mx-auto">
@@ -345,13 +449,16 @@ export default function NewDocumentPage() {
                   <p className="text-xs text-blue-600 mt-2 ml-11">Extracting text…</p>
                 )}
 
-                {!extracting && extractedText && (
+                {!extracting && hasExtractedContent && (
                   <div className="mt-3 ml-11">
                     <p className="text-xs text-green-700 font-medium">
-                      {extractedText.split(/\s+/).filter(Boolean).length.toLocaleString()} words extracted
+                      {extractedWordCount.toLocaleString()} words extracted
+                      {extractedTipTap && " · formatting preserved"}
                     </p>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      Content will be imported into the editor
+                      {extractedTipTap
+                        ? "Headings, bold, lists, and tables will be imported"
+                        : "Content will be imported into the editor"}
                     </p>
                   </div>
                 )}
