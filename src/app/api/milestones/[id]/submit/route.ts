@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { sendNotification } from '@/lib/notifications/notificationService'
+import { writeAuditEntry } from '@/lib/audit/auditLogger'
 import { z } from 'zod'
 
 const SubmitSchema = z.object({
@@ -93,6 +94,19 @@ export async function POST(
       createServiceClient(),
     )
   }
+
+  void writeAuditEntry({
+    actor_id:      user.id,
+    action:        'milestone.submitted',
+    resource_type: 'milestone',
+    resource_id:   id,
+    project_id:    milestone.project_id ?? undefined,
+    details: {
+      milestone_title: milestone.title,
+      round,
+      summary: `Milestone "${milestone.title}" submitted (round ${round})`,
+    },
+  })
 
   return NextResponse.json(submission, { status: 201 })
 }

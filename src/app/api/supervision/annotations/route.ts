@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { sendNotification } from '@/lib/notifications/notificationService'
+import { writeAuditEntry } from '@/lib/audit/auditLogger'
 import { z } from 'zod'
 
 const CreateSchema = z.object({
@@ -117,6 +118,19 @@ export async function POST(req: NextRequest) {
     { resource_type: parsed.data.artifact_type, resource_id: parsed.data.artifact_id },
     createServiceClient(),
   )
+
+  void writeAuditEntry({
+    actor_id:      user.id,
+    action:        'supervision.annotation.created',
+    resource_type: 'supervision_annotation',
+    resource_id:   data.id,
+    project_id:    parsed.data.project_id,
+    details: {
+      artifact_type: parsed.data.artifact_type,
+      anchor_label:  anchorLabel,
+      summary:       `Supervisor note on ${artifactLabels[parsed.data.artifact_type]}`,
+    },
+  })
 
   return NextResponse.json(data, { status: 201 })
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { sendNotification } from '@/lib/notifications/notificationService'
+import { writeAuditEntry } from '@/lib/audit/auditLogger'
 import { z } from 'zod'
 
 const CreateSchema = z.object({
@@ -93,6 +94,19 @@ export async function POST(req: NextRequest) {
     { resource_type: 'supervision_record', resource_id: data.id },
     createServiceClient(),
   )
+
+  void writeAuditEntry({
+    actor_id:      user.id,
+    action:        'supervision.session.created',
+    resource_type: 'supervision_record',
+    resource_id:   data.id,
+    project_id:    parsed.data.project_id,
+    details: {
+      title:              parsed.data.title ?? 'Supervision Session',
+      action_items_count: (parsed.data.action_items ?? []).length,
+      summary:            `Supervision session recorded: ${parsed.data.title ?? 'Supervision Session'}`,
+    },
+  })
 
   return NextResponse.json(data, { status: 201 })
 }

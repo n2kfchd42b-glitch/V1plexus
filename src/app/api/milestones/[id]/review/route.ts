@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { sendNotification } from '@/lib/notifications/notificationService'
+import { writeAuditEntry } from '@/lib/audit/auditLogger'
 import { z } from 'zod'
 
 const ReviewSchema = z.object({
@@ -140,6 +141,20 @@ export async function POST(
     { resource_type: 'milestone', resource_id: id },
     createServiceClient(),
   )
+
+  void writeAuditEntry({
+    actor_id:      user.id,
+    action:        parsed.data.decision === 'approved' ? 'milestone.approved' : 'milestone.revision_requested',
+    resource_type: 'milestone',
+    resource_id:   id,
+    project_id:    milestone.project_id ?? undefined,
+    details: {
+      decision:       parsed.data.decision,
+      feedback:       parsed.data.feedback.slice(0, 200),
+      submission_id:  parsed.data.submission_id,
+      summary:        `Milestone ${parsed.data.decision === 'approved' ? 'approved' : 'sent for revision'}`,
+    },
+  })
 
   return NextResponse.json({ success: true, phaseAdvanced: parsed.data.decision === 'approved' })
 }

@@ -64,6 +64,13 @@ export type AuditAction =
   | 'profile.updated'
   | 'portfolio.certificate.added'
   | 'portfolio.publication.added'
+  // Milestone operations
+  | 'milestone.submitted'
+  | 'milestone.approved'
+  | 'milestone.revision_requested'
+  // Supervision operations
+  | 'supervision.annotation.created'
+  | 'supervision.session.created'
   // Auth operations
   | 'auth.login'
   | 'auth.logout'
@@ -82,6 +89,9 @@ export type ResourceType =
   | 'profile'
   | 'portfolio_certificate'
   | 'portfolio_publication'
+  | 'milestone'
+  | 'supervision_annotation'
+  | 'supervision_record'
 
 export type JustificationCategory =
   | 'equipment_failure'
