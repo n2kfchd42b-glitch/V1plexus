@@ -14,7 +14,9 @@ import { MilestoneReviewModal } from '@/components/supervisor-student/MilestoneR
 import { AddMilestoneModal } from '@/components/supervisor-student/AddMilestoneModal'
 import { SupervisionRecordModal } from '@/components/supervisor-student/SupervisionRecordModal'
 import { VerifyBadge } from '@/components/ui/verify-badge'
-import { PhaseBar, PhasePill, PHASE_ORDER, type ResearchPhase } from '@/components/ui/phase-bar'
+import { PhasePill, PHASE_ORDER, type ResearchPhase } from '@/components/ui/phase-bar'
+import { InteractivePhaseBar } from '@/components/project/InteractivePhaseBar'
+import type { GanttPhase } from '@/components/project/ProjectGantt'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatRelative } from '@/lib/utils'
 
@@ -72,6 +74,7 @@ export default function StudentDetailPage() {
   const initialTab = searchParams.get('tab') as 'overview' | 'milestones' | 'research' | null
   const [activeTab, setActiveTab] = useState<'overview' | 'milestones' | 'research'>(initialTab ?? 'overview')
   const [ledgerFilter, setLedgerFilter] = useState<'all' | 'data' | 'edits' | 'analyses' | 'approvals'>('all')
+  const [phaseDates, setPhaseDates] = useState<Record<string, { start_date: string | null; end_date: string | null; completed_at: string | null }>>({})
   const supabase = createClient()
 
   const load = useCallback(async () => {
@@ -83,7 +86,20 @@ export default function StudentDetailPage() {
     ])
     if (milestonesRes.ok) setMilestones(await milestonesRes.json())
     if (profileRes.data) setStudentProfile(profileRes.data)
-    if (researchRes.ok) setProjects(await researchRes.json())
+    if (researchRes.ok) {
+      const projs = await researchRes.json()
+      setProjects(projs)
+      // Fetch phase dates for the primary project
+      if (projs[0]?.id) {
+        const phasesRes = await fetch(`/api/projects/${projs[0].id}/phases`)
+        if (phasesRes.ok) {
+          const { phases } = await phasesRes.json()
+          const map: Record<string, { start_date: string | null; end_date: string | null; completed_at: string | null }> = {}
+          for (const p of (phases ?? [])) map[p.phase_key] = p
+          setPhaseDates(map)
+        }
+      }
+    }
     if (annotationsRes.ok) {
       const data = await annotationsRes.json()
       if (Array.isArray(data)) setAnnotations(data)
@@ -152,7 +168,6 @@ export default function StudentDetailPage() {
         return true
       })
 
-  // Primary phase: pick from first project with a phase
   const primaryPhase: ResearchPhase = ((projects[0] as ResearchProject & { phase?: string })?.phase as ResearchPhase) ?? 'concept'
   const phaseIdx = PHASE_ORDER.indexOf(primaryPhase)
 
@@ -238,7 +253,13 @@ export default function StudentDetailPage() {
                   phase {phaseIdx + 1} of 7
                 </span>
               </div>
-              <PhaseBar phase={primaryPhase} showLabels height={8} />
+              <InteractivePhaseBar
+                projectId={primaryProjectId!}
+                userId={studentId}
+                initialPhases={Object.entries(phaseDates).map(([phase_key, d]): GanttPhase => ({ phase_key, ...d }))}
+                height={8}
+                readOnly
+              />
             </div>
           )}
 

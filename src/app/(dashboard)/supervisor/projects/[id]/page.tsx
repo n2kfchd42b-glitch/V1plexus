@@ -10,6 +10,7 @@ import {
 import { cn } from '@/lib/utils'
 import { SupervisionRecordsPanel } from '@/components/supervisor-student/SupervisionRecordsPanel'
 import type { SupervisionRecord } from '@/components/supervisor-student/SupervisionRecordModal'
+import { SupervisorGanttPanel } from '@/components/supervisor-student/SupervisorGanttPanel'
 
 // ── Status display config ─────────────────────────────────────────────────────
 const MILESTONE_STATUS = {
@@ -154,11 +155,6 @@ export default async function SupervisorProjectPage({
           <span className="text-sm font-semibold text-slate-800 truncate">{project.title}</span>
           <span className="ml-auto flex items-center gap-2">
             <span className="text-xs text-slate-400">{studentProfile?.full_name ?? studentProfile?.email ?? 'Student'}</span>
-            {project.phase && (
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-indigo-50 text-indigo-600">
-                {PHASE_LABELS[project.phase] ?? project.phase}
-              </span>
-            )}
             <Link
               href={`/supervisor/projects/${id}/integrity`}
               className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors"
@@ -171,6 +167,9 @@ export default async function SupervisorProjectPage({
       </div>
 
       <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
+
+        {/* ── Research timeline (read-only Gantt) ────────────────────────────── */}
+        <SupervisorGanttPanel projectId={id} userId={user.id} />
 
         {/* ── Stats strip ────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-4 gap-3">

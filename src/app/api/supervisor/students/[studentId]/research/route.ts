@@ -37,7 +37,7 @@ export async function GET(
 
   const { data: projects, error } = await supabase
     .from('projects')
-    .select('id, title, status, updated_at')
+    .select('id, title, status, phase, updated_at')
     .eq('owner_id', studentId)
     .in('id', sharedProjectIds)
     .is('deleted_at', null)

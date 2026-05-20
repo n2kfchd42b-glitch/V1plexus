@@ -19,10 +19,14 @@ const PHASE_CONFIG = [
 type ZoomLevel = 'day' | 'week' | 'month'
 
 export interface GanttPhase {
-  phase_key: string
-  start_date: string | null
-  end_date: string | null
+  phase_key:    string
+  name?:        string | null
+  color?:       string | null
+  start_date:   string | null
+  end_date:     string | null
   completed_at: string | null
+  disabled?:    boolean
+  sort_order?:  number
 }
 
 export interface GanttNote {
@@ -37,6 +41,7 @@ interface Props {
   userId: string
   initialPhases: GanttPhase[]
   initialNotes: GanttNote[]
+  readOnly?: boolean
 }
 
 // ── Date helpers (locale-aware) ───────────────────────────────────────────────
@@ -133,15 +138,22 @@ const ZOOM_KEYS: Record<ZoomLevel, string> = {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function ProjectGantt({ projectId, userId, initialPhases, initialNotes }: Props) {
+export function ProjectGantt({ projectId, userId, initialPhases, initialNotes, readOnly = false }: Props) {
   const { t, locale } = useTranslations()
 
   const [phases, setPhases] = useState<GanttPhase[]>(() =>
-    PHASE_CONFIG.map(cfg => {
+    PHASE_CONFIG.map((cfg, i) => {
       const found = initialPhases.find(p => p.phase_key === cfg.key)
-      return found ?? { phase_key: cfg.key, start_date: null, end_date: null, completed_at: null }
+      return found ?? { phase_key: cfg.key, start_date: null, end_date: null, completed_at: null, disabled: false, sort_order: i }
     })
   )
+  const activePhaseConfig = PHASE_CONFIG
+    .filter(cfg => !phases.find(p => p.phase_key === cfg.key)?.disabled)
+    .sort((a, b) => {
+      const aOrder = phases.find(p => p.phase_key === a.key)?.sort_order ?? 99
+      const bOrder = phases.find(p => p.phase_key === b.key)?.sort_order ?? 99
+      return aOrder - bOrder
+    })
   const [zoom,         setZoom]         = useState<ZoomLevel>('month')
   const [editingKey,   setEditingKey]   = useState<string | null>(null)
   const [editStart,    setEditStart]    = useState('')
@@ -372,7 +384,7 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes }:
             className="text-[10px] font-bold uppercase tracking-widest"
             style={{ color: 'var(--text-tertiary)', letterSpacing: '0.09em' }}
           >
-            {t('gantt.myDeliverables')}
+            {readOnly ? 'Research Timeline' : t('gantt.myDeliverables')}
           </span>
           <span
             className="data-mono text-[9px] rounded px-1.5 py-0.5 font-semibold ml-auto"
@@ -421,34 +433,35 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes }:
             style={{ height: 40, borderBottom: '1px solid var(--border-subtle)' }}
           />
 
-          {PHASE_CONFIG.map((cfg, idx) => {
+          {activePhaseConfig.map((cfg, idx) => {
             const phase      = phases.find(p => p.phase_key === cfg.key)!
             const isComplete = !!phase.completed_at
             const hasBar     = !!(phase.start_date && phase.end_date)
             const isEditing  = editingKey   === cfg.key
             const isLogsOpen = logsPanelKey === cfg.key
             const noteCount  = notes.filter(n => n.details.operation?.phase === cfg.key).length
-            const phaseLabel = t(cfg.labelKey)
+            const phaseLabel = phase.name ?? t(cfg.labelKey)
+            const phaseColor = phase.color ?? cfg.color
 
             return (
               <div
                 key={cfg.key}
-                className="flex items-center gap-0 group cursor-pointer select-none flex-shrink-0 relative"
+                className={`flex items-center gap-0 group select-none flex-shrink-0 relative ${readOnly ? '' : 'cursor-pointer'}`}
                 style={{
                   height:       48,
                   borderBottom: '1px solid var(--border-row)',
                   background:   isEditing
-                    ? `color-mix(in srgb, ${cfg.color} 8%, var(--bg-surface))`
+                    ? `color-mix(in srgb, ${phaseColor} 8%, var(--bg-surface))`
                     : 'transparent',
                   transition:   'background 150ms ease-out',
                 }}
-                onClick={() => openEdit(phase)}
+                onClick={() => { if (!readOnly) openEdit(phase) }}
               >
                 <div
                   className="flex-shrink-0 self-stretch"
                   style={{
                     width:      3,
-                    background: isComplete ? 'var(--status-success)' : hasBar ? cfg.color : 'var(--border-subtle)',
+                    background: isComplete ? 'var(--status-success)' : hasBar ? phaseColor : 'var(--border-subtle)',
                     opacity:    isComplete ? 0.6 : hasBar ? 0.5 : 0.35,
                   }}
                 />
@@ -462,15 +475,15 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes }:
                   </span>
 
                   <button
-                    onClick={e => { e.stopPropagation(); toggleComplete(cfg.key) }}
-                    disabled={!!savingPhase}
-                    title={isComplete ? t('gantt.markIncomplete') : t('gantt.markComplete')}
-                    className="flex-shrink-0 transition-opacity duration-150 hover:opacity-70"
+                    onClick={e => { e.stopPropagation(); if (!readOnly) toggleComplete(cfg.key) }}
+                    disabled={readOnly || !!savingPhase}
+                    title={isComplete ? (readOnly ? 'Completed' : t('gantt.markIncomplete')) : (readOnly ? 'Not completed' : t('gantt.markComplete'))}
+                    className={`flex-shrink-0 transition-opacity duration-150 ${readOnly ? 'cursor-default' : 'hover:opacity-70'}`}
                   >
                     {isComplete ? (
                       <CheckCircle2 className="h-3.5 w-3.5" style={{ color: 'var(--status-success)' }} />
                     ) : hasBar ? (
-                      <div className="rounded-full" style={{ width: 9, height: 9, background: cfg.color }} />
+                      <div className="rounded-full" style={{ width: 9, height: 9, background: phaseColor }} />
                     ) : (
                       <Circle className="h-3.5 w-3.5" style={{ color: 'var(--border-default)' }} />
                     )}
@@ -490,11 +503,15 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes }:
                       <p className="data-mono text-[9px] leading-tight mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
                         {fmtDate(phase.start_date!, locale)} → {fmtDate(phase.end_date!, locale)}
                       </p>
+                    ) : readOnly ? (
+                      <span className="text-[9px] leading-tight mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                        No dates set
+                      </span>
                     ) : (
                       <button
                         onClick={e => { e.stopPropagation(); openEdit(phase) }}
                         className="flex items-center gap-0.5 text-[9px] font-semibold leading-tight mt-0.5 transition-opacity duration-150"
-                        style={{ color: cfg.color, opacity: isEditing ? 1 : 0.7 }}
+                        style={{ color: phaseColor, opacity: isEditing ? 1 : 0.7 }}
                       >
                         <Calendar className="h-2.5 w-2.5" />
                         {isEditing ? t('gantt.settingDates') : t('gantt.addDates')}
@@ -510,18 +527,18 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes }:
                       width:      28,
                       height:     28,
                       background: isLogsOpen
-                        ? `color-mix(in srgb, ${cfg.color} 15%, transparent)`
+                        ? `color-mix(in srgb, ${phaseColor} 15%, transparent)`
                         : 'transparent',
                     }}
                   >
                     <Menu
                       className="h-3.5 w-3.5"
-                      style={{ color: isLogsOpen ? cfg.color : 'var(--text-tertiary)' }}
+                      style={{ color: isLogsOpen ? phaseColor : 'var(--text-tertiary)' }}
                     />
                     {noteCount > 0 && (
                       <span
                         className="absolute -top-0.5 -right-0.5 data-mono text-[8px] font-bold rounded-full flex items-center justify-center text-white"
-                        style={{ width: 14, height: 14, background: cfg.color, fontSize: 8 }}
+                        style={{ width: 14, height: 14, background: phaseColor, fontSize: 8 }}
                       >
                         {noteCount}
                       </span>
@@ -598,14 +615,15 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes }:
                   />
                 )}
 
-                {PHASE_CONFIG.map((cfg, idx) => {
+                {activePhaseConfig.map((cfg, idx) => {
                   const phase      = phases.find(p => p.phase_key === cfg.key)!
                   const hasBar     = !!(phase.start_date && phase.end_date)
                   const isComplete = !!phase.completed_at
                   const isEditing  = editingKey   === cfg.key
                   const isLogsOpen = logsPanelKey === cfg.key
                   const isEven     = idx % 2 === 0
-                  const phaseLabel = t(cfg.labelKey)
+                  const phaseLabel = phase.name ?? t(cfg.labelKey)
+                  const phaseColor = phase.color ?? cfg.color
 
                   let barLeft = 0, barWidth = 0
                   if (hasBar) {
@@ -627,7 +645,7 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes }:
                         height:       48,
                         borderBottom: '1px solid var(--border-row)',
                         background:   isEditing || isLogsOpen
-                          ? `color-mix(in srgb, ${cfg.color} 6%, var(--bg-surface))`
+                          ? `color-mix(in srgb, ${phaseColor} 6%, var(--bg-surface))`
                           : isEven
                           ? 'var(--bg-surface)'
                           : 'var(--bg-row-hover)',
@@ -635,19 +653,48 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes }:
                       }}
                     >
                       {hasBar ? (
-                        <button
-                          onClick={() => openEdit(phase)}
-                          title={`${phase.start_date} → ${phase.end_date}`}
-                          className="absolute top-1/2 -translate-y-1/2 transition-all duration-150 hover:brightness-110 active:scale-y-95"
+                        readOnly ? (
+                          <div
+                            title={`${fmtDate(phase.start_date!, 'en')} → ${fmtDate(phase.end_date!, 'en')}`}
+                            className="absolute top-1/2 -translate-y-1/2"
+                            style={{
+                              left:         `${Math.max(0.5, barLeft)}%`,
+                              width:        `${Math.max(2, barWidth)}%`,
+                              height:        22,
+                              borderRadius:  9999,
+                              background:   isComplete ? 'var(--status-success)' : phaseColor,
+                              opacity:      isComplete ? 0.65 : 0.85,
+                              zIndex:        1,
+                              boxShadow:    `0 1px 4px color-mix(in srgb, ${phaseColor} 50%, transparent)`,
+                              cursor:       'default',
+                            }}
+                          />
+                        ) : (
+                          <button
+                            onClick={() => openEdit(phase)}
+                            title={`${phase.start_date} → ${phase.end_date}`}
+                            className="absolute top-1/2 -translate-y-1/2 transition-all duration-150 hover:brightness-110 active:scale-y-95"
+                            style={{
+                              left:         `${Math.max(0.5, barLeft)}%`,
+                              width:        `${Math.max(2, barWidth)}%`,
+                              height:        22,
+                              borderRadius:  9999,
+                              background:   isComplete ? 'var(--status-success)' : phaseColor,
+                              opacity:      isComplete ? 0.65 : 0.85,
+                              zIndex:        1,
+                              boxShadow:    `0 1px 4px color-mix(in srgb, ${phaseColor} 50%, transparent)`,
+                            }}
+                          />
+                        )
+                      ) : readOnly ? (
+                        <div
+                          className="absolute top-1/2 -translate-y-1/2"
                           style={{
-                            left:         `${Math.max(0.5, barLeft)}%`,
-                            width:        `${Math.max(2, barWidth)}%`,
-                            height:        22,
+                            left:         '5%',
+                            right:        '5%',
+                            height:        4,
                             borderRadius:  9999,
-                            background:   isComplete ? 'var(--status-success)' : cfg.color,
-                            opacity:      isComplete ? 0.65 : 0.85,
-                            zIndex:        1,
-                            boxShadow:    `0 1px 4px color-mix(in srgb, ${cfg.color} 50%, transparent)`,
+                            background:   `color-mix(in srgb, ${phaseColor} 15%, var(--border-default))`,
                           }}
                         />
                       ) : (
@@ -659,10 +706,10 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes }:
                             right:        '5%',
                             height:        22,
                             borderRadius:  9999,
-                            border:       `1.5px dashed color-mix(in srgb, ${cfg.color} 40%, var(--border-default))`,
-                            color:        `color-mix(in srgb, ${cfg.color} 60%, var(--text-tertiary))`,
+                            border:       `1.5px dashed color-mix(in srgb, ${phaseColor} 40%, var(--border-default))`,
+                            color:        `color-mix(in srgb, ${phaseColor} 60%, var(--text-tertiary))`,
                             fontSize:      10,
-                            background:   `color-mix(in srgb, ${cfg.color} 4%, transparent)`,
+                            background:   `color-mix(in srgb, ${phaseColor} 4%, transparent)`,
                           }}
                         >
                           <Calendar className="h-2.5 w-2.5" />
@@ -680,7 +727,7 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes }:
                             width:       7,
                             height:      7,
                             marginLeft: -3.5,
-                            background:  cfg.color,
+                            background:  phaseColor,
                             boxShadow:  '0 0 0 2px white',
                           }}
                         />
@@ -797,46 +844,48 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes }:
                 )}
               </div>
 
-              <div
-                className="flex-shrink-0 px-4 py-3"
-                style={{ borderTop: '1px solid var(--border-subtle)' }}
-              >
-                <textarea
-                  value={panelNote}
-                  onChange={e => setPanelNote(e.target.value)}
-                  placeholder={t('gantt.noteInputPlaceholder')}
-                  rows={3}
-                  className="w-full text-xs rounded-lg px-3 py-2.5 outline-none resize-none mb-2.5"
-                  style={{
-                    color:      'var(--text-primary)',
-                    border:     '1px solid var(--border-default)',
-                    background: 'var(--bg-inset)',
-                    fontFamily: 'inherit',
-                  }}
-                  onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote() }}
-                />
-                <button
-                  onClick={saveNote}
-                  disabled={panelSaving || !panelNote.trim()}
-                  className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-semibold text-white transition-all duration-150 disabled:opacity-40 active:scale-[0.98]"
-                  style={{ background: 'var(--accent-primary)' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--accent-blue)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'var(--accent-primary)')}
+              {!readOnly && (
+                <div
+                  className="flex-shrink-0 px-4 py-3"
+                  style={{ borderTop: '1px solid var(--border-subtle)' }}
                 >
-                  <Send className="h-3 w-3" />
-                  {panelSaving ? t('gantt.saving') : t('gantt.saveNote')}
-                </button>
-                <p className="text-center text-[10px] mt-1.5" style={{ color: 'var(--text-tertiary)' }}>
-                  {t('gantt.cmdEnterToSave')}
-                </p>
-              </div>
+                  <textarea
+                    value={panelNote}
+                    onChange={e => setPanelNote(e.target.value)}
+                    placeholder={t('gantt.noteInputPlaceholder')}
+                    rows={3}
+                    className="w-full text-xs rounded-lg px-3 py-2.5 outline-none resize-none mb-2.5"
+                    style={{
+                      color:      'var(--text-primary)',
+                      border:     '1px solid var(--border-default)',
+                      background: 'var(--bg-inset)',
+                      fontFamily: 'inherit',
+                    }}
+                    onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote() }}
+                  />
+                  <button
+                    onClick={saveNote}
+                    disabled={panelSaving || !panelNote.trim()}
+                    className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-semibold text-white transition-all duration-150 disabled:opacity-40 active:scale-[0.98]"
+                    style={{ background: 'var(--accent-primary)' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--accent-blue)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'var(--accent-primary)')}
+                  >
+                    <Send className="h-3 w-3" />
+                    {panelSaving ? t('gantt.saving') : t('gantt.saveNote')}
+                  </button>
+                  <p className="text-center text-[10px] mt-1.5" style={{ color: 'var(--text-tertiary)' }}>
+                    {t('gantt.cmdEnterToSave')}
+                  </p>
+                </div>
+              )}
             </div>
           </>
         )}
       </div>
 
       {/* ── Bottom date-edit bar ─────────────────────────────────────────────── */}
-      {editingKey && (
+      {editingKey && !readOnly && (
         <div
           className="flex-shrink-0 animate-slide-up px-4 py-3"
           style={{
@@ -846,12 +895,14 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes }:
         >
           {(() => {
             const cfg        = PHASE_CONFIG.find(c => c.key === editingKey)!
-            const phaseLabel = t(cfg.labelKey)
+            const editPhase  = phases.find(p => p.phase_key === editingKey)
+            const phaseLabel = editPhase?.name ?? t(cfg.labelKey)
+            const phaseColor = editPhase?.color ?? cfg.color
             return (
               <div className="flex items-start gap-3">
                 <div
                   className="rounded-full flex-shrink-0 mt-0.5"
-                  style={{ width: 3, height: 40, background: cfg.color }}
+                  style={{ width: 3, height: 40, background: phaseColor }}
                 />
                 <div className="flex-1 flex flex-col gap-2">
                   <p
