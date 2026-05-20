@@ -79,11 +79,11 @@ function AnnotatableBlock({
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-      <div className="p-5">{children}</div>
+      <div className="p-3 sm:p-5">{children}</div>
       <div className="border-t border-slate-100">
         <button
           onClick={() => setOpen(v => !v)}
-          className="w-full flex items-center justify-between px-5 py-3 text-xs hover:bg-slate-50 transition-colors"
+          className="w-full flex items-center justify-between px-3 sm:px-5 py-3 text-xs hover:bg-slate-50 transition-colors"
         >
           <span className="flex items-center gap-1.5 font-semibold text-slate-500">
             <MessageSquare className="h-3.5 w-3.5" />
@@ -94,7 +94,7 @@ function AnnotatableBlock({
           {open ? <ChevronUp className="h-3.5 w-3.5 text-slate-400" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />}
         </button>
         {open && (
-          <div className="px-5 pb-5">
+          <div className="px-3 sm:px-5 pb-4 sm:pb-5">
             <AnnotationThread
               annotations={annotations}
               anchor={anchor}
@@ -157,7 +157,7 @@ export function SupervisorAnalysisViewer({
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-8 space-y-5">
+    <div className="max-w-4xl mx-auto px-3 sm:px-6 py-5 sm:py-8 space-y-4 sm:space-y-5">
 
       {/* Interpretation */}
       {result.interpretation && (

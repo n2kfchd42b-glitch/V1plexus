@@ -976,5 +976,34 @@
   "authPanel.feature2.desc": "Nous vous guidons vers la bonne méthode et l’exécutons — aucun diplôme en statistiques requis.",
   "authPanel.feature3.title": "Travaillez avec votre superviseur",
   "authPanel.feature3.desc": "Partagez des résultats, recevez des retours et avancez — ensemble, en un seul endroit.",
-  "authPanel.learnMore": "En savoir plus sur PLEXUS →"
+  "authPanel.learnMore": "En savoir plus sur PLEXUS →",
+
+  "supervision.feedback.title": "Retours du superviseur",
+  "supervision.feedback.open": "ouvert",
+  "supervision.feedback.resolved": "résolu",
+  "supervision.feedback.section": "section",
+  "supervision.feedback.sections": "sections",
+  "supervision.feedback.markResolved": "Marquer comme résolu",
+  "supervision.feedback.reopen": "Rouvrir",
+
+  "supervision.inbox.title": "Boîte de retours",
+  "supervision.inbox.loading": "Chargement…",
+  "supervision.inbox.allCaughtUp": "Tout est à jour",
+  "supervision.inbox.emptyDesc": "Aucune note non résolue pour vos étudiants.",
+  "supervision.inbox.openNote": "Ouvrir",
+  "supervision.inbox.resolve": "Résoudre",
+  "supervision.inbox.viewStudent": "Voir l'étudiant",
+  "supervision.inbox.refresh": "Actualiser",
+
+  "supervision.sessions.title": "Séances",
+  "supervision.sessions.emptyTitle": "Aucun compte rendu de séance",
+  "supervision.sessions.emptyDesc": "Les notes de séance de votre superviseur apparaîtront ici après vos réunions",
+  "supervision.sessions.summary": "Résumé",
+  "supervision.sessions.actionItems": "Points d'action",
+
+  "supervision.notes.markAllRead": "Tout marquer comme lu",
+  "supervision.notes.noNotes": "Aucune note pour l'instant — les retours de votre superviseur apparaîtront ici",
+  "supervision.notes.openProject": "Ouvrir le projet pour répondre",
+
+  "nav.inbox": "Boîte de réception"
 }

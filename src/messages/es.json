@@ -976,5 +976,34 @@
   "authPanel.feature2.desc": "Te guiamos al método correcto y lo ejecutamos — sin necesidad de un título en estadística.",
   "authPanel.feature3.title": "Trabaja con tu supervisor",
   "authPanel.feature3.desc": "Comparte resultados, recibe retroalimentación y avanza — juntos, en un solo lugar.",
-  "authPanel.learnMore": "Saber más sobre PLEXUS →"
+  "authPanel.learnMore": "Saber más sobre PLEXUS →",
+
+  "supervision.feedback.title": "Retroalimentación del supervisor",
+  "supervision.feedback.open": "abierto",
+  "supervision.feedback.resolved": "resuelto",
+  "supervision.feedback.section": "sección",
+  "supervision.feedback.sections": "secciones",
+  "supervision.feedback.markResolved": "Marcar como resuelto",
+  "supervision.feedback.reopen": "Reabrir",
+
+  "supervision.inbox.title": "Bandeja de retroalimentación",
+  "supervision.inbox.loading": "Cargando…",
+  "supervision.inbox.allCaughtUp": "Todo al día",
+  "supervision.inbox.emptyDesc": "No hay notas sin resolver para tus estudiantes.",
+  "supervision.inbox.openNote": "Abrir",
+  "supervision.inbox.resolve": "Resolver",
+  "supervision.inbox.viewStudent": "Ver estudiante",
+  "supervision.inbox.refresh": "Actualizar",
+
+  "supervision.sessions.title": "Sesiones",
+  "supervision.sessions.emptyTitle": "Sin registros de sesión",
+  "supervision.sessions.emptyDesc": "Las notas de sesión de tu supervisor aparecerán aquí después de tus reuniones",
+  "supervision.sessions.summary": "Resumen",
+  "supervision.sessions.actionItems": "Puntos de acción",
+
+  "supervision.notes.markAllRead": "Marcar todo como leído",
+  "supervision.notes.noNotes": "Sin notas todavía — la retroalimentación de tu supervisor aparecerá aquí",
+  "supervision.notes.openProject": "Abrir proyecto para responder",
+
+  "nav.inbox": "Bandeja de entrada"
 }

@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   FolderOpen, LogOut, ChevronLeft, ChevronRight, Command,
-  LayoutDashboard, Database, BarChart2, Clock, BookOpen, FileText, Settings,
-  Users, GraduationCap, Building2,
+  LayoutDashboard, Database, BarChart2, Clock, BookOpen, FileText,
+  Users, GraduationCap, Building2, Inbox, UserCheck, Shield, Settings,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { WorkspaceMemberRole } from '@/types/database'
@@ -56,13 +56,9 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
   const projectId    = projectMatch?.[1] ?? null
   const isInProject  = !!projectId && projectId !== 'new'
 
-  // Auto-expand when entering a project; collapse when leaving
+  // Collapse when leaving a project; project tabs now live in the horizontal tab bar
   useEffect(() => {
-    if (isInProject) {
-      setCollapsed(false)
-    } else {
-      setCollapsed(true)
-    }
+    if (!isInProject) setCollapsed(true)
   }, [isInProject])
 
   // Cmd+\ to toggle
@@ -141,50 +137,43 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
           </div>
         </Link>
 
-        {/* ── Project sub-nav — only when inside a project ─────────────────── */}
-        {isInProject && projectId && (
-          <div className={cn(
-            'mt-1 mb-1',
-            collapsed ? 'flex flex-col items-center gap-0.5' : 'ml-3 border-l border-white/10 pl-2 flex flex-col gap-0.5'
-          )}>
-            {PROJECT_TABS.map(({ slug, labelKey, icon: Icon }) => {
-              const label  = t(labelKey, slug)
-              const href   = `/projects/${projectId}/${slug}`
-              const active = pathname === href || pathname.startsWith(href + '/')
-              return (
-                <Link
-                  key={slug}
-                  href={href}
-                  title={collapsed ? label : undefined}
-                >
+        {/* Project utility links — Ledger + Team, shown only inside a project */}
+        {isInProject && projectId && (() => {
+          const ledgerHref   = `/projects/${projectId}/timeline`
+          const teamHref     = `/projects/${projectId}/team`
+          const settingsHref = `/projects/${projectId}/settings`
+          const ledgerActive   = pathname === ledgerHref
+          const teamActive     = pathname === teamHref
+          const settingsActive = pathname === settingsHref
+
+          const links = [
+            { href: ledgerHref,   label: 'Ledger',   Icon: Shield,   active: ledgerActive   },
+            { href: teamHref,     label: 'Team',      Icon: Users,    active: teamActive     },
+            { href: settingsHref, label: 'Settings',  Icon: Settings, active: settingsActive },
+          ]
+
+          return (
+            <div className="mt-1">
+              {links.map(({ href, label, Icon, active }) => (
+                <Link key={href} href={href} title={label}>
                   <div className={cn(
-                    'relative flex items-center gap-2.5 h-7 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
-                    collapsed ? 'justify-center w-8 mx-auto px-0' : 'px-2',
+                    'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
+                    collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
                     active
-                      ? 'bg-[var(--bg-sidebar-active)] text-white'
+                      ? 'bg-[var(--bg-sidebar-active)] text-[var(--text-sidebar-active)]'
                       : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
                   )}>
-                    {active && !collapsed && (
+                    {active && (
                       <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-primary)]" />
                     )}
-                    <Icon className={cn(
-                      'flex-shrink-0 h-3.5 w-3.5 transition-colors duration-150',
-                      active ? 'text-white' : 'text-[var(--text-sidebar-icon)]'
-                    )} />
-                    {!collapsed && (
-                      <span className={cn(
-                        'text-xs font-medium',
-                        active ? 'text-white' : 'text-[var(--text-sidebar)]'
-                      )}>
-                        {label}
-                      </span>
-                    )}
+                    <Icon className={cn('flex-shrink-0 h-3.5 w-3.5', active ? 'text-white' : 'text-[var(--text-sidebar-icon)]')} />
+                    {!collapsed && <span className="text-xs font-medium text-[var(--text-sidebar)]">{label}</span>}
                   </div>
                 </Link>
-              )
-            })}
-          </div>
-        )}
+              ))}
+            </div>
+          )
+        })()}
 
         {/* Divider */}
         <div className="my-2 h-px bg-white/10" />
@@ -217,6 +206,21 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
                   {!collapsed && <span className="text-sm font-medium">{t('nav.myStudents', 'My Students')}</span>}
                 </div>
               </Link>
+              <Link href="/supervisor/inbox" title={collapsed ? 'Inbox' : undefined}>
+                <div className={cn(
+                  'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
+                  collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
+                  pathname === '/supervisor/inbox'
+                    ? 'bg-[var(--bg-sidebar-active)] text-[var(--text-sidebar-active)]'
+                    : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
+                )}>
+                  {pathname === '/supervisor/inbox' && (
+                    <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-primary)]" />
+                  )}
+                  <Inbox className={cn('flex-shrink-0 h-4 w-4', pathname === '/supervisor/inbox' ? 'text-white' : 'text-[var(--text-sidebar-icon)]')} />
+                  {!collapsed && <span className="text-sm font-medium">Inbox</span>}
+                </div>
+              </Link>
               <Link href={deptHref} title={collapsed ? 'Department' : undefined}>
                 <div className={cn(
                   'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
@@ -239,8 +243,8 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
 
         {/* Role-based nav — student */}
         {workspaceRole === 'student' && (() => {
-          const href = '/student/milestones'
-          const active = pathname.startsWith('/student')
+          const roadmapActive = pathname.startsWith('/student/milestones') || pathname === '/student'
+          const supervisorActive = pathname.startsWith('/student/supervisor')
           return (
             <>
               {!collapsed && (
@@ -248,19 +252,34 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
                   My Research
                 </p>
               )}
-              <Link href={href} title={collapsed ? 'My Roadmap' : undefined}>
+              <Link href="/student/milestones" title={collapsed ? 'My Roadmap' : undefined}>
                 <div className={cn(
                   'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
                   collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
-                  active
+                  roadmapActive
                     ? 'bg-[var(--bg-sidebar-active)] text-[var(--text-sidebar-active)]'
                     : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
                 )}>
-                  {active && (
+                  {roadmapActive && (
                     <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-primary)]" />
                   )}
-                  <GraduationCap className={cn('flex-shrink-0 h-4 w-4', active ? 'text-white' : 'text-[var(--text-sidebar-icon)]')} />
+                  <GraduationCap className={cn('flex-shrink-0 h-4 w-4', roadmapActive ? 'text-white' : 'text-[var(--text-sidebar-icon)]')} />
                   {!collapsed && <span className="text-sm font-medium">{t('nav.myRoadmap', 'My Roadmap')}</span>}
+                </div>
+              </Link>
+              <Link href="/student/supervisor" title={collapsed ? 'My Supervisor' : undefined}>
+                <div className={cn(
+                  'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
+                  collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
+                  supervisorActive
+                    ? 'bg-[var(--bg-sidebar-active)] text-[var(--text-sidebar-active)]'
+                    : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
+                )}>
+                  {supervisorActive && (
+                    <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-primary)]" />
+                  )}
+                  <UserCheck className={cn('flex-shrink-0 h-4 w-4', supervisorActive ? 'text-white' : 'text-[var(--text-sidebar-icon)]')} />
+                  {!collapsed && <span className="text-sm font-medium">My Supervisor</span>}
                 </div>
               </Link>
               <div className="my-2 h-px bg-white/10" />

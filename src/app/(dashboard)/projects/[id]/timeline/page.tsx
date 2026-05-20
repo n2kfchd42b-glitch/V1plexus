@@ -24,15 +24,9 @@ export default async function TimelinePage({
 
   return (
     <div className="page-shell">
-
       <TimelinePageHeader />
-
-      {/* Verification status bar */}
       <TimelineVerificationBar projectId={id} />
-
-      {/* Feed + context panel */}
       <TimelineFeed projectId={id} />
-
     </div>
   )
 }

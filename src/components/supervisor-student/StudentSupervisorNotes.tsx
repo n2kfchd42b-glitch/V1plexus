@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { MessageSquare, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react'
+import { useEffect, useState, useCallback } from 'react'
+import { MessageSquare, CheckCircle2, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import type { Annotation } from './AnnotationThread'
@@ -9,14 +9,34 @@ import type { Annotation } from './AnnotationThread'
 interface Props {
   artifactId: string
   artifactType: 'dataset' | 'analysis' | 'document'
-  // Optional: scope to a single anchor (e.g. one column or one block)
   anchorFilter?: string
   anchorLabel?: string
-  // Compact = inline strip; full = expandable panel
   variant?: 'panel' | 'inline'
 }
 
-function NoteCard({ a }: { a: Annotation }) {
+function NoteCard({
+  a,
+  onResolve,
+}: {
+  a: Annotation
+  onResolve: (id: string, resolved: boolean) => void
+}) {
+  const [resolving, setResolving] = useState(false)
+
+  async function handleResolve() {
+    setResolving(true)
+    try {
+      const res = await fetch('/api/supervision/annotations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: a.id, is_resolved: !a.is_resolved }),
+      })
+      if (res.ok) onResolve(a.id, !a.is_resolved)
+    } finally {
+      setResolving(false)
+    }
+  }
+
   return (
     <div className={cn(
       'rounded-xl border px-3.5 py-3 text-xs space-y-1.5 transition-opacity',
@@ -37,6 +57,34 @@ function NoteCard({ a }: { a: Annotation }) {
         )}
       </div>
       <p className="text-slate-700 leading-relaxed pl-6">{a.content}</p>
+
+      {/* Student action */}
+      {!a.is_resolved && (
+        <div className="pl-6 pt-0.5">
+          <button
+            onClick={handleResolve}
+            disabled={resolving}
+            className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 hover:text-emerald-800 disabled:opacity-50 transition-colors"
+          >
+            {resolving
+              ? <Loader2 className="h-3 w-3 animate-spin" />
+              : <CheckCircle2 className="h-3 w-3" />}
+            Mark resolved
+          </button>
+        </div>
+      )}
+      {a.is_resolved && (
+        <div className="pl-6 pt-0.5">
+          <button
+            onClick={handleResolve}
+            disabled={resolving}
+            className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400 hover:text-slate-600 disabled:opacity-50 transition-colors"
+          >
+            {resolving ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+            Reopen
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -58,21 +106,25 @@ export function StudentSupervisorNotes({
   const [loading, setLoading]         = useState(true)
   const [open, setOpen]               = useState(false)
 
-  useEffect(() => {
-    async function load() {
-      const res = await fetch(
-        `/api/supervision/annotations?artifactId=${artifactId}&artifactType=${artifactType}`
-      )
-      if (res.ok) {
-        const data: Annotation[] = await res.json()
-        setAnnotations(data)
-        // Auto-open if there are any unresolved notes
-        if (data.some(a => !a.is_resolved)) setOpen(true)
-      }
-      setLoading(false)
+  const load = useCallback(async () => {
+    const res = await fetch(
+      `/api/supervision/annotations?artifactId=${artifactId}&artifactType=${artifactType}`
+    )
+    if (res.ok) {
+      const data: Annotation[] = await res.json()
+      setAnnotations(data)
+      if (data.some(a => !a.is_resolved)) setOpen(true)
     }
-    load()
+    setLoading(false)
   }, [artifactId, artifactType])
+
+  useEffect(() => { load() }, [load])
+
+  const handleResolve = useCallback((id: string, resolved: boolean) => {
+    setAnnotations(prev =>
+      prev.map(a => a.id === id ? { ...a, is_resolved: resolved } : a)
+    )
+  }, [])
 
   const filtered = anchorFilter
     ? annotations.filter(a => a.anchor === anchorFilter)
@@ -85,7 +137,6 @@ export function StudentSupervisorNotes({
   if (loading) return null
   if (total === 0) return null
 
-  // Group by anchor when showing all notes (no filter)
   const groups: GroupedNotes[] = anchorFilter
     ? [{ anchor: anchorFilter, anchorLabel: anchorLabel ?? anchorFilter, notes: filtered }]
     : Object.values(
@@ -114,7 +165,6 @@ export function StudentSupervisorNotes({
 
   return (
     <div className="rounded-2xl border border-indigo-100 bg-white shadow-sm overflow-hidden">
-      {/* Header — always visible */}
       <button
         onClick={() => setOpen(v => !v)}
         className="w-full flex items-center gap-3 px-5 py-4 hover:bg-indigo-50/30 transition-colors"
@@ -136,7 +186,6 @@ export function StudentSupervisorNotes({
           : <ChevronDown className="h-4 w-4 text-slate-400 flex-shrink-0" />}
       </button>
 
-      {/* Expanded notes */}
       {open && (
         <div className="px-5 pb-5 space-y-5 border-t border-indigo-50">
           {groups.map(group => (
@@ -147,7 +196,9 @@ export function StudentSupervisorNotes({
                 </p>
               )}
               <div className="space-y-2">
-                {group.notes.map(a => <NoteCard key={a.id} a={a} />)}
+                {group.notes.map(a => (
+                  <NoteCard key={a.id} a={a} onResolve={handleResolve} />
+                ))}
               </div>
             </div>
           ))}

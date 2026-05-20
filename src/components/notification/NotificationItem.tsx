@@ -1,6 +1,6 @@
 "use client"
 
-import { Bell, FileText, CheckCircle, MessageSquare, Shield, UserPlus } from 'lucide-react'
+import { Bell, FileText, CheckCircle, MessageSquare, Shield, UserPlus, Send, RotateCcw } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { cn, formatRelative } from '@/lib/utils'
 import type { Notification } from '@/types/database'
@@ -14,6 +14,9 @@ const typeIcons = {
   invitation_received: UserPlus,
   supervisor_note:     MessageSquare,
   supervision_session: FileText,
+  milestone_submitted: Send,
+  milestone_approved:  CheckCircle,
+  milestone_revision:  RotateCcw,
 }
 
 const typeColors = {
@@ -25,6 +28,9 @@ const typeColors = {
   invitation_received: 'text-emerald-600 bg-emerald-50',
   supervisor_note:     'text-indigo-600 bg-indigo-50',
   supervision_session: 'text-indigo-600 bg-indigo-50',
+  milestone_submitted: 'text-[var(--accent-blue)] bg-[var(--accent-blue-subtle)]',
+  milestone_approved:  'text-[var(--status-success-text)] bg-[var(--status-success-bg)]',
+  milestone_revision:  'text-orange-600 bg-orange-50',
 }
 
 interface NotificationItemProps {

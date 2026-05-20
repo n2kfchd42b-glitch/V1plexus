@@ -55,12 +55,14 @@ export function CommentsSidebar({ documentId, currentProfile, onClose, pendingAn
   const handleAddComment = async () => {
     if (!newCommentText.trim() || !currentProfile) return
     setSubmittingNew(true)
-    await supabase.from('document_comments').insert({
-      document_id: documentId,
-      author_id: currentProfile.id,
-      content: newCommentText.trim(),
-      anchor_text: pendingAnchorText ?? null,
-      parent_id: null,
+    await fetch(`/api/documents/${documentId}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content:     newCommentText.trim(),
+        anchor_text: pendingAnchorText ?? null,
+        parent_id:   null,
+      }),
     })
     setNewCommentText('')
     onClearPending?.()

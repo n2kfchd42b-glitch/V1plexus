@@ -79,7 +79,7 @@ export function SupervisorDatasetViewer({
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-6 flex gap-6">
+    <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-6 flex flex-col lg:flex-row gap-4 lg:gap-6">
 
       {/* ── Table area ──────────────────────────────────────────────────────── */}
       <div className="flex-1 min-w-0">
@@ -204,8 +204,8 @@ export function SupervisorDatasetViewer({
 
       {/* ── Annotation sidebar ───────────────────────────────────────────────── */}
       {activeCol && (
-        <div className="w-72 flex-shrink-0">
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sticky top-20">
+        <div className="w-full lg:w-72 lg:flex-shrink-0">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 lg:sticky lg:top-20">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Column</p>

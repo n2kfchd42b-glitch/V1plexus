@@ -123,20 +123,30 @@ function StudentCard({ student }: { student: StudentAssignment }) {
           </div>
         </div>
         {flag === 'urgent' && student.milestone_summary.overdue > 0 && (
-          <div className="mt-2.5 px-2 py-1.5 bg-bg-inset rounded flex items-center gap-1.5">
+          <Link
+            href={`/supervisor/students/${student.student_id}?tab=milestones`}
+            onClick={e => e.stopPropagation()}
+            className="mt-2.5 px-2 py-1.5 bg-bg-inset rounded flex items-center gap-1.5 hover:bg-red-50 transition-colors"
+          >
             <AlertTriangle className="h-3 w-3 text-amber-500 flex-shrink-0" />
             <span className="text-[11px] text-text-secondary">
               {student.milestone_summary.overdue} overdue milestone{student.milestone_summary.overdue !== 1 ? 's' : ''}
             </span>
-          </div>
+            <ChevronRight className="h-3 w-3 text-text-tertiary ml-auto" />
+          </Link>
         )}
         {student.milestone_summary.pending_review > 0 && flag !== 'urgent' && (
-          <div className="mt-2.5 px-2 py-1.5 bg-bg-inset rounded flex items-center gap-1.5">
+          <Link
+            href={`/supervisor/students/${student.student_id}?tab=milestones`}
+            onClick={e => e.stopPropagation()}
+            className="mt-2.5 px-2 py-1.5 bg-bg-inset rounded flex items-center gap-1.5 hover:bg-blue-50 transition-colors"
+          >
             <AlertTriangle className="h-3 w-3 text-blue-400 flex-shrink-0" />
             <span className="text-[11px] text-text-secondary">
               {student.milestone_summary.pending_review} awaiting review
             </span>
-          </div>
+            <ChevronRight className="h-3 w-3 text-text-tertiary ml-auto" />
+          </Link>
         )}
       </div>
     </Link>
@@ -445,7 +455,7 @@ export default function SupervisorDashboardPage() {
                 {[...urgent, ...needsReview].slice(0, 2).map(s => (
                   <Link
                     key={s.student_id}
-                    href={`/supervisor/students/${s.student_id}`}
+                    href={`/supervisor/students/${s.student_id}?tab=milestones`}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-amber-300 hover:shadow-sm transition-shadow cursor-pointer"
                   >
                     <Avatar name={s.student.full_name} email={s.student.email} size={22} />

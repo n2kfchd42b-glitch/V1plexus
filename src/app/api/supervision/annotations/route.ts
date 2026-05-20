@@ -14,7 +14,9 @@ const CreateSchema = z.object({
   content:       z.string().min(1),
 })
 
-// GET /api/supervision/annotations?artifactId=X&artifactType=Y
+// GET /api/supervision/annotations
+//   ?artifactId=X&artifactType=Y   → annotations for a specific artifact
+//   ?studentId=X                   → all annotations for a student (across all artifacts)
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -23,18 +25,27 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const artifactId   = searchParams.get('artifactId')
   const artifactType = searchParams.get('artifactType')
+  const studentId    = searchParams.get('studentId')
 
-  if (!artifactId || !artifactType) {
-    return NextResponse.json({ error: 'artifactId and artifactType required' }, { status: 400 })
+  if (!studentId && (!artifactId || !artifactType)) {
+    return NextResponse.json(
+      { error: 'Provide either studentId, or both artifactId and artifactType' },
+      { status: 400 }
+    )
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('supervision_annotations')
     .select(`*, supervisor:profiles!supervisor_id(id, full_name, avatar_url)`)
-    .eq('artifact_id', artifactId)
-    .eq('artifact_type', artifactType)
     .order('created_at', { ascending: true })
 
+  if (studentId) {
+    query = query.eq('student_id', studentId)
+  } else {
+    query = query.eq('artifact_id', artifactId!).eq('artifact_type', artifactType!)
+  }
+
+  const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data ?? [])
 }
@@ -108,4 +119,38 @@ export async function POST(req: NextRequest) {
   )
 
   return NextResponse.json(data, { status: 201 })
+}
+
+// PATCH /api/supervision/annotations — student marks an annotation resolved
+export async function PATCH(req: NextRequest) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { id, is_resolved } = await req.json()
+  if (!id || typeof is_resolved !== 'boolean') {
+    return NextResponse.json({ error: 'id and is_resolved required' }, { status: 400 })
+  }
+
+  // Allow update if the caller is the student (recipient) or the supervisor
+  const { data: annotation } = await supabase
+    .from('supervision_annotations')
+    .select('student_id, supervisor_id')
+    .eq('id', id)
+    .single()
+
+  if (!annotation) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (annotation.student_id !== user.id && annotation.supervisor_id !== user.id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  const { data, error } = await supabase
+    .from('supervision_annotations')
+    .update({ is_resolved })
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data)
 }

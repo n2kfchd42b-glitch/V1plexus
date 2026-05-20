@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
+import { sendNotification } from '@/lib/notifications/notificationService'
 import { z } from 'zod'
 
 const ReviewSchema = z.object({
@@ -7,6 +9,14 @@ const ReviewSchema = z.object({
   decision: z.enum(['approved', 'revision_requested']),
   feedback: z.string().min(1),
 })
+
+// PhaseBar uses 'data'; project_phases Gantt uses 'data_collection'
+const MILESTONE_PHASE_TO_GANTT_KEY: Record<string, string> = {
+  data: 'data_collection',
+}
+function toGanttKey(phase: string): string {
+  return MILESTONE_PHASE_TO_GANTT_KEY[phase] ?? phase
+}
 
 // POST /api/milestones/[id]/review — supervisor reviews the latest submission
 export async function POST(
@@ -23,10 +33,10 @@ export async function POST(
   const parsed = ReviewSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
 
-  // Verify supervisor is assigned to this student
+  // Fetch milestone with phase + project_id
   const { data: milestone } = await supabase
     .from('student_milestones')
-    .select('id, student_id, status, supervisor_id')
+    .select('id, student_id, status, supervisor_id, phase, project_id')
     .eq('id', id)
     .single()
 
@@ -44,21 +54,21 @@ export async function POST(
 
   const now = new Date().toISOString()
 
-  // Write feedback to the submission (immutable after this point)
+  // Write feedback to the submission
   const { error: subError } = await supabase
     .from('milestone_submissions')
     .update({
       reviewed_by: user.id,
       reviewed_at: now,
-      decision: parsed.data.decision,
-      feedback: parsed.data.feedback,
+      decision:    parsed.data.decision,
+      feedback:    parsed.data.feedback,
     })
     .eq('id', parsed.data.submission_id)
     .eq('milestone_id', id)
 
   if (subError) return NextResponse.json({ error: subError.message }, { status: 500 })
 
-  // Update milestone status based on decision
+  // Update milestone status
   const newStatus = parsed.data.decision === 'approved' ? 'approved' : 'revision_requested'
   const milestoneUpdate: Record<string, unknown> = { status: newStatus }
   if (parsed.data.decision === 'approved') {
@@ -71,5 +81,65 @@ export async function POST(
     .update(milestoneUpdate)
     .eq('id', id)
 
-  return NextResponse.json({ success: true })
+  // ── Phase auto-advance ────────────────────────────────────────────────────
+  // When an approval happens and the milestone belongs to a phase+project,
+  // check if ALL milestones in that phase are now approved. If yes, mark the
+  // project_phases row as complete — this is what drives the Gantt bar forward.
+  if (parsed.data.decision === 'approved' && milestone.phase && milestone.project_id) {
+    const { data: siblings } = await supabase
+      .from('student_milestones')
+      .select('id, status')
+      .eq('student_id', milestone.student_id)
+      .eq('project_id', milestone.project_id)
+      .eq('phase', milestone.phase)
+
+    const allApproved = siblings?.every(m =>
+      m.id === id ? true : m.status === 'approved'
+    ) ?? false
+
+    if (allApproved) {
+      const ganttKey = toGanttKey(milestone.phase)
+      await supabase
+        .from('project_phases')
+        .upsert(
+          {
+            project_id:   milestone.project_id,
+            phase_key:    ganttKey,
+            completed_at: now,
+            updated_at:   now,
+          },
+          { onConflict: 'project_id,phase_key' }
+        )
+    }
+  }
+
+  // Notify the student of the decision (non-blocking)
+  const { data: supervisorProfile } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('id', user.id)
+    .single()
+  const supervisorName = supervisorProfile?.full_name ?? 'Your supervisor'
+
+  const notifTitle = parsed.data.decision === 'approved'
+    ? `${supervisorName} approved your milestone`
+    : `${supervisorName} requested revisions`
+  const notifBody = milestone.phase
+    ? `${milestone.phase.charAt(0).toUpperCase() + milestone.phase.slice(1)} phase · ${parsed.data.feedback.slice(0, 80)}${parsed.data.feedback.length > 80 ? '…' : ''}`
+    : parsed.data.feedback.slice(0, 120)
+  const notifLink = milestone.project_id
+    ? `/projects/${milestone.project_id}`
+    : '/student/milestones'
+
+  await sendNotification(
+    milestone.student_id,
+    parsed.data.decision === 'approved' ? 'milestone_approved' : 'milestone_revision',
+    notifTitle,
+    notifBody,
+    notifLink,
+    { resource_type: 'milestone', resource_id: id },
+    createServiceClient(),
+  )
+
+  return NextResponse.json({ success: true, phaseAdvanced: parsed.data.decision === 'approved' })
 }

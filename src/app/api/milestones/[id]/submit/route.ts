@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
+import { sendNotification } from '@/lib/notifications/notificationService'
 import { z } from 'zod'
 
 const SubmitSchema = z.object({
@@ -27,13 +29,16 @@ export async function POST(
   // Verify milestone belongs to this student
   const { data: milestone, error: milestoneError } = await supabase
     .from('student_milestones')
-    .select('id, student_id, status')
+    .select('id, student_id, supervisor_id, title, project_id, status')
     .eq('id', id)
     .single()
 
   if (milestoneError || !milestone) return NextResponse.json({ error: 'Milestone not found' }, { status: 404 })
   if (milestone.student_id !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   if (milestone.status === 'approved') return NextResponse.json({ error: 'Milestone already approved' }, { status: 409 })
+  if (milestone.status === 'submitted' || milestone.status === 'under_review') {
+    return NextResponse.json({ error: 'Milestone already submitted and awaiting review' }, { status: 409 })
+  }
 
   // Get next round number
   const { count } = await supabase
@@ -65,6 +70,29 @@ export async function POST(
     .from('student_milestones')
     .update({ status: 'submitted' })
     .eq('id', id)
+
+  // Notify the supervisor (non-blocking)
+  if (milestone.supervisor_id) {
+    const { data: studentProfile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .single()
+    const studentName = studentProfile?.full_name ?? 'A student'
+    const projectPath = milestone.project_id
+      ? `/supervisor/projects/${milestone.project_id}`
+      : `/supervisor/students/${user.id}`
+
+    await sendNotification(
+      milestone.supervisor_id,
+      'milestone_submitted',
+      `${studentName} submitted a milestone`,
+      milestone.title,
+      projectPath,
+      { resource_type: 'milestone', resource_id: id },
+      createServiceClient(),
+    )
+  }
 
   return NextResponse.json(submission, { status: 201 })
 }

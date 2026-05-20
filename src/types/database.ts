@@ -174,6 +174,8 @@ export interface StudentMilestone {
   student_id: string
   supervisor_id: string
   template_id: string | null
+  phase: string | null
+  project_id: string | null
   title: string
   description: string | null
   order_index: number

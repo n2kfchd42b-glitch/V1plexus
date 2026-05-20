@@ -146,6 +146,35 @@ export function describeEntry(log: AuditLog): TimelineEntryMeta {
     return { typeLabel: 'Report', title: action.replace('output.', '').replace(/\./g, ' '), subtitle: '' }
   }
 
+  // Phase schedule events (from PhaseRoadmap — researcher-set dates and notes)
+  if (action === 'phase.scheduled') {
+    const label = (d.phase_label as string) || (d.phase as string) || ''
+    const start = d.start_date as string | null
+    const end   = d.end_date   as string | null
+    return {
+      typeLabel: 'Phase',
+      title:     `${label} scheduled`,
+      subtitle:  start && end ? `${start} → ${end}` : (d.summary as string) || '',
+    }
+  }
+  if (action === 'phase.completed') {
+    const label = (d.phase_label as string) || (d.phase as string) || ''
+    return { typeLabel: 'Phase', title: `${label} marked complete`, subtitle: '' }
+  }
+  if (action === 'phase.reopened') {
+    const label = (d.phase_label as string) || (d.phase as string) || ''
+    return { typeLabel: 'Phase', title: `${label} reopened`, subtitle: '' }
+  }
+  if (action === 'phase.note' || action === 'progress.note') {
+    const label = (d.phase_label as string) || (d.phase as string) || ''
+    const text  = (d.summary as string) || ''
+    return {
+      typeLabel: 'Note',
+      title:     label ? `Note — ${label}` : 'Research note',
+      subtitle:  text.length > 80 ? text.slice(0, 80) + '…' : text,
+    }
+  }
+
   // Project events
   if (action === 'project.created') {
     return { typeLabel: 'Project', title: 'Project created', subtitle: (d.summary as string) || '' }
@@ -177,6 +206,8 @@ export function typeBadgeClass(typeLabel: string): string {
     case 'Data':     return 'bg-[#F0FDF4] text-[#166534]'
     case 'Report':   return 'bg-[#FFF7ED] text-[#9A3412]'
     case 'Project':  return 'bg-[#F5F3FF] text-[#5B21B6]'
+    case 'Phase':    return 'bg-[#ECFDF5] text-[#065F46]'
+    case 'Note':     return 'bg-[#FFFBEB] text-[#92400E]'
     default:         return 'bg-[#F4F4F5] text-[#52525B]'
   }
 }

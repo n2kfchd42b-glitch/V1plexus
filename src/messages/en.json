@@ -976,5 +976,34 @@
   "authPanel.feature2.desc": "We guide you to the right method and run it — no statistics degree required.",
   "authPanel.feature3.title": "Work with your supervisor",
   "authPanel.feature3.desc": "Share results, get feedback, and move forward — together, in one place.",
-  "authPanel.learnMore": "Learn more about PLEXUS →"
+  "authPanel.learnMore": "Learn more about PLEXUS →",
+
+  "supervision.feedback.title": "Supervisor Feedback",
+  "supervision.feedback.open": "open",
+  "supervision.feedback.resolved": "resolved",
+  "supervision.feedback.section": "section",
+  "supervision.feedback.sections": "sections",
+  "supervision.feedback.markResolved": "Mark resolved",
+  "supervision.feedback.reopen": "Reopen",
+
+  "supervision.inbox.title": "Feedback Inbox",
+  "supervision.inbox.loading": "Loading…",
+  "supervision.inbox.allCaughtUp": "All caught up",
+  "supervision.inbox.emptyDesc": "No unresolved notes across your students.",
+  "supervision.inbox.openNote": "Open",
+  "supervision.inbox.resolve": "Resolve",
+  "supervision.inbox.viewStudent": "View student",
+  "supervision.inbox.refresh": "Refresh",
+
+  "supervision.sessions.title": "Sessions",
+  "supervision.sessions.emptyTitle": "No session records yet",
+  "supervision.sessions.emptyDesc": "Your supervisor's session notes will appear here after your meetings",
+  "supervision.sessions.summary": "Summary",
+  "supervision.sessions.actionItems": "Action items",
+
+  "supervision.notes.markAllRead": "Mark all read",
+  "supervision.notes.noNotes": "No notes yet — your supervisor's feedback will appear here",
+  "supervision.notes.openProject": "Open project to reply",
+
+  "nav.inbox": "Inbox"
 }

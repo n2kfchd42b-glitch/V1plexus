@@ -57,7 +57,7 @@ export function MilestoneReviewModal({ milestone, onClose, onSuccess }: Props) {
           type: 'document',
           label: data.title || 'Untitled document',
           projectId: data.project_id,
-          href: `/projects/${data.project_id}/documents/${data.id}`,
+          href: `/supervisor/projects/${data.project_id}/documents/${data.id}`,
         })
       } else if (submission.dataset_id) {
         const { data } = await supabase
@@ -69,7 +69,7 @@ export function MilestoneReviewModal({ milestone, onClose, onSuccess }: Props) {
           type: 'dataset',
           label: data.name,
           projectId: data.project_id,
-          href: `/projects/${data.project_id}/data`,
+          href: `/supervisor/projects/${data.project_id}/datasets/${data.id}`,
         })
       } else if (submission.analysis_run_id) {
         const { data } = await supabase
@@ -81,7 +81,7 @@ export function MilestoneReviewModal({ milestone, onClose, onSuccess }: Props) {
           type: 'analysis_run',
           label: data.analysis_type.replace(/_/g, ' '),
           projectId: data.project_id,
-          href: `/projects/${data.project_id}/analysis`,
+          href: `/supervisor/projects/${data.project_id}/analyses/${data.id}`,
         })
       }
     }

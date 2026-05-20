@@ -149,10 +149,12 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes }:
   const [savingPhase,  setSavingPhase]  = useState<string | null>(null)
   const [notes,        setNotes]        = useState<GanttNote[]>(initialNotes)
 
-  const [logsPanelKey, setLogsPanelKey] = useState<string | null>(null)
-  const [panelNote,    setPanelNote]    = useState('')
-  const [panelSaving,  setPanelSaving]  = useState(false)
-  const [saveError,    setSaveError]    = useState<string | null>(null)
+  const [logsPanelKey,  setLogsPanelKey]  = useState<string | null>(null)
+  const [panelNote,     setPanelNote]     = useState('')
+  const [panelSaving,   setPanelSaving]   = useState(false)
+  const [saveError,     setSaveError]     = useState<string | null>(null)
+  const [gateWarning,   setGateWarning]   = useState<string | null>(null)
+  const [gatePendingKey, setGatePendingKey] = useState<string | null>(null)
 
   const mainScrollRef = useRef<HTMLDivElement>(null)
 
@@ -242,8 +244,35 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes }:
   async function toggleComplete(phaseKey: string) {
     const phase = phases.find(p => p.phase_key === phaseKey)
     if (!phase) return
+
+    // When marking complete, check if there are unapproved milestones for this phase.
+    // Map Gantt key → milestone phase key (data_collection → data)
+    if (!phase.completed_at) {
+      const milestonePhase = phaseKey === 'data_collection' ? 'data' : phaseKey
+      const res = await fetch(
+        `/api/milestones?project_id=${projectId}&phase=${milestonePhase}&status=pending`
+      )
+      if (res.ok) {
+        const pending: { id: string }[] = await res.json()
+        if (pending.length > 0) {
+          setGateWarning(
+            `${pending.length} milestone${pending.length !== 1 ? 's' : ''} in this phase still need${pending.length === 1 ? 's' : ''} supervisor approval. Mark the phase complete anyway?`
+          )
+          setGatePendingKey(phaseKey)
+          return
+        }
+      }
+    }
+
+    await doToggleComplete(phaseKey)
+  }
+
+  async function doToggleComplete(phaseKey: string) {
+    const phase = phases.find(p => p.phase_key === phaseKey)
+    if (!phase) return
     const completed_at = phase.completed_at ? null : new Date().toISOString()
     setSavingPhase(phaseKey)
+    setGateWarning(null)
     try {
       const res = await fetch(`/api/projects/${projectId}/phases`, {
         method:  'PUT',
@@ -298,6 +327,33 @@ export function ProjectGantt({ projectId, userId, initialPhases, initialNotes }:
 
   return (
     <div className="flex flex-col h-full" style={{ overflow: 'clip' }}>
+
+      {/* Gate warning dialog */}
+      {gateWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <h3 className="text-sm font-bold text-slate-900">Pending milestones</h3>
+            <p className="text-sm text-slate-600">{gateWarning}</p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setGateWarning(null)}
+                className="px-4 py-2 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+              >
+                Go back
+              </button>
+              <button
+                onClick={() => {
+                  if (gatePendingKey) doToggleComplete(gatePendingKey)
+                  setGatePendingKey(null)
+                }}
+                className="px-4 py-2 text-sm font-semibold rounded-lg bg-slate-800 text-white hover:bg-slate-700"
+              >
+                Mark complete anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Header bar ─────────────────────────────────────────────────────── */}
       <div

@@ -3,19 +3,23 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { X, Plus } from 'lucide-react'
+import { PHASE_ORDER, PHASE_COLORS, PHASE_LABELS } from '@/components/ui/phase-bar'
+import { cn } from '@/lib/utils'
 
 interface Props {
   studentId: string
+  projectId?: string
   onClose: () => void
   onSuccess: () => void
 }
 
-export function AddMilestoneModal({ studentId, onClose, onSuccess }: Props) {
-  const [title, setTitle] = useState('')
+export function AddMilestoneModal({ studentId, projectId, onClose, onSuccess }: Props) {
+  const [title, setTitle]           = useState('')
   const [description, setDescription] = useState('')
-  const [dueDate, setDueDate] = useState('')
+  const [dueDate, setDueDate]       = useState('')
+  const [phase, setPhase]           = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError]           = useState<string | null>(null)
   const supabase = createClient()
 
   async function handleCreate() {
@@ -26,7 +30,6 @@ export function AddMilestoneModal({ studentId, onClose, onSuccess }: Props) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setError('Not authenticated'); setSubmitting(false); return }
 
-    // Get user's workspace
     const { data: membership } = await supabase
       .from('workspace_memberships')
       .select('workspace_id')
@@ -40,11 +43,13 @@ export function AddMilestoneModal({ studentId, onClose, onSuccess }: Props) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        student_id: studentId,
+        student_id:   studentId,
         workspace_id: membership.workspace_id,
-        title: title.trim(),
-        description: description.trim() || undefined,
-        due_date: dueDate || null,
+        project_id:   projectId ?? null,
+        phase:        phase || null,
+        title:        title.trim(),
+        description:  description.trim() || undefined,
+        due_date:     dueDate || null,
       }),
     })
 
@@ -79,6 +84,52 @@ export function AddMilestoneModal({ studentId, onClose, onSuccess }: Props) {
               placeholder="e.g. Literature Review, Ethics Clearance, Proposal Defense…"
               className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+
+          {/* Phase picker — the new connector */}
+          <div>
+            <label className="text-xs font-semibold text-slate-600 block mb-1.5">
+              Research phase <span className="text-slate-400 font-normal">(links this milestone to the project timeline)</span>
+            </label>
+            <div className="grid grid-cols-4 gap-1.5">
+              {PHASE_ORDER.map(p => {
+                const color = PHASE_COLORS[p]
+                const selected = phase === p
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPhase(selected ? '' : p)}
+                    className={cn(
+                      'flex flex-col items-center gap-1 px-2 py-2 rounded-lg border-2 text-[10px] font-semibold transition-all',
+                      selected
+                        ? 'border-transparent text-white'
+                        : 'border-slate-200 text-slate-500 hover:border-slate-300 bg-white'
+                    )}
+                    style={selected ? { backgroundColor: color, borderColor: color } : {}}
+                  >
+                    <div
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: selected ? 'rgba(255,255,255,0.6)' : color }}
+                    />
+                    {PHASE_LABELS[p]}
+                  </button>
+                )
+              })}
+              {/* "No phase" option at the end */}
+              <button
+                type="button"
+                onClick={() => setPhase('')}
+                className={cn(
+                  'flex flex-col items-center gap-1 px-2 py-2 rounded-lg border-2 text-[10px] font-semibold transition-all col-span-4',
+                  phase === ''
+                    ? 'border-slate-400 bg-slate-50 text-slate-600'
+                    : 'border-slate-200 text-slate-400 hover:border-slate-300'
+                )}
+              >
+                No phase (general milestone)
+              </button>
+            </div>
           </div>
 
           <div>
