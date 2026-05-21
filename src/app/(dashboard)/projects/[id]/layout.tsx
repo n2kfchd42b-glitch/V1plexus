@@ -63,7 +63,7 @@ export default async function ProjectWorkspaceLayout({
   ] = await Promise.all([
     supabase.from("datasets").select("id", { count: "exact", head: true }).eq("project_id", id).is("deleted_at", null),
     supabase.from("analysis_runs").select("id", { count: "exact", head: true }).eq("project_id", id).eq("status", "completed"),
-    supabase.from("project_phases").select("phase_key, start_date, end_date, completed_at").eq("project_id", id).then(r => ({ data: r.data ?? [] })),
+    supabase.from("project_phases").select("phase_key, name, color, start_date, end_date, completed_at, sort_order, disabled").eq("project_id", id).then(r => ({ data: r.data ?? [] })),
   ]);
 
   const phases = (rawPhases ?? []) as GanttPhase[]

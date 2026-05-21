@@ -2,7 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ProjectOverviewClient } from "@/components/project/ProjectOverviewClient";
 import type { GanttPhase } from "@/components/project/ProjectGantt";
-import type { ActivityLog, DbTask, SupervisorMilestone } from "@/components/project/ProjectOverviewClient";
+import type { ActivityLog, DbTask, SupervisorMilestone, RecentDoc, LatestRun } from "@/components/project/ProjectOverviewClient";
 
 const PHASE_ORDER = [
   'concept', 'protocol', 'ethics', 'data_collection',
@@ -20,7 +20,6 @@ export default async function ProjectOverviewPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Check supervisor assignment first so we can conditionally fetch milestones
   const { data: supervisorAssignment } = await supabase
     .from("supervisor_assignments")
     .select("supervisor_id")
@@ -32,26 +31,24 @@ export default async function ProjectOverviewPage({
 
   const [
     projectResult,
-    { count: datasetCount },
-    { count: runCount },
-    { count: auditCount },
     { data: rawPhases },
     { data: rawActivityLogs },
     { data: rawSupervisorLogs },
     { data: rawTasks },
     { data: rawMilestones },
+    { data: rawDocs },
+    { data: rawLatestRun },
   ] = await Promise.all([
     supabase.from("projects").select("*").eq("id", id).single(),
-    supabase.from("datasets").select("id", { count: "exact", head: true }).eq("project_id", id).is("deleted_at", null),
-    supabase.from("analysis_runs").select("id", { count: "exact", head: true }).eq("project_id", id).eq("status", "completed"),
-    supabase.from("audit_logs").select("id", { count: "exact", head: true }).eq("project_id", id),
-    supabase.from("project_phases").select("phase_key, start_date, end_date, completed_at").eq("project_id", id).order("created_at").then(r => ({ data: r.data ?? [] })),
+    supabase.from("project_phases").select("phase_key, name, color, start_date, end_date, completed_at, sort_order, disabled").eq("project_id", id).order("sort_order").then(r => ({ data: r.data ?? [] })),
     supabase.from("audit_logs").select("id, timestamp, action, details, actor:profiles(full_name)").eq("project_id", id).order("timestamp", { ascending: false }).limit(8).then(r => ({ data: r.data ?? [] })),
     supabase.from("audit_logs").select("id, timestamp, action, details, actor:profiles(full_name)").eq("project_id", id).neq("actor_id", user.id).order("timestamp", { ascending: false }).limit(5).then(r => ({ data: r.data ?? [] })),
     supabase.from("project_tasks").select("id, text, due_date, done, created_at").eq("project_id", id).eq("user_id", user.id).order("created_at", { ascending: true }).then(r => ({ data: r.data ?? [] })),
     hasSupervisor
       ? supabase.from("student_milestones").select("id, title, due_date, status, phase").eq("project_id", id).eq("student_id", user.id).in("status", ["pending", "under_review", "revision_requested"]).order("due_date", { ascending: true, nullsFirst: false }).limit(5).then(r => ({ data: r.data ?? [] }))
       : Promise.resolve({ data: [] }),
+    supabase.from("documents").select("id, title, document_type, updated_at").eq("project_id", id).order("updated_at", { ascending: false }).limit(4).then(r => ({ data: r.data ?? [] })),
+    supabase.from("analysis_runs").select("id, title, analysis_type, status, interpretation, created_at").eq("project_id", id).eq("status", "completed").order("created_at", { ascending: false }).limit(1).then(r => ({ data: r.data ?? [] })),
   ]);
 
   const project = projectResult.data;
@@ -63,10 +60,6 @@ export default async function ProjectOverviewPage({
   const nextMilestoneKey = PHASE_ORDER.find(
     key => !phases.find(p => p.phase_key === key)?.completed_at
   ) ?? null;
-
-  const nextMilestoneStartDate = nextMilestoneKey
-    ? (phases.find(p => p.phase_key === nextMilestoneKey)?.start_date ?? null)
-    : null;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapLog = (e: any): ActivityLog => ({
@@ -98,6 +91,25 @@ export default async function ProjectOverviewPage({
     phase:    m.phase ?? null,
   }))
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recentDocs: RecentDoc[] = (rawDocs ?? []).map((d: any) => ({
+    id:            d.id,
+    title:         d.title,
+    document_type: d.document_type ?? 'document',
+    updated_at:    d.updated_at,
+  }))
+
+  const rawRun = (rawLatestRun ?? [])[0] ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const latestRun: LatestRun | null = rawRun ? {
+    id:             (rawRun as any).id,
+    title:          (rawRun as any).title ?? null,
+    analysis_type:  (rawRun as any).analysis_type,
+    status:         (rawRun as any).status,
+    interpretation: (rawRun as any).interpretation ?? null,
+    created_at:     (rawRun as any).created_at,
+  } : null
+
   return (
     <ProjectOverviewClient
       id={id}
@@ -109,17 +121,14 @@ export default async function ProjectOverviewPage({
       }}
       completedCount={completedCount}
       nextMilestoneKey={nextMilestoneKey}
-      nextMilestoneStartDate={nextMilestoneStartDate}
-      datasetCount={datasetCount ?? 0}
-      runCount={runCount ?? 0}
-      auditCount={auditCount ?? 0}
       initialPhases={phases}
       activityLogs={activityLogs}
       supervisorLogs={supervisorLogs}
-      userId={user.id}
       hasSupervisor={hasSupervisor}
       initialTasks={initialTasks}
       supervisorMilestones={supervisorMilestones}
+      recentDocs={recentDocs}
+      latestRun={latestRun}
     />
   );
 }

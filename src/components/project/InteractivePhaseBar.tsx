@@ -118,10 +118,6 @@ function isOverdue(p: PhaseItem): boolean {
   return Date.now() > toMs(p.end_date)
 }
 
-function shortLabel(name: string): string {
-  return name
-}
-
 // ── Popover ───────────────────────────────────────────────────────────────────
 
 interface PopoverProps {
@@ -133,11 +129,12 @@ interface PopoverProps {
 }
 
 function PhasePopover({ phase, projectId, userId, onSave, onClose }: PopoverProps) {
-  const [start,  setStart]  = useState(phase.start_date ?? '')
-  const [end,    setEnd]    = useState(phase.end_date   ?? '')
-  const [note,   setNote]   = useState('')
-  const [saving, setSaving] = useState(false)
-  const [tab,    setTab]    = useState<'dates' | 'note'>('dates')
+  const [start,     setStart]     = useState(phase.start_date ?? '')
+  const [end,       setEnd]       = useState(phase.end_date   ?? '')
+  const [note,      setNote]      = useState('')
+  const [saving,    setSaving]    = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [tab,       setTab]       = useState<'dates' | 'note'>('dates')
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -156,10 +153,15 @@ function PhasePopover({ phase, projectId, userId, onSave, onClose }: PopoverProp
   const handleSaveDates = useCallback(async () => {
     if (!start || !end) return
     setSaving(true)
+    setSaveError(null)
     try {
       const updated = { ...phase, start_date: start, end_date: end }
       const res = await putPhase(projectId, updated)
-      if (!res.ok) return
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setSaveError(body.error ?? 'Failed to save — please try again')
+        return
+      }
       await writeAudit(userId, projectId, 'phase.scheduled', {
         phase: phase.phase_key, phase_label: phase.name,
         start_date: start, end_date: end,
@@ -183,11 +185,16 @@ function PhasePopover({ phase, projectId, userId, onSave, onClose }: PopoverProp
 
   const handleToggleComplete = useCallback(async () => {
     setSaving(true)
+    setSaveError(null)
     const completed_at = phase.completed_at ? null : new Date().toISOString()
     try {
       const updated = { ...phase, completed_at }
       const res = await putPhase(projectId, updated)
-      if (!res.ok) return
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setSaveError(body.error ?? 'Failed to save — please try again')
+        return
+      }
       await writeAudit(userId, projectId, completed_at ? 'phase.completed' : 'phase.reopened', {
         phase: phase.phase_key, phase_label: phase.name, completed_at,
         summary: completed_at ? `Marked ${phase.name} as complete` : `Reopened ${phase.name}`,
@@ -282,6 +289,11 @@ function PhasePopover({ phase, projectId, userId, onSave, onClose }: PopoverProp
               <Check style={{ width: 12, height: 12, color: phase.completed_at ? 'white' : 'var(--text-tertiary)', strokeWidth: 3 }} />
             </button>
           </div>
+          {saveError && (
+            <p className="mt-2 text-[11px] font-medium rounded px-2 py-1.5" style={{ background: 'var(--status-error-bg)', color: 'var(--status-error-text)', border: '1px solid var(--border-status-error)' }}>
+              {saveError}
+            </p>
+          )}
         </div>
       )}
 
@@ -500,7 +512,10 @@ export function InteractivePhaseBar({
     setAddName('')
     setAddColor(COLOR_PALETTE[1])
     setShowAddForm(false)
-    await putPhase(projectId, newPhase)
+    const res = await putPhase(projectId, newPhase)
+    if (!res.ok) {
+      setPhases(prev => prev.filter(p => p.phase_key !== phase_key))
+    }
   }, [addName, addColor, phases.length, projectId])
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
@@ -579,7 +594,7 @@ export function InteractivePhaseBar({
                     cursor:     readOnly ? 'default' : 'text',
                   }}
                 >
-                  {shortLabel(phase.name)}
+                  {phase.name}
                 </span>
               )}
 
