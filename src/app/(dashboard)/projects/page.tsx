@@ -72,7 +72,7 @@ function HeroBanner({ projects, loading }: { projects: ProjectWithCounts[]; load
 
   return (
     <div
-      className="mx-6 mt-5 mb-4 rounded-xl overflow-hidden relative flex-shrink-0"
+      className="mx-3 sm:mx-6 mt-5 mb-4 rounded-xl overflow-hidden relative flex-shrink-0"
       style={{ background: 'var(--bg-sidebar)' }}
     >
       <GlobeWireframe />
@@ -95,21 +95,18 @@ function HeroBanner({ projects, loading }: { projects: ProjectWithCounts[]; load
         </p>
 
         {/* Stats strip */}
-        <div className="flex items-center gap-0 border-t border-white/10 pt-4">
-          {stats.map((stat, i) => (
-            <div key={stat.label} className="flex items-center">
-              {i > 0 && <div className="w-px h-8 bg-white/15 mx-5" />}
-              <div>
-                <p
-                  className="text-xl font-bold text-white leading-none"
-                  style={{ fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}
-                >
-                  {stat.value}
-                </p>
-                <p className="text-[9px] uppercase tracking-[0.08em] text-[var(--text-sidebar)] mt-0.5">
-                  {stat.label}
-                </p>
-              </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-white/10 pt-4">
+          {stats.map((stat) => (
+            <div key={stat.label}>
+              <p
+                className="text-xl font-bold text-white leading-none"
+                style={{ fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}
+              >
+                {stat.value}
+              </p>
+              <p className="text-[9px] uppercase tracking-[0.08em] text-[var(--text-sidebar)] mt-0.5">
+                {stat.label}
+              </p>
             </div>
           ))}
         </div>
@@ -363,7 +360,7 @@ export default function ProjectsPage() {
       )}
 
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-6 pb-3">
+      <div className="flex items-center gap-2 px-3 sm:px-6 pb-3">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--text-tertiary)]" />
           <input

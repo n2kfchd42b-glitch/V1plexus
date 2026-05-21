@@ -165,7 +165,7 @@ export default function IntegrityAlertPage() {
             <Shield className="h-3.5 w-3.5 text-text-tertiary" />
             <span className="text-sm font-semibold text-text-primary">Context · what the ledger knows</span>
           </div>
-          <div className="px-5 py-5 grid grid-cols-4 gap-5">
+          <div className="px-5 py-5 grid grid-cols-2 sm:grid-cols-4 gap-5">
             {CONTEXT.map((s, i) => (
               <div key={i}>
                 <div className="text-[10px] text-text-tertiary font-medium uppercase tracking-wide">{s.k}</div>

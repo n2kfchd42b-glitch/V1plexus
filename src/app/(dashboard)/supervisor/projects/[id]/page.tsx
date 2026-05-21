@@ -166,13 +166,13 @@ export default async function SupervisorProjectPage({
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
+      <div className="max-w-4xl mx-auto px-3 py-4 sm:px-6 sm:py-8 space-y-8">
 
         {/* ── Research timeline (read-only Gantt) ────────────────────────────── */}
         <SupervisorGanttPanel projectId={id} userId={user.id} />
 
         {/* ── Stats strip ────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: 'Milestones',  value: projectMilestones.length },
             { label: 'Awaiting review', value: awaiting,   highlight: awaiting > 0 },
@@ -257,7 +257,7 @@ export default async function SupervisorProjectPage({
         </section>
 
         {/* ── Research output — two columns ──────────────────────────────────── */}
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
 
           {/* Datasets */}
           <section>

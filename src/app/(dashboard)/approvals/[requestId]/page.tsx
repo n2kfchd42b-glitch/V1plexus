@@ -369,7 +369,7 @@ export default function ApprovalReviewPage() {
             <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] mb-4">
               Dataset Overview
             </p>
-            <div className="grid grid-cols-4 gap-4 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
               {[
                 { label: 'Rows', value: version?.row_count.toLocaleString() ?? '—' },
                 { label: 'Columns', value: String(version?.column_count ?? '—') },

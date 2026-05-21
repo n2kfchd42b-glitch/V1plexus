@@ -718,7 +718,7 @@ export default function ProfilePage() {
             </div>
 
             <form onSubmit={handleSaveProfile} className="space-y-5">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="title">{t('profileSettings.titleField')}</Label>
                   <Input id="title" placeholder={t('profileSettings.titlePlaceholder')} value={profile.title ?? ''} onChange={e => setProfile(p => ({ ...p, title: e.target.value }))} className="mt-1" />
@@ -756,7 +756,7 @@ export default function ProfilePage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="phone">{t('profileSettings.phoneField')}</Label>
                   <Input id="phone" type="tel" placeholder="+1 (555) 000-0000" value={profile.phone ?? ''} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} className="mt-1" />
@@ -810,7 +810,7 @@ export default function ProfilePage() {
                         </button>
 
                         {/* Manual city + country */}
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <Label htmlFor="settingsCity" className="text-xs text-[#52525B]">{t('profileSettings.cityField')}</Label>
                             <Input

@@ -518,7 +518,7 @@ export default function SupervisorDashboardPage() {
 
         {sorted.length > 0 && view !== 'pipeline' && (
           <div className={cn(
-            view === 'grid' ? 'grid grid-cols-4 gap-3' : 'flex flex-col gap-2'
+            view === 'grid' ? 'grid grid-cols-2 lg:grid-cols-4 gap-3' : 'flex flex-col gap-2'
           )}>
             {sorted.map(s => (
               view === 'grid' ? (

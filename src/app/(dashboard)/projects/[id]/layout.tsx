@@ -74,14 +74,14 @@ export default async function ProjectWorkspaceLayout({
 
       {/* ── Hero strip ────────────────────────────────────────────────────────── */}
       <div
-        className="flex-shrink-0 px-6 py-4"
+        className="flex-shrink-0 px-3 py-3 sm:px-6 sm:py-4"
         style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-default)' }}
       >
         <div className="flex items-baseline gap-2.5 flex-wrap mb-2">
           <h1
             style={{
               fontFamily: 'var(--font-display)',
-              fontSize:   22,
+              fontSize:   'clamp(16px, 4vw, 22px)',
               fontStyle:  'italic',
               fontWeight: 400,
               color:      'var(--text-primary)',
@@ -104,7 +104,7 @@ export default async function ProjectWorkspaceLayout({
           userId={user.id}
           initialPhases={phases}
           height={6}
-          className="max-w-xl"
+          className="w-full sm:max-w-xl"
         />
       </div>
 

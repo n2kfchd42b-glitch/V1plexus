@@ -22,7 +22,7 @@ export function ProjectTabBar({ id, datasetCount, runCount }: ProjectTabBarProps
 
   return (
     <div
-      className="flex-shrink-0 flex px-6"
+      className="flex-shrink-0 flex px-3 sm:px-6 overflow-x-auto"
       style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-default)' }}
     >
       {tabs.map(tab => {

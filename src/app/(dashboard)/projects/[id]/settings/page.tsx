@@ -249,7 +249,7 @@ export default function ProjectSettingsPage() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label htmlFor="proj-status" className="text-xs font-medium text-[var(--text-secondary)]">{t('projectSettings.fieldStatus')}</Label>
             <div className="relative">
@@ -277,7 +277,7 @@ export default function ProjectSettingsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label htmlFor="proj-end" className="text-xs font-medium text-[var(--text-secondary)]">{t('projectSettings.fieldEndDate')}</Label>
             <Input
