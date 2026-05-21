@@ -1,23 +1,25 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ArrowLeft, Plus, FolderOpen, ChevronRight,
-  Shield, Download, MessageSquare, CheckCircle2,
-  PenLine, BarChart2, Database, Filter, X, ClipboardList,
+  ArrowLeft, Plus, ExternalLink, Shield, Download,
+  MessageSquare, CheckCircle2, PenLine, BarChart2,
+  Database, X,
 } from 'lucide-react'
 import { StudentMilestone } from '@/types/database'
 import { MilestoneRoadmap } from '@/components/supervisor-student/MilestoneRoadmap'
 import { MilestoneReviewModal } from '@/components/supervisor-student/MilestoneReviewModal'
 import { AddMilestoneModal } from '@/components/supervisor-student/AddMilestoneModal'
-import { SupervisionRecordModal } from '@/components/supervisor-student/SupervisionRecordModal'
+import { SupervisionRecordsPanel } from '@/components/supervisor-student/SupervisionRecordsPanel'
+import type { SupervisionRecord } from '@/components/supervisor-student/SupervisionRecordModal'
 import { VerifyBadge } from '@/components/ui/verify-badge'
 import { PhasePill, PHASE_ORDER, type ResearchPhase } from '@/components/ui/phase-bar'
 import { InteractivePhaseBar } from '@/components/project/InteractivePhaseBar'
 import type { GanttPhase } from '@/components/project/ProjectGantt'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/useAuth'
 import { cn, formatRelative } from '@/lib/utils'
 
 interface ResearchProject {
@@ -51,31 +53,32 @@ interface LedgerEntry {
 }
 
 const KIND_ICON: Record<string, React.ElementType> = {
-  edit: PenLine,
+  edit:     PenLine,
   analysis: BarChart2,
-  data: Database,
-  approve: CheckCircle2,
-  msg: MessageSquare,
+  data:     Database,
+  approve:  CheckCircle2,
+  msg:      MessageSquare,
 }
 
 export default function StudentDetailPage() {
   const { studentId } = useParams<{ studentId: string }>()
-  const searchParams = useSearchParams()
-  const [milestones, setMilestones] = useState<StudentMilestone[]>([])
-  const [projects, setProjects] = useState<ResearchProject[]>([])
-  const [studentProfile, setStudentProfile] = useState<{
+  const { user } = useAuth()
+  const supabase = createClient()
+
+  const [milestones,      setMilestones]      = useState<StudentMilestone[]>([])
+  const [projects,        setProjects]        = useState<ResearchProject[]>([])
+  const [studentProfile,  setStudentProfile]  = useState<{
     full_name: string | null; email: string; title: string | null
   } | null>(null)
-  const [annotations, setAnnotations] = useState<Annotation[]>([])
-  const [reviewing, setReviewing] = useState<StudentMilestone | null>(null)
+  const [annotations,     setAnnotations]     = useState<Annotation[]>([])
+  const [phaseDates,      setPhaseDates]      = useState<GanttPhase[]>([])
+  const [records,         setRecords]         = useState<SupervisionRecord[]>([])
+  const [reviewing,       setReviewing]       = useState<StudentMilestone | null>(null)
   const [addingMilestone, setAddingMilestone] = useState(false)
-  const [recordingSession, setRecordingSession] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const initialTab = searchParams.get('tab') as 'overview' | 'milestones' | 'research' | null
-  const [activeTab, setActiveTab] = useState<'overview' | 'milestones' | 'research'>(initialTab ?? 'overview')
-  const [ledgerFilter, setLedgerFilter] = useState<'all' | 'data' | 'edits' | 'analyses' | 'approvals'>('all')
-  const [phaseDates, setPhaseDates] = useState<Record<string, { start_date: string | null; end_date: string | null; completed_at: string | null }>>({})
-  const supabase = createClient()
+  const [loading,         setLoading]         = useState(true)
+  const [activeTab,       setActiveTab]       = useState<'overview' | 'milestones' | 'sessions'>('overview')
+  const [ledgerOpen,      setLedgerOpen]      = useState(false)
+  const [ledgerFilter,    setLedgerFilter]    = useState<'all' | 'data' | 'edits' | 'analyses' | 'approvals'>('all')
 
   const load = useCallback(async () => {
     const [milestonesRes, profileRes, researchRes, annotationsRes] = await Promise.all([
@@ -84,35 +87,50 @@ export default function StudentDetailPage() {
       fetch(`/api/supervisor/students/${studentId}/research`),
       fetch(`/api/supervision/annotations?studentId=${studentId}`),
     ])
+
     if (milestonesRes.ok) setMilestones(await milestonesRes.json())
-    if (profileRes.data) setStudentProfile(profileRes.data)
-    if (researchRes.ok) {
-      const projs = await researchRes.json()
-      setProjects(projs)
-      // Fetch phase dates for the primary project
-      if (projs[0]?.id) {
-        const phasesRes = await fetch(`/api/projects/${projs[0].id}/phases`)
-        if (phasesRes.ok) {
-          const { phases } = await phasesRes.json()
-          const map: Record<string, { start_date: string | null; end_date: string | null; completed_at: string | null }> = {}
-          for (const p of (phases ?? [])) map[p.phase_key] = p
-          setPhaseDates(map)
-        }
-      }
-    }
+    if (profileRes.data)  setStudentProfile(profileRes.data)
     if (annotationsRes.ok) {
       const data = await annotationsRes.json()
       if (Array.isArray(data)) setAnnotations(data)
     }
+
+    let projectId: string | null = null
+    if (researchRes.ok) {
+      const projs: ResearchProject[] = await researchRes.json()
+      setProjects(projs)
+      projectId = projs[0]?.id ?? null
+    }
+
+    if (projectId && user?.id) {
+      const [phasesRes, recordsRes] = await Promise.all([
+        fetch(`/api/projects/${projectId}/phases`),
+        supabase
+          .from('supervision_records')
+          .select('id, supervisor_id, student_id, project_id, title, summary, action_items, created_at')
+          .eq('project_id', projectId)
+          .eq('supervisor_id', user.id)
+          .order('created_at', { ascending: false }),
+      ])
+      if (phasesRes.ok) {
+        const { phases } = await phasesRes.json()
+        setPhaseDates(phases ?? [])
+      }
+      if (recordsRes.data) setRecords(recordsRes.data as SupervisionRecord[])
+    }
+
     setLoading(false)
-  }, [studentId, supabase])
+  }, [studentId, user?.id, supabase])
 
   useEffect(() => { load() }, [load])
 
-  const pendingReview = milestones.filter(m => ['submitted', 'under_review'].includes(m.status)).length
-  const approved = milestones.filter(m => m.status === 'approved').length
-
+  const pendingReview    = milestones.filter(m => ['submitted', 'under_review'].includes(m.status)).length
+  const approved         = milestones.filter(m => m.status === 'approved').length
   const primaryProjectId = projects[0]?.id
+  const primaryProject   = projects[0] as (ResearchProject & { phase?: string }) | undefined
+  const primaryPhase     = (primaryProject?.phase as ResearchPhase) ?? 'concept'
+  const phaseIdx         = PHASE_ORDER.indexOf(primaryPhase)
+  const openAnnotations  = annotations.filter(a => !a.is_resolved)
 
   function artifactHref(a: Annotation): string {
     const base = `/supervisor/projects/${a.project_id}`
@@ -121,55 +139,42 @@ export default function StudentDetailPage() {
     return `${base}/documents/${a.artifact_id}`
   }
 
-  // Build ledger entries from annotations + milestones
   const ledgerEntries: LedgerEntry[] = [
     ...annotations.slice(0, 12).map((a): LedgerEntry => ({
-      id: a.id,
-      t: formatRelative(a.created_at),
-      who: 'You',
+      id:     a.id,
+      t:      formatRelative(a.created_at),
+      who:    'You',
       action: `note on ${a.anchor_label ?? a.artifact_type}`,
-      kind: 'msg',
-      href: artifactHref(a),
-      hot: !a.is_resolved,
+      kind:   'msg',
+      href:   artifactHref(a),
+      hot:    !a.is_resolved,
     })),
     ...milestones
-      .filter(m => m.status === 'approved')
-      .slice(0, 4)
+      .filter(m => m.status === 'approved').slice(0, 4)
       .map((m): LedgerEntry => ({
-        id: m.id,
-        t: formatRelative(m.updated_at),
-        who: 'You',
-        action: `approved: ${m.title}`,
-        kind: 'approve',
-        href: `/supervisor/students/${studentId}?tab=milestones`,
-        hot: false,
+        id: m.id, t: formatRelative(m.updated_at),
+        who: 'You', action: `approved: ${m.title}`,
+        kind: 'approve', hot: false,
       })),
     ...milestones
-      .filter(m => ['submitted', 'under_review'].includes(m.status))
-      .slice(0, 3)
+      .filter(m => ['submitted', 'under_review'].includes(m.status)).slice(0, 3)
       .map((m): LedgerEntry => ({
-        id: m.id + '_sub',
-        t: formatRelative(m.updated_at),
+        id: m.id + '_sub', t: formatRelative(m.updated_at),
         who: studentProfile?.full_name?.split(' ')[0] ?? 'Student',
         action: `submitted: ${m.title}`,
-        kind: 'edit',
-        href: `/supervisor/students/${studentId}?tab=milestones`,
-        hot: true,
+        kind: 'edit', hot: true,
       })),
-  ].sort((a, b) => 0) // keep insertion order for now
+  ]
 
   const filteredLedger = ledgerFilter === 'all'
     ? ledgerEntries
     : ledgerEntries.filter(e => {
-        if (ledgerFilter === 'data') return e.kind === 'data'
-        if (ledgerFilter === 'edits') return e.kind === 'edit'
-        if (ledgerFilter === 'analyses') return e.kind === 'analysis'
+        if (ledgerFilter === 'data')      return e.kind === 'data'
+        if (ledgerFilter === 'edits')     return e.kind === 'edit'
+        if (ledgerFilter === 'analyses')  return e.kind === 'analysis'
         if (ledgerFilter === 'approvals') return e.kind === 'approve'
         return true
       })
-
-  const primaryPhase: ResearchPhase = ((projects[0] as ResearchProject & { phase?: string })?.phase as ResearchPhase) ?? 'concept'
-  const phaseIdx = PHASE_ORDER.indexOf(primaryPhase)
 
   const name = studentProfile?.full_name ?? 'Student'
 
@@ -178,17 +183,17 @@ export default function StudentDetailPage() {
   )
 
   const TABS = [
-    { id: 'overview', label: 'Overview' },
+    { id: 'overview',   label: 'Overview' },
     { id: 'milestones', label: `Milestones (${milestones.length})`, badge: pendingReview },
-    { id: 'research', label: `Projects (${projects.length})` },
+    { id: 'sessions',   label: `Sessions (${records.length})` },
   ] as const
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden">
 
-      {/* ── Main column ─────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto min-w-0">
-        <div className="px-7 py-6 pb-12">
+      {/* ── Page (no sidebar — full width) ─────────────────────── */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-4xl mx-auto px-7 py-6 pb-16">
 
           {/* Back */}
           <Link
@@ -198,15 +203,15 @@ export default function StudentDetailPage() {
             <ArrowLeft className="h-4 w-4" /> Back to cohort
           </Link>
 
-          {/* Hero */}
-          <div className="flex items-start gap-4 mb-5">
-            {/* Avatar */}
+          {/* ── Hero ──────────────────────────────────────────── */}
+          <div className="flex items-start gap-4 mb-6">
             <div
               className="w-14 h-14 rounded-full flex-shrink-0 flex items-center justify-center font-mono font-semibold text-white text-xl"
               style={{ background: '#1B3A5C' }}
             >
               {name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()}
             </div>
+
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-[28px] font-serif italic font-normal leading-tight text-text-primary">
@@ -219,17 +224,25 @@ export default function StudentDetailPage() {
                 )}
                 <VerifyBadge />
               </div>
-              <div className="mt-1.5 text-sm text-text-secondary truncate">
+              <div className="mt-1 text-sm text-text-secondary truncate">
                 {studentProfile?.email}
                 {projects.length > 0 && ` · ${projects.length} project${projects.length !== 1 ? 's' : ''}`}
               </div>
             </div>
+
+            {/* Actions */}
             <div className="flex items-center gap-2 flex-shrink-0">
               <button
-                onClick={() => setRecordingSession(true)}
+                onClick={() => setLedgerOpen(true)}
                 className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border-default text-xs font-semibold text-text-secondary hover:bg-bg-surface-hover transition-colors"
               >
-                <ClipboardList className="h-3.5 w-3.5" /> Log Session
+                <Shield className="h-3.5 w-3.5 text-green-600" />
+                Ledger
+                {ledgerEntries.filter(e => e.hot).length > 0 && (
+                  <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-accent-blue text-white text-[9px] font-bold">
+                    {ledgerEntries.filter(e => e.hot).length}
+                  </span>
+                )}
               </button>
               <button
                 onClick={() => setAddingMilestone(true)}
@@ -240,30 +253,39 @@ export default function StudentDetailPage() {
             </div>
           </div>
 
-          {/* Phase track */}
-          {projects.length > 0 && (
-            <div className="bg-bg-surface border border-border-default rounded-lg p-3.5 mb-5">
-              <div className="flex items-center gap-3 mb-2.5">
-                <span className="text-[11px] text-text-tertiary font-medium uppercase tracking-wide truncate">
-                  {projects[0].title}
+          {/* ── Research Timeline (one Gantt — always visible) ─── */}
+          {primaryProject && (
+            <div className="bg-bg-surface border border-border-default rounded-lg p-4 mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary">
+                  Research Timeline
                 </span>
-                <div className="flex-1" />
-                <PhasePill phase={primaryPhase} />
-                <span className="text-[11px] text-text-tertiary font-mono whitespace-nowrap">
+                <span className="text-[11px] font-medium text-text-primary truncate mx-1">
+                  {primaryProject.title}
+                </span>
+                {primaryProject.phase && <PhasePill phase={primaryProject.phase} />}
+                <span className="text-[10px] font-mono text-text-tertiary whitespace-nowrap">
                   phase {phaseIdx + 1} of 7
                 </span>
+                <Link
+                  href={`/supervisor/projects/${primaryProjectId}`}
+                  className="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-accent-primary hover:opacity-75 transition-opacity flex-shrink-0"
+                >
+                  Datasets, documents & analyses
+                  <ExternalLink className="h-3 w-3" />
+                </Link>
               </div>
               <InteractivePhaseBar
                 projectId={primaryProjectId!}
                 userId={studentId}
-                initialPhases={Object.entries(phaseDates).map(([phase_key, d]): GanttPhase => ({ phase_key, ...d }))}
+                initialPhases={phaseDates}
                 height={8}
                 readOnly
               />
             </div>
           )}
 
-          {/* Tabs */}
+          {/* ── Tabs ─────────────────────────────────────────────── */}
           <div className="flex gap-0 border-b border-border-default mb-5">
             {TABS.map(tab => (
               <button
@@ -287,95 +309,69 @@ export default function StudentDetailPage() {
             ))}
           </div>
 
-          {/* Overview tab */}
+          {/* ── Overview tab ─────────────────────────────────────── */}
           {activeTab === 'overview' && (
-            <div className="grid grid-cols-[1.4fr_1fr] gap-4">
-              {/* Projects card */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Progress */}
               <div className="bg-bg-surface border border-border-default rounded-lg p-4">
-                <div className="flex items-center mb-3">
-                  <span className="text-sm font-semibold text-text-primary">Projects</span>
-                  <span className="ml-auto text-[11px] text-text-tertiary font-mono">
-                    {projects.length} active
-                  </span>
-                </div>
-                {projects.length === 0 ? (
-                  <div className="text-xs text-text-tertiary italic py-4 text-center">
-                    No shared projects yet
-                  </div>
-                ) : (
-                  <div className="divide-y divide-border-subtle">
-                    {projects.map((p, i) => (
-                      <Link key={p.id} href={`/supervisor/projects/${p.id}`}>
-                        <div className="flex items-center gap-3 py-2.5 hover:opacity-80 transition-opacity min-w-0">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="text-sm font-medium text-text-primary truncate">{p.title}</span>
-                            </div>
-                            <div className="text-xs text-text-secondary mt-0.5 truncate">
-                              Updated {formatRelative(p.updated_at)}
-                            </div>
-                          </div>
-                          {(p as ResearchProject & { phase?: string }).phase && (
-                            <PhasePill phase={(p as ResearchProject & { phase?: string }).phase!} />
-                          )}
-                          <ChevronRight className="h-3.5 w-3.5 text-text-tertiary flex-shrink-0" />
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Stats card */}
-              <div className="bg-bg-surface border border-border-default rounded-lg p-4">
-                <div className="flex items-center mb-3">
-                  <span className="text-sm font-semibold text-text-primary">Progress</span>
-                </div>
+                <p className="text-sm font-semibold text-text-primary mb-3">Progress</p>
                 <div className="space-y-3">
                   {[
-                    { label: 'Approved', value: approved, color: 'text-green-600', bg: 'bg-green-50' },
-                    { label: 'Awaiting review', value: pendingReview, color: 'text-amber-600', bg: 'bg-amber-50' },
-                    { label: 'Total milestones', value: milestones.length, color: 'text-text-secondary', bg: 'bg-bg-inset' },
+                    { label: 'Approved',         value: approved,          color: 'text-green-600',       bg: 'bg-green-50'  },
+                    { label: 'Awaiting review',  value: pendingReview,     color: 'text-amber-600',       bg: 'bg-amber-50', ring: pendingReview > 0 },
+                    { label: 'Total milestones', value: milestones.length, color: 'text-text-secondary',  bg: 'bg-bg-inset'  },
                   ].map(s => (
                     <div key={s.label} className="flex items-center gap-3">
-                      <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-lg font-bold', s.bg, s.color)}>
+                      <div className={cn(
+                        'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-lg font-bold',
+                        s.bg, s.color,
+                        s.ring && 'ring-1 ring-amber-300'
+                      )}>
                         {s.value}
                       </div>
                       <span className="text-sm text-text-secondary">{s.label}</span>
                     </div>
                   ))}
                 </div>
+              </div>
 
-                {/* Open annotations */}
-                {annotations.filter(a => !a.is_resolved).length > 0 && (
-                  <>
-                    <div className="h-px bg-border-default my-3" />
-                    <div className="text-[11px] text-text-tertiary uppercase tracking-wider font-semibold mb-2">
-                      Signals
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
+              {/* Signals */}
+              <div className="bg-bg-surface border border-border-default rounded-lg p-4">
+                <p className="text-sm font-semibold text-text-primary mb-3">Signals</p>
+                {openAnnotations.length === 0 && pendingReview === 0 ? (
+                  <p className="text-xs text-text-tertiary italic">Nothing needs attention right now.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {openAnnotations.length > 0 && (
                       <Link
                         href="/supervisor/inbox"
-                        className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-accent-blue-subtle text-accent-blue border border-blue-200 hover:bg-blue-100 transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent-blue-subtle border border-blue-200 hover:bg-blue-100 transition-colors"
                       >
-                        {annotations.filter(a => !a.is_resolved).length} open notes
+                        <MessageSquare className="h-3.5 w-3.5 text-accent-blue flex-shrink-0" />
+                        <span className="text-xs font-semibold text-accent-blue">
+                          {openAnnotations.length} open note{openAnnotations.length !== 1 ? 's' : ''} to review
+                        </span>
+                        <ExternalLink className="h-3 w-3 text-accent-blue ml-auto" />
                       </Link>
-                      {pendingReview > 0 && (
-                        <button
-                          onClick={() => setActiveTab('milestones')}
-                          className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors"
-                        >
-                          Review needed
-                        </button>
-                      )}
-                    </div>
-                  </>
+                    )}
+                    {pendingReview > 0 && (
+                      <button
+                        onClick={() => setActiveTab('milestones')}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 hover:bg-amber-100 transition-colors text-left"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5 text-amber-600 flex-shrink-0" />
+                        <span className="text-xs font-semibold text-amber-700">
+                          {pendingReview} milestone{pendingReview !== 1 ? 's' : ''} awaiting your review
+                        </span>
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
           )}
 
-          {/* Milestones tab */}
+          {/* ── Milestones tab ────────────────────────────────────── */}
           {activeTab === 'milestones' && (
             <MilestoneRoadmap
               milestones={milestones}
@@ -385,146 +381,136 @@ export default function StudentDetailPage() {
             />
           )}
 
-          {/* Research tab */}
-          {activeTab === 'research' && (
-            <div className="space-y-2">
-              {projects.length === 0 ? (
-                <div className="text-center py-16 text-text-tertiary">
-                  <FolderOpen className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                  <p className="text-sm">No shared projects</p>
-                  <p className="text-xs mt-1 text-text-tertiary opacity-70 max-w-xs mx-auto">
-                    The student must share a project with you from their project overview.
-                  </p>
-                </div>
-              ) : (
-                projects.map(p => (
-                  <Link key={p.id} href={`/supervisor/projects/${p.id}`}>
-                    <div className="flex items-center gap-3 px-4 py-3 bg-bg-surface border border-border-default rounded-lg hover:bg-bg-surface-hover transition-colors">
-                      <div className="w-8 h-8 rounded-lg bg-accent-blue-subtle flex items-center justify-center flex-shrink-0">
-                        <FolderOpen className="h-4 w-4 text-accent-blue" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-text-primary truncate">{p.title}</p>
-                        <p className="text-[10px] text-text-tertiary mt-0.5">
-                          Updated {formatRelative(p.updated_at)}
-                        </p>
-                      </div>
-                      {(p as ResearchProject & { phase?: string }).phase && (
-                        <PhasePill phase={(p as ResearchProject & { phase?: string }).phase!} />
-                      )}
-                      <ChevronRight className="h-4 w-4 text-text-tertiary" />
-                    </div>
-                  </Link>
-                ))
-              )}
-            </div>
+          {/* ── Sessions tab ─────────────────────────────────────── */}
+          {activeTab === 'sessions' && primaryProjectId && (
+            <SupervisionRecordsPanel
+              projectId={primaryProjectId}
+              studentId={studentId}
+              initialRecords={records}
+            />
           )}
+          {activeTab === 'sessions' && !primaryProjectId && (
+            <p className="text-sm text-text-tertiary italic py-8 text-center">
+              No shared project yet — supervision records will appear here once a project is linked.
+            </p>
+          )}
+
         </div>
       </div>
 
-      {/* ── Ledger panel ────────────────────────────────────────── */}
-      <aside className="w-80 flex-shrink-0 border-l border-border-default bg-bg-surface flex flex-col">
-        {/* Panel header */}
-        <div className="px-4 py-3.5 border-b border-border-default flex items-center gap-2">
-          <Shield className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
-          <span className="text-sm font-semibold">Ledger</span>
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-bg-surface-active text-text-secondary border border-border-default">
-            this student
-          </span>
-          <span className="ml-auto">
-            <kbd className="inline-flex items-center px-1 py-0.5 border border-b-2 border-border-default rounded font-mono text-[10px] text-text-tertiary bg-bg-surface">
-              ⌘L
-            </kbd>
-          </span>
-        </div>
+      {/* ── Ledger slide-over ──────────────────────────────────────── */}
+      {ledgerOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px]"
+            onClick={() => setLedgerOpen(false)}
+          />
 
-        {/* Filter chips */}
-        <div className="px-3 py-2 border-b border-border-subtle flex gap-1.5 flex-wrap">
-          {(['all', 'data', 'edits', 'analyses', 'approvals'] as const).map(f => (
-            <button
-              key={f}
-              onClick={() => setLedgerFilter(f)}
-              className={cn(
-                'inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border transition-colors capitalize',
-                ledgerFilter === f
-                  ? 'bg-accent-blue-subtle text-accent-blue border-blue-200'
-                  : 'bg-bg-surface text-text-secondary border-border-default hover:bg-bg-surface-hover'
-              )}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
+          {/* Drawer */}
+          <div className="fixed top-0 right-0 bottom-0 z-50 w-80 flex flex-col bg-bg-surface border-l border-border-default shadow-2xl animate-slide-in-right">
 
-        {/* Ledger entries */}
-        <div className="flex-1 overflow-y-auto px-3.5 py-2">
-          {filteredLedger.length === 0 ? (
-            <div className="text-center py-10 text-text-tertiary text-xs">
-              No activity recorded yet
+            {/* Drawer header */}
+            <div className="flex items-center gap-2 px-4 py-3.5 border-b border-border-default flex-shrink-0">
+              <Shield className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+              <span className="text-sm font-semibold">Ledger</span>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-bg-surface-active text-text-secondary border border-border-default">
+                this student
+              </span>
+              <button
+                onClick={() => setLedgerOpen(false)}
+                className="ml-auto flex items-center justify-center h-6 w-6 rounded hover:bg-bg-surface-hover transition-colors"
+              >
+                <X className="h-3.5 w-3.5 text-text-tertiary" />
+              </button>
             </div>
-          ) : (
-            filteredLedger.map((entry, i) => {
-              const Icon = KIND_ICON[entry.kind] ?? PenLine
-              const inner = (
-                <>
-                  {/* Timeline dot + line */}
-                  <div className="w-4 flex flex-col items-center flex-shrink-0">
-                    <div
-                      className={cn(
-                        'w-2 h-2 rounded-sm mt-1.5 flex-shrink-0',
-                        entry.hot ? 'bg-accent-blue' : 'bg-text-tertiary'
-                      )}
-                    />
-                    {i < filteredLedger.length - 1 && (
-                      <div className="flex-1 w-px bg-border-default mt-1" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start gap-1.5 min-w-0">
-                      <Icon className="h-3 w-3 text-text-tertiary flex-shrink-0 mt-0.5" />
+
+            {/* Filter chips */}
+            <div className="px-3 py-2 border-b border-border-subtle flex gap-1.5 flex-wrap flex-shrink-0">
+              {(['all', 'data', 'edits', 'analyses', 'approvals'] as const).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setLedgerFilter(f)}
+                  className={cn(
+                    'inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border transition-colors capitalize',
+                    ledgerFilter === f
+                      ? 'bg-accent-blue-subtle text-accent-blue border-blue-200'
+                      : 'bg-bg-surface text-text-secondary border-border-default hover:bg-bg-surface-hover'
+                  )}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+
+            {/* Entries */}
+            <div className="flex-1 overflow-y-auto px-3.5 py-2">
+              {filteredLedger.length === 0 ? (
+                <div className="text-center py-10 text-text-tertiary text-xs">
+                  No activity recorded yet
+                </div>
+              ) : (
+                filteredLedger.map((entry, i) => {
+                  const Icon = KIND_ICON[entry.kind] ?? PenLine
+                  const inner = (
+                    <>
+                      <div className="w-4 flex flex-col items-center flex-shrink-0">
+                        <div className={cn(
+                          'w-2 h-2 rounded-sm mt-1.5 flex-shrink-0',
+                          entry.hot ? 'bg-accent-blue' : 'bg-text-tertiary'
+                        )} />
+                        {i < filteredLedger.length - 1 && (
+                          <div className="flex-1 w-px bg-border-default mt-1" />
+                        )}
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs text-text-primary leading-tight truncate">
-                          <span className="font-semibold">{entry.who}</span>{' '}
-                          <span className="text-text-secondary">{entry.action}</span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="font-mono text-[10px] text-text-tertiary">{entry.t}</span>
-                          <VerifyBadge />
+                        <div className="flex items-start gap-1.5 min-w-0">
+                          <Icon className="h-3 w-3 text-text-tertiary flex-shrink-0 mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs text-text-primary leading-tight truncate">
+                              <span className="font-semibold">{entry.who}</span>{' '}
+                              <span className="text-text-secondary">{entry.action}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="font-mono text-[10px] text-text-tertiary">{entry.t}</span>
+                              <VerifyBadge />
+                            </div>
+                          </div>
                         </div>
                       </div>
+                    </>
+                  )
+                  return entry.href ? (
+                    <Link
+                      key={entry.id}
+                      href={entry.href}
+                      className="flex gap-2 py-2.5 border-t first:border-t-0 border-border-subtle relative hover:bg-bg-surface-hover transition-colors rounded-md px-1 -mx-1"
+                    >
+                      {inner}
+                    </Link>
+                  ) : (
+                    <div key={entry.id} className="flex gap-2 py-2.5 border-t first:border-t-0 border-border-subtle relative">
+                      {inner}
                     </div>
-                  </div>
-                </>
-              )
-              return entry.href ? (
-                <Link
-                  key={entry.id}
-                  href={entry.href}
-                  className="flex gap-2 py-2.5 border-t first:border-t-0 border-border-subtle relative hover:bg-bg-surface-hover transition-colors rounded-md px-1 -mx-1"
-                >
-                  {inner}
-                </Link>
-              ) : (
-                <div key={entry.id} className="flex gap-2 py-2.5 border-t first:border-t-0 border-border-subtle relative">
-                  {inner}
-                </div>
-              )
-            })
-          )}
-        </div>
+                  )
+                })
+              )}
+            </div>
 
-        {/* Footer */}
-        <div className="px-3 py-3 border-t border-border-default flex gap-2">
-          <button className="flex-1 flex items-center justify-center gap-1.5 h-7 px-2 rounded border border-border-default text-[11px] font-medium text-text-secondary hover:bg-bg-surface-hover transition-colors">
-            <Download className="h-3 w-3" /> Export
-          </button>
-          <button className="flex-1 flex items-center justify-center gap-1.5 h-7 px-2 rounded border border-border-default text-[11px] font-medium text-text-secondary hover:bg-bg-surface-hover transition-colors">
-            <Shield className="h-3 w-3" /> Verify chain
-          </button>
-        </div>
-      </aside>
+            {/* Footer */}
+            <div className="px-3 py-3 border-t border-border-default flex gap-2 flex-shrink-0">
+              <button className="flex-1 flex items-center justify-center gap-1.5 h-7 px-2 rounded border border-border-default text-[11px] font-medium text-text-secondary hover:bg-bg-surface-hover transition-colors">
+                <Download className="h-3 w-3" /> Export
+              </button>
+              <button className="flex-1 flex items-center justify-center gap-1.5 h-7 px-2 rounded border border-border-default text-[11px] font-medium text-text-secondary hover:bg-bg-surface-hover transition-colors">
+                <Shield className="h-3 w-3" /> Verify chain
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
-      {/* Modals */}
+      {/* ── Modals ──────────────────────────────────────────────── */}
       {reviewing && (
         <MilestoneReviewModal
           milestone={reviewing}
@@ -538,15 +524,6 @@ export default function StudentDetailPage() {
           projectId={primaryProjectId}
           onClose={() => setAddingMilestone(false)}
           onSuccess={() => { setAddingMilestone(false); load() }}
-        />
-      )}
-      {recordingSession && primaryProjectId && (
-        <SupervisionRecordModal
-          projectId={primaryProjectId}
-          studentId={studentId}
-          open={recordingSession}
-          onClose={() => setRecordingSession(false)}
-          onCreated={() => { setRecordingSession(false); load() }}
         />
       )}
     </div>
