@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { Check, X, Loader2, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -121,14 +122,15 @@ function isOverdue(p: PhaseItem): boolean {
 // ── Popover ───────────────────────────────────────────────────────────────────
 
 interface PopoverProps {
-  phase:     PhaseItem
-  projectId: string
-  userId:    string
-  onSave:    (updated: PhaseItem) => void
-  onClose:   () => void
+  phase:      PhaseItem
+  projectId:  string
+  userId:     string
+  onSave:     (updated: PhaseItem) => void
+  onClose:    () => void
+  anchorRect: DOMRect
 }
 
-function PhasePopover({ phase, projectId, userId, onSave, onClose }: PopoverProps) {
+function PhasePopover({ phase, projectId, userId, onSave, onClose, anchorRect }: PopoverProps) {
   const [start,     setStart]     = useState(phase.start_date ?? '')
   const [end,       setEnd]       = useState(phase.end_date   ?? '')
   const [note,      setNote]      = useState('')
@@ -206,14 +208,25 @@ function PhasePopover({ phase, projectId, userId, onSave, onClose }: PopoverProp
   const fill    = computeFill(phase)
   const overdue = isOverdue(phase)
 
+  const left = Math.max(8, Math.min(
+    anchorRect.left + anchorRect.width / 2 - 140,
+    window.innerWidth - 288,
+  ))
+
   return (
     <div
       ref={ref}
-      className="absolute z-50 top-[calc(100%+8px)] left-1/2 -translate-x-1/2 animate-snappy-in"
+      className="animate-snappy-in"
       style={{
-        width: 280, background: 'var(--bg-surface)',
-        border: '1px solid var(--border-default)',
-        borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-lg)',
+        position: 'fixed',
+        top:      anchorRect.bottom + 8,
+        left,
+        width:    280,
+        zIndex:   9999,
+        background:   'var(--bg-surface)',
+        border:       '1px solid var(--border-default)',
+        borderRadius: 'var(--radius-lg)',
+        boxShadow:    'var(--shadow-lg)',
       }}
       onClick={e => e.stopPropagation()}
     >
@@ -345,6 +358,16 @@ function SortableSegment({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: phase.phase_key, disabled: readOnly,
   })
+  const wrapperRef = useRef<HTMLDivElement | null>(null)
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null)
+
+  useEffect(() => {
+    if (isActive && wrapperRef.current) {
+      setAnchorRect(wrapperRef.current.getBoundingClientRect())
+    } else {
+      setAnchorRect(null)
+    }
+  }, [isActive])
 
   const fill    = computeFill(phase)
   const overdue = isOverdue(phase)
@@ -358,7 +381,8 @@ function SortableSegment({
 
   return (
     <div
-      ref={setNodeRef} {...attributes}
+      ref={(el) => { setNodeRef(el); wrapperRef.current = el }}
+      {...attributes}
       style={{ flex: 1, position: 'relative', zIndex: isDragging ? 50 : isActive ? 40 : undefined, transform: CSS.Transform.toString(transform), transition }}
     >
       <div
@@ -402,9 +426,10 @@ function SortableSegment({
         </div>
       )}
 
-      {/* Edit popover */}
-      {isActive && !readOnly && (
-        <PhasePopover phase={phase} projectId={projectId} userId={userId} onSave={onSave} onClose={onClose} />
+      {/* Edit popover — portaled to body so it escapes parent stacking contexts */}
+      {isActive && !readOnly && anchorRect && createPortal(
+        <PhasePopover phase={phase} projectId={projectId} userId={userId} onSave={onSave} onClose={onClose} anchorRect={anchorRect} />,
+        document.body,
       )}
     </div>
   )

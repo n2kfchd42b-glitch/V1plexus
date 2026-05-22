@@ -1099,7 +1099,7 @@ export function ProjectOverviewClient({
     <>
       {/* ── Page content ───────────────────────────────────────────────────── */}
       <div className="px-7 py-6 pb-16" style={{ background: 'var(--bg-app)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20, maxWidth: 1200 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20, maxWidth: 1200, margin: '0 auto' }}>
 
           {/* LEFT ─ Action Center + Recent Work ─────────────────────────── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -1167,10 +1167,10 @@ export function ProjectOverviewClient({
               boxShadow:     '-2px 0 8px rgba(0,0,0,0.06)',
             }}
           >
-            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-primary)', writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontFamily: 'monospace' }}>
+            <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-primary)', writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontFamily: 'monospace' }}>
               {completedCount}/{progressTotal}
             </span>
-            <span style={{ fontSize: 8, fontWeight: 600, color: 'var(--text-tertiary)', writingMode: 'vertical-rl', transform: 'rotate(180deg)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 8, fontWeight: 700, color: 'var(--text-primary)', writingMode: 'vertical-rl', transform: 'rotate(180deg)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
               phases
             </span>
           </button>
