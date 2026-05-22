@@ -38,12 +38,15 @@ export function ProjectScrollHeader({
   const overviewHref   = `/projects/${projectId}/overview`
   const isOverview     = pathname === overviewHref || pathname === `/projects/${projectId}`
   const isDocEditor    = pathname.startsWith(`/projects/${projectId}/documents/`)
+  // Non-workflow routes (settings, members, etc.) don't belong to the tab set —
+  // hide the project chrome entirely so the page gets its own uncluttered layout.
+  const isOutsideWorkflow = !isOverview
+    && !pathname.startsWith(`/projects/${projectId}/data`)
+    && !pathname.startsWith(`/projects/${projectId}/analysis`)
+    && !pathname.startsWith(`/projects/${projectId}/documents`)
   const collapsed      = !isOverview
 
-  // In the document editor the DocumentListPanel handles navigation and the
-  // editor has its own slim nav bar. Render nothing — the editor gets the
-  // full viewport height minus only the global header.
-  if (isDocEditor) return null
+  if (isDocEditor || isOutsideWorkflow) return null
 
   const tabs = [
     { slug: 'overview',  label: 'Overview', count: null as number | null },
@@ -108,7 +111,7 @@ export function ProjectScrollHeader({
         style={{
           position: 'sticky',
           top: HEADER_HEIGHT,
-          zIndex: 10,
+          zIndex: 20,
           background: 'var(--bg-surface)',
           borderBottom: '1px solid var(--border-default)',
           boxShadow: collapsed ? 'var(--shadow-sm)' : 'none',
