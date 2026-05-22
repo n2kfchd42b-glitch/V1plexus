@@ -82,7 +82,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       {/* Mobile sidebar */}
       <MobileSidebar profile={profile} onSignOut={signOut} />
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <div id="content-scroll-area" className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         <Header profile={profile} onSearchClick={openCommandPalette} />
         {profile && !profile.lat && !locationSaved && (
           <LocationPromptBanner userId={profile.id} onSaved={() => setLocationSaved(true)} />

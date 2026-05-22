@@ -25,7 +25,7 @@ import { StudentSupervisorNotes } from '@/components/supervisor-student/StudentS
 import { VersionHistory as VersionHistoryEnhanced } from '@/components/document/VersionHistoryEnhanced'
 import { AuthorshipPanel } from '@/components/document/AuthorshipPanel'
 import { StructuredAbstractModal } from '@/components/document/StructuredAbstractModal'
-import { useDocumentAuthors, useDocumentVersions } from '@/hooks/useDocumentEditorPillars'
+import { useDocumentVersions } from '@/hooks/useDocumentEditorPillars'
 
 // ── Pillar 3 ──────────────────────────────────────────────────────────────────
 
@@ -64,7 +64,6 @@ export default function DocumentPage() {
   const supabase = createClient()
 
   const { versions, fetchVersions, restoreVersion } = useDocumentVersions(docId)
-  const { authors, fetchAuthors } = useDocumentAuthors(docId)
 
   useEffect(() => {
     const fetchDoc = async () => {
@@ -84,7 +83,6 @@ export default function DocumentPage() {
     fetchDoc()
     checkRole()
     fetchVersions()
-    fetchAuthors()
   }, [docId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSaveContent = (content: Record<string, unknown>) => {
@@ -136,7 +134,7 @@ export default function DocumentPage() {
   }
 
   return (
-    <div className="flex h-screen bg-bg-app overflow-hidden">
+    <div className="flex h-[calc(100vh-4rem)] bg-bg-app overflow-hidden">
 
       {/* ── Left: document list panel ─────────────────────────────── */}
       <DocumentListPanel
@@ -316,21 +314,8 @@ export default function DocumentPage() {
         {rightPanel === 'authors' && (
           <AuthorshipPanel
             documentId={docId}
-            authors={authors.map(a => ({
-              id: a.id,
-              userId: a.user_id,
-              displayName: a.display_name,
-              email: a.email,
-              orcid: a.orcid,
-              institution: a.institution,
-              creditRoles: a.credit_roles,
-              contributionOrder: a.contribution_order,
-              isCorresponding: a.is_corresponding,
-              confirmedAt: a.confirmed_at ?? undefined,
-              createdAt: a.created_at,
-            }))}
-            onAuthorsChange={() => {}}
-            onSave={fetchAuthors}
+            projectId={projectId}
+            onClose={() => setRightPanel(null)}
           />
         )}
         {rightPanel === 'security' && (

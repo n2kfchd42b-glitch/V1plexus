@@ -690,7 +690,7 @@ function AISuggestionCard({
         )}
 
         {state === 'error' && (
-          <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Unavailable — try refreshing</span>
+          <span className="text-[11px] font-semibold tracking-wide uppercase" style={{ color: 'var(--text-tertiary)' }}>Premium</span>
         )}
 
         {state === 'loaded' && text && (

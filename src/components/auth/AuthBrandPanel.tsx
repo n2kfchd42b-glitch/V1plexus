@@ -1,7 +1,7 @@
 "use client"
 
 import Link from 'next/link'
-import { BrandLogo } from '@/components/layout/BrandLogo'
+import Image from 'next/image'
 import { useLocale } from '@/i18n/LocaleProvider'
 
 export function AuthBrandPanel() {
@@ -45,7 +45,16 @@ export function AuthBrandPanel() {
 
       {/* Logo */}
       <div className="relative z-10 p-8">
-        <BrandLogo variant="standalone" href="/" />
+        <Link href="/">
+          <Image
+            src="/logo.jpg"
+            alt="Plexus Research Lab"
+            width={160}
+            height={160}
+            className="object-contain"
+            priority
+          />
+        </Link>
       </div>
 
       {/* Main copy */}

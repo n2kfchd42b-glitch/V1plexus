@@ -147,7 +147,7 @@ export default function ProjectDataPage() {
   const showMobileDetail = !!selectedId
 
   return (
-    <div className="flex flex-col md:flex-row bg-[var(--bg-app)] overflow-hidden h-[calc(100vh-4rem)]">
+    <div className="flex flex-col md:flex-row bg-[var(--bg-app)] overflow-hidden h-[calc(100vh-6.5rem)]">
 
       {/* ── LEFT PANEL ─────────────────────────────────────────────────────── */}
       {/* Desktop: always visible (collapses to icon strip). Mobile: only when no dataset selected */}

@@ -296,26 +296,11 @@ function PhaseSection({
 
 export function MilestoneRoadmap({ milestones, role, projectId, onSubmit, onReview }: MilestoneRoadmapProps) {
   const approved = milestones.filter(m => m.status === 'approved').length
-  const progress  = milestones.length > 0 ? Math.round((approved / milestones.length) * 100) : 0
   const groups    = buildGroups(milestones)
   const isGrouped = milestones.some(m => m.phase)
 
   return (
     <div className="space-y-1">
-      {/* Progress bar */}
-      <div className="mb-5">
-        <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5">
-          <span>{approved} of {milestones.length} milestones approved</span>
-          <span className="font-semibold text-slate-700">{progress}%</span>
-        </div>
-        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
-
       {/* Hint when no phases assigned yet */}
       {!isGrouped && role === 'supervisor' && milestones.length > 0 && (
         <div className="flex items-start gap-2.5 px-3 py-2.5 mb-3 rounded-lg bg-blue-50 border border-blue-100">

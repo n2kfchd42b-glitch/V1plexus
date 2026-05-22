@@ -15,7 +15,7 @@ export default async function DocumentsPage({
 
   // Always show the list — no auto-redirect so the browser back button works correctly
   return (
-    <div className="flex h-screen bg-bg-app overflow-hidden">
+    <div className="flex h-[calc(100vh-6.5rem)] bg-bg-app overflow-hidden">
       <DocumentListPanel projectId={id} selectedDocId="" />
       <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center">
         <svg

@@ -10,20 +10,22 @@ export default function DatasetViewerPage() {
   const datasetId = params.datasetId as string
 
   return (
-    <div className="min-h-screen bg-[#f7f9fb] flex flex-col">
+    <div className="flex flex-col bg-[#f7f9fb] h-[calc(100vh-6.5rem)]">
       {/* Supervisor feedback — only renders if annotations exist */}
-      <div className="px-6 pt-4">
+      <div className="px-6 pt-4 flex-shrink-0">
         <StudentSupervisorNotes
           artifactId={datasetId}
           artifactType="dataset"
         />
       </div>
 
-      <DatasetDetailPanel
-        datasetId={datasetId}
-        projectId={projectId}
-        showBackLink
-      />
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <DatasetDetailPanel
+          datasetId={datasetId}
+          projectId={projectId}
+          showBackLink
+        />
+      </div>
     </div>
   )
 }

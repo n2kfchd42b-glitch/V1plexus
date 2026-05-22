@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   AlertTriangle, UserPlus, ChevronRight, ChevronDown,
   Grid3X3, List, BarChart2, Filter, SortAsc, Check,
@@ -90,6 +91,7 @@ function FlagBadge({ flag }: { flag: FlagType }) {
 }
 
 function StudentCard({ student }: { student: StudentAssignment }) {
+  const router = useRouter()
   const flag = deriveFlag(student)
   const phase = student.phase ?? 'concept'
   const name = student.student.full_name
@@ -97,7 +99,10 @@ function StudentCard({ student }: { student: StudentAssignment }) {
   const role = student.student.title ?? 'Researcher'
 
   return (
-    <Link href={`/supervisor/students/${student.student_id}`}>
+    <div
+      onClick={() => router.push(`/supervisor/students/${student.student_id}`)}
+      className="cursor-pointer"
+    >
       <div className={cn(
         'bg-bg-surface rounded-lg border shadow-sm p-3.5 cursor-pointer hover:bg-bg-surface-hover transition-colors relative',
         flag === 'urgent' ? 'border-red-300' : 'border-border-default',
@@ -149,7 +154,7 @@ function StudentCard({ student }: { student: StudentAssignment }) {
           </Link>
         )}
       </div>
-    </Link>
+    </div>
   )
 }
 

@@ -81,7 +81,7 @@ const SpatialConfig           = dynamic(() => import('./configs/SpatialConfig').
 const OutbreakConfig          = dynamic(() => import('./configs/OutbreakConfig').then(m => ({ default: m.OutbreakConfig })))
 const SampleSizeConfig        = dynamic(() => import('./configs/SampleSizeConfig').then(m => ({ default: m.SampleSizeConfig })))
 
-interface Props { projectId: string }
+interface Props { projectId: string; hideNav?: boolean }
 
 interface ProjectDataset {
   id: string
@@ -208,7 +208,7 @@ const ANALYSIS_GROUPS: {
 ]
 
 // ── Main Component ──────────────────────────────────────
-export function AnalysisHub({ projectId }: Props) {
+export function AnalysisHub({ projectId, hideNav = false }: Props) {
   const { profile } = useAuth()
   const { t } = useLocale()
   const supabase = useMemo(() => createClient(), [])
@@ -1008,8 +1008,8 @@ export function AnalysisHub({ projectId }: Props) {
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
 
-      {/* ── Tab bar ─────────────────────────────────────── */}
-      <div className="flex items-center flex-shrink-0 border-b border-[var(--border-row)] px-4"
+      {/* ── Tab bar — hidden when ProjectScrollHeader already provides navigation ── */}
+      {!hideNav && <div className="flex items-center flex-shrink-0 border-b border-[var(--border-row)] px-4"
         style={{ background: 'var(--bg-surface)' }}>
         {/* Project page tabs */}
         <div className="flex items-center flex-1">
@@ -1070,7 +1070,7 @@ export function AnalysisHub({ projectId }: Props) {
             {t('analysis.generateTable')}
           </button>
         </div>
-      </div>
+      </div>}
 
       {/* ── Two-panel workspace ──────────────────────────── */}
       <div className="flex flex-1 min-h-0 overflow-hidden">

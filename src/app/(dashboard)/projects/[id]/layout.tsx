@@ -1,7 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { ProjectTabBar } from "@/components/project/ProjectTabBar";
-import { InteractivePhaseBar } from "@/components/project/InteractivePhaseBar";
+import { ProjectScrollHeader } from "@/components/project/ProjectScrollHeader";
 import type { GanttPhase } from "@/components/project/ProjectGantt";
 
 
@@ -72,45 +71,13 @@ export default async function ProjectWorkspaceLayout({
   return (
     <div className="flex flex-col" style={{ minHeight: '100%', background: 'var(--bg-app)' }}>
 
-      {/* ── Hero strip ────────────────────────────────────────────────────────── */}
-      <div
-        className="flex-shrink-0 px-3 py-3 sm:px-6 sm:py-4"
-        style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-default)' }}
-      >
-        <div className="flex items-baseline gap-2.5 flex-wrap mb-2">
-          <h1
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontSize:   'clamp(16px, 4vw, 22px)',
-              fontStyle:  'italic',
-              fontWeight: 400,
-              color:      'var(--text-primary)',
-              lineHeight: 1.2,
-            }}
-          >
-            {project.title}
-          </h1>
-
-          <span
-            className="inline-flex items-center rounded px-2 py-0.5 text-[11px] font-medium flex-shrink-0"
-            style={{ background: badge.bg, color: badge.text, border: `1px solid ${badge.border}` }}
-          >
-            {badge.label}
-          </span>
-        </div>
-
-        <InteractivePhaseBar
-          projectId={id}
-          userId={user.id}
-          initialPhases={phases}
-          height={6}
-          className="w-full sm:max-w-xl"
-        />
-      </div>
-
-      {/* ── Horizontal tab bar ────────────────────────────────────────────────── */}
-      <ProjectTabBar
-        id={id}
+      {/* ── Collapsible project header + sticky tab bar ───────────────────────── */}
+      <ProjectScrollHeader
+        projectId={id}
+        userId={user.id}
+        title={project.title}
+        badge={badge}
+        phases={phases}
         datasetCount={datasetCount ?? 0}
         runCount={runCount ?? 0}
       />

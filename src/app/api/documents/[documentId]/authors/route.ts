@@ -104,6 +104,7 @@ export async function POST(
     const body = await req.json()
 
     const {
+      user_id = null,
       display_name,
       email,
       orcid,
@@ -164,6 +165,7 @@ export async function POST(
       .from('document_author_roles')
       .insert({
         document_id: documentId,
+        user_id: user_id || null,
         display_name,
         email,
         orcid,

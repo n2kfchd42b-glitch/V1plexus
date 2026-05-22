@@ -47,7 +47,7 @@ export default async function ProjectOverviewPage({
     hasSupervisor
       ? supabase.from("student_milestones").select("id, title, due_date, status, phase").eq("project_id", id).eq("student_id", user.id).in("status", ["pending", "under_review", "revision_requested"]).order("due_date", { ascending: true, nullsFirst: false }).limit(5).then(r => ({ data: r.data ?? [] }))
       : Promise.resolve({ data: [] }),
-    supabase.from("documents").select("id, title, document_type, updated_at").eq("project_id", id).order("updated_at", { ascending: false }).limit(4).then(r => ({ data: r.data ?? [] })),
+    supabase.from("documents").select("id, title, doc_type, updated_at").eq("project_id", id).is("deleted_at", null).order("updated_at", { ascending: false }).limit(4).then(r => ({ data: r.data ?? [] })),
     supabase.from("analysis_runs").select("id, title, analysis_type, status, interpretation, created_at").eq("project_id", id).eq("status", "completed").order("created_at", { ascending: false }).limit(1).then(r => ({ data: r.data ?? [] })),
   ]);
 
@@ -95,7 +95,7 @@ export default async function ProjectOverviewPage({
   const recentDocs: RecentDoc[] = (rawDocs ?? []).map((d: any) => ({
     id:            d.id,
     title:         d.title,
-    document_type: d.document_type ?? 'document',
+    document_type: d.doc_type ?? 'general',
     updated_at:    d.updated_at,
   }))
 

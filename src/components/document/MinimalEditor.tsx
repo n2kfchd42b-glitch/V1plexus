@@ -32,7 +32,6 @@ import {
 import { CommentsSidebar } from './CommentsSidebar'
 import type { Profile } from '@/types/database'
 import type { CslCitation } from '@/components/publication/CitationSearch'
-import { formatCitation } from '@/components/publication/BibliographyGenerator'
 
 type RightPanel = 'citations' | 'comments' | null
 type ReferenceStyle = 'vancouver' | 'apa7' | 'harvard' | 'numbered'
@@ -74,15 +73,6 @@ function extractCitationsFromContent(content: Record<string, unknown> | null | u
 
 function readingTime(words: number): string {
   return `${Math.max(1, Math.round(words / 200))} min`
-}
-
-function renderBibEntry(text: string): React.ReactNode {
-  const parts = text.split(/(\*[^*]+\*)/)
-  return parts.map((part, i) =>
-    part.startsWith('*') && part.endsWith('*')
-      ? <em key={i}>{part.slice(1, -1)}</em>
-      : part
-  )
 }
 
 interface MinimalEditorProps {
@@ -376,32 +366,6 @@ export function MinimalEditor({
               </div>
             </article>
 
-            {/* ── Live references preview ──────────────────────────────────── */}
-            {citations.length > 0 && (
-              <div className="mt-16 pt-8 border-t border-border-subtle">
-                <div className="flex items-baseline justify-between mb-5">
-                  <h2 className="font-manrope font-bold text-xl tracking-tight text-text-primary">
-                    References
-                  </h2>
-                  <span className="text-[10px] font-manrope uppercase tracking-widest text-text-tertiary">
-                    {citations.length} {citations.length === 1 ? 'source' : 'sources'}
-                  </span>
-                </div>
-                <div className="space-y-3">
-                  {citations.map((citation, i) => (
-                    <p
-                      key={citation.DOI ?? citation.title ?? i}
-                      className="text-[14px] leading-relaxed text-text-secondary pl-7 -indent-7"
-                    >
-                      {renderBibEntry(formatCitation(citation, citationStyle, i + 1))}
-                    </p>
-                  ))}
-                </div>
-                <p className="mt-6 text-[10px] font-manrope uppercase tracking-widest text-text-tertiary/60 select-none">
-                  Auto-assembled · updates as you cite
-                </p>
-              </div>
-            )}
           </div>
         </main>
 
