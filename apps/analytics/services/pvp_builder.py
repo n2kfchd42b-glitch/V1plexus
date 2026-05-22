@@ -20,10 +20,13 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import logging
 import os
 import zipfile
 from datetime import datetime, timezone
 from uuid import UUID
+
+logger = logging.getLogger(__name__)
 
 import nacl.signing
 
@@ -333,17 +336,17 @@ class PVPBuilder:
         self,
         pvp_id: str,
         actor_id: str,
-        session_key_id: str | None = None,
-        private_key_bytes: bytes | None = None,
+        session_key_id: str,
+        private_key_bytes: bytes,
     ) -> PVPSealResult:
         """
-        Final integrity check, status transition to 'sealed', and optional
-        ledger event recording the sealing.
+        Final integrity check, status transition to 'sealed', and ledger
+        event recording the sealing.
 
         STEP 1 — Confirm required signatures are present.
         STEP 2 — Recompute root hash from ZIP contents; assert matches manifest.
         STEP 3 — Mark pvp_packages record as 'sealed'.
-        STEP 4 — Write 'project_sealed' ledger event (if key material provided).
+        STEP 4 — Write mandatory 'project_sealed' ledger event.
         """
         # ── 1. Confirm signatures ──────────────────────────────────────────
         pvp = self._require_pvp(pvp_id)
@@ -379,25 +382,23 @@ class PVPBuilder:
             .execute()
         )
 
-        # ── 4. Ledger event ────────────────────────────────────────────────
-        if session_key_id and private_key_bytes:
-            try:
-                self.ledger_svc.write_event(
-                    project_id=pvp["project_id"],
-                    event_type="project_sealed",
-                    payload={
-                        "pvp_id":     pvp_id,
-                        "root_hash":  manifest["root_hash"],
-                        "sealed_at":  sealed_at.isoformat(),
-                    },
-                    actor_id=actor_id,
-                    actor_role="author",
-                    session_key_id=session_key_id,
-                    session_key=private_key_bytes,
-                )
-            except Exception as exc:
-                # Never block sealing due to ledger write failure
-                print(f"[PVPBuilder.seal] Ledger event write failed (non-fatal): {exc}")
+        # ── 4. Ledger event (mandatory — every sealed package must have one) ─
+        try:
+            self.ledger_svc.write_event(
+                project_id=pvp["project_id"],
+                event_type="project_sealed",
+                payload={
+                    "pvp_id":    pvp_id,
+                    "root_hash": manifest["root_hash"],
+                    "sealed_at": sealed_at.isoformat(),
+                },
+                actor_id=actor_id,
+                actor_role="author",
+                session_key_id=session_key_id,
+                session_key=private_key_bytes,
+            )
+        except Exception:
+            logger.exception("[PVPBuilder.seal] Ledger event write failed (non-fatal)")
 
         return PVPSealResult(
             pvp_id=UUID(pvp_id),

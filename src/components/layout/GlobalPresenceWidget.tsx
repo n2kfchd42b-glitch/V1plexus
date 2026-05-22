@@ -78,15 +78,7 @@ export function GlobalPresenceWidget() {
           onClick={e => { if (e.target === e.currentTarget) setModalOpen(false) }}
         >
           <div className="relative w-full max-w-5xl h-[640px] max-h-[90svh] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10">
-            <GlobeModal />
-            {/* Close button — sits above ResearcherGlobe's own logo */}
-            <button
-              onClick={() => setModalOpen(false)}
-              className="absolute top-4 right-4 z-30 h-8 w-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
-              aria-label="Close"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <GlobeModal onClose={() => setModalOpen(false)} />
           </div>
         </div>
       )}

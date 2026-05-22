@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { ComposableMap, Geographies, Geography, Graticule, Marker, Sphere } from 'react-simple-maps'
+import { X } from 'lucide-react'
 import { BrandLogo } from '@/components/layout/BrandLogo'
 
 interface Researcher {
@@ -62,7 +63,7 @@ function buildClusters(researchers: Researcher[]): Cluster[] {
   return Array.from(map.values())
 }
 
-export function ResearcherGlobe() {
+export function ResearcherGlobe({ onClose }: { onClose?: () => void } = {}) {
   const [data, setData]           = useState<GlobeData>({ researchers: [], total: 0, cities: 0, countries: 0, online: 0 })
   const [disciplineFilter, setDisciplineFilter] = useState<string | null>(null)
   const [countryFilter, setCountryFilter]       = useState<string>('')
@@ -106,35 +107,41 @@ export function ResearcherGlobe() {
         <BrandLogo variant="standalone" href="/" />
       </div>
 
-      {/* Filters — top right: two dropdowns. On small screens pushed below the modal close button */}
-      <div className="absolute top-14 sm:top-6 right-6 z-10 flex flex-col items-end gap-2">
-        {/* Discipline + Country dropdowns — side by side */}
-        <div className="flex items-center gap-2">
-          {presentDisciplines.length > 0 && (
-            <select
-              value={disciplineFilter ?? ''}
-              onChange={e => setDisciplineFilter(e.target.value || null)}
-              className="px-2.5 py-1 rounded-full text-[10px] font-medium border bg-white/5 border-white/10 text-white/60 appearance-none focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
-            >
-              <option value="">All disciplines</option>
-              {presentDisciplines.map(d => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
-          )}
-          {presentCountries.length > 0 && (
-            <select
-              value={countryFilter}
-              onChange={e => setCountryFilter(e.target.value)}
-              className="px-2.5 py-1 rounded-full text-[10px] font-medium border bg-white/5 border-white/10 text-white/60 appearance-none focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
-            >
-              <option value="">All countries</option>
-              {presentCountries.map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          )}
-        </div>
+      {/* Top-right bar: filters + optional close button — all in one row, no overlaps */}
+      <div className="absolute top-6 right-6 z-10 flex items-center gap-2">
+        {presentDisciplines.length > 0 && (
+          <select
+            value={disciplineFilter ?? ''}
+            onChange={e => setDisciplineFilter(e.target.value || null)}
+            className="px-2.5 py-1 rounded-full text-[10px] font-medium border bg-white/5 border-white/10 text-white/60 appearance-none focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
+          >
+            <option value="">All disciplines</option>
+            {presentDisciplines.map(d => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+        )}
+        {presentCountries.length > 0 && (
+          <select
+            value={countryFilter}
+            onChange={e => setCountryFilter(e.target.value)}
+            className="px-2.5 py-1 rounded-full text-[10px] font-medium border bg-white/5 border-white/10 text-white/60 appearance-none focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all"
+          >
+            <option value="">All countries</option>
+            {presentCountries.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        )}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="h-7 w-7 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-colors"
+            aria-label="Close"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
       {/* Map — absolute fill so Safari doesn't collapse the SVG height to zero */}

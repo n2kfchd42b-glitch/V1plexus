@@ -21,6 +21,7 @@ import type { GanttPhase } from '@/components/project/ProjectGantt'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { cn, formatRelative } from '@/lib/utils'
+import type { AuditEntry } from '@/types/audit'
 
 interface ResearchProject {
   id: string
@@ -60,6 +61,14 @@ const KIND_ICON: Record<string, React.ElementType> = {
   msg:      MessageSquare,
 }
 
+function actionToKind(action: string): LedgerEntry['kind'] {
+  if (action.startsWith('dataset.')) return 'data'
+  if (action.startsWith('analysis.')) return 'analysis'
+  if (action.includes('approved') || action.includes('approval')) return 'approve'
+  if (action.startsWith('document.') || action.startsWith('writing.') || action.startsWith('auth.')) return 'edit'
+  return 'edit'
+}
+
 export default function StudentDetailPage() {
   const { studentId } = useParams<{ studentId: string }>()
   const { user } = useAuth()
@@ -79,6 +88,8 @@ export default function StudentDetailPage() {
   const [activeTab,       setActiveTab]       = useState<'overview' | 'milestones' | 'sessions'>('overview')
   const [ledgerOpen,      setLedgerOpen]      = useState(false)
   const [ledgerFilter,    setLedgerFilter]    = useState<'all' | 'data' | 'edits' | 'analyses' | 'approvals'>('all')
+  const [ledgerEntries,   setLedgerEntries]   = useState<LedgerEntry[]>([])
+  const [ledgerLoading,   setLedgerLoading]   = useState(false)
 
   const load = useCallback(async () => {
     const [milestonesRes, profileRes, researchRes, annotationsRes] = await Promise.all([
@@ -124,6 +135,33 @@ export default function StudentDetailPage() {
 
   useEffect(() => { load() }, [load])
 
+  const _primaryProjectId = projects[0]?.id
+
+  useEffect(() => {
+    if (!_primaryProjectId) return
+    setLedgerLoading(true)
+    const params = new URLSearchParams({
+      actor_id: studentId,
+      project_id: _primaryProjectId,
+      limit: '50',
+    })
+    fetch(`/api/audit?${params}`)
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(({ entries }: { entries: AuditEntry[] }) => {
+        const now = Date.now()
+        setLedgerEntries(entries.map(e => ({
+          id: e.id,
+          t: formatRelative(e.timestamp),
+          who: e.actor_name ?? 'Unknown',
+          action: (e.details as { summary?: string })?.summary ?? e.action,
+          kind: actionToKind(e.action),
+          hot: now - new Date(e.timestamp).getTime() < 24 * 60 * 60 * 1000,
+        })))
+      })
+      .catch(() => { /* silently leave ledger empty */ })
+      .finally(() => setLedgerLoading(false))
+  }, [studentId, _primaryProjectId])
+
   const pendingReview    = milestones.filter(m => ['submitted', 'under_review'].includes(m.status)).length
   const approved         = milestones.filter(m => m.status === 'approved').length
   const primaryProjectId = projects[0]?.id
@@ -138,33 +176,6 @@ export default function StudentDetailPage() {
     if (a.artifact_type === 'analysis') return `${base}/analyses/${a.artifact_id}`
     return `${base}/documents/${a.artifact_id}`
   }
-
-  const ledgerEntries: LedgerEntry[] = [
-    ...annotations.slice(0, 12).map((a): LedgerEntry => ({
-      id:     a.id,
-      t:      formatRelative(a.created_at),
-      who:    'You',
-      action: `note on ${a.anchor_label ?? a.artifact_type}`,
-      kind:   'msg',
-      href:   artifactHref(a),
-      hot:    !a.is_resolved,
-    })),
-    ...milestones
-      .filter(m => m.status === 'approved').slice(0, 4)
-      .map((m): LedgerEntry => ({
-        id: m.id, t: formatRelative(m.updated_at),
-        who: 'You', action: `approved: ${m.title}`,
-        kind: 'approve', hot: false,
-      })),
-    ...milestones
-      .filter(m => ['submitted', 'under_review'].includes(m.status)).slice(0, 3)
-      .map((m): LedgerEntry => ({
-        id: m.id + '_sub', t: formatRelative(m.updated_at),
-        who: studentProfile?.full_name?.split(' ')[0] ?? 'Student',
-        action: `submitted: ${m.title}`,
-        kind: 'edit', hot: true,
-      })),
-  ]
 
   const filteredLedger = ledgerFilter === 'all'
     ? ledgerEntries
@@ -445,7 +456,9 @@ export default function StudentDetailPage() {
 
             {/* Entries */}
             <div className="flex-1 overflow-y-auto px-3.5 py-2">
-              {filteredLedger.length === 0 ? (
+              {ledgerLoading ? (
+                <div className="text-center py-10 text-text-tertiary text-xs">Loading…</div>
+              ) : filteredLedger.length === 0 ? (
                 <div className="text-center py-10 text-text-tertiary text-xs">
                   No activity recorded yet
                 </div>

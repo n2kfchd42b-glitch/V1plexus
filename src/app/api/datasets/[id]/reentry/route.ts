@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { hasProjectAccess } from '@/lib/supabase/projectAccess'
-import { insertAuditLog } from '@/lib/data'
-import type { ReentrySession } from '@/types/analysisIntegrity'
+import { writeAuditEntry } from '@/lib/audit/auditLogger'
 
 /**
  * POST /api/datasets/[id]/reentry
@@ -68,23 +67,26 @@ export async function POST(
       )
     }
 
-    // Write audit entry
-    await insertAuditLog(supabase, {
-      actor_id: user.id,
-      action: 'dataset.reentry.initiated',
-      resource_type: 'dataset',
-      resource_id: session.id,
-      project_id: dataset.project_id,
-      details: {
-        summary: `Re-entry validation initiated for dataset`,
-        operation: {
-          session_id: session.id,
-          assigned_to: assigned_to || null,
-          columns_count: columns_to_validate?.length || 'all',
-          participant_id_column,
+    // Write audit entry into hash chain
+    await writeAuditEntry(
+      {
+        actor_id: user.id,
+        action: 'dataset.reentry.initiated',
+        resource_type: 'dataset',
+        resource_id: datasetId,
+        project_id: dataset.project_id,
+        details: {
+          summary: `Re-entry validation initiated for dataset`,
+          operation: {
+            session_id: session.id,
+            assigned_to: assigned_to || null,
+            columns_count: columns_to_validate?.length ?? 'all',
+            participant_id_column,
+          },
         },
       },
-    })
+      supabase,
+    )
 
     return NextResponse.json(session)
   } catch (error) {

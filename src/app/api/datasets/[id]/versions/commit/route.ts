@@ -12,6 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { writeAuditEntry } from '@/lib/audit/auditLogger'
 
 export async function POST(
   request: NextRequest,
@@ -36,13 +37,11 @@ export async function POST(
       )
     }
 
-    // Fetch the source version to copy its data
-    const { data: sourceVersion, error: sourceError } = await supabase
-      .from('dataset_versions')
-      .select('*')
-      .eq('id', source_version_id)
-      .eq('dataset_id', datasetId)
-      .single()
+    // Fetch the source version and dataset project_id in parallel
+    const [{ data: sourceVersion, error: sourceError }, { data: dataset }] = await Promise.all([
+      supabase.from('dataset_versions').select('*').eq('id', source_version_id).eq('dataset_id', datasetId).single(),
+      supabase.from('datasets').select('project_id').eq('id', datasetId).single(),
+    ])
 
     if (sourceError || !sourceVersion) {
       return NextResponse.json({ error: 'Source version not found' }, { status: 404 })
@@ -90,6 +89,28 @@ export async function POST(
       .update({ head_version: newVersion.id })
       .eq('dataset_id', datasetId)
       .eq('is_default', true)
+
+    void writeAuditEntry(
+      {
+        actor_id: user.id,
+        action: 'dataset.version.created',
+        resource_type: 'dataset_version',
+        resource_id: newVersion.id,
+        project_id: dataset?.project_id ?? undefined,
+        details: {
+          summary: `Version ${newVersion.version_number} created: "${commit_message}"`,
+          operation: {
+            version_id: newVersion.id,
+            version_number: newVersion.version_number,
+            parent_version_id: source_version_id,
+            commit_message,
+            row_count: sourceVersion.row_count,
+            column_count: sourceVersion.column_count,
+          },
+        },
+      },
+      supabase,
+    )
 
     return NextResponse.json({
       id: newVersion.id,

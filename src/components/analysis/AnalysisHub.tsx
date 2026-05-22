@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  BarChart2, CheckCircle2, ChevronRight, Clock, X, Database, Table2, Play, FlaskConical,
+  BarChart2, CheckCircle2, ChevronRight, Clock, X, Database, Table2, Play, FlaskConical, Shield,
 } from 'lucide-react'
 import { AssumptionStatusBar } from './AssumptionStatusBar'
 import { ReasoningPrompt } from './ReasoningPrompt'
@@ -41,6 +41,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'sonner'
 import { formatRelative } from '@/lib/utils'
 import { logAudit } from '@/lib/audit'
+import { useLedgerKey } from '@/hooks/useLedgerKey'
+import { LedgerKeyModal } from '@/components/ledger/LedgerKeyModal'
 import type { AnalysisRun, AnalysisType, DatasetColumn } from '@/types/database'
 import type { DataRow, AnalysisResult } from '@/lib/analysis/types'
 import { useLocale } from '@/i18n/LocaleProvider'
@@ -212,6 +214,8 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
   const { profile } = useAuth()
   const { t } = useLocale()
   const supabase = useMemo(() => createClient(), [])
+  const { trySign, keyState, setup: setupLedgerKey, error: ledgerKeyError } = useLedgerKey(projectId)
+  const [ledgerKeyModalOpen, setLedgerKeyModalOpen] = useState(false)
 
   const [runs, setRuns]     = useState<AnalysisRun[]>([])
   const [loading, setLoading] = useState(true)
@@ -465,6 +469,15 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
           robustness: reportData.robustness ?? localSens?.robustness ?? null,
           metric_label: reportData.metric_label ?? localSens?.metric_label ?? '',
         } as PostAnalysisReport)
+        if (profile?.id) {
+          trySign('assumption_check', {
+            analysis_type: analysisType,
+            all_passed: reportData.all_passed ?? false,
+            critical_violations: reportData.critical_violations ?? 0,
+            dataset_id: datasetId ?? null,
+            source: 'backend',
+          }, profile.id)
+        }
       } else {
         // No external analytics backend — build assumption checks deterministically from the result
         const relevantVars = Object.keys(analysisConfig).flatMap(k => {
@@ -514,6 +527,14 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
           analysisResultPayload.n,
           t,
         ))
+        if (profile?.id) {
+          trySign('assumption_check', {
+            analysis_type: analysisType,
+            all_passed: checkResult.all_passed,
+            critical_violations: checkResult.critical_violations,
+            dataset_id: datasetId ?? null,
+          }, profile.id)
+        }
       }
     } catch {
       // Non-blocking — set minimal stable report so the bar always renders after analysis
@@ -647,12 +668,21 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
 
     const doRun = async (): Promise<AnalysisResult | void> => {
       setRunning(true)
+      if (profile?.id) {
+        trySign('analysis_run_started', { analysis_type: t, config: backendConfig, dataset_id: datasetId ?? null }, profile.id)
+      }
       try {
         const r = await runAnalysis(t, data, backendConfig)
         setResult(r)
         setResultTab('results')
+        if (profile?.id) {
+          trySign('analysis_run_completed', { analysis_type: t, dataset_id: datasetId ?? null, success: true }, profile.id)
+        }
         return r
       } catch (err) {
+        if (profile?.id) {
+          trySign('analysis_run_completed', { analysis_type: t, dataset_id: datasetId ?? null, success: false }, profile.id)
+        }
         setResult({
           type: t,
           summary: { error: err instanceof Error ? err.message : 'Analysis failed' },
@@ -924,6 +954,12 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
         }).catch(() => {})
       }
 
+      trySign('output_generated', {
+        run_id: run.id,
+        analysis_type: selectedType,
+        dataset_id: datasetId ?? null,
+        title: run.title,
+      }, profile.id)
       setSavedRunId(run.id)
       setRuns(prev => [run as AnalysisRun, ...prev])
       toast.success(t('analysis.toastSaved'))
@@ -1068,6 +1104,17 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
           >
             <Table2 className="h-3.5 w-3.5" />
             {t('analysis.generateTable')}
+          </button>
+          <button
+            onClick={() => setLedgerKeyModalOpen(true)}
+            title={keyState === 'active' ? 'Ledger key active' : 'Activate ledger signing key'}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors"
+            style={{ border: '1px solid var(--border-default)', color: keyState === 'active' ? 'var(--color-success, #16a34a)' : 'var(--text-secondary)' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-row-hover)')}
+            onMouseLeave={e => (e.currentTarget.style.background = '')}
+          >
+            <Shield className="h-3.5 w-3.5" />
+            {keyState === 'active' ? 'Key active' : 'Sign'}
           </button>
         </div>
       </div>}
@@ -1904,6 +1951,17 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
           onClose={() => setShowReportModal(false)}
         />
       )}
+
+      <LedgerKeyModal
+        open={ledgerKeyModalOpen}
+        onOpenChange={setLedgerKeyModalOpen}
+        mode={keyState === 'active' ? 'unlock' : 'setup'}
+        projectId={projectId}
+        onSetup={setupLedgerKey}
+        sessionKey={null}
+        busy={keyState === 'busy'}
+        error={ledgerKeyError}
+      />
     </div>
   )
 }

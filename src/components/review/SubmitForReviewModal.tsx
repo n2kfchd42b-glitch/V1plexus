@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types/database'
+import { logAudit } from '@/lib/audit'
 
 interface SubmitForReviewModalProps {
   open: boolean
@@ -66,10 +67,31 @@ export function SubmitForReviewModal({
       .single()
 
     // Update document status
-    await supabase
+    const { data: docData } = await supabase
       .from('documents')
       .update({ status: 'in_review' })
       .eq('id', documentId)
+      .select('project_id, title')
+      .single()
+
+    if (docData) {
+      logAudit(
+        'document.submitted',
+        'document',
+        documentId,
+        {
+          summary: `Document "${docData.title}" submitted for review`,
+          operation: {
+            review_request_id: review?.id ?? null,
+            assigned_to: assignedTo,
+            priority,
+            due_date: dueDate || null,
+            document_version: documentVersion,
+          },
+        },
+        docData.project_id,
+      )
+    }
 
     setSubmitting(false)
     onSubmitted()

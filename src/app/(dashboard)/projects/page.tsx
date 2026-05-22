@@ -301,6 +301,20 @@ export default function ProjectsPage() {
         ? { ...result.data!, dataset_count: 0, run_count: 0 }
         : p
       ))
+      await logAudit(
+        'project.created',
+        'project',
+        result.data.id,
+        {
+          summary: `Created project "${result.data.title}"`,
+          operation: {
+            title: result.data.title,
+            description: result.data.description ?? null,
+            ...(activeWorkspace ? { workspace_id: activeWorkspace.id } : {}),
+          },
+        },
+        result.data.id,
+      )
       toast.success(t('projects.toastCreated', 'Project created'))
     }
     setCreating(false)

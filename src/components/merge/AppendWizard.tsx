@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import { loadVersionData, createDatasetRecord, storeVersionData, createVersionRecord, upsertBranch } from '@/lib/data/storage'
 import { appendDatasets } from '@/lib/data/operations'
 import { useAuth } from '@/hooks/useAuth'
+import { logAudit } from '@/lib/audit'
 import type { Dataset, DatasetVersion, ColumnSchema, DataRow } from '@/types/database'
 
 interface AppendWizardProps {
@@ -185,6 +186,23 @@ export function AppendWizard({ projectId, currentDatasetId, onComplete, onCancel
         isDefault: true,
         createdBy: user.id,
       })
+
+      await logAudit(
+        'dataset.branch.merged',
+        'dataset',
+        datasetId,
+        {
+          summary: `Appended dataset rows into "${outputName.trim()}"`,
+          operation: {
+            output_name: outputName.trim(),
+            base_dataset_id: baseDatasetId,
+            append_dataset_id: appendDatasetId,
+            result_row_count: previewRows.length,
+            result_column_count: schema.length,
+          },
+        },
+        projectId,
+      )
 
       onComplete(datasetId)
     } catch (e) {

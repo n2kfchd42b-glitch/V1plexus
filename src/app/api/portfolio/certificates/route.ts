@@ -14,8 +14,8 @@ import {
   createVerificationToken,
   createCertificate,
   getUserCertificates,
-  insertAuditLog,
 } from '@/lib/data'
+import { writeAuditEntry } from '@/lib/audit/auditLogger'
 import type { AddCertificateRequest } from '@/types/portfolio'
 
 export async function POST(request: NextRequest) {
@@ -123,21 +123,16 @@ export async function POST(request: NextRequest) {
 
     const certificate = certResult.data!
 
-    // Write audit entry
-    await insertAuditLog(supabase, {
+    void writeAuditEntry({
       actor_id: user.id,
       action: 'portfolio.certificate.added',
       resource_type: 'portfolio_certificate',
       resource_id: certificate.id,
       details: {
         summary: `Research certificate added to portfolio for dataset "${dataset.name}"`,
-        operation: {
-          certificate_id: certificate.id,
-          dataset_id: body.dataset_id,
-          version_id: body.version_id,
-        },
+        operation: { certificate_id: certificate.id, dataset_id: body.dataset_id, version_id: body.version_id },
       },
-    })
+    }, supabase)
 
     return NextResponse.json(certificate, { status: 201 })
   } catch (error) {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { writeAuditEntry } from '@/lib/audit/auditLogger'
 
 export async function DELETE() {
   try {
@@ -12,6 +13,15 @@ export async function DELETE() {
     }
 
     const svc = createServiceClient()
+
+    // Write audit entry BEFORE deletion — actor_id won't exist after the RPC runs
+    await writeAuditEntry({
+      actor_id: user.id,
+      action: 'auth.account.deleted',
+      resource_type: 'profile',
+      resource_id: user.id,
+      details: { summary: 'User initiated account deletion' },
+    }, svc)
 
     // Calls the delete_user_account SQL function which handles all cleanup
     // and deletes directly from auth.users, bypassing GoTrue's own deletion

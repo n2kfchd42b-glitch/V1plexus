@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { insertAuditLog } from '@/lib/data'
+import { writeAuditEntry } from '@/lib/audit/auditLogger'
 
 /**
  * POST /api/datasets/[id]/reentry/[sessionId]/resolve
@@ -63,32 +63,25 @@ export async function POST(
         .eq('id', update.id)
     }
 
-    // Write audit entry
-    await insertAuditLog(supabase, {
+    void writeAuditEntry({
       actor_id: user.id,
       action: 'dataset.reentry.discrepancy.resolved',
       resource_type: 'dataset',
-      resource_id: sessionId,
-      project_id: session.project_id,
+      resource_id: datasetId,
+      project_id: session.project_id ?? undefined,
       details: {
         summary: `${resolutions.length} discrepancies resolved`,
         operation: {
           session_id: sessionId,
           resolutions_count: resolutions.length,
           by_type: {
-            original: resolutions.filter(
-              (r: any) => r.status === 'resolved_original'
-            ).length,
-            reentry: resolutions.filter(
-              (r: any) => r.status === 'resolved_reentry'
-            ).length,
-            manual: resolutions.filter(
-              (r: any) => r.status === 'resolved_manual'
-            ).length,
+            original: resolutions.filter((r: { status: string }) => r.status === 'resolved_original').length,
+            reentry:  resolutions.filter((r: { status: string }) => r.status === 'resolved_reentry').length,
+            manual:   resolutions.filter((r: { status: string }) => r.status === 'resolved_manual').length,
           },
         },
       },
-    })
+    }, supabase)
 
     // Check if all discrepancies are now resolved
     const { data: pending } = await supabase

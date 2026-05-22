@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { writeAuditEntry } from '@/lib/audit/auditLogger'
 
 /**
  * POST /api/causal/discover
@@ -84,6 +85,18 @@ export async function POST(req: NextRequest) {
       console.error('[POST /api/causal/discover] FastAPI error:', fastapiRes.status)
       return NextResponse.json({ error: 'Failed to start causal discovery' }, { status: 500 })
     }
+
+    void writeAuditEntry({
+      actor_id: user.id,
+      action: 'causal.dag.created',
+      resource_type: 'causal_dag',
+      resource_id: dag.id,
+      project_id: dataset.project_id ?? undefined,
+      details: {
+        summary: `Causal DAG discovery started (${exposure} → ${outcome})`,
+        operation: { dag_id: dag.id, dataset_id: datasetId, exposure, outcome },
+      },
+    }, supabase)
 
     return NextResponse.json({ dagId: dag.id, status: 'pending' })
   } catch (error) {

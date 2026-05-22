@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { BrandLogo } from '@/components/layout/BrandLogo'
 import { createClient } from '@/lib/supabase/client'
 import { useTranslations } from '@/i18n/useTranslations'
+import { logAudit } from '@/lib/audit'
 
 function ResetPasswordForm() {
   const [password, setPassword] = useState('')
@@ -49,6 +50,11 @@ function ResetPasswordForm() {
       setError(error.message)
       setLoading(false)
       return
+    }
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      logAudit('auth.password.changed', 'profile', user.id, { summary: 'Password reset via email link', method: 'reset_link' })
     }
 
     setDone(true)

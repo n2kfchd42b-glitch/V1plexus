@@ -2,6 +2,7 @@
 FastAPI routes for Analysis Integrity (Phase 4)
 """
 
+import logging
 import os
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends
@@ -11,8 +12,11 @@ import pandas as pd
 from datetime import datetime
 import json
 
+logger = logging.getLogger(__name__)
+
 from ..services.assumption_checker import run_assumption_checks
 from ..services.sensitivity_reporter import generate_post_analysis_report
+from ..services.audit_service import AuditService
 from ..middleware.auth import get_current_user
 from ..db import get_supabase
 
@@ -124,34 +128,31 @@ async def post_assumption_checks(
         
         check_id = insert_resp.data[0]['id']
         
-        # Write audit entry
-        audit_entry = {
-            'actor_id': req.requested_by,
-            'action': 'analysis.assumptions.checked',
-            'resource_type': 'analysis_run',
-            'resource_id': check_id,
-            'project_id': req.project_id,
-            'details': {
-                'summary': (
-                    f"Assumption checks run for {req.analysis_type}: "
-                    f"{result['critical_violations']} critical, "
-                    f"{result['moderate_violations']} moderate violations"
-                ),
-                'operation': {
-                    'analysis_type': req.analysis_type,
-                    'all_passed': result['all_passed'],
-                    'critical_violations': result['critical_violations'],
-                    'moderate_violations': result['moderate_violations'],
-                    'recommendation': result['run_recommendation'],
-                    'checks_count': len(result['checks']),
-                }
-            }
-        }
-        
         try:
-            supabase.table('audit_logs').insert(audit_entry).execute()
+            AuditService(supabase).write_entry(
+                actor_id=req.requested_by,
+                action='analysis.assumptions.checked',
+                resource_type='analysis_run',
+                resource_id=check_id,
+                project_id=req.project_id,
+                details={
+                    'summary': (
+                        f"Assumption checks run for {req.analysis_type}: "
+                        f"{result['critical_violations']} critical, "
+                        f"{result['moderate_violations']} moderate violations"
+                    ),
+                    'operation': {
+                        'analysis_type': req.analysis_type,
+                        'all_passed': result['all_passed'],
+                        'critical_violations': result['critical_violations'],
+                        'moderate_violations': result['moderate_violations'],
+                        'recommendation': result['run_recommendation'],
+                        'checks_count': len(result['checks']),
+                    },
+                },
+            )
         except Exception:
-            pass  # audit log failure must not block the assumption check result
+            logger.exception("Audit write failed for assumption check %s", check_id)
 
         return {
             'check_id': check_id,
@@ -216,32 +217,30 @@ async def post_acknowledge_violations(
                         )
                     )
         
-        # Write audit entry
-        audit_entry = {
-            'actor_id': req.acknowledged_by,
-            'action': 'analysis.assumption.acknowledged',
-            'resource_type': 'analysis_run',
-            'resource_id': check_id,
-            'project_id': check_record['project_id'],
-            'details': {
-                'summary': (
-                    f'Researcher acknowledged {len(check_record["checks"])} '
-                    f'assumption violations and approved proceeding'
-                ),
-                'justification': json.dumps(req.acknowledgement_notes),
-                'justification_category': 'other',
-                'operation': {
-                    'check_id': check_id,
-                    'analysis_type': check_record['analysis_type'],
-                    'acknowledgement_notes': req.acknowledgement_notes,
-                }
-            }
-        }
-        
         try:
-            audit_resp = supabase.table('audit_logs').insert(audit_entry).execute()
-            audit_id = audit_resp.data[0]['id']
+            audit_result = AuditService(supabase).write_entry(
+                actor_id=req.acknowledged_by,
+                action='analysis.assumption.acknowledged',
+                resource_type='analysis_run',
+                resource_id=check_id,
+                project_id=check_record['project_id'],
+                details={
+                    'summary': (
+                        f'Researcher acknowledged {len(check_record["checks"])} '
+                        f'assumption violations and approved proceeding'
+                    ),
+                    'justification': json.dumps(req.acknowledgement_notes),
+                    'justification_category': 'other',
+                    'operation': {
+                        'check_id': check_id,
+                        'analysis_type': check_record['analysis_type'],
+                        'acknowledgement_notes': req.acknowledgement_notes,
+                    },
+                },
+            )
+            audit_id = audit_result.get('entry_id') if audit_result else None
         except Exception:
+            logger.exception("Audit write failed for acknowledgement of check %s", check_id)
             audit_id = None
         
         # UPDATE check record

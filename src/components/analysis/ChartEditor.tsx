@@ -5,6 +5,7 @@ import { SlidersHorizontal, Download, Save, BookOpen, ChevronDown, ChevronRight 
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { createDatasetExploration } from '@/lib/data'
+import { logAudit } from '@/lib/audit'
 import type { ChartEditorConfig, LegendPosition } from '@/lib/chartEditorConfig'
 import { CHART_TYPES_WITH_FILL, CHART_TYPES_WITH_AXES } from '@/lib/chartEditorConfig'
 import { CHART_TOKENS, chartColor, chartColorMid, chartColorDim } from '@/lib/charts/design-tokens'
@@ -185,6 +186,25 @@ export function ChartEditor({
         created_by:     user?.id ?? null,
       })
       if (result.status === 'error') throw new Error(result.error ?? 'Failed to save')
+
+      if (user && result.data) {
+        logAudit(
+          'dataset.exploration.created',
+          'dataset_exploration',
+          result.data.id,
+          {
+            summary: `Created chart "${title}" from analysis`,
+            operation: {
+              title,
+              chart_type: chartType,
+              dataset_id: datasetId ?? null,
+              version_id: versionId ?? null,
+              run_id: runId ?? null,
+            },
+          },
+        )
+      }
+
       toast.success('Chart saved to Dataset Explorations')
     } catch {
       toast.error('Failed to save exploration')

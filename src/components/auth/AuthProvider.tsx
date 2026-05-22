@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '@/types/database'
+import { logAudit } from '@/lib/audit'
 
 interface AuthState {
   user: User | null
@@ -90,6 +91,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     const supabase = createClient()
+    if (user) {
+      await logAudit('auth.logout', 'profile', user.id, { summary: 'User signed out' })
+    }
     document.cookie = 'workspace_ready=; path=/; max-age=0'
     await supabase.auth.signOut({ scope: 'local' })
     window.location.href = '/login?signout=1'

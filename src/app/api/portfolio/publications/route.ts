@@ -11,8 +11,8 @@ import {
   getLatestQualityReport,
   createPublication,
   getUserPublications,
-  insertAuditLog,
 } from '@/lib/data'
+import { writeAuditEntry } from '@/lib/audit/auditLogger'
 import type { AddPublicationRequest, CrossRefWork } from '@/types/portfolio'
 
 async function fetchCrossRefMetadata(doi: string): Promise<Partial<AddPublicationRequest> | null> {
@@ -173,21 +173,16 @@ export async function POST(request: NextRequest) {
 
     const publication = pubResult.data!
 
-    // Write audit entry
-    await insertAuditLog(supabase, {
+    void writeAuditEntry({
       actor_id: user.id,
       action: 'portfolio.publication.added',
       resource_type: 'portfolio_publication',
       resource_id: publication.id,
       details: {
         summary: `Publication added to portfolio: "${publication.title}"`,
-        operation: {
-          publication_id: publication.id,
-          title: publication.title,
-          doi: publication.doi,
-        },
+        operation: { publication_id: publication.id, title: publication.title, doi: publication.doi },
       },
-    })
+    }, supabase)
 
     return NextResponse.json(publication, { status: 201 })
   } catch (error) {

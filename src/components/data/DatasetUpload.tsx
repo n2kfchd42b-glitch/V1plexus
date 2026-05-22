@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { parseFile } from '@/lib/data/parser'
 import { uploadDataset } from '@/lib/data/storage'
 import { useAuth } from '@/hooks/useAuth'
+import { useLedgerKey } from '@/hooks/useLedgerKey'
 import { auditDatasetImport } from '@/lib/audit/auditHelpers'
 import type { ParsedDataset, ColumnType } from '@/types/database'
 
@@ -32,6 +33,7 @@ interface DatasetUploadProps {
 
 export function DatasetUpload({ projectId, onSuccess, onCancel }: DatasetUploadProps) {
   const { user } = useAuth()
+  const { trySign } = useLedgerKey(projectId)
   const [dragOver, setDragOver] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [parsed, setParsed] = useState<ParsedDataset | null>(null)
@@ -90,6 +92,13 @@ export function DatasetUpload({ projectId, onSuccess, onCancel }: DatasetUploadP
           fileHash,
         }
       )
+      trySign('dataset_imported', {
+        dataset_id: datasetId,
+        dataset_name: name || file.name,
+        row_count: parsed.row_count,
+        column_count: parsed.column_count,
+        file_hash: fileHash,
+      }, user.id)
 
       // Auto-trigger data portrait (non-blocking)
       fetch('/api/analytics/portrait/trigger', {

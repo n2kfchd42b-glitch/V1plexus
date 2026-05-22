@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from '@/i18n/useTranslations'
+import { logAudit } from '@/lib/audit'
 
 function LoginForm() {
   const [email, setEmail] = useState('')
@@ -30,7 +31,7 @@ function LoginForm() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
       if (error.message.toLowerCase().includes('email not confirmed')) {
         setError(t('auth.confirmEmailFirst'))
@@ -38,6 +39,9 @@ function LoginForm() {
         setError(error.message)
       }
     } else {
+      if (data.user) {
+        logAudit('auth.login', 'profile', data.user.id, { summary: 'User signed in', method: 'password' })
+      }
       router.push(redirect)
     }
     setLoading(false)

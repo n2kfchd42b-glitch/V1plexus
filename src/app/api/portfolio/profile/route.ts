@@ -6,7 +6,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { checkUsernameAvailability, updateProfile, insertAuditLog } from '@/lib/data'
+import { checkUsernameAvailability, updateProfile } from '@/lib/data'
+import { writeAuditEntry } from '@/lib/audit/auditLogger'
 import type { UpdateProfileRequest } from '@/types/portfolio'
 
 export async function PATCH(request: NextRequest) {
@@ -129,24 +130,16 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    // Write audit entry — non-blocking, must not fail the save
-    try {
-      await insertAuditLog(supabase, {
-        actor_id: user.id,
-        action: 'profile.updated',
-        resource_type: 'profile',
-        resource_id: user.id,
-        entry_hash: crypto.randomUUID(),
-        details: {
-          summary: 'Researcher portfolio profile updated',
-          operation: {
-            fields_updated: Object.keys(updateData),
-          },
-        },
-      })
-    } catch {
-      // audit log failure must never block the save
-    }
+    void writeAuditEntry({
+      actor_id: user.id,
+      action: 'profile.updated',
+      resource_type: 'profile',
+      resource_id: user.id,
+      details: {
+        summary: 'Researcher portfolio profile updated',
+        operation: { fields_updated: Object.keys(updateData) },
+      },
+    }, supabase)
 
     return NextResponse.json(profileResult.data)
   } catch (error) {

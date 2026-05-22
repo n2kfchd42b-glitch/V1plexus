@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { sendNotification } from '@/lib/notifications/notificationService'
+import { writeAuditEntry } from '@/lib/audit/auditLogger'
 import { z } from 'zod'
 
 const PatchSchema = z.object({
@@ -41,6 +42,18 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  void writeAuditEntry({
+    actor_id: user.id,
+    action: 'supervisor.assignment.created',
+    resource_type: 'supervisor_assignment',
+    resource_id: data.id,
+    details: {
+      summary: `Supervisor assignment created (role: ${parsed.data.role})`,
+      operation: { student_id: parsed.data.student_id, role: parsed.data.role },
+    },
+  }, supabase)
+
   return NextResponse.json(data, { status: 201 })
 }
 
@@ -76,6 +89,16 @@ export async function PATCH(req: NextRequest) {
     .eq('id', assignment_id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  void writeAuditEntry({
+    actor_id: user.id,
+    action: action === 'accept' ? 'supervisor.assignment.accepted' : 'supervisor.assignment.declined',
+    resource_type: 'supervisor_assignment',
+    resource_id: assignment_id,
+    details: {
+      summary: `Supervisor ${action === 'accept' ? 'accepted' : 'declined'} assignment request`,
+    },
+  }, supabase)
 
   // Notify the student of the decision (non-blocking)
   const serviceClient = createServiceClient()
@@ -119,5 +142,14 @@ export async function DELETE(req: NextRequest) {
     .eq('supervisor_id', user.id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  void writeAuditEntry({
+    actor_id: user.id,
+    action: 'supervisor.assignment.ended',
+    resource_type: 'supervisor_assignment',
+    resource_id: assignment_id,
+    details: { summary: 'Supervisor assignment ended' },
+  }, supabase)
+
   return NextResponse.json({ success: true })
 }

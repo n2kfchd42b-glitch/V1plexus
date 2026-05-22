@@ -19,6 +19,7 @@ import { loadVersionData } from '@/lib/data/storage'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
 import { getDataset, getDatasetVersions, getDatasetBranchesOrdered, createDatasetExploration } from '@/lib/data'
+import { logAudit } from '@/lib/audit'
 import type {
   Dataset,
   DatasetVersion,
@@ -182,6 +183,24 @@ export default function DatasetExplorePage() {
         created_by: user.id,
       })
       if (result.status === 'error') throw new Error(result.error ?? 'Failed to save chart')
+
+      if (result.data) {
+        logAudit(
+          'dataset.exploration.created',
+          'dataset_exploration',
+          result.data.id,
+          {
+            summary: `Created chart "${result.data.title}" on dataset`,
+            operation: {
+              title: result.data.title,
+              chart_type: result.data.chart_type,
+              dataset_id: datasetId,
+              version_id: activeVersionId,
+            },
+          },
+          projectId,
+        )
+      }
 
       setSaveDialogOpen(false)
       setPendingSave(null)

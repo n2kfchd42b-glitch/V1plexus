@@ -54,12 +54,14 @@ export async function getDatasetExplorations(
 export async function createDatasetExploration(
   supabase: SupabaseClient,
   input: ExplorationInsert
-): Promise<DataResult<null>> {
-  const { error } = await supabase
+): Promise<DataResult<DatasetExploration>> {
+  const { data, error } = await supabase
     .from('dataset_explorations')
     .insert(input)
+    .select()
+    .single()
   if (error) return err(error.message)
-  return ok(null)
+  return ok(data as DatasetExploration)
 }
 
 // Replaces:

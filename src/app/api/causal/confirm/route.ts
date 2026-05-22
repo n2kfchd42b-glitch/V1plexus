@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { writeAuditEntry } from '@/lib/audit/auditLogger'
 
 /**
  * POST /api/causal/confirm
@@ -66,6 +67,26 @@ export async function POST(req: NextRequest) {
     }
 
     const adjustmentResult = await adjRes.json()
+
+    // Fetch project_id for the project chain — best-effort, non-blocking
+    const { data: dag } = await supabase
+      .from('causal_dags')
+      .select('project_id')
+      .eq('id', dagId)
+      .single()
+
+    void writeAuditEntry({
+      actor_id: user.id,
+      action: 'causal.dag.confirmed',
+      resource_type: 'causal_dag',
+      resource_id: dagId,
+      project_id: dag?.project_id ?? undefined,
+      details: {
+        summary: `Causal DAG confirmed (${exposure} → ${outcome})`,
+        operation: { dag_id: dagId, edges_confirmed: confirmedEdges?.length ?? 0 },
+      },
+    }, supabase)
+
     return NextResponse.json({ dagId, status: 'confirmed', ...adjustmentResult })
   } catch (error) {
     console.error('[POST /api/causal/confirm]', error)

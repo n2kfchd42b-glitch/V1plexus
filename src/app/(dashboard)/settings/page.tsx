@@ -20,6 +20,7 @@ import { useLocale } from '@/i18n/LocaleProvider'
 import { AlertTriangle, ExternalLink, ChevronRight, CheckCircle2, Globe, MapPin, Loader2, ChevronDown } from 'lucide-react'
 import type { Profile } from '@/types/database'
 import type { User } from '@supabase/supabase-js'
+import { logAudit } from '@/lib/audit'
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
 const ROLE_LABELS: Record<string, string> = {
@@ -292,8 +293,16 @@ export default function ProfilePage() {
     if (newPw.length < 8)    { toast.error(t('profileSettings.toastPasswordTooShort')); return }
     setChangingPw(true)
     const { error } = await supabase.auth.updateUser({ password: newPw })
-    if (error) toast.error(error.message)
-    else { toast.success(t('profileSettings.toastPasswordUpdated')); setNewPw(''); setConfirmPw('') }
+    if (error) {
+      toast.error(error.message)
+    } else {
+      if (authUser) {
+        logAudit('auth.password.changed', 'profile', authUser.id, { summary: 'Password changed in settings', method: 'in_app' })
+      }
+      toast.success(t('profileSettings.toastPasswordUpdated'))
+      setNewPw('')
+      setConfirmPw('')
+    }
     setChangingPw(false)
   }
 

@@ -71,10 +71,19 @@ export type AuditAction =
   // Supervision operations
   | 'supervision.annotation.created'
   | 'supervision.session.created'
+  // Supervisor assignment operations
+  | 'supervisor.assignment.created'
+  | 'supervisor.assignment.accepted'
+  | 'supervisor.assignment.declined'
+  | 'supervisor.assignment.ended'
+  // Causal analysis operations
+  | 'causal.dag.created'
+  | 'causal.dag.confirmed'
   // Auth operations
   | 'auth.login'
   | 'auth.logout'
   | 'auth.password.changed'
+  | 'auth.account.deleted'
 
 export type ResourceType =
   | 'dataset'
@@ -92,6 +101,8 @@ export type ResourceType =
   | 'milestone'
   | 'supervision_annotation'
   | 'supervision_record'
+  | 'supervisor_assignment'
+  | 'causal_dag'
 
 export type JustificationCategory =
   | 'equipment_failure'

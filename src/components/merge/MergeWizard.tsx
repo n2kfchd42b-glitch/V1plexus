@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { loadVersionData, createDatasetRecord, storeVersionData, createVersionRecord, upsertBranch } from '@/lib/data/storage'
 import { mergeDatasets } from '@/lib/data/operations'
 import { useAuth } from '@/hooks/useAuth'
+import { logAudit } from '@/lib/audit'
 import type { Dataset, DatasetVersion, JoinType, ColumnSchema, DataRow } from '@/types/database'
 
 interface MergeWizardProps {
@@ -225,6 +226,24 @@ export function MergeWizard({ projectId, currentDatasetId, onComplete, onCancel 
         isDefault: true,
         createdBy: user.id,
       })
+
+      await logAudit(
+        'dataset.branch.merged',
+        'dataset',
+        datasetId,
+        {
+          summary: `Merged datasets into "${outputName.trim()}" via ${joinType} join`,
+          operation: {
+            output_name: outputName.trim(),
+            join_type: joinType,
+            left_dataset_id: leftDatasetId,
+            right_dataset_id: rightDatasetId,
+            result_row_count: previewRows.length,
+            result_column_count: schema.length,
+          },
+        },
+        projectId,
+      )
 
       onComplete(datasetId)
     } catch (e) {
