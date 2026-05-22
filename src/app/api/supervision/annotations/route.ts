@@ -41,6 +41,20 @@ export async function GET(req: NextRequest) {
     .order('created_at', { ascending: true })
 
   if (studentId) {
+    // Student fetching their own annotations is always allowed.
+    // A supervisor fetching another user's annotations must have an active assignment.
+    if (studentId !== user.id) {
+      const { count } = await supabase
+        .from('supervisor_assignments')
+        .select('id', { count: 'exact', head: true })
+        .eq('supervisor_id', user.id)
+        .eq('student_id', studentId)
+        .eq('status', 'active')
+
+      if (!count || count === 0) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+    }
     query = query.eq('student_id', studentId)
   } else {
     query = query.eq('artifact_id', artifactId!).eq('artifact_type', artifactType!)
@@ -100,15 +114,14 @@ export async function POST(req: NextRequest) {
     analysis: 'an analysis run',
     document: 'a document',
   }
-  const { data: supervisor } = await supabase
-    .from('profiles')
-    .select('full_name')
-    .eq('id', user.id)
-    .single()
+  const serviceClient = createServiceClient()
+  const [{ data: supervisor }, { data: studentProfile }] = await Promise.all([
+    supabase.from('profiles').select('full_name').eq('id', user.id).single(),
+    serviceClient.from('profiles').select('email').eq('id', parsed.data.student_id).single(),
+  ])
   const supervisorName = supervisor?.full_name ?? 'Your supervisor'
   const anchorLabel = parsed.data.anchor_label ?? parsed.data.anchor
 
-  // Use service client so the insert can write to another user's notifications (bypasses RLS)
   await sendNotification(
     parsed.data.student_id,
     'supervisor_note',
@@ -116,7 +129,8 @@ export async function POST(req: NextRequest) {
     `On ${artifactLabels[parsed.data.artifact_type] ?? 'an artifact'} · ${anchorLabel}`,
     artifactLinks[parsed.data.artifact_type] ?? `/projects/${parsed.data.project_id}`,
     { resource_type: parsed.data.artifact_type, resource_id: parsed.data.artifact_id },
-    createServiceClient(),
+    serviceClient,
+    studentProfile?.email ?? undefined,
   )
 
   void writeAuditEntry({

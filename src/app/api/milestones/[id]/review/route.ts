@@ -115,11 +115,10 @@ export async function POST(
   }
 
   // Notify the student of the decision (non-blocking)
-  const { data: supervisorProfile } = await supabase
-    .from('profiles')
-    .select('full_name')
-    .eq('id', user.id)
-    .single()
+  const [{ data: supervisorProfile }, { data: studentProfileForEmail }] = await Promise.all([
+    supabase.from('profiles').select('full_name').eq('id', user.id).single(),
+    createServiceClient().from('profiles').select('email').eq('id', milestone.student_id).single(),
+  ])
   const supervisorName = supervisorProfile?.full_name ?? 'Your supervisor'
 
   const notifTitle = parsed.data.decision === 'approved'
@@ -140,6 +139,7 @@ export async function POST(
     notifLink,
     { resource_type: 'milestone', resource_id: id },
     createServiceClient(),
+    studentProfileForEmail?.email ?? undefined,
   )
 
   void writeAuditEntry({

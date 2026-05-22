@@ -1,8 +1,6 @@
 "use client"
 
-export const dynamic = 'force-dynamic'
-
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { BrandLogo } from '@/components/layout/BrandLogo'
@@ -24,6 +22,9 @@ function LoginForm() {
   const confirmationFailed = searchParams.get('error') === 'confirmation_failed'
   const supabase = createClient()
   const { t } = useTranslations()
+
+  // Prefetch the destination so navigation after sign-in is instant
+  useEffect(() => { router.prefetch(redirect) }, [router, redirect])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -77,6 +77,36 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
     }
 
     if (inviteType === 'workspace' && workspaceInvite) {
+      // Supervisor email invite: create the assignment instead of a workspace membership
+      if (workspaceInvite.role === 'supervisor') {
+        const { error: assignErr } = await supabase
+          .from('supervisor_assignments')
+          .insert({
+            supervisor_id: user.id,
+            student_id: workspaceInvite.invited_by,
+            workspace_id: workspaceInvite.workspace_id,
+            department_id: null,
+            role: 'primary',
+            assigned_by: workspaceInvite.invited_by,
+            status: 'pending',
+          })
+
+        if (assignErr) {
+          toast.error(assignErr.message)
+          setAccepting(false)
+          return
+        }
+
+        await supabase
+          .from('workspace_invitations')
+          .update({ status: 'accepted' })
+          .eq('token', token)
+
+        toast.success('Supervision request accepted — the student will be notified.')
+        router.push('/supervisor/dashboard')
+        return
+      }
+
       const { error: memErr } = await supabase
         .from('workspace_memberships')
         .upsert({
@@ -200,17 +230,29 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
           ) : (
             <>
               <div className="mb-6">
-                <p className="text-gray-600 text-sm mb-1">{t('invite.invitedTo', "You've been invited to")}</p>
-                <h2 className="text-xl font-bold text-gray-900">{inviteName}</h2>
-                {inviteType === 'workspace' && workspaceInvite && (
-                  <p className="text-sm text-gray-500 mt-1">
-                    {t('common.role', 'Role:')} <span className="font-medium capitalize">{workspaceInvite.role}</span>
-                  </p>
-                )}
-                {inviteType === 'project' && projectInvite && (
-                  <p className="text-sm text-gray-500 mt-1">
-                    {t('common.role', 'Role:')} <span className="font-medium capitalize">{projectInvite.role.replace('_', ' ')}</span>
-                  </p>
+                {inviteType === 'workspace' && workspaceInvite?.role === 'supervisor' ? (
+                  <>
+                    <p className="text-gray-600 text-sm mb-1">You&apos;ve been asked to supervise</p>
+                    <h2 className="text-xl font-bold text-gray-900">a student on Plexus</h2>
+                    <p className="text-sm text-gray-500 mt-2 leading-relaxed">
+                      Accepting makes you their supervisor. You&apos;ll be able to view their projects, annotate work, and log supervision sessions.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-gray-600 text-sm mb-1">{t('invite.invitedTo', "You've been invited to")}</p>
+                    <h2 className="text-xl font-bold text-gray-900">{inviteName}</h2>
+                    {inviteType === 'workspace' && workspaceInvite && (
+                      <p className="text-sm text-gray-500 mt-1">
+                        {t('common.role', 'Role:')} <span className="font-medium capitalize">{workspaceInvite.role}</span>
+                      </p>
+                    )}
+                    {inviteType === 'project' && projectInvite && (
+                      <p className="text-sm text-gray-500 mt-1">
+                        {t('common.role', 'Role:')} <span className="font-medium capitalize">{projectInvite.role.replace('_', ' ')}</span>
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
               <div className="flex gap-3">

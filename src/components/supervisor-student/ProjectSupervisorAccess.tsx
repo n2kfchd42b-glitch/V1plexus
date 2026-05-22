@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { UserCheck, UserX, Eye, Loader2 } from 'lucide-react'
+import { UserCheck, UserX, Eye, Loader2, GraduationCap, ArrowRight } from 'lucide-react'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
 interface SupervisorEntry {
@@ -34,7 +35,20 @@ export function ProjectSupervisorAccess({ projectId }: Props) {
 
   // No supervisors assigned at all
   if (supervisors.length === 0) return (
-    <p className="text-xs text-slate-400 italic">No supervisors assigned to you yet.</p>
+    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center">
+      <GraduationCap className="h-6 w-6 mx-auto text-slate-300 mb-2" />
+      <p className="text-xs font-medium text-slate-500 mb-1">No supervisors assigned yet</p>
+      <p className="text-[11px] text-slate-400 mb-3">
+        Invite a supervisor from your Supervision page first, then come back here to control their project access.
+      </p>
+      <Link
+        href="/student/supervisor"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
+      >
+        Find a supervisor
+        <ArrowRight className="h-3 w-3" />
+      </Link>
+    </div>
   )
 
   async function toggle(entry: SupervisorEntry) {

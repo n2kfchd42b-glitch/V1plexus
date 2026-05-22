@@ -1,38 +1,32 @@
-"use client"
-
 import Link from 'next/link'
 import Image from 'next/image'
-import { useLocale } from '@/i18n/LocaleProvider'
+
+const FEATURES = [
+  {
+    icon: 'save',
+    title: 'Every step, automatically saved',
+    desc: 'From data import to final results, nothing gets lost or forgotten.',
+  },
+  {
+    icon: 'insights',
+    title: 'Run the right analysis',
+    desc: 'We guide you to the right method and run it — no statistics degree required.',
+  },
+  {
+    icon: 'group',
+    title: 'Work with your supervisor',
+    desc: 'Share results, get feedback, and move forward — together, in one place.',
+  },
+]
 
 export function AuthBrandPanel() {
-  const { t } = useLocale()
-
-  const FEATURES = [
-    {
-      icon: 'save',
-      title: t('authPanel.feature1.title'),
-      desc:  t('authPanel.feature1.desc'),
-    },
-    {
-      icon: 'insights',
-      title: t('authPanel.feature2.title'),
-      desc:  t('authPanel.feature2.desc'),
-    },
-    {
-      icon: 'group',
-      title: t('authPanel.feature3.title'),
-      desc:  t('authPanel.feature3.desc'),
-    },
-  ]
-
   return (
     <div className="relative h-full w-full bg-[#060d1c] flex flex-col overflow-hidden select-none">
 
-      {/* Background glow */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] rounded-full bg-[#003D9B]/20 blur-[120px]" />
-        <div className="absolute bottom-0 right-0 w-[300px] h-[300px] rounded-full bg-[#1e40af]/10 blur-[80px]" />
-      </div>
+      {/* Background gradient — no GPU blur filters */}
+      <div className="absolute inset-0 pointer-events-none"
+        style={{ background: 'radial-gradient(ellipse 60% 40% at 50% 33%, rgba(0,61,155,0.25) 0%, transparent 100%)' }}
+      />
 
       {/* Subtle grid overlay */}
       <div
@@ -60,14 +54,14 @@ export function AuthBrandPanel() {
       {/* Main copy */}
       <div className="relative z-10 flex-1 flex flex-col justify-center px-10 pb-8">
         <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/40 mb-5">
-          {t('authPanel.badge')}
+          Built for researchers, everywhere
         </p>
         <h2 className="font-serif text-4xl xl:text-5xl leading-[1.08] text-white mb-6">
-          {t('authPanel.headlinePart1')}<br />{t('authPanel.headlinePart2')}<br />
-          <span className="text-[#93c5fd]">{t('authPanel.highlight')}</span>
+          From data to<br />manuscript —<br />
+          <span className="text-[#93c5fd]">without the chaos.</span>
         </h2>
         <p className="text-white/50 text-sm leading-relaxed max-w-xs mb-10">
-          {t('authPanel.desc')}
+          Run analysis, write up your findings, and export everything — all in one place.
         </p>
 
         {/* Feature list */}
@@ -90,7 +84,7 @@ export function AuthBrandPanel() {
       <div className="relative z-10 px-10 pb-8">
         <div className="pt-6 border-t border-white/8">
           <Link href="/" className="text-white/40 hover:text-white/60 transition-colors text-xs underline underline-offset-2">
-            {t('authPanel.learnMore')}
+            Learn more about PLEXUS →
           </Link>
         </div>
       </div>

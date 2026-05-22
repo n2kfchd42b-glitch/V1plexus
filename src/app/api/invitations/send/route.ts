@@ -135,6 +135,93 @@ export async function POST(request: NextRequest) {
       if (insertError) {
         return NextResponse.json({ error: insertError.message }, { status: 500 })
       }
+    } else if (type === 'supervisor') {
+      // Student inviting an external person to be their supervisor
+      const { data: membership } = await serviceClient
+        .from('workspace_memberships')
+        .select('workspace_id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle()
+
+      if (!membership) {
+        return NextResponse.json({ error: 'No active workspace found. Complete setup first.' }, { status: 400 })
+      }
+
+      // Block duplicate pending supervisor invites
+      const { data: existingSupervisorInvite } = await serviceClient
+        .from('workspace_invitations')
+        .select('id')
+        .eq('workspace_id', membership.workspace_id)
+        .eq('email', normalizedEmail)
+        .eq('role', 'supervisor')
+        .eq('status', 'pending')
+        .maybeSingle()
+
+      if (existingSupervisorInvite) {
+        return NextResponse.json({ error: 'A supervisor invitation has already been sent to this email.' }, { status: 409 })
+      }
+
+      const { error: insertError } = await serviceClient
+        .from('workspace_invitations')
+        .insert({
+          workspace_id: membership.workspace_id,
+          email: normalizedEmail,
+          role: 'supervisor',
+          department_id: null,
+          supervisor_id: null,
+          message: message || null,
+          token,
+          invited_by: user.id,
+          status: 'pending',
+        })
+
+      if (insertError) {
+        return NextResponse.json({ error: insertError.message }, { status: 500 })
+      }
+
+      // Send tailored supervisor email and return early
+      const supervisorEmailResponse = await resend.emails.send({
+        from: 'Plexus <invitations@plexus.science>',
+        to: normalizedEmail,
+        subject: `${inviterName} is requesting your supervision on Plexus`,
+        html: `
+          <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;padding:40px 24px;color:#111827;">
+            <div style="margin-bottom:32px;">
+              <span style="font-size:22px;font-weight:700;color:#4338CA;">PLEXUS</span>
+            </div>
+            <h1 style="font-size:22px;font-weight:700;margin:0 0 12px;">Supervision Request</h1>
+            <p style="font-size:15px;color:#374151;margin:0 0 8px;">
+              <strong>${inviterName}</strong> is inviting you to be their research supervisor on Plexus.
+            </p>
+            ${message ? `
+            <div style="margin:20px 0;padding:14px 16px;background:#EEF2FF;border-left:3px solid #4338CA;border-radius:4px;font-size:14px;color:#374151;">
+              ${message}
+            </div>` : ''}
+            <p style="font-size:14px;color:#6B7280;margin:16px 0;">
+              Plexus is a research management platform. As a supervisor, you&apos;ll be able to view your student&apos;s projects, annotate their documents and datasets, log supervision sessions, and track milestones — all in one place.
+            </p>
+            <a href="${inviteLink}"
+              style="display:inline-block;margin-top:20px;padding:12px 28px;background:#4338CA;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;font-size:15px;">
+              Accept &amp; Join Plexus
+            </a>
+            <p style="margin-top:28px;font-size:12px;color:#9CA3AF;">
+              Or paste this link in your browser:<br/>
+              <a href="${inviteLink}" style="color:#6B7280;word-break:break-all;">${inviteLink}</a>
+            </p>
+            <hr style="border:none;border-top:1px solid #E5E7EB;margin:32px 0 20px;" />
+            <p style="font-size:11px;color:#9CA3AF;margin:0;">
+              Plexus Research Platform &mdash; You received this because a student requested your supervision.
+            </p>
+          </div>
+        `,
+      })
+
+      if (supervisorEmailResponse.error) {
+        return NextResponse.json({ error: `Failed to send invitation email: ${supervisorEmailResponse.error.message}` }, { status: 500 })
+      }
+
+      return NextResponse.json({ success: true })
     } else {
       return NextResponse.json({ error: 'Invalid invitation type' }, { status: 400 })
     }

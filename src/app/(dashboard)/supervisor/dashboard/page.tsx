@@ -4,10 +4,10 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  AlertTriangle, UserPlus, ChevronRight, ChevronDown,
+  AlertTriangle, ChevronRight, ChevronDown,
   Grid3X3, List, BarChart2, Filter, SortAsc, Check,
+  Clock, CheckCircle2, XCircle,
 } from 'lucide-react'
-import { InviteStudentModal } from '@/components/supervisor-student/InviteStudentModal'
 import { PhaseBar, PhasePill, PHASE_ORDER, type ResearchPhase } from '@/components/ui/phase-bar'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -292,41 +292,50 @@ const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: 'phase',    label: 'Phase' },
 ]
 
+interface PendingRequest {
+  id: string
+  assigned_at: string
+  student: {
+    id: string
+    full_name: string | null
+    email: string
+    title: string | null
+  }
+}
+
 export default function SupervisorDashboardPage() {
   const [students, setStudents] = useState<StudentAssignment[]>([])
+  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([])
   const [loading, setLoading] = useState(true)
-  const [showInvite, setShowInvite] = useState(false)
-  const [workspaceId, setWorkspaceId] = useState<string | null>(null)
-  const [workspaceName, setWorkspaceName] = useState('')
-  const [supervisorId, setSupervisorId] = useState<string | null>(null)
+  const [respondingTo, setRespondingTo] = useState<string | null>(null)
   const [view, setView] = useState<ViewMode>('grid')
   const [filterMode, setFilterMode] = useState<FilterMode>('all')
   const [sortMode, setSortMode] = useState<SortMode>('needs_me')
 
   const load = useCallback(async () => {
-    const res = await fetch('/api/supervisor/students')
-    if (res.ok) setStudents(await res.json())
+    const [studentsRes, requestsRes] = await Promise.all([
+      fetch('/api/supervisor/students'),
+      fetch('/api/supervisor/request'),
+    ])
+    if (studentsRes.ok) setStudents(await studentsRes.json())
+    if (requestsRes.ok) setPendingRequests(await requestsRes.json())
     setLoading(false)
   }, [])
 
-  useEffect(() => {
-    load()
-    const supabase = createClient()
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) return
-      setSupervisorId(user.id)
-      const { data } = await supabase
-        .from('workspace_memberships')
-        .select('workspace_id, workspace:workspaces(name)')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .single()
-      if (data) {
-        setWorkspaceId(data.workspace_id)
-        setWorkspaceName((data.workspace as { name?: string } | null)?.name ?? 'your workspace')
-      }
+  useEffect(() => { load() }, [load])
+
+  const respondToRequest = async (assignmentId: string, action: 'accept' | 'decline') => {
+    setRespondingTo(assignmentId)
+    const res = await fetch('/api/supervisor/assignments', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assignment_id: assignmentId, action }),
     })
-  }, [load])
+    if (res.ok) {
+      await load()
+    }
+    setRespondingTo(null)
+  }
 
   // Apply filter
   const filtered = students.filter(s => {
@@ -429,16 +438,58 @@ export default function SupervisorDashboardPage() {
               onChange={setSortMode}
             />
 
-            {workspaceId && supervisorId && (
-              <button
-                onClick={() => setShowInvite(true)}
-                className="flex items-center gap-1.5 h-8 px-3 rounded-md bg-accent-primary text-white text-xs font-semibold hover:opacity-90 transition-opacity"
-              >
-                <UserPlus className="h-3.5 w-3.5" /> Invite
-              </button>
-            )}
           </div>
         </div>
+
+        {/* Pending supervision requests */}
+        {pendingRequests.length > 0 && (
+          <div className="rounded-lg border border-indigo-200 bg-gradient-to-b from-indigo-50 to-white p-4 mb-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                <Clock className="h-4 w-4 text-indigo-600" />
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-text-primary">
+                  {pendingRequests.length} supervision request{pendingRequests.length !== 1 ? 's' : ''}
+                </div>
+                <div className="text-xs text-text-secondary">
+                  Students requesting you as their supervisor
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {pendingRequests.map(req => (
+                <div key={req.id} className="flex items-center gap-3 bg-white rounded-lg border border-indigo-100 px-3 py-2.5">
+                  <Avatar name={req.student.full_name} email={req.student.email} size={28} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-text-primary truncate">
+                      {req.student.full_name ?? req.student.email}
+                    </div>
+                    {req.student.title && (
+                      <div className="text-[11px] text-text-tertiary font-mono truncate">{req.student.title}</div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => respondToRequest(req.id, 'decline')}
+                      disabled={respondingTo === req.id}
+                      className="flex items-center gap-1 h-7 px-2.5 rounded-md border border-border-default text-xs text-text-secondary hover:border-red-300 hover:text-red-600 transition-colors disabled:opacity-50"
+                    >
+                      <XCircle className="h-3 w-3" /> Decline
+                    </button>
+                    <button
+                      onClick={() => respondToRequest(req.id, 'accept')}
+                      disabled={respondingTo === req.id}
+                      className="flex items-center gap-1 h-7 px-2.5 rounded-md bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="h-3 w-3" /> Accept
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Attention strip */}
         {(urgent.length > 0 || needsReview.length > 0) && (
@@ -551,14 +602,6 @@ export default function SupervisorDashboardPage() {
         )}
       </div>
 
-      {showInvite && workspaceId && supervisorId && (
-        <InviteStudentModal
-          workspaceId={workspaceId}
-          workspaceName={workspaceName}
-          supervisorId={supervisorId}
-          onClose={() => setShowInvite(false)}
-        />
-      )}
     </div>
   )
 }

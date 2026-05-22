@@ -173,11 +173,10 @@ export async function POST(
     })
 
     // 6. Notify researcher
-    const { data: supervisor } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', user.id)
-      .single()
+    const [{ data: supervisor }, { data: researcherProfile }] = await Promise.all([
+      supabase.from('profiles').select('full_name').eq('id', user.id).single(),
+      supabase.from('profiles').select('email').eq('id', approvalReq.requested_by).single(),
+    ])
 
     const supervisorName = supervisor?.full_name ?? 'Your supervisor'
     const datasetName = dataset?.name ?? 'your dataset'
@@ -214,7 +213,8 @@ export async function POST(
         notif.body,
         notif.link,
         { resource_type: 'dataset_approval_request', resource_id: requestId },
-        supabase
+        supabase,
+        researcherProfile?.email ?? undefined,
       )
     }
 

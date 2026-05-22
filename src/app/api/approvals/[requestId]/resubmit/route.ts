@@ -108,6 +108,12 @@ export async function POST(
     const notifLink = `/approvals/${requestId}`
 
     if (approvalReq.assigned_supervisor) {
+      const { data: supervisorProfile } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('id', approvalReq.assigned_supervisor)
+        .single()
+
       await sendNotification(
         approvalReq.assigned_supervisor,
         'approval_resubmitted',
@@ -115,7 +121,8 @@ export async function POST(
         notifBody,
         notifLink,
         { resource_type: 'dataset_approval_request', resource_id: requestId },
-        supabase
+        supabase,
+        supervisorProfile?.email ?? undefined,
       )
     } else {
       const { data: proj } = await supabase

@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { BrandLogo } from '@/components/layout/BrandLogo'
@@ -59,6 +59,8 @@ function RegisterForm() {
   const [loading, setLoading] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const { t } = useTranslations()
+
+  useEffect(() => { router.prefetch(redirect) }, [router, redirect])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

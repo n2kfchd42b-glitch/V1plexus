@@ -9,7 +9,6 @@ import {
 import { cn } from '@/lib/utils'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { WorkspaceMemberRole } from '@/types/database'
 
 const personalNav = [
   { href: '/dashboard',     label: 'Dashboard',     icon: LayoutDashboard },
@@ -26,19 +25,37 @@ interface PersonalSidebarProps {
 
 export function PersonalSidebar({ collapsed, onCommandPalette }: PersonalSidebarProps) {
   const pathname = usePathname()
-  const [workspaceRole, setWorkspaceRole] = useState<WorkspaceMemberRole | null>(null)
+  const [isSupervisor, setIsSupervisor] = useState(false)
+  const [isSupervised, setIsSupervised] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) return
-      supabase
-        .from('workspace_memberships')
-        .select('role')
-        .eq('user_id', data.user.id)
-        .eq('status', 'active')
-        .single()
-        .then(({ data: m }) => { if (m) setWorkspaceRole(m.role as WorkspaceMemberRole) })
+      const uid = data.user.id
+
+      const [supervisorRes, studentRes, milestonesRes] = await Promise.all([
+        // Supervisor: any active or pending assignments where I am the supervisor
+        supabase
+          .from('supervisor_assignments')
+          .select('id', { count: 'exact', head: true })
+          .eq('supervisor_id', uid)
+          .in('status', ['active', 'pending']),
+        // Student: active assignment where I have an accepted supervisor
+        supabase
+          .from('supervisor_assignments')
+          .select('id', { count: 'exact', head: true })
+          .eq('student_id', uid)
+          .eq('status', 'active'),
+        // Milestones: student has milestones even without an active supervisor
+        supabase
+          .from('student_milestones')
+          .select('id', { count: 'exact', head: true })
+          .eq('student_id', uid),
+      ])
+
+      setIsSupervisor((supervisorRes.count ?? 0) > 0)
+      setIsSupervised((studentRes.count ?? 0) > 0 || (milestonesRes.count ?? 0) > 0)
     })
   }, [supabase])
 
@@ -75,7 +92,7 @@ export function PersonalSidebar({ collapsed, onCommandPalette }: PersonalSidebar
       })}
 
       {/* Role-specific nav */}
-      {workspaceRole === 'supervisor' && (
+      {isSupervisor && (
         <>
           <div className="my-2 h-px bg-slate-100" />
           {!collapsed && (
@@ -104,7 +121,7 @@ export function PersonalSidebar({ collapsed, onCommandPalette }: PersonalSidebar
         </>
       )}
 
-      {workspaceRole === 'student' && (
+      {isSupervised && (
         <>
           <div className="my-2 h-px bg-slate-100" />
           {!collapsed && (

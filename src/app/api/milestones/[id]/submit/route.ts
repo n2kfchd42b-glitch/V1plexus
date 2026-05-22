@@ -74,11 +74,11 @@ export async function POST(
 
   // Notify the supervisor (non-blocking)
   if (milestone.supervisor_id) {
-    const { data: studentProfile } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', user.id)
-      .single()
+    const serviceClient = createServiceClient()
+    const [{ data: studentProfile }, { data: supervisorProfile }] = await Promise.all([
+      supabase.from('profiles').select('full_name').eq('id', user.id).single(),
+      serviceClient.from('profiles').select('email').eq('id', milestone.supervisor_id).single(),
+    ])
     const studentName = studentProfile?.full_name ?? 'A student'
     const projectPath = milestone.project_id
       ? `/supervisor/projects/${milestone.project_id}`
@@ -91,7 +91,8 @@ export async function POST(
       milestone.title,
       projectPath,
       { resource_type: 'milestone', resource_id: id },
-      createServiceClient(),
+      serviceClient,
+      supervisorProfile?.email ?? undefined,
     )
   }
 

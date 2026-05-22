@@ -64,10 +64,30 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable} ${manrope.variable} ${inter.variable} ${instrumentSerif.variable} ${lora.variable}`}>
       <head>
+        {/* Preconnect to reduce DNS + TLS handshake time for critical third-party origins */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link rel="preconnect" href="https://dsswjchsnayhngjkbbed.supabase.co" />
+        {/* Load Material Symbols without blocking initial paint */}
         <link
+          rel="preload"
+          as="style"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        />
+        <link
+          id="material-symbols-css"
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
           rel="stylesheet"
+          media="print"
+          suppressHydrationWarning
         />
+        <script dangerouslySetInnerHTML={{ __html: `(function(){var l=document.getElementById('material-symbols-css');if(l)l.addEventListener('load',function(){l.media='all'})})()` }} />
+        <noscript>
+          <link
+            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+            rel="stylesheet"
+          />
+        </noscript>
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
         {/* Unregister any stale service workers so cached JS chunks never block updates */}
         <script dangerouslySetInnerHTML={{ __html: `

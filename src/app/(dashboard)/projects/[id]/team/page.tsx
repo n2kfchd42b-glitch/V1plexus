@@ -10,11 +10,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Users, UserPlus, Crown, Trash2, Search, X, Mail, Clock, Eye } from 'lucide-react'
+import { Users, UserPlus, Crown, Trash2, Search, X, Mail, Clock, GraduationCap } from 'lucide-react'
 import { toast } from 'sonner'
 import { logAudit } from '@/lib/audit'
 import { ProjectSupervisorAccess } from '@/components/supervisor-student/ProjectSupervisorAccess'
-import type { ProjectMember, Profile } from '@/types/database'
+import type { ProjectMember, Profile, ProjectInviteRole } from '@/types/database'
 
 
 type MemberWithProfile = ProjectMember & { user: Profile }
@@ -29,8 +29,8 @@ type PendingInvitation = {
 
 const roleLabel: Record<string, string> = {
   owner: 'Owner',
-  pi: 'Principal Investigator',
-  member: 'Researcher',
+  pi: 'Co-PI',
+  member: 'Collaborator',
   viewer: 'Viewer',
 }
 
@@ -41,12 +41,12 @@ const roleBadgeClass: Record<string, string> = {
   viewer: 'bg-[var(--bg-inset)] text-[var(--text-tertiary)]',
 }
 
-// Map team page roles to invitation table roles
-const roleToInviteRole: Record<string, string> = {
-  pi: 'co_pi',
-  member: 'researcher',
-  viewer: 'viewer',
-}
+const INVITE_ROLES: { value: ProjectInviteRole; label: string; description: string }[] = [
+  { value: 'co_pi',        label: 'Co-PI',        description: 'Can manage team, approve documents, and create ethics submissions' },
+  { value: 'collaborator', label: 'Collaborator',  description: 'Can create and edit documents, collect data, run analyses' },
+  { value: 'reviewer',     label: 'Reviewer',      description: 'Can review and comment on documents, cannot edit' },
+  { value: 'viewer',       label: 'Viewer',        description: 'Read-only access to all project content' },
+]
 
 export default function ProjectTeamPage() {
   const params = useParams()
@@ -65,7 +65,7 @@ export default function ProjectTeamPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Profile[]>([])
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null)
-  const [newMemberRole, setNewMemberRole] = useState<'pi' | 'member' | 'viewer'>('member')
+  const [newMemberRole, setNewMemberRole] = useState<ProjectInviteRole>('collaborator')
   const [adding, setAdding] = useState(false)
 
   // Email-invite mode (for users who don't have an account yet)
@@ -112,7 +112,7 @@ export default function ProjectTeamPage() {
         body: JSON.stringify({
           type: 'project',
           email: selectedUser.email.trim().toLowerCase(),
-          role: roleToInviteRole[newMemberRole] ?? 'researcher',
+          role: newMemberRole,
           projectId,
           projectTitle: projectTitle || 'Project',
         }),
@@ -151,7 +151,7 @@ export default function ProjectTeamPage() {
         body: JSON.stringify({
           type: 'project',
           email: inviteEmail.trim().toLowerCase(),
-          role: roleToInviteRole[newMemberRole] ?? 'researcher',
+          role: newMemberRole,
           projectId,
           projectTitle: projectTitle || 'Project',
           message: inviteMessage || null,
@@ -181,7 +181,7 @@ export default function ProjectTeamPage() {
     setSelectedUser(null)
     setInviteEmail('')
     setInviteMessage('')
-    setNewMemberRole('member')
+    setNewMemberRole('collaborator')
   }
 
   const handleRoleChange = async (memberId: string, role: string) => {
@@ -296,8 +296,8 @@ export default function ProjectTeamPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pi">Principal Investigator</SelectItem>
-                    <SelectItem value="member">Researcher</SelectItem>
+                    <SelectItem value="pi">Co-PI</SelectItem>
+                    <SelectItem value="member">Collaborator</SelectItem>
                     <SelectItem value="viewer">Viewer</SelectItem>
                   </SelectContent>
                 </Select>
@@ -368,13 +368,17 @@ export default function ProjectTeamPage() {
       {/* Supervisor access — only shown to project owner */}
       {isOwner && (
         <div className="mt-8 border border-[var(--border-default)] rounded-2xl p-5 bg-[var(--bg-surface)]">
-          <div className="flex items-center gap-2.5 mb-4">
-            <div className="h-8 w-8 rounded-lg bg-indigo-50 flex items-center justify-center">
-              <Eye className="h-4 w-4 text-indigo-500" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-[var(--text-primary)]">Supervisor Access</h3>
-              <p className="text-xs text-[var(--text-tertiary)]">Control which of your supervisors can view this project</p>
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                <GraduationCap className="h-4 w-4 text-indigo-500" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-[var(--text-primary)]">Supervisor Visibility</h3>
+                <p className="text-xs text-[var(--text-tertiary)]">
+                  Grant your assigned supervisors read-only access to this project&apos;s data and documents
+                </p>
+              </div>
             </div>
           </div>
           <ProjectSupervisorAccess projectId={projectId} />
@@ -491,31 +495,36 @@ export default function ProjectTeamPage() {
             {/* Role selector (shown in both modes) */}
             <div>
               <label className="text-sm font-medium text-[var(--text-primary)] block mb-1.5">Role in project</label>
-              <Select value={newMemberRole} onValueChange={v => setNewMemberRole(v as typeof newMemberRole)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pi">
-                    <div>
-                      <p className="font-medium">Principal Investigator</p>
-                      <p className="text-xs text-muted-foreground">Can manage team, approve documents, create ethics</p>
+              <div className="space-y-1.5">
+                {INVITE_ROLES.map(r => (
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => setNewMemberRole(r.value)}
+                    className={cn(
+                      'w-full flex items-start gap-3 px-3 py-2.5 rounded-lg border text-left transition-colors',
+                      newMemberRole === r.value
+                        ? 'border-[var(--accent-blue)] bg-blue-50 dark:bg-blue-950/20'
+                        : 'border-[var(--border-default)] hover:bg-[var(--bg-surface-hover)]'
+                    )}
+                  >
+                    <div className={cn(
+                      'mt-0.5 h-4 w-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center',
+                      newMemberRole === r.value ? 'border-[var(--accent-blue)]' : 'border-[var(--border-default)]'
+                    )}>
+                      {newMemberRole === r.value && (
+                        <div className="h-2 w-2 rounded-full bg-[var(--accent-blue)]" />
+                      )}
                     </div>
-                  </SelectItem>
-                  <SelectItem value="member">
                     <div>
-                      <p className="font-medium">Researcher</p>
-                      <p className="text-xs text-muted-foreground">Can create and edit documents, submit for review</p>
+                      <p className={cn('text-sm font-medium', newMemberRole === r.value ? 'text-[var(--accent-blue)]' : 'text-[var(--text-primary)]')}>
+                        {r.label}
+                      </p>
+                      <p className="text-xs text-[var(--text-tertiary)] mt-0.5">{r.description}</p>
                     </div>
-                  </SelectItem>
-                  <SelectItem value="viewer">
-                    <div>
-                      <p className="font-medium">Viewer</p>
-                      <p className="text-xs text-muted-foreground">Read-only access to all project content</p>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* If invite mode but email is still empty (non-email search term clicked), show email input */}
