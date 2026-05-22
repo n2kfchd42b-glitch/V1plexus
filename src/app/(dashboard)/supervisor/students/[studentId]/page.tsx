@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ArrowLeft, Plus, ExternalLink, Shield, Download,
+  ArrowLeft, Plus, ExternalLink, Shield,
   MessageSquare, CheckCircle2, PenLine, BarChart2,
   Database, X,
 } from 'lucide-react'
@@ -19,6 +19,7 @@ import { PhasePill, PHASE_ORDER, type ResearchPhase } from '@/components/ui/phas
 import { InteractivePhaseBar } from '@/components/project/InteractivePhaseBar'
 import type { GanttPhase } from '@/components/project/ProjectGantt'
 import { createClient } from '@/lib/supabase/client'
+import { buildResearchLogHtml } from '@/lib/audit/exportLedger'
 import { useAuth } from '@/hooks/useAuth'
 import { cn, formatRelative } from '@/lib/utils'
 import type { AuditEntry } from '@/types/audit'
@@ -90,6 +91,8 @@ export default function StudentDetailPage() {
   const [ledgerFilter,    setLedgerFilter]    = useState<'all' | 'data' | 'edits' | 'analyses' | 'approvals'>('all')
   const [ledgerEntries,   setLedgerEntries]   = useState<LedgerEntry[]>([])
   const [ledgerLoading,   setLedgerLoading]   = useState(false)
+  const [verifyStatus,    setVerifyStatus]    = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle')
+  const [exporting,       setExporting]       = useState(false)
 
   const load = useCallback(async () => {
     const [milestonesRes, profileRes, researchRes, annotationsRes] = await Promise.all([
@@ -175,6 +178,48 @@ export default function StudentDetailPage() {
     if (a.artifact_type === 'dataset')  return `${base}/datasets/${a.artifact_id}`
     if (a.artifact_type === 'analysis') return `${base}/analyses/${a.artifact_id}`
     return `${base}/documents/${a.artifact_id}`
+  }
+
+  const handleVerifyChain = async () => {
+    if (!primaryProjectId) return
+    setVerifyStatus('checking')
+    try {
+      const res = await fetch(`/api/audit/verify?project_id=${encodeURIComponent(primaryProjectId)}`)
+      if (!res.ok) throw new Error('verify failed')
+      const data = await res.json()
+      setVerifyStatus(data.chain_intact ? 'valid' : 'invalid')
+    } catch {
+      setVerifyStatus('invalid')
+    }
+  }
+
+  const handleExportLedger = async () => {
+    if (!primaryProjectId) return
+    setExporting(true)
+    try {
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select('*')
+        .eq('project_id', primaryProjectId)
+        .eq('actor_id', studentId)
+        .order('timestamp', { ascending: false })
+        .limit(500)
+      if (error) throw error
+      const exportedAt = new Date().toISOString()
+      const studentName = studentProfile?.full_name ?? studentId.slice(0, 8)
+      const html = buildResearchLogHtml(data ?? [], {
+        projectId: primaryProjectId,
+        subjectLabel: studentName,
+        exportedAt,
+      })
+
+      const blob = new Blob([html], { type: 'text/html' })
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } finally {
+      setExporting(false)
+    }
   }
 
   const filteredLedger = ledgerFilter === 'all'
@@ -415,7 +460,7 @@ export default function StudentDetailPage() {
           {/* Backdrop */}
           <div
             className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px]"
-            onClick={() => setLedgerOpen(false)}
+            onClick={() => { setLedgerOpen(false); setVerifyStatus('idle') }}
           />
 
           {/* Drawer */}
@@ -429,7 +474,7 @@ export default function StudentDetailPage() {
                 this student
               </span>
               <button
-                onClick={() => setLedgerOpen(false)}
+                onClick={() => { setLedgerOpen(false); setVerifyStatus('idle') }}
                 className="ml-auto flex items-center justify-center h-6 w-6 rounded hover:bg-bg-surface-hover transition-colors"
               >
                 <X className="h-3.5 w-3.5 text-text-tertiary" />
@@ -512,11 +557,23 @@ export default function StudentDetailPage() {
 
             {/* Footer */}
             <div className="px-3 py-3 border-t border-border-default flex gap-2 flex-shrink-0">
-              <button className="flex-1 flex items-center justify-center gap-1.5 h-7 px-2 rounded border border-border-default text-[11px] font-medium text-text-secondary hover:bg-bg-surface-hover transition-colors">
-                <Download className="h-3 w-3" /> Export
+              <button
+                onClick={handleExportLedger}
+                disabled={exporting || !primaryProjectId}
+                className="flex-1 flex items-center justify-center gap-1.5 h-7 px-2 rounded border border-border-default text-[11px] font-medium text-text-secondary hover:bg-bg-surface-hover transition-colors disabled:opacity-50"
+              >
+                <ExternalLink className="h-3 w-3" /> {exporting ? 'Loading…' : 'View ledger'}
               </button>
-              <button className="flex-1 flex items-center justify-center gap-1.5 h-7 px-2 rounded border border-border-default text-[11px] font-medium text-text-secondary hover:bg-bg-surface-hover transition-colors">
-                <Shield className="h-3 w-3" /> Verify chain
+              <button
+                onClick={handleVerifyChain}
+                disabled={verifyStatus === 'checking' || !primaryProjectId}
+                className="flex-1 flex items-center justify-center gap-1.5 h-7 px-2 rounded border border-border-default text-[11px] font-medium text-text-secondary hover:bg-bg-surface-hover transition-colors disabled:opacity-50"
+              >
+                <Shield className={`h-3 w-3 ${verifyStatus === 'valid' ? 'text-green-600' : verifyStatus === 'invalid' ? 'text-red-500' : ''}`} />
+                {verifyStatus === 'idle' && 'Verify chain'}
+                {verifyStatus === 'checking' && 'Checking…'}
+                {verifyStatus === 'valid' && 'Chain intact'}
+                {verifyStatus === 'invalid' && 'Violation found'}
               </button>
             </div>
           </div>

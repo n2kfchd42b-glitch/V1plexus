@@ -164,45 +164,45 @@ export default function ProjectDataPage() {
         {panelOpen ? (
           <>
             {/* Panel header */}
-            <div className="flex items-center justify-between px-3 pt-4 pb-3 shrink-0 border-b border-[var(--border-subtle)]">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{t('data.datasets')}</p>
-                {!listLoading && (
-                  <p className="text-[10px] text-[var(--text-tertiary)]">
-                    {datasets.length} {showArchived ? t('common.inactive', 'archived') : t('common.active')}
-                    {isStale && !isOnline && (
-                      <span
-                        className="ml-1.5 inline-flex items-center px-1.5 rounded-full"
-                        style={{
-                          background: 'rgba(180,83,9,0.08)',
-                          color: '#b45309',
-                          border: '1px solid rgba(180,83,9,0.2)',
-                          fontSize: 9,
-                          fontWeight: 600,
-                        }}
-                      >
-                        {t('data.cached')}
-                      </span>
-                    )}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  onClick={() => setShowUpload(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[var(--accent-primary)] text-[var(--text-inverse)] text-[11px] font-semibold hover:opacity-90 transition-opacity"
-                >
-                  <Upload className="h-3 w-3" />
-                  {t('data.import')}
-                </button>
+            <div className="px-3 pt-4 pb-3 shrink-0 border-b border-[var(--border-subtle)]">
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{t('data.datasets')}</p>
+                  {!listLoading && (
+                    <p className="text-[10px] text-[var(--text-tertiary)]">
+                      {datasets.length} {showArchived ? t('common.inactive', 'archived') : t('common.active')}
+                      {isStale && !isOnline && (
+                        <span
+                          className="ml-1.5 inline-flex items-center px-1.5 rounded-full"
+                          style={{
+                            background: 'rgba(180,83,9,0.08)',
+                            color: '#b45309',
+                            border: '1px solid rgba(180,83,9,0.2)',
+                            fontSize: 9,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {t('data.cached')}
+                        </span>
+                      )}
+                    </p>
+                  )}
+                </div>
                 <button
                   onClick={() => setPanelOpen(false)}
-                  className="h-6 w-6 flex items-center justify-center rounded text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] transition-colors"
+                  className="h-6 w-6 flex items-center justify-center rounded text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] transition-colors shrink-0"
                   title={t('data.collapsePanel')}
                 >
                   <ChevronsLeft className="h-3.5 w-3.5" />
                 </button>
               </div>
+              <button
+                onClick={() => setShowUpload(true)}
+                className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[var(--accent-primary)] text-[var(--text-inverse)] text-[11px] font-semibold hover:opacity-90 transition-opacity"
+              >
+                <Upload className="h-3 w-3" />
+                {t('data.import')}
+              </button>
             </div>
 
             {/* Archive toggle */}
