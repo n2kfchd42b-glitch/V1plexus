@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { checkRateLimit } from '@/lib/rateLimit'
+import { createClient } from '@/lib/supabase/server'
 import type { AnalysisType } from '@/types/database'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -49,6 +50,12 @@ const ANALYSIS_CATALOGUE = [
 ]
 
 export async function POST(req: NextRequest) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const rateLimitResponse = checkRateLimit(req, { limit: 20, windowMs: 60 * 60 * 1000 })
   if (rateLimitResponse) return rateLimitResponse
 
