@@ -1,8 +1,8 @@
 "use client"
 
-import { Suspense, useState, useEffect } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { BrandLogo } from '@/components/layout/BrandLogo'
 import { createClient } from '@/lib/supabase/client'
 import { useTranslations } from '@/i18n/useTranslations'
@@ -48,7 +48,6 @@ function ConfirmationPrompt({ email, redirect, emailRedirectTo }: { email: strin
 }
 
 function RegisterForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const redirect = searchParams.get('redirect') ?? '/dashboard'
   const [fullName, setFullName] = useState('')
@@ -59,8 +58,6 @@ function RegisterForm() {
   const [loading, setLoading] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const { t } = useTranslations()
-
-  useEffect(() => { router.prefetch(redirect) }, [router, redirect])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -83,13 +80,10 @@ function RegisterForm() {
       return
     }
 
+    // Success: server returns 201 and queues a confirmation email.
+    // Show the "check your inbox" prompt — the user is not yet logged in.
     setConfirming(true)
     setLoading(false)
-
-    if (res.status === 200) {
-      router.push(redirect)
-      router.refresh()
-    }
   }
 
   if (confirming) {

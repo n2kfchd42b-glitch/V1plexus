@@ -38,13 +38,31 @@ function LoginForm() {
       } else {
         setError(error.message)
       }
-    } else {
-      if (data.user) {
-        logAudit('auth.login', 'profile', data.user.id, { summary: 'User signed in', method: 'password' })
-      }
-      router.push(redirect)
+      setLoading(false)
+      return
     }
-    setLoading(false)
+
+    if (data.user) {
+      void logAudit('auth.login', 'profile', data.user.id, { summary: 'User signed in', method: 'password' })
+    }
+
+    // Resolve role-specific landing page client-side so we skip the
+    // /dashboard server redirect hop. Only when the caller didn't pass an
+    // explicit ?redirect= override.
+    let target = redirect
+    if (redirect === '/dashboard' && data.user) {
+      const { data: membership } = await supabase
+        .from('workspace_memberships')
+        .select('role')
+        .eq('user_id', data.user.id)
+        .eq('status', 'active')
+        .maybeSingle()
+      if (membership?.role === 'supervisor') target = '/supervisor/dashboard'
+      else if (membership?.role === 'student') target = '/student/milestones'
+      else target = '/projects'
+    }
+
+    router.push(target)
   }
 
   return (

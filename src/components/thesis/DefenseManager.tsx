@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Calendar, MapPin, Link2, Clock, Video } from "lucide-react";
+import { Calendar, MapPin, Clock, Video } from "lucide-react";
 import {
   ThesisDefense, ThesisChapter, ThesisCommittee, ThesisMetadata, DefenseType
 } from "@/lib/types/thesis";
 import { DefenseChecklist } from "./DefenseChecklist";
 import { DefenseOutcomeForm } from "./DefenseOutcomeForm";
+import { UnfinishedFeatureBanner } from "./UnfinishedFeatureBanner";
 
 interface DefenseManagerProps {
   projectId: string;
@@ -18,32 +19,21 @@ interface DefenseManagerProps {
 }
 
 export function DefenseManager({
-  projectId,
   metadata,
-  defense: initialDefense,
+  defense,
   chapters,
   committee,
-  canEdit,
 }: DefenseManagerProps) {
-  const [defense, setDefense] = useState(initialDefense);
   const [defenseType, setDefenseType] = useState<DefenseType>("final");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [location, setLocation] = useState("");
   const [meetingLink, setMeetingLink] = useState("");
-  const [saving, setSaving] = useState(false);
   const [section, setSection] = useState<"checklist" | "schedule" | "outcome">("checklist");
 
   const hasScheduled = !!(defense?.scheduled_date);
-  const hasOutcome = !!(defense?.outcome);
 
-  async function handleSchedule(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    // TODO: upsert thesis_defenses via Supabase
-    await new Promise(r => setTimeout(r, 500));
-    setSaving(false);
-  }
+  // Defense scheduling backend not yet implemented. Submit handler is disabled.
 
   return (
     <div className="space-y-6">
@@ -83,8 +73,9 @@ export function DefenseManager({
 
       {/* Schedule */}
       {section === "schedule" && (
-        <div className="bg-white rounded-lg border border-gray-200 p-5">
-          <h3 className="font-semibold text-gray-900 mb-4">Schedule Defense</h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
+          <h3 className="font-semibold text-gray-900">Schedule Defense</h3>
+          <UnfinishedFeatureBanner feature="Defense scheduling" />
           {defense && (
             <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
               <p className="font-medium">Currently Scheduled</p>
@@ -95,7 +86,7 @@ export function DefenseManager({
               </p>
             </div>
           )}
-          <form onSubmit={handleSchedule} className="space-y-4">
+          <form onSubmit={e => e.preventDefault()} className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Defense Type</label>
               <select
@@ -163,10 +154,11 @@ export function DefenseManager({
             <div className="flex justify-end gap-2">
               <button
                 type="submit"
-                disabled={saving || !date}
-                className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                disabled
+                title="Backend not yet connected"
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded opacity-50 cursor-not-allowed"
               >
-                {saving ? "Scheduling..." : hasScheduled ? "Update Schedule" : "Schedule Defense"}
+                {hasScheduled ? "Update Schedule" : "Schedule Defense"}
               </button>
             </div>
           </form>
@@ -180,12 +172,7 @@ export function DefenseManager({
           {!hasScheduled ? (
             <p className="text-sm text-gray-500">Schedule the defense first before recording an outcome.</p>
           ) : defense ? (
-            <DefenseOutcomeForm
-              defense={defense}
-              onSaved={() => {
-                // TODO: refresh defense data
-              }}
-            />
+            <DefenseOutcomeForm defense={defense} />
           ) : (
             <p className="text-sm text-gray-500">No defense scheduled yet.</p>
           )}

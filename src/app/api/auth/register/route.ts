@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { createServiceClient } from "@/lib/supabase/service"
+import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 import { validateEmailDomain } from "@/lib/disposable-email-domains"
 
 const schema = z.object({
@@ -34,30 +34,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: emailCheck.reason }, { status: 422 })
   }
 
-  const supabase = createServiceClient()
+  // Use the anon client + signUp() so Supabase creates the user AND sends the
+  // confirmation email in one call. The previous flow chained admin.createUser
+  // (which never sends a confirmation email) with admin.generateLink (which
+  // rejects already-created users with "User already registered"), leaving
+  // users in an unconfirmed state with no email — and login then failed.
+  const supabase = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
 
-  // Create the user without auto-confirming — they must verify via email
-  const { data, error } = await supabase.auth.admin.createUser({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    user_metadata: { full_name: fullName },
-    email_confirm: false,
+    options: {
+      data: { full_name: fullName },
+      emailRedirectTo,
+    },
   })
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
-
-  // admin.createUser does NOT send a confirmation email on its own.
-  // generateLink with type "signup" queues the confirmation email through
-  // Supabase's mailer, so the user receives the branded verify link.
-  const redirectTo = emailRedirectTo ?? `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/auth/callback`
-  await supabase.auth.admin.generateLink({
-    type: "signup",
-    email,
-    password,
-    options: { redirectTo },
-  })
 
   return NextResponse.json({ userId: data.user?.id }, { status: 201 })
 }

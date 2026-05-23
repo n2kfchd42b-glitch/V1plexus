@@ -101,14 +101,13 @@ export default async function ProjectOverviewPage({
   }))
 
   const rawRun = (rawLatestRun ?? [])[0] ?? null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const latestRun: LatestRun | null = rawRun ? {
-    id:             (rawRun as any).id,
-    title:          (rawRun as any).title ?? null,
-    analysis_type:  (rawRun as any).analysis_type,
-    status:         (rawRun as any).status,
-    interpretation: (rawRun as any).interpretation ?? null,
-    created_at:     (rawRun as any).created_at,
+    id:             rawRun.id,
+    title:          rawRun.title ?? null,
+    analysis_type:  rawRun.analysis_type,
+    status:         rawRun.status,
+    interpretation: rawRun.interpretation ?? null,
+    created_at:     rawRun.created_at,
   } : null
 
   return (

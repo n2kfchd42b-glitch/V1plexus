@@ -1,5 +1,6 @@
 import { createBrowserClient } from '@supabase/ssr'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './env'
 
 // In-process lock: a simple promise chain per lock name.
 // This replaces the default navigator.locks implementation, which uses the
@@ -26,8 +27,8 @@ let _client: SupabaseClient | null = null
 export function createClient(): SupabaseClient {
   if (!_client) {
     _client = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://placeholder.supabase.co',
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'placeholder-key',
+      SUPABASE_URL,
+      SUPABASE_ANON_KEY,
       {
         auth: {
           autoRefreshToken: true,

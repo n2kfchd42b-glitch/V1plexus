@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { ThesisDefense, DefenseOutcome } from "@/lib/types/thesis";
+import { UnfinishedFeatureBanner } from "./UnfinishedFeatureBanner";
 
 interface DefenseOutcomeFormProps {
   defense: ThesisDefense;
-  onSaved?: () => void;
 }
 
 const OUTCOMES: { value: DefenseOutcome; label: string; description: string }[] = [
@@ -15,26 +15,16 @@ const OUTCOMES: { value: DefenseOutcome; label: string; description: string }[] 
   { value: "fail",                  label: "Fail",                   description: "Thesis not accepted" },
 ];
 
-export function DefenseOutcomeForm({ defense, onSaved }: DefenseOutcomeFormProps) {
+export function DefenseOutcomeForm({ defense }: DefenseOutcomeFormProps) {
   const [outcome, setOutcome] = useState<DefenseOutcome | "">(defense.outcome ?? "");
   const [deadline, setDeadline] = useState(defense.corrections_deadline ?? "");
   const [notes, setNotes] = useState(defense.notes ?? "");
-  const [saving, setSaving] = useState(false);
 
   const needsDeadline = outcome === "pass_with_corrections" || outcome === "revise_resubmit";
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    if (!outcome) return;
-    setSaving(true);
-    // TODO: update thesis_defenses via Supabase
-    await new Promise(r => setTimeout(r, 500));
-    setSaving(false);
-    onSaved?.();
-  }
-
   return (
-    <form onSubmit={handleSave} className="space-y-4">
+    <form onSubmit={e => e.preventDefault()} className="space-y-4">
+      <UnfinishedFeatureBanner feature="Defense outcome recording" />
       {/* Outcome */}
       <div>
         <label className="block text-xs font-medium text-gray-700 mb-2">Defense Outcome *</label>
@@ -94,10 +84,11 @@ export function DefenseOutcomeForm({ defense, onSaved }: DefenseOutcomeFormProps
       <div className="flex justify-end">
         <button
           type="submit"
-          disabled={!outcome || saving}
-          className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+          disabled
+          title="Backend not yet connected"
+          className="px-4 py-2 text-sm bg-blue-600 text-white rounded opacity-50 cursor-not-allowed"
         >
-          {saving ? "Saving..." : "Record Outcome"}
+          Record Outcome
         </button>
       </div>
     </form>

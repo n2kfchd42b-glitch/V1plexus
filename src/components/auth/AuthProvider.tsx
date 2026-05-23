@@ -91,11 +91,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     const supabase = createClient()
+    // Fire-and-forget the audit log so a slow/failing network call can't
+    // strand the user in a "signing out…" state. We don't await it.
     if (user) {
-      await logAudit('auth.logout', 'profile', user.id, { summary: 'User signed out' })
+      void logAudit('auth.logout', 'profile', user.id, { summary: 'User signed out' })
     }
-    document.cookie = 'workspace_ready=; path=/; max-age=0'
     await supabase.auth.signOut({ scope: 'local' })
+    // The workspace_ready cookie is httpOnly so JS can't clear it; the
+    // middleware compares it to user.id, so a stale value just triggers a
+    // fresh DB check on the next request — not a security issue.
     window.location.href = '/login?signout=1'
   }
 

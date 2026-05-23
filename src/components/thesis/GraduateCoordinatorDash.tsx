@@ -25,7 +25,6 @@ export function GraduateCoordinatorDash({ departmentName, students }: GraduateCo
   const filtered = filter === "all" ? students : students.filter(s => s.status_label === filter);
 
   function handleExportReport() {
-    // TODO: generate real PDF/CSV report
     const headers = "Student,Degree,Supervisor,Progress,Status,Expected Completion\n";
     const rows = students.map(s =>
       `"${s.student_name}","${s.degree_type}","${s.supervisor_name ?? ""}",${s.progress_percent}%,"${s.status_label}","${s.expected_completion ?? ""}"`

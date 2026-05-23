@@ -3,6 +3,11 @@ import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic' // never cache — globe must always reflect live data
 
+// Reads from the public.globe_researchers view (created in
+// 20260523000003_globe_public_view.sql) using the anon key. The view exposes
+// only opt-in, non-PII columns, so we no longer need SUPABASE_SERVICE_ROLE_KEY
+// on a public endpoint.
+
 // Demo seed researchers for campaign launch.
 // Weighted toward Africa and the Americas; no Caribbean islands, no Australia.
 // ~10 marked offline (active: false) for realism.
@@ -66,17 +71,17 @@ const DEMO_RESEARCHERS = [
 ]
 
 export async function GET() {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!url || !anonKey) {
+    return NextResponse.json({ researchers: DEMO_RESEARCHERS, total: DEMO_RESEARCHERS.length, cities: 0, countries: 0, online: 0 })
+  }
+
+  const supabase = createClient(url, anonKey)
 
   const { data, error } = await supabase
-    .from('profiles')
+    .from('globe_researchers')
     .select('lat, lng, city, country, last_seen_at, research_discipline')
-    .eq('show_on_globe', true)
-    .not('lat', 'is', null)
-    .not('lng', 'is', null)
 
   if (error) {
     return NextResponse.json({ researchers: [], total: 0, cities: 0, countries: 0, online: 0 })

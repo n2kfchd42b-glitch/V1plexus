@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, Bell, Users } from "lucide-react";
 import { CoordinatorThesisRow } from "@/lib/types/thesis";
+import { UnfinishedFeatureBanner } from "./UnfinishedFeatureBanner";
 
 interface BulkReminderModalProps {
   students: CoordinatorThesisRow[];
@@ -20,8 +21,6 @@ export function BulkReminderModal({ students, onClose }: BulkReminderModalProps)
   const [reminderType, setReminderType] = useState("chapter_overdue");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(students.map(s => s.project_id)));
   const [customMessage, setCustomMessage] = useState("");
-  const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
 
   function toggleStudent(id: string) {
     setSelectedIds(prev => {
@@ -40,14 +39,8 @@ export function BulkReminderModal({ students, onClose }: BulkReminderModalProps)
     }
   }
 
-  async function handleSend() {
-    setSending(true);
-    // TODO: trigger notification/email API for selected students
-    await new Promise(r => setTimeout(r, 800));
-    setSending(false);
-    setSent(true);
-    setTimeout(onClose, 1500);
-  }
+  // Backend not yet implemented — handler intentionally disabled.
+  // The Send button is disabled in the JSX below.
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -64,6 +57,7 @@ export function BulkReminderModal({ students, onClose }: BulkReminderModalProps)
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          <UnfinishedFeatureBanner feature="Bulk reminder sending" />
           {/* Reminder type */}
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-2">Reminder Type</label>
@@ -143,11 +137,12 @@ export function BulkReminderModal({ students, onClose }: BulkReminderModalProps)
             Cancel
           </button>
           <button
-            onClick={handleSend}
-            disabled={sending || selectedIds.size === 0 || sent}
-            className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            type="button"
+            disabled
+            title="Backend not yet connected"
+            className="px-4 py-2 text-sm bg-blue-600 text-white rounded opacity-50 cursor-not-allowed"
           >
-            {sent ? "Sent!" : sending ? "Sending..." : `Send to ${selectedIds.size} student${selectedIds.size !== 1 ? "s" : ""}`}
+            Send to {selectedIds.size} student{selectedIds.size !== 1 ? "s" : ""}
           </button>
         </div>
       </div>

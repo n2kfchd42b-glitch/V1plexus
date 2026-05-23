@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { CheckCircle2, Clock, AlertTriangle, ChevronRight, User } from 'lucide-react'
 
@@ -98,7 +99,14 @@ export function SupervisorCohortView({ students }: Props) {
                 {/* Avatar */}
                 <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 text-indigo-700 font-bold text-sm">
                   {student.avatar_url ? (
-                    <img src={student.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover" />
+                    <Image
+                      src={student.avatar_url}
+                      alt={student.full_name ?? student.email}
+                      width={40}
+                      height={40}
+                      className="w-10 h-10 rounded-full object-cover"
+                      unoptimized
+                    />
                   ) : (
                     (student.full_name ?? student.email).charAt(0).toUpperCase()
                   )}
