@@ -18,7 +18,11 @@ import { getInitials } from '@/lib/utils'
 import { LanguageSelector } from '@/components/i18n/LanguageSelector'
 import Image from 'next/image'
 import { useLocale } from '@/i18n/LocaleProvider'
-import { AlertTriangle, ExternalLink, ChevronRight, CheckCircle2, Globe, MapPin, Loader2, ChevronDown } from 'lucide-react'
+import {
+  AlertTriangle, ExternalLink, CheckCircle2, Globe, MapPin, Loader2, ChevronDown,
+  UserCircle, Pencil, ShieldCheck, BadgeCheck, HelpCircle, Camera, Building2,
+  Phone, Link2, FileText, Upload,
+} from 'lucide-react'
 import type { Profile } from '@/types/database'
 import type { User } from '@supabase/supabase-js'
 import { logAudit } from '@/lib/audit'
@@ -42,13 +46,13 @@ const PHASE_LABELS: Record<string, string> = {
 }
 
 const PHASE_COLORS: Record<string, string> = {
-  concept:     '#A1A1AA',
-  protocol:    '#3B82F6',
-  ethics:      '#F59E0B',
-  data:        '#8B5CF6',
-  analysis:    '#EC4899',
-  writing:     '#14B8A6',
-  publication: '#22C55E',
+  concept:     'var(--phase-concept)',
+  protocol:    'var(--phase-protocol)',
+  ethics:      'var(--phase-ethics)',
+  data:        'var(--phase-data)',
+  analysis:    'var(--phase-analysis)',
+  writing:     'var(--phase-writing)',
+  publication: 'var(--phase-publication)',
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -57,12 +61,6 @@ const STATUS_COLORS: Record<string, string> = {
   completed: 'bg-emerald-50 text-emerald-700',
   archived:  'bg-slate-100 text-slate-500',
   on_hold:   'bg-amber-50 text-amber-700',
-}
-
-const PLAN_FEATURES: Record<string, string[]> = {
-  free:        ['Up to 3 active projects', '500 MB storage', 'Basic analytics', 'Community support'],
-  pro:         ['Unlimited projects', '50 GB storage', 'Advanced analytics & exports', 'Priority email support', 'Team collaboration'],
-  institution: ['Everything in Pro', 'Unlimited storage', 'Institutional workspace', 'Admin dashboard', 'Dedicated support', 'SSO / SAML'],
 }
 
 const COUNTRIES = [
@@ -86,13 +84,13 @@ const COUNTRIES = [
   'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe',
 ]
 
-type Tab = 'overview' | 'edit' | 'security' | 'billing' | 'danger'
+type Tab = 'overview' | 'edit' | 'security' | 'danger'
 
-const NAV: { id: Tab; labelKey: string; icon: string }[] = [
-  { id: 'overview',  labelKey: 'profileSettings.navOverview', icon: 'account_circle' },
-  { id: 'edit',      labelKey: 'profileSettings.navEdit',     icon: 'edit' },
-  { id: 'security',  labelKey: 'profileSettings.navSecurity', icon: 'shield_lock' },
-  { id: 'danger',    labelKey: 'profileSettings.navDanger',   icon: 'warning' },
+const NAV: { id: Tab; labelKey: string; Icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: 'overview', labelKey: 'profileSettings.navOverview', Icon: UserCircle },
+  { id: 'edit',     labelKey: 'profileSettings.navEdit',     Icon: Pencil },
+  { id: 'security', labelKey: 'profileSettings.navSecurity', Icon: ShieldCheck },
+  { id: 'danger',   labelKey: 'profileSettings.navDanger',   Icon: AlertTriangle },
 ]
 
 /* ── page ────────────────────────────────────────────────────────────────── */
@@ -371,7 +369,7 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <div className="p-10 flex items-center justify-center min-h-[400px]">
-        <div className="h-6 w-6 rounded-full border-2 border-[#0052cc] border-t-transparent animate-spin" />
+        <div className="h-6 w-6 rounded-full border-2 border-[var(--accent-blue)] border-t-transparent animate-spin" />
       </div>
     )
   }
@@ -384,7 +382,6 @@ export default function ProfilePage() {
 
   const roleKey     = profile.role ? `role.${profile.role}` : 'role.researcher'
   const roleLabel   = t(roleKey, ROLE_LABELS[profile.role ?? ''] ?? profile.role ?? 'Researcher')
-  const tier        = (profile.subscription_tier ?? 'free') as string
   const institution = (profile as any).institution?.name ?? '—'
   const department  = (profile as any).department?.name ?? null
   const lastSignIn  = authUser?.last_sign_in_at
@@ -392,15 +389,15 @@ export default function ProfilePage() {
     : '—'
 
   return (
-    <div className="flex min-h-full bg-[#f7f9fb]">
+    <div className="flex min-h-full bg-[var(--bg-app)]">
 
       {/* ── Left mini-nav ─────────────────────────────────────────────────── */}
-      <aside className="w-52 flex-shrink-0 border-r border-[#E4E4E7] bg-white flex flex-col pt-6 px-3 gap-1">
-        <p className="px-2 mb-3 text-[10px] font-bold uppercase tracking-widest text-[#52525B]">
+      <aside className="w-52 flex-shrink-0 border-r border-[var(--border-default)] bg-[var(--bg-surface)] flex flex-col pt-6 px-3 gap-1">
+        <p className="px-2 mb-3 text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)]">
           {t('profileSettings.navHeader')}
         </p>
 
-        {NAV.map(({ id, labelKey, icon }) => {
+        {NAV.map(({ id, labelKey, Icon }) => {
           const isActive = activeTab === id
           const isDanger = id === 'danger'
           return (
@@ -409,30 +406,30 @@ export default function ProfilePage() {
               onClick={() => setActiveTab(id)}
               className={[
                 'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 w-full text-left',
-                isActive && !isDanger ? 'bg-[#EFF6FF] text-[#0052CC]'
-                : isDanger            ? 'text-red-500 hover:bg-red-50 hover:text-red-600 mt-4'
-                : 'text-[#52525B] hover:text-[#0052CC] hover:bg-[#F4F7FF]',
+                isActive && !isDanger ? 'bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)]'
+                : isDanger            ? 'text-[var(--status-error)] hover:bg-[var(--status-error-bg)] hover:text-[var(--status-error-hover)] mt-4'
+                : 'text-[var(--text-secondary)] hover:text-[var(--accent-blue)] hover:bg-[var(--accent-blue-subtle)]',
               ].join(' ')}
             >
-              <span className="material-symbols-outlined text-[18px]">{icon}</span>
+              <Icon className="h-[18px] w-[18px] flex-shrink-0" />
               {t(labelKey)}
             </button>
           )
         })}
 
-        <div className="mt-auto pb-4 px-2 border-t border-[#E4E4E7] pt-4">
+        <div className="mt-auto pb-4 px-2 border-t border-[var(--border-default)] pt-4">
           <button
             onClick={() => setCredentialsOpen(true)}
-            className="w-full flex items-center gap-2 text-xs font-semibold text-[#0052CC] hover:bg-[#EFF6FF] px-2 py-2 rounded-lg transition-colors"
+            className="w-full flex items-center gap-2 text-xs font-semibold text-[var(--accent-blue)] hover:bg-[var(--accent-blue-subtle)] px-2 py-2 rounded-lg transition-colors"
           >
-            <span className="material-symbols-outlined text-[16px]">verified</span>
+            <BadgeCheck className="h-4 w-4 flex-shrink-0" />
             {t('profileSettings.manageCredentials')}
           </button>
           <a
             href="mailto:support@plexus.health"
-            className="w-full flex items-center gap-2 text-xs font-medium text-[#52525B] hover:bg-[#F4F7FF] px-2 py-2 rounded-lg transition-colors"
+            className="w-full flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--accent-blue-subtle)] px-2 py-2 rounded-lg transition-colors"
           >
-            <span className="material-symbols-outlined text-[16px]">help_outline</span>
+            <HelpCircle className="h-4 w-4 flex-shrink-0" />
             {t('profileSettings.support')}
           </a>
         </div>
@@ -446,7 +443,7 @@ export default function ProfilePage() {
           <div className="max-w-4xl space-y-5">
 
             {/* Profile header */}
-            <header className="flex justify-between items-start pb-5 border-b border-[#E4E4E7]">
+            <header className="flex justify-between items-start pb-5 border-b border-[var(--border-default)]">
               <div className="flex items-center gap-5">
                 {/* Avatar */}
                 <div className="relative flex-shrink-0">
@@ -454,53 +451,53 @@ export default function ProfilePage() {
                     <img
                       src={avatarUrl}
                       alt={displayName}
-                      className="w-20 h-20 rounded-xl object-cover shadow-sm border border-[#E4E4E7]"
+                      className="w-20 h-20 rounded-xl object-cover shadow-sm border border-[var(--border-default)]"
                     />
                   ) : (
-                    <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-[#003d9b] to-[#0052cc] flex items-center justify-center text-white text-2xl font-bold shadow-sm">
+                    <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-blue)] flex items-center justify-center text-white text-2xl font-bold shadow-sm">
                       {getInitials(profile.full_name ?? authUser?.user_metadata?.full_name as string)}
                     </div>
                   )}
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={avatarUploading}
-                    className="absolute -bottom-2 -right-2 h-7 w-7 rounded-full bg-white border border-[#E4E4E7] shadow-sm flex items-center justify-center text-[#52525B] hover:text-[#0052cc] transition-colors"
+                    className="absolute -bottom-2 -right-2 h-7 w-7 rounded-full bg-[var(--bg-surface)] border border-[var(--border-default)] shadow-sm flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--accent-blue)] transition-colors"
                     title="Change photo"
                   >
                     {avatarUploading
                       ? <div className="h-3 w-3 rounded-full border border-current border-t-transparent animate-spin" />
-                      : <span className="material-symbols-outlined text-[14px]">photo_camera</span>}
+                      : <Camera className="h-3.5 w-3.5" />}
                   </button>
                   <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
                 </div>
 
                 {/* Name + role + institution */}
                 <div>
-                  <h1 className="text-2xl font-extrabold text-[#191c1e] tracking-tight font-manrope">
+                  <h1 className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight font-manrope">
                     {displayName}
                   </h1>
-                  <p className="text-sm font-semibold text-[#0052CC] mt-0.5">{roleLabel}</p>
-                  <div className="flex items-center gap-2 mt-1.5 text-xs text-[#52525B]">
+                  <p className="text-sm font-semibold text-[var(--accent-blue)] mt-0.5">{roleLabel}</p>
+                  <div className="flex items-center gap-2 mt-1.5 text-xs text-[var(--text-secondary)]">
                     {department && (
                       <>
                         <span className="flex items-center gap-1 uppercase tracking-wide font-medium">
-                          <span className="material-symbols-outlined text-[13px]">domain</span>
+                          <Building2 className="h-3 w-3" />
                           {department}
                         </span>
-                        <span className="text-[#D4D4D8]">·</span>
+                        <span className="text-[var(--border-strong)]">·</span>
                       </>
                     )}
                     <span className="uppercase tracking-wide font-medium">{institution}</span>
                     {profile.orcid_id && (
                       <>
-                        <span className="text-[#D4D4D8]">·</span>
+                        <span className="text-[var(--border-strong)]">·</span>
                         <a
                           href={`https://orcid.org/${profile.orcid_id}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-emerald-600 font-semibold hover:underline"
+                          className="flex items-center gap-1 text-[var(--status-success)] font-semibold hover:underline"
                         >
-                          <span className="material-symbols-outlined text-[13px]">verified</span>
+                          <BadgeCheck className="h-3 w-3" />
                           ORCID
                         </a>
                       </>
@@ -511,26 +508,25 @@ export default function ProfilePage() {
 
               <button
                 onClick={() => setActiveTab('edit')}
-                className="bg-[#0052CC] text-white px-5 py-2 rounded-lg font-semibold text-sm shadow-sm hover:bg-[var(--accent-primary)] transition-colors flex-shrink-0"
+                className="bg-[var(--accent-blue)] text-white px-5 py-2 rounded-lg font-semibold text-sm shadow-sm hover:bg-[var(--accent-blue-hover)] transition-colors flex-shrink-0"
               >
                 {t('profileSettings.editProfileBtn')}
               </button>
             </header>
 
             {/* Metrics row — smaller cards */}
-            <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
-                { label: t('profileSettings.metricProjects'), value: projectCount,  sub: null },
-                { label: t('profileSettings.metricReviews'),  value: reviewCount,   sub: null },
-                { label: t('profileSettings.metricPlan'),     value: tier.charAt(0).toUpperCase() + tier.slice(1), sub: null },
+                { label: t('profileSettings.metricProjects'), value: projectCount, sub: null },
+                { label: t('profileSettings.metricReviews'),  value: reviewCount,  sub: null },
                 { label: t('profileSettings.metricOrcid'),    value: profile.orcid_id ? t('profileSettings.linked') : t('profileSettings.notLinked'), sub: profile.orcid_id ? t('profileSettings.verified') : null },
               ].map(({ label, value, sub }) => (
                 <div
                   key={label}
-                  className="bg-white p-4 rounded-xl border border-[#E4E4E7] hover:border-[#0052CC]/30 transition-all"
+                  className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-default)] hover:border-[var(--accent-blue)]/30 transition-all"
                 >
-                  <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-widest mb-1 font-manrope">{label}</p>
-                  <p className="text-xl font-extrabold text-[#0052CC] font-manrope leading-tight">{value}</p>
+                  <p className="text-[9px] font-bold text-[var(--text-tertiary)] uppercase tracking-widest mb-1 font-manrope">{label}</p>
+                  <p className="text-xl font-extrabold text-[var(--accent-blue)] font-manrope leading-tight">{value}</p>
                   {sub && <p className="text-[10px] text-emerald-600 font-semibold mt-0.5">{sub}</p>}
                 </div>
               ))}
@@ -542,14 +538,14 @@ export default function ProfilePage() {
               {/* ── Left: Recent Projects ──────────────────────────────────── */}
               <section className="lg:col-span-2 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-base font-bold text-[#191c1e] font-manrope">{t('profileSettings.recentProjects')}</h2>
-                  <a href="/projects" className="text-xs font-semibold text-[#0052CC] hover:underline">{t('profileSettings.viewAll')}</a>
+                  <h2 className="text-base font-bold text-[var(--text-primary)] font-manrope">{t('profileSettings.recentProjects')}</h2>
+                  <a href="/projects" className="text-xs font-semibold text-[var(--accent-blue)] hover:underline">{t('profileSettings.viewAll')}</a>
                 </div>
 
                 {recentProjects.length === 0 ? (
-                  <div className="bg-white rounded-xl border border-[#E4E4E7] p-6 text-center">
-                    <p className="text-sm text-[#A1A1AA]">{t('profileSettings.noProjects')}{' '}
-                      <a href="/projects" className="text-[#0052CC] hover:underline font-medium">{t('profileSettings.startOne')}</a>
+                  <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-6 text-center">
+                    <p className="text-sm text-[var(--text-tertiary)]">{t('profileSettings.noProjects')}{' '}
+                      <a href="/projects" className="text-[var(--accent-blue)] hover:underline font-medium">{t('profileSettings.startOne')}</a>
                     </p>
                   </div>
                 ) : (
@@ -558,18 +554,18 @@ export default function ProfilePage() {
                       <a
                         key={p.id}
                         href={`/projects/${p.id}`}
-                        className="flex items-center gap-3 bg-white p-4 rounded-xl border border-[#E4E4E7] hover:border-[#0052CC]/40 hover:bg-[#F8FAFF] transition-all group"
+                        className="flex items-center gap-3 bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-default)] hover:border-[var(--accent-blue)]/40 hover:bg-[var(--accent-blue-subtle)] transition-all group"
                       >
                         {/* Phase color pill */}
                         <div
                           className="w-1 h-10 rounded-full flex-shrink-0"
-                          style={{ background: PHASE_COLORS[p.phase] ?? '#A1A1AA' }}
+                          style={{ background: PHASE_COLORS[p.phase] ?? 'var(--text-tertiary)' }}
                         />
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-[#191c1e] text-sm leading-tight truncate group-hover:text-[#0052CC] transition-colors">
+                          <h3 className="font-semibold text-[var(--text-primary)] text-sm leading-tight truncate group-hover:text-[var(--accent-blue)] transition-colors">
                             {p.title}
                           </h3>
-                          <p className="text-[11px] text-[#A1A1AA] mt-0.5">
+                          <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5">
                             {t(`project.phase.${p.phase}`, p.phase?.replace('_', ' ') ?? '')}
                             {' · '}
                             {new Date(p.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -585,9 +581,9 @@ export default function ProfilePage() {
 
                 {/* Bio card */}
                 {profile.bio && (
-                  <div className="bg-white p-4 rounded-xl border border-[#E4E4E7] mt-3">
-                    <h2 className="text-xs font-bold text-[#191c1e] font-manrope mb-2 uppercase tracking-wide">{t('profileSettings.about')}</h2>
-                    <p className="text-sm text-[#52525B] leading-relaxed">{profile.bio}</p>
+                  <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-default)] mt-3">
+                    <h2 className="text-xs font-bold text-[var(--text-primary)] font-manrope mb-2 uppercase tracking-wide">{t('profileSettings.about')}</h2>
+                    <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{profile.bio}</p>
                   </div>
                 )}
               </section>
@@ -597,8 +593,8 @@ export default function ProfilePage() {
 
                 {/* Active Contributions — real phase-based progress */}
                 {recentProjects.length > 0 && (
-                  <div className="bg-white p-4 rounded-xl border border-[#E4E4E7] space-y-3">
-                    <h3 className="text-xs font-bold text-[#191c1e] font-manrope uppercase tracking-wide">{t('profileSettings.activeContributions')}</h3>
+                  <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-default)] space-y-3">
+                    <h3 className="text-xs font-bold text-[var(--text-primary)] font-manrope uppercase tracking-wide">{t('profileSettings.activeContributions')}</h3>
                     <div className="space-y-2.5">
                       {recentProjects.slice(0, 3).map(p => {
                         // Phase order index → real progress percentage
@@ -612,14 +608,14 @@ export default function ProfilePage() {
                             ? 5
                             : Math.min(((phaseIdx + statusBonus) / totalPhases) * 100, 99)
                         )
-                        const color = PHASE_COLORS[p.phase] ?? '#3B82F6'
+                        const color = PHASE_COLORS[p.phase] ?? 'var(--phase-protocol)'
                         return (
                           <div key={p.id}>
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs text-[#52525B] truncate max-w-[140px]">{p.title}</span>
+                              <span className="text-xs text-[var(--text-secondary)] truncate max-w-[140px]">{p.title}</span>
                               <span className="text-xs font-bold" style={{ color }}>{pct}%</span>
                             </div>
-                            <div className="h-1.5 bg-[#F4F4F5] rounded-full overflow-hidden">
+                            <div className="h-1.5 bg-[var(--bg-inset)] rounded-full overflow-hidden">
                               <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
                             </div>
                           </div>
@@ -630,36 +626,33 @@ export default function ProfilePage() {
                 )}
 
                 {/* Security & Access */}
-                <div className="bg-white p-4 rounded-xl border border-[#E4E4E7] space-y-3">
+                <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-default)] space-y-3">
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#0052CC] text-[18px]">shield_lock</span>
-                    <h3 className="text-xs font-bold text-[#191c1e] font-manrope uppercase tracking-wide">{t('profileSettings.securityAccess')}</h3>
+                    <ShieldCheck className="h-[18px] w-[18px] text-[var(--accent-blue)]" />
+                    <h3 className="text-xs font-bold text-[var(--text-primary)] font-manrope uppercase tracking-wide">{t('profileSettings.securityAccess')}</h3>
                   </div>
 
                   <div className="space-y-2.5">
                     <div>
-                      <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-wide">{t('profileSettings.emailLabel')}</p>
-                      <p className="text-xs font-medium text-[#52525B] truncate">{profile.email ?? authUser?.email ?? '—'}</p>
+                      <p className="text-[9px] font-bold text-[var(--text-tertiary)] uppercase tracking-wide">{t('profileSettings.emailLabel')}</p>
+                      <p className="text-xs font-medium text-[var(--text-secondary)] truncate">{profile.email ?? authUser?.email ?? '—'}</p>
                     </div>
                     <div>
-                      <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-wide">{t('profileSettings.lastSignInLabel')}</p>
-                      <p className="text-xs font-medium text-[#52525B]">{lastSignIn}</p>
+                      <p className="text-[9px] font-bold text-[var(--text-tertiary)] uppercase tracking-wide">{t('profileSettings.lastSignInLabel')}</p>
+                      <p className="text-xs font-medium text-[var(--text-secondary)]">{lastSignIn}</p>
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-wide">{t('profileSettings.sessionLabel')}</p>
-                        <p className="text-xs font-semibold text-emerald-600">{t('profileSettings.activeThisDevice')}</p>
+                        <p className="text-[9px] font-bold text-[var(--text-tertiary)] uppercase tracking-wide">{t('profileSettings.sessionLabel')}</p>
+                        <p className="text-xs font-semibold text-[var(--status-success-text)]">{t('profileSettings.activeThisDevice')}</p>
                       </div>
-                      <span className="material-symbols-outlined text-emerald-500 text-[18px]"
-                        style={{ fontVariationSettings: "'FILL' 1" }}>
-                        check_circle
-                      </span>
+                      <CheckCircle2 className="h-[18px] w-[18px] text-[var(--status-success)]" />
                     </div>
                   </div>
 
                   <button
                     onClick={() => setActiveTab('security')}
-                    className="text-xs font-semibold text-[#0052CC] hover:underline"
+                    className="text-xs font-semibold text-[var(--accent-blue)] hover:underline"
                   >
                     {t('profileSettings.manageSecurityLink')}
                   </button>
@@ -668,18 +661,18 @@ export default function ProfilePage() {
 
                 {/* Contact */}
                 {(profile.website || profile.phone) && (
-                  <div className="bg-white p-4 rounded-xl border border-[#E4E4E7] space-y-2">
-                    <h3 className="text-xs font-bold text-[#191c1e] font-manrope uppercase tracking-wide">{t('profileSettings.contact')}</h3>
+                  <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-default)] space-y-2">
+                    <h3 className="text-xs font-bold text-[var(--text-primary)] font-manrope uppercase tracking-wide">{t('profileSettings.contact')}</h3>
                     {profile.website && (
                       <a href={profile.website} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-xs text-[#0052CC] hover:underline">
-                        <span className="material-symbols-outlined text-[14px]">link</span>
+                        className="flex items-center gap-2 text-xs text-[var(--accent-blue)] hover:underline">
+                        <Link2 className="h-3.5 w-3.5" />
                         {profile.website.replace(/^https?:\/\//, '')}
                       </a>
                     )}
                     {profile.phone && (
-                      <p className="flex items-center gap-2 text-xs text-[#52525B]">
-                        <span className="material-symbols-outlined text-[14px] text-[#A1A1AA]">phone</span>
+                      <p className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                        <Phone className="h-3.5 w-3.5 text-[var(--text-tertiary)]" />
                         {profile.phone}
                       </p>
                     )}
@@ -694,35 +687,35 @@ export default function ProfilePage() {
         {activeTab === 'edit' && (
           <div className="max-w-2xl space-y-6">
             <div>
-              <h1 className="text-xl font-bold text-[#191c1e] font-manrope">{t('profileSettings.editTitle')}</h1>
-              <p className="text-sm text-[#52525B] mt-0.5">{t('profileSettings.editSubtitle')}</p>
+              <h1 className="text-xl font-bold text-[var(--text-primary)] font-manrope">{t('profileSettings.editTitle')}</h1>
+              <p className="text-sm text-[var(--text-secondary)] mt-0.5">{t('profileSettings.editSubtitle')}</p>
             </div>
 
             {/* Avatar */}
             <div className="flex items-center gap-5">
               <div className="relative">
                 {avatarUrl ? (
-                  <Image src={avatarUrl} alt="Avatar" width={80} height={80} className="h-20 w-20 rounded-xl object-cover ring-1 ring-[#E4E4E7]" />
+                  <Image src={avatarUrl} alt="Avatar" width={80} height={80} className="h-20 w-20 rounded-xl object-cover ring-1 ring-[var(--border-default)]" />
                 ) : (
-                  <div className="h-20 w-20 rounded-xl bg-gradient-to-br from-[#003d9b] to-[#0052cc] flex items-center justify-center text-white text-2xl font-bold">
+                  <div className="h-20 w-20 rounded-xl bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-blue)] flex items-center justify-center text-white text-2xl font-bold">
                     {getInitials(profile.full_name ?? authUser?.user_metadata?.full_name as string)}
                   </div>
                 )}
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={avatarUploading}
-                  className="absolute -bottom-2 -right-2 h-7 w-7 rounded-full bg-white border border-[#E4E4E7] flex items-center justify-center shadow-sm text-[#52525B] hover:text-[#0052cc] transition-colors"
+                  className="absolute -bottom-2 -right-2 h-7 w-7 rounded-full bg-[var(--bg-surface)] border border-[var(--border-default)] flex items-center justify-center shadow-sm text-[var(--text-secondary)] hover:text-[var(--accent-blue)] transition-colors"
                 >
                   {avatarUploading
                     ? <div className="h-3 w-3 rounded-full border border-current border-t-transparent animate-spin" />
-                    : <span className="material-symbols-outlined text-[14px]">photo_camera</span>}
+                    : <Camera className="h-3.5 w-3.5" />}
                 </button>
               </div>
               <div>
-                <button onClick={() => fileInputRef.current?.click()} className="text-sm font-semibold text-[#0052CC] hover:underline">
+                <button onClick={() => fileInputRef.current?.click()} className="text-sm font-semibold text-[var(--accent-blue)] hover:underline">
                   {avatarUploading ? t('profileSettings.uploading') : t('profileSettings.uploadPhoto')}
                 </button>
-                <p className="text-xs text-[#A1A1AA] mt-0.5">{t('profileSettings.photoHint')}</p>
+                <p className="text-xs text-[var(--text-tertiary)] mt-0.5">{t('profileSettings.photoHint')}</p>
               </div>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
             </div>
@@ -742,7 +735,7 @@ export default function ProfilePage() {
               <div>
                 <Label htmlFor="email">{t('profileSettings.emailField')}</Label>
                 <Input id="email" value={profile.email ?? authUser?.email ?? ''} disabled className="mt-1 opacity-60 cursor-not-allowed" />
-                <p className="text-xs text-[#A1A1AA] mt-1">{t('profileSettings.emailHint')}</p>
+                <p className="text-xs text-[var(--text-tertiary)] mt-1">{t('profileSettings.emailHint')}</p>
               </div>
 
               <div>
@@ -755,14 +748,14 @@ export default function ProfilePage() {
                 <div className="relative mt-1">
                   <Input id="orcid" placeholder="0000-0000-0000-0000" value={profile.orcid_id ?? ''} onChange={e => setProfile(p => ({ ...p, orcid_id: e.target.value }))} className="pr-9" />
                   {profile.orcid_id && (
-                    <a href={`https://orcid.org/${profile.orcid_id}`} target="_blank" rel="noopener noreferrer" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#A1A1AA] hover:text-[#0052cc]">
+                    <a href={`https://orcid.org/${profile.orcid_id}`} target="_blank" rel="noopener noreferrer" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--accent-blue)]">
                       <ExternalLink className="h-4 w-4" />
                     </a>
                   )}
                 </div>
-                <p className="text-xs text-[#A1A1AA] mt-1">
+                <p className="text-xs text-[var(--text-tertiary)] mt-1">
                   {t('profileSettings.orcidHint')}{' '}
-                  <a href="https://orcid.org/register" target="_blank" rel="noopener noreferrer" className="text-[#0052cc] hover:underline">{t('profileSettings.orcidRegister')}</a>
+                  <a href="https://orcid.org/register" target="_blank" rel="noopener noreferrer" className="text-[var(--accent-blue)] hover:underline">{t('profileSettings.orcidRegister')}</a>
                 </p>
               </div>
 
@@ -778,11 +771,11 @@ export default function ProfilePage() {
               </div>
 
               {/* Research Presence */}
-              <div className="border border-[#E4E4E7] rounded-xl p-5 space-y-4">
+              <div className="border border-[var(--border-default)] rounded-xl p-5 space-y-4">
                 <div className="flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-[#0052CC]" />
-                  <h2 className="text-sm font-semibold text-[#191c1e]">{t('profileSettings.researchPresence')}</h2>
-                  <span className="ml-auto text-[10px] text-[#A1A1AA] font-medium uppercase tracking-wide">{t('profileSettings.countryShownHint')}</span>
+                  <Globe className="h-4 w-4 text-[var(--accent-blue)]" />
+                  <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t('profileSettings.researchPresence')}</h2>
+                  <span className="ml-auto text-[10px] text-[var(--text-tertiary)] font-medium uppercase tracking-wide">{t('profileSettings.countryShownHint')}</span>
                 </div>
 
                 {/* Location */}
@@ -811,7 +804,7 @@ export default function ProfilePage() {
                           type="button"
                           onClick={detectLocation}
                           disabled={geoState === 'detecting'}
-                          className="flex items-center gap-2 rounded-lg border border-[#0052CC]/30 bg-[#EFF6FF] px-4 py-2 text-sm font-medium text-[#0052CC] hover:bg-[#DBEAFE] transition-colors disabled:opacity-60"
+                          className="flex items-center gap-2 rounded-lg border border-[var(--accent-blue)]/30 bg-[var(--accent-blue-subtle)] px-4 py-2 text-sm font-medium text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/15 transition-colors disabled:opacity-60"
                         >
                           {geoState === 'detecting'
                             ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -822,7 +815,7 @@ export default function ProfilePage() {
                         {/* Manual city + country */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
-                            <Label htmlFor="settingsCity" className="text-xs text-[#52525B]">{t('profileSettings.cityField')}</Label>
+                            <Label htmlFor="settingsCity" className="text-xs text-[var(--text-secondary)]">{t('profileSettings.cityField')}</Label>
                             <Input
                               id="settingsCity"
                               placeholder="Accra"
@@ -832,20 +825,20 @@ export default function ProfilePage() {
                             />
                           </div>
                           <div>
-                            <Label htmlFor="settingsCountry" className="text-xs text-[#52525B]">{t('profileSettings.countryField')}</Label>
+                            <Label htmlFor="settingsCountry" className="text-xs text-[var(--text-secondary)]">{t('profileSettings.countryField')}</Label>
                             <div className="relative mt-1">
                               <select
                                 id="settingsCountry"
                                 value={country}
                                 onChange={e => setCountry(e.target.value)}
-                                className="w-full rounded-md border border-[#E4E4E7] px-3 py-2 pr-8 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-[#0052CC] bg-white"
+                                className="w-full rounded-md border border-[var(--border-default)] px-3 py-2 pr-8 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] bg-[var(--bg-surface)]"
                               >
                                 <option value="">Select…</option>
                                 {COUNTRIES.map(c => (
                                   <option key={c} value={c}>{c}</option>
                                 ))}
                               </select>
-                              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#A1A1AA] pointer-events-none" />
+                              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--text-tertiary)] pointer-events-none" />
                             </div>
                           </div>
                         </div>
@@ -857,30 +850,30 @@ export default function ProfilePage() {
                 {/* Show on globe toggle */}
                 <label className="flex items-center justify-between cursor-pointer">
                   <div>
-                    <p className="text-sm font-medium text-[#191c1e]">{t('profileSettings.showOnGlobe')}</p>
-                    <p className="text-xs text-[#A1A1AA]">{t('profileSettings.showOnGlobeHint')}</p>
+                    <p className="text-sm font-medium text-[var(--text-primary)]">{t('profileSettings.showOnGlobe')}</p>
+                    <p className="text-xs text-[var(--text-tertiary)]">{t('profileSettings.showOnGlobeHint')}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setShowOnGlobe(v => !v)}
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 ${showOnGlobe ? 'bg-[#0052CC]' : 'bg-[#D4D4D8]'}`}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 ${showOnGlobe ? 'bg-[var(--accent-blue)]' : 'bg-[var(--border-strong)]'}`}
                   >
-                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${showOnGlobe ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-[var(--bg-surface)] shadow transition-transform ${showOnGlobe ? 'translate-x-4' : 'translate-x-0.5'}`} />
                   </button>
                 </label>
               </div>
 
-              <Button type="submit" disabled={saving} className="bg-[#0052CC] hover:bg-[var(--accent-primary)]">
+              <Button type="submit" disabled={saving} className="bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)]">
                 {saving ? t('profileSettings.saving') : t('profileSettings.saveChanges')}
               </Button>
             </form>
 
-            <div className="border-t border-[#E4E4E7] pt-6">
+            <div className="border-t border-[var(--border-default)] pt-6">
               <div className="flex items-center gap-2 mb-1">
-                <Globe className="h-4 w-4 text-[#A1A1AA]" />
-                <h2 className="text-sm font-semibold text-[#191c1e]">{t('profileSettings.interfaceLanguage')}</h2>
+                <Globe className="h-4 w-4 text-[var(--text-tertiary)]" />
+                <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t('profileSettings.interfaceLanguage')}</h2>
               </div>
-              <p className="text-xs text-[#A1A1AA] mb-4">{t('profileSettings.interfaceLanguageDesc')}</p>
+              <p className="text-xs text-[var(--text-tertiary)] mb-4">{t('profileSettings.interfaceLanguageDesc')}</p>
               <LanguageSelector />
             </div>
           </div>
@@ -890,12 +883,12 @@ export default function ProfilePage() {
         {activeTab === 'security' && (
           <div className="max-w-2xl space-y-6">
             <div>
-              <h1 className="text-xl font-bold text-[#191c1e] font-manrope">{t('profileSettings.securityTitle')}</h1>
-              <p className="text-sm text-[#52525B] mt-0.5">{t('profileSettings.securitySubtitle')}</p>
+              <h1 className="text-xl font-bold text-[var(--text-primary)] font-manrope">{t('profileSettings.securityTitle')}</h1>
+              <p className="text-sm text-[var(--text-secondary)] mt-0.5">{t('profileSettings.securitySubtitle')}</p>
             </div>
 
-            <div className="bg-white border border-[#E4E4E7] rounded-xl p-6 space-y-5">
-              <h2 className="text-sm font-bold text-[#191c1e] font-manrope">{t('profileSettings.changePasswordTitle')}</h2>
+            <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-6 space-y-5">
+              <h2 className="text-sm font-bold text-[var(--text-primary)] font-manrope">{t('profileSettings.changePasswordTitle')}</h2>
               <form onSubmit={handleChangePassword} className="space-y-4">
                 <div>
                   <Label htmlFor="newPw">{t('profileSettings.newPassword')}</Label>
@@ -905,17 +898,17 @@ export default function ProfilePage() {
                   <Label htmlFor="confirmPw">{t('profileSettings.confirmPassword')}</Label>
                   <Input id="confirmPw" type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} required className="mt-1" />
                 </div>
-                <Button type="submit" disabled={changingPw} className="bg-[#0052CC] hover:bg-[var(--accent-primary)]">
+                <Button type="submit" disabled={changingPw} className="bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)]">
                   {changingPw ? t('profileSettings.updatingPassword') : t('profileSettings.updatePassword')}
                 </Button>
               </form>
             </div>
 
-            <div className="bg-white border border-[#E4E4E7] rounded-xl p-6 space-y-4">
-              <h2 className="text-sm font-bold text-[#191c1e] font-manrope">{t('profileSettings.activeSessionTitle')}</h2>
+            <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-6 space-y-4">
+              <h2 className="text-sm font-bold text-[var(--text-primary)] font-manrope">{t('profileSettings.activeSessionTitle')}</h2>
               <div className="space-y-2">
-                <p className="text-sm text-[#52525B]">{t('profileSettings.signedInAs')} <span className="font-medium text-[#191c1e]">{profile.email ?? authUser?.email}</span></p>
-                <p className="text-sm text-[#A1A1AA]">{t('profileSettings.lastSignInFull')} {lastSignIn}</p>
+                <p className="text-sm text-[var(--text-secondary)]">{t('profileSettings.signedInAs')} <span className="font-medium text-[var(--text-primary)]">{profile.email ?? authUser?.email}</span></p>
+                <p className="text-sm text-[var(--text-tertiary)]">{t('profileSettings.lastSignInFull')} {lastSignIn}</p>
               </div>
               <Button variant="outline" className="text-sm" onClick={() => {
                 document.cookie = 'workspace_ready=; path=/; max-age=0'
@@ -928,64 +921,12 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* ══ BILLING TAB ══════════════════════════════════════════════════ */}
-        {activeTab === 'billing' && (
-          <div className="max-w-2xl space-y-6">
-            <div>
-              <h1 className="text-xl font-bold text-[#191c1e] font-manrope">Subscription &amp; Billing</h1>
-              <p className="text-sm text-[#52525B] mt-0.5">Manage your plan and payment details.</p>
-            </div>
-
-            <div className="bg-white border border-[#E4E4E7] rounded-xl p-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-wide mb-1">Current plan</p>
-                  <p className="text-2xl font-bold text-[#191c1e] font-manrope capitalize">{tier}</p>
-                </div>
-                <span className="text-[10px] font-bold px-3 py-1 rounded-full bg-[#EFF6FF] text-[#0052CC] uppercase tracking-wide">
-                  {tier}
-                </span>
-              </div>
-              <ul className="mt-4 space-y-2">
-                {(PLAN_FEATURES[tier] ?? PLAN_FEATURES.free).map(f => (
-                  <li key={f} className="flex items-center gap-2 text-sm text-[#52525B]">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {tier === 'free' && (
-              <div className="bg-white border border-[#0052CC]/30 rounded-xl p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <p className="font-bold text-[#191c1e] font-manrope">Pro — $29 / month</p>
-                    <p className="text-sm text-[#52525B] mt-0.5">Unlimited projects, storage &amp; collaboration</p>
-                  </div>
-                  <Button size="sm" className="bg-[#0052CC] hover:bg-[var(--accent-primary)] flex items-center gap-1">
-                    Upgrade <ChevronRight className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-                <ul className="space-y-1.5">
-                  {PLAN_FEATURES.pro.map(f => (
-                    <li key={f} className="flex items-center gap-2 text-sm text-[#52525B]">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-[#0052CC] flex-shrink-0" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* ══ DANGER ZONE TAB ══════════════════════════════════════════════ */}
         {activeTab === 'danger' && (
           <div className="max-w-2xl space-y-6">
             <div>
               <h1 className="text-xl font-bold text-red-600 font-manrope">{t('profileSettings.dangerTitle')}</h1>
-              <p className="text-sm text-[#52525B] mt-0.5">{t('profileSettings.dangerSubtitle')}</p>
+              <p className="text-sm text-[var(--text-secondary)] mt-0.5">{t('profileSettings.dangerSubtitle')}</p>
             </div>
 
             <div className="border border-red-200 rounded-xl overflow-hidden">
@@ -993,13 +934,13 @@ export default function ProfilePage() {
                 <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-semibold text-red-700">{t('profileSettings.deleteAccountTitle')}</p>
-                  <p className="text-sm text-[#52525B] mt-0.5">
+                  <p className="text-sm text-[var(--text-secondary)] mt-0.5">
                     {t('profileSettings.deleteAccountDesc')}{' '}
                     <strong>{t('profileSettings.deleteCannotUndo')}</strong>
                   </p>
                 </div>
               </div>
-              <div className="p-5 space-y-4 bg-white">
+              <div className="p-5 space-y-4 bg-[var(--bg-surface)]">
                 <div>
                   <Label htmlFor="deleteConfirm" className="text-sm">
                     {t('profileSettings.typeDeletePrefix')} <span className="font-mono font-bold text-red-600">DELETE</span> {t('profileSettings.typeDeleteSuffix')}
@@ -1029,31 +970,31 @@ export default function ProfilePage() {
       {credentialsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setCredentialsOpen(false)} />
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+          <div className="relative bg-[var(--bg-surface)] rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-[#0052CC] text-[24px]">verified</span>
+              <BadgeCheck className="h-6 w-6 text-[var(--accent-blue)]" />
               <div>
-                <h2 className="text-lg font-bold text-[#191c1e] font-manrope">{t('profileSettings.credTitle')}</h2>
-                <p className="text-xs text-[#52525B]">{t('profileSettings.credDesc')}</p>
+                <h2 className="text-lg font-bold text-[var(--text-primary)] font-manrope">{t('profileSettings.credTitle')}</h2>
+                <p className="text-xs text-[var(--text-secondary)]">{t('profileSettings.credDesc')}</p>
               </div>
             </div>
 
-            <div className="border-2 border-dashed border-[#E4E4E7] rounded-xl p-6 text-center">
+            <div className="border-2 border-dashed border-[var(--border-default)] rounded-xl p-6 text-center">
               {credFile ? (
-                <div className="space-y-2">
-                  <span className="material-symbols-outlined text-[#0052CC] text-[32px]">description</span>
-                  <p className="text-sm font-medium text-[#191c1e]">{credFile.name}</p>
-                  <p className="text-xs text-[#A1A1AA]">{(credFile.size / 1024).toFixed(0)} KB</p>
-                  <button onClick={() => setCredFile(null)} className="text-xs text-red-500 hover:underline">{t('profileSettings.remove')}</button>
+                <div className="space-y-2 flex flex-col items-center">
+                  <FileText className="h-8 w-8 text-[var(--accent-blue)]" />
+                  <p className="text-sm font-medium text-[var(--text-primary)]">{credFile.name}</p>
+                  <p className="text-xs text-[var(--text-tertiary)]">{(credFile.size / 1024).toFixed(0)} KB</p>
+                  <button onClick={() => setCredFile(null)} className="text-xs text-[var(--status-error)] hover:underline">{t('profileSettings.remove')}</button>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <span className="material-symbols-outlined text-[#A1A1AA] text-[32px]">upload_file</span>
-                  <p className="text-sm text-[#52525B]">{t('profileSettings.dropFile')}</p>
-                  <p className="text-xs text-[#A1A1AA]">{t('profileSettings.fileHint')}</p>
+                <div className="space-y-2 flex flex-col items-center">
+                  <Upload className="h-8 w-8 text-[var(--text-tertiary)]" />
+                  <p className="text-sm text-[var(--text-secondary)]">{t('profileSettings.dropFile')}</p>
+                  <p className="text-xs text-[var(--text-tertiary)]">{t('profileSettings.fileHint')}</p>
                   <button
                     onClick={() => credInputRef.current?.click()}
-                    className="text-xs font-semibold text-[#0052CC] hover:underline"
+                    className="text-xs font-semibold text-[var(--accent-blue)] hover:underline"
                   >
                     {t('profileSettings.browseFiles')}
                   </button>
@@ -1073,7 +1014,7 @@ export default function ProfilePage() {
                 {t('profileSettings.cancel')}
               </Button>
               <Button
-                className="flex-1 bg-[#0052CC] hover:bg-[var(--accent-primary)]"
+                className="flex-1 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)]"
                 disabled={!credFile || uploading}
                 onClick={handleCredentialUpload}
               >
@@ -1083,21 +1024,21 @@ export default function ProfilePage() {
 
             {/* Past uploads with real verification status */}
             {credUploads.length > 0 && (
-              <div className="border-t border-[#E4E4E7] pt-4 space-y-2">
-                <p className="text-xs font-bold text-[#52525B] uppercase tracking-wide">{t('profileSettings.previousUploads')}</p>
+              <div className="border-t border-[var(--border-default)] pt-4 space-y-2">
+                <p className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wide">{t('profileSettings.previousUploads')}</p>
                 {credUploads.map(u => {
                   const statusConfig: Record<string, { label: string; cls: string }> = {
-                    pending:      { label: t('profileSettings.cred.pending'),     cls: 'bg-amber-50 text-amber-700' },
-                    under_review: { label: t('profileSettings.cred.underReview'), cls: 'bg-blue-50 text-blue-700' },
-                    approved:     { label: t('profileSettings.cred.approved'),    cls: 'bg-emerald-50 text-emerald-700' },
-                    rejected:     { label: t('profileSettings.cred.rejected'),    cls: 'bg-red-50 text-red-600' },
+                    pending:      { label: t('profileSettings.cred.pending'),     cls: 'bg-[var(--status-warning-bg)] text-[var(--status-warning-text)]' },
+                    under_review: { label: t('profileSettings.cred.underReview'), cls: 'bg-[var(--status-info-bg)] text-[var(--status-info-text)]' },
+                    approved:     { label: t('profileSettings.cred.approved'),    cls: 'bg-[var(--status-success-bg)] text-[var(--status-success-text)]' },
+                    rejected:     { label: t('profileSettings.cred.rejected'),    cls: 'bg-[var(--status-error-bg)] text-[var(--status-error-text)]' },
                   }
                   const sc = statusConfig[u.status] ?? statusConfig.pending
                   return (
                     <div key={u.id} className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="material-symbols-outlined text-[#A1A1AA] text-[16px]">description</span>
-                        <span className="text-xs text-[#52525B] truncate">{u.file_name}</span>
+                        <FileText className="h-4 w-4 text-[var(--text-tertiary)] flex-shrink-0" />
+                        <span className="text-xs text-[var(--text-secondary)] truncate">{u.file_name}</span>
                       </div>
                       <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md flex-shrink-0 ${sc.cls}`}>
                         {sc.label}
