@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { getInitials } from '@/lib/utils'
 import { LanguageSelector } from '@/components/i18n/LanguageSelector'
+import Image from 'next/image'
 import { useLocale } from '@/i18n/LocaleProvider'
 import { AlertTriangle, ExternalLink, ChevronRight, CheckCircle2, Globe, MapPin, Loader2, ChevronDown } from 'lucide-react'
 import type { Profile } from '@/types/database'
@@ -701,7 +702,7 @@ export default function ProfilePage() {
             <div className="flex items-center gap-5">
               <div className="relative">
                 {avatarUrl ? (
-                  <img src={avatarUrl} alt="Avatar" className="h-20 w-20 rounded-xl object-cover ring-1 ring-[#E4E4E7]" />
+                  <Image src={avatarUrl} alt="Avatar" width={80} height={80} className="h-20 w-20 rounded-xl object-cover ring-1 ring-[#E4E4E7]" />
                 ) : (
                   <div className="h-20 w-20 rounded-xl bg-gradient-to-br from-[#003d9b] to-[#0052cc] flex items-center justify-center text-white text-2xl font-bold">
                     {getInitials(profile.full_name ?? authUser?.user_metadata?.full_name as string)}

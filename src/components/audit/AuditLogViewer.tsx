@@ -131,7 +131,8 @@ export function AuditLogViewer({ projectId, institutionId, actorId, compact = fa
         </div>
       </div>
 
-      <div className="border rounded-lg overflow-hidden">
+      <div className="overflow-x-auto">
+      <div className="border rounded-lg overflow-hidden min-w-[600px]">
         {loading && entries.length === 0 && (
           <p className="text-xs text-muted-foreground p-6 text-center">Loading audit log...</p>
         )}
@@ -143,6 +144,7 @@ export function AuditLogViewer({ projectId, institutionId, actorId, compact = fa
             <AuditEntry key={e.id} entry={e} showHash />
           ))}
         </div>
+      </div>
       </div>
 
       {hasMore && (

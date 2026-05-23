@@ -2,15 +2,17 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   FolderOpen, LogOut, Menu, X, Command,
-  LayoutDashboard, Database, BarChart2, Clock, BookOpen, FileText, Settings,
+  LayoutDashboard, Database, BarChart2, BookOpen, GraduationCap, Settings2,
   ClipboardList, Bell,
 } from 'lucide-react'
 import { BrandLogo } from '@/components/layout/BrandLogo'
 import { LanguageSelector } from '@/components/i18n/LanguageSelector'
 import { useTranslations } from '@/i18n/useTranslations'
+import { createClient } from '@/lib/supabase/client'
 import { cn, getInitials } from '@/lib/utils'
 import type { Profile } from '@/types/database'
 
@@ -21,6 +23,7 @@ interface MobileSidebarProps {
 
 export function MobileSidebar({ profile, onSignOut }: MobileSidebarProps) {
   const [open, setOpen] = useState(false)
+  const [isThesis, setIsThesis] = useState(false)
   const pathname = usePathname()
   const { t } = useTranslations()
 
@@ -32,22 +35,41 @@ export function MobileSidebar({ profile, onSignOut }: MobileSidebarProps) {
   const projectId    = projectMatch?.[1] ?? null
   const isInProject  = !!projectId && projectId !== 'new'
 
+  // Resolve project type to show correct tabs
+  useEffect(() => {
+    if (!projectId || !isInProject) { setIsThesis(false); return }
+    const supabase = createClient()
+    supabase
+      .from('projects')
+      .select('project_type')
+      .eq('id', projectId)
+      .maybeSingle()
+      .then(({ data }) => setIsThesis((data as { project_type?: string } | null)?.project_type === 'thesis'))
+  }, [projectId, isInProject])
+
   const TOP_NAV = [
     { href: '/projects',      labelKey: 'nav.projects',      icon: FolderOpen    },
     { href: '/reviews',       labelKey: 'nav.reviews',       icon: ClipboardList },
     { href: '/notifications', labelKey: 'nav.notifications', icon: Bell          },
-    { href: '/settings',      labelKey: 'nav.settings',      icon: Settings      },
   ]
 
-  const PROJECT_TABS = [
-    { slug: 'overview',  labelKey: 'nav.overview',   icon: LayoutDashboard },
-    { slug: 'data',      labelKey: 'nav.data',        icon: Database        },
-    { slug: 'analysis',  labelKey: 'nav.analysis',    icon: BarChart2       },
-    { slug: 'timeline',  labelKey: 'nav.timeline',    icon: Clock           },
-    { slug: 'documents', labelKey: 'nav.documents',   icon: BookOpen        },
-    { slug: 'report',    labelKey: 'nav.report',      icon: FileText        },
-    { slug: 'settings',  labelKey: 'nav.settings',    icon: Settings        },
+  const RESEARCH_TABS = [
+    { slug: 'overview',  label: 'Overview', icon: LayoutDashboard },
+    { slug: 'data',      label: 'Data',     icon: Database        },
+    { slug: 'analysis',  label: 'Analysis', icon: BarChart2       },
+    { slug: 'documents', label: 'Writing',  icon: BookOpen        },
   ]
+
+  const THESIS_TABS = [
+    { slug: 'overview',  label: 'Overview', icon: LayoutDashboard },
+    { slug: 'chapters',  label: 'Chapters', icon: GraduationCap  },
+    { slug: 'data',      label: 'Data',     icon: Database        },
+    { slug: 'analysis',  label: 'Analysis', icon: BarChart2       },
+    { slug: 'documents', label: 'Writing',  icon: BookOpen        },
+    { slug: 'setup',     label: 'Setup',    icon: Settings2       },
+  ]
+
+  const projectTabs = isThesis ? THESIS_TABS : RESEARCH_TABS
 
   return (
     <>
@@ -128,10 +150,9 @@ export function MobileSidebar({ profile, onSignOut }: MobileSidebarProps) {
             <>
               <div className="my-2 h-px bg-white/10" />
               <p className="px-2.5 pt-0.5 pb-1.5 text-[9px] font-medium uppercase tracking-[0.10em] text-[var(--text-sidebar-icon)]">
-                {t('nav.thisProject', 'This Project')}
+                {isThesis ? 'Thesis' : t('nav.thisProject', 'This Project')}
               </p>
-              {PROJECT_TABS.map(({ slug, labelKey, icon: Icon }) => {
-                const label  = t(labelKey, slug)
+              {projectTabs.map(({ slug, label, icon: Icon }) => {
                 const href   = `/projects/${projectId}/${slug}`
                 const active = pathname === href || pathname.startsWith(href + '/')
                 return (
@@ -169,7 +190,7 @@ export function MobileSidebar({ profile, onSignOut }: MobileSidebarProps) {
           <div className="px-3 py-3 flex items-center gap-3">
             <div className="h-9 w-9 rounded-full bg-[var(--accent-primary)] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
               {profile?.avatar_url ? (
-                <img src={profile.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
+                <Image src={profile.avatar_url} alt="" width={36} height={36} className="h-9 w-9 rounded-full object-cover" />
               ) : (
                 getInitials(profile?.full_name)
               )}

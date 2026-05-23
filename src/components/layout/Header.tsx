@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { ChevronRight, Search } from 'lucide-react'
 import { NotificationBell } from '@/components/notification/NotificationBell'
 import { useTranslations } from '@/i18n/useTranslations'
@@ -130,7 +131,7 @@ export function Header({ profile, title, onSearchClick }: HeaderProps) {
             </div>
             <div className="w-8 h-8 rounded-full bg-[var(--accent-primary)] flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 ring-2 ring-[var(--border-default)]">
               {profile.avatar_url ? (
-                <img src={profile.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+                <Image src={profile.avatar_url} alt="" width={32} height={32} className="w-8 h-8 rounded-full object-cover" />
               ) : (
                 getInitials(profile.full_name)
               )}

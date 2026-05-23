@@ -68,7 +68,7 @@ export default function ApprovalsPage() {
   })
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
+    <div className="max-w-3xl mx-auto px-4 py-8 overflow-x-auto">
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>

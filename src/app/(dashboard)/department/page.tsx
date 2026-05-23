@@ -7,6 +7,7 @@ import {
   ChevronRight, BarChart2,
 } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 
 interface StudentEntry {
   assignment_id: string
@@ -40,7 +41,7 @@ function Avatar({ name, url, size = 'md' }: { name: string | null; url: string |
   return (
     <div className={cn('rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center flex-shrink-0', sz)}>
       {url
-        ? <img src={url} alt="" className={cn('rounded-full object-cover', sz)} />
+        ? <Image src={url} alt="" width={44} height={44} className={cn('rounded-full object-cover', sz)} />
         : getInitials(name)
       }
     </div>

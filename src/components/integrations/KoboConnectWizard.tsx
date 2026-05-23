@@ -40,7 +40,15 @@ export function KoboConnectWizard({ projectId, onConnected, onCancel }: KoboConn
       const res = await supabase.functions.invoke('kobo-sync', {
         body: { action: 'connect', api_token: apiToken, kobo_server_url: serverUrl },
       })
-      if (res.error) throw res.error
+      if (res.error) {
+        const msg = (res.error as { message?: string }).message ?? ''
+        if (msg.includes('not found') || msg.includes('404') || msg.includes('Failed to send')) {
+          toast.error('KoboToolbox sync is not available yet — the integration is being set up. Please try again later.')
+        } else {
+          throw res.error
+        }
+        return
+      }
       const list: KoboProject[] = res.data?.projects ?? []
       setProjects(list)
       setStep(2)

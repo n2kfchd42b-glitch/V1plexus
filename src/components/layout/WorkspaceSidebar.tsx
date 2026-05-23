@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   FolderOpen, LogOut, ChevronLeft, ChevronRight, Command,
-  LayoutDashboard, Database, BarChart2, Clock, BookOpen, FileText,
-  Users, GraduationCap, Building2, Inbox, UserCheck, Shield, Settings,
+  Users, GraduationCap, Building2, Inbox, UserCheck,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { WorkspaceMemberRole } from '@/types/database'
@@ -27,6 +27,7 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
   const { t } = useTranslations()
   const [collapsed, setCollapsed] = useState(true)
   const [workspaceRole, setWorkspaceRole] = useState<WorkspaceMemberRole | null>(null)
+  const [thesisProjectId, setThesisProjectId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!profile) return
@@ -38,25 +39,25 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
       .eq('status', 'active')
       .single()
       .then(({ data }) => { if (data) setWorkspaceRole(data.role as WorkspaceMemberRole) })
+
+    // Resolve thesis project for "My Roadmap" deep-link
+    supabase
+      .from('projects')
+      .select('id')
+      .eq('owner_id', profile.id)
+      .eq('project_type', 'thesis')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => { if (data) setThesisProjectId(data.id) })
   }, [profile])
 
-  const PROJECT_TABS = [
-    { slug: 'overview',   labelKey: 'nav.overview',   icon: LayoutDashboard },
-    { slug: 'data',       labelKey: 'nav.data',        icon: Database        },
-    { slug: 'analysis',   labelKey: 'nav.analysis',    icon: BarChart2       },
-    { slug: 'timeline',   labelKey: 'nav.timeline',    icon: Clock           },
-    { slug: 'documents',  labelKey: 'nav.documents',   icon: BookOpen        },
-    { slug: 'report',     labelKey: 'nav.report',      icon: FileText        },
-    { slug: 'team',       labelKey: 'nav.team',        icon: Users           },
-    { slug: 'settings',   labelKey: 'nav.settings',    icon: Settings        },
-  ]
-
-  // Detect if we're inside a project
+  // Detect if we're inside a project — used only for auto-collapse
   const projectMatch = pathname.match(/^\/projects\/([^/]+)/)
-  const projectId    = projectMatch?.[1] ?? null
-  const isInProject  = !!projectId && projectId !== 'new'
+  const isInProject  = !!projectMatch?.[1] && projectMatch[1] !== 'new'
 
-  // Collapse when leaving a project; project tabs now live in the horizontal tab bar
+  // Collapse when leaving a project; project tabs live in the horizontal tab bar
   useEffect(() => {
     if (!isInProject) setCollapsed(true)
   }, [isInProject])
@@ -137,43 +138,6 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
           </div>
         </Link>
 
-        {/* Project utility links — Ledger + Team, shown only inside a project */}
-        {isInProject && projectId && (() => {
-          const ledgerHref   = `/projects/${projectId}/timeline`
-          const teamHref     = `/projects/${projectId}/team`
-          const settingsHref = `/projects/${projectId}/settings`
-          const ledgerActive   = pathname === ledgerHref
-          const teamActive     = pathname === teamHref
-          const settingsActive = pathname === settingsHref
-
-          const links = [
-            { href: ledgerHref,   label: 'Ledger',   Icon: Shield,   active: ledgerActive   },
-            { href: teamHref,     label: 'Team',      Icon: Users,    active: teamActive     },
-            { href: settingsHref, label: 'Settings',  Icon: Settings, active: settingsActive },
-          ]
-
-          return (
-            <div className="mt-1">
-              {links.map(({ href, label, Icon, active }) => (
-                <Link key={href} href={href} title={label}>
-                  <div className={cn(
-                    'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
-                    collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
-                    active
-                      ? 'bg-[var(--bg-sidebar-active)] text-[var(--text-sidebar-active)]'
-                      : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
-                  )}>
-                    {active && (
-                      <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-primary)]" />
-                    )}
-                    <Icon className={cn('flex-shrink-0 h-3.5 w-3.5', active ? 'text-white' : 'text-[var(--text-sidebar-icon)]')} />
-                    {!collapsed && <span className="text-xs font-medium text-[var(--text-sidebar)]">{label}</span>}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )
-        })()}
 
         {/* Divider */}
         <div className="my-2 h-px bg-white/10" />
@@ -243,7 +207,9 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
 
         {/* Role-based nav — student */}
         {workspaceRole === 'student' && (() => {
+          const roadmapHref = thesisProjectId ? `/projects/${thesisProjectId}/chapters` : '/student/milestones'
           const roadmapActive = pathname.startsWith('/student/milestones') || pathname === '/student'
+            || (thesisProjectId ? pathname.startsWith(`/projects/${thesisProjectId}/chapters`) : false)
           const supervisorActive = pathname.startsWith('/student/supervisor')
           return (
             <>
@@ -252,7 +218,7 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
                   My Research
                 </p>
               )}
-              <Link href="/student/milestones" title={collapsed ? 'My Roadmap' : undefined}>
+              <Link href={roadmapHref} title={collapsed ? 'My Roadmap' : undefined}>
                 <div className={cn(
                   'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
                   collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
@@ -326,7 +292,7 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
         >
           <div className="flex items-center justify-center rounded-full bg-[var(--accent-primary)] text-white text-xs font-bold flex-shrink-0 h-7 w-7">
             {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" />
+              <Image src={profile.avatar_url} alt="" width={28} height={28} className="h-7 w-7 rounded-full object-cover" />
             ) : (
               getInitials(profile?.full_name)
             )}
