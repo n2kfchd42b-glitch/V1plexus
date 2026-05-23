@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { checkRateLimit } from '@/lib/rateLimit'
 import { createClient } from '@/lib/supabase/server'
 import type { AnalysisType } from '@/types/database'
+import { AI_ENABLED } from '@/lib/flags'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -49,7 +50,33 @@ const ANALYSIS_CATALOGUE = [
   { type: 'sample_size', label: 'Sample Size Calculator', tags: ['power', 'planning', 'precision'] },
 ]
 
+// Static system prompt — defined at module scope so the text is identical
+// on every request, which is the prerequisite for a prompt cache hit.
+const SYSTEM_PROMPT = `You are an expert biostatistician and research methodologist advising researchers on their statistical analysis.
+
+Based on the research context provided by the user, recommend the most appropriate statistical analyses from the available catalogue.
+
+AVAILABLE ANALYSES:
+${ANALYSIS_CATALOGUE.map(a => `- ${a.type}: ${a.label} [tags: ${a.tags.join(', ')}]`).join('\n')}
+
+Return a JSON array of recommendations (3–6 items), ordered by priority. Each item must match this exact schema:
+{
+  "type": "<analysis_type exactly as listed>",
+  "label": "<analysis label>",
+  "reason": "<one sentence: why this specific analysis fits this research>",
+  "confidence": "high" | "medium" | "low",
+  "priority": <integer 1=highest>
+}
+
+Rules:
+- Only include analyses that genuinely fit the research context
+- If dataset columns are provided, use column types to justify suggestions (e.g. binary columns → logistic regression, time columns → survival analysis)
+- Confidence is "high" when the research context strongly implies this method, "low" when it is speculative
+- Return ONLY the JSON array, no other text`
+
 export async function POST(req: NextRequest) {
+  if (!AI_ENABLED) return NextResponse.json({ error: 'AI features are not available on your plan.' }, { status: 503 })
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
@@ -93,37 +120,22 @@ export async function POST(req: NextRequest) {
   if (researchObjectives) contextParts.push(`Research objectives: ${researchObjectives}`)
   if (columnsSummary) contextParts.push(`Dataset columns (${columns!.length} total):\n${columnsSummary}`)
 
-  const prompt = `You are an expert biostatistician and research methodologist advising researchers on their statistical analysis.
-
-Based on the research context below, recommend the most appropriate statistical analyses from the available catalogue.
-
-RESEARCH CONTEXT:
-${contextParts.join('\n')}
-
-AVAILABLE ANALYSES:
-${ANALYSIS_CATALOGUE.map(a => `- ${a.type}: ${a.label} [tags: ${a.tags.join(', ')}]`).join('\n')}
-
-Return a JSON array of recommendations (3–6 items), ordered by priority. Each item must match this exact schema:
-{
-  "type": "<analysis_type exactly as listed>",
-  "label": "<analysis label>",
-  "reason": "<one sentence: why this specific analysis fits this research>",
-  "confidence": "high" | "medium" | "low",
-  "priority": <integer 1=highest>
-}
-
-Rules:
-- Only include analyses that genuinely fit the research context
-- If dataset columns are provided, use column types to justify suggestions (e.g. binary columns → logistic regression, time columns → survival analysis)
-- Confidence is "high" when the research context strongly implies this method, "low" when it is speculative
-- Return ONLY the JSON array, no other text`
-
   try {
-    const message = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: prompt }],
-    })
+    const message = await client.messages.create(
+      {
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        system: [
+          {
+            type: 'text',
+            text: SYSTEM_PROMPT,
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+        messages: [{ role: 'user', content: `RESEARCH CONTEXT:\n${contextParts.join('\n')}` }],
+      },
+      { headers: { 'anthropic-beta': 'prompt-caching-2024-07-31' } },
+    )
 
     const text = message.content[0]?.type === 'text' ? message.content[0].text : ''
     const jsonMatch = text.match(/\[[\s\S]*\]/)

@@ -30,11 +30,13 @@ export function GenerateSectionModal({ open, onClose, editor, documentId }: Gene
   const [sectionType, setSectionType] = useState('')
   const [analysisOutput, setAnalysisOutput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
 
   const handleGenerate = async () => {
     if (!sectionType) return
     setLoading(true)
+    setError(null)
 
     try {
       let parsedOutput: unknown = analysisOutput
@@ -59,7 +61,8 @@ export function GenerateSectionModal({ open, onClose, editor, documentId }: Gene
 
       onClose()
     } catch (err) {
-      console.error('Generate section error:', err)
+      console.error('[GenerateSectionModal]', err)
+      setError('Generation failed. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -106,6 +109,9 @@ export function GenerateSectionModal({ open, onClose, editor, documentId }: Gene
           </div>
 
           {loading && <AILoadingIndicator />}
+          {error && (
+            <p className="text-xs text-destructive">{error}</p>
+          )}
         </div>
 
         <DialogFooter>

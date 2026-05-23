@@ -429,7 +429,7 @@ export default function ProfilePage() {
             {t('profileSettings.manageCredentials')}
           </button>
           <a
-            href="/dashboard"
+            href="mailto:support@plexus.health"
             className="w-full flex items-center gap-2 text-xs font-medium text-[#52525B] hover:bg-[#F4F7FF] px-2 py-2 rounded-lg transition-colors"
           >
             <span className="material-symbols-outlined text-[16px]">help_outline</span>

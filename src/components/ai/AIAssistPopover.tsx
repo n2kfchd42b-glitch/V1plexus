@@ -33,6 +33,7 @@ export function AIAssistPopover({ editor, documentId, open: externalOpen, onOpen
   const [loading, setLoading] = useState(false)
   const [suggestion, setSuggestion] = useState<string | null>(null)
   const [pendingTone, setPendingTone] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
 
   const getSelectedText = () => {
@@ -46,6 +47,7 @@ export function AIAssistPopover({ editor, documentId, open: externalOpen, onOpen
 
     setLoading(true)
     setSuggestion(null)
+    setError(null)
     setPendingTone(tone)
 
     try {
@@ -61,7 +63,8 @@ export function AIAssistPopover({ editor, documentId, open: externalOpen, onOpen
       if (error || !data?.result) throw error ?? new Error('No result')
       setSuggestion(data.result as string)
     } catch (err) {
-      console.error('AI assist error:', err)
+      console.error('[AIAssistPopover]', err)
+      setError('AI assist is unavailable right now. Please try again.')
       setSuggestion(null)
     } finally {
       setLoading(false)
@@ -84,7 +87,7 @@ export function AIAssistPopover({ editor, documentId, open: externalOpen, onOpen
   const selectedText = getSelectedText()
 
   return (
-    <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setSuggestion(null); setPendingTone(null) } }}>
+    <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setSuggestion(null); setPendingTone(null); setError(null) } }}>
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
@@ -130,6 +133,10 @@ export function AIAssistPopover({ editor, documentId, open: externalOpen, onOpen
         )}
 
         {loading && <AILoadingIndicator />}
+
+        {error && (
+          <p className="text-xs text-destructive mt-1">{error}</p>
+        )}
 
         {suggestion && (
           <AISuggestionDisplay

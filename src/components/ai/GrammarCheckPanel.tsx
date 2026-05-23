@@ -28,6 +28,7 @@ export function GrammarCheckPanel({ editor, documentId, onClose }: GrammarCheckP
   const [suggestions, setSuggestions] = useState<GrammarSuggestion[]>([])
   const [dismissed, setDismissed] = useState<Set<number>>(new Set())
   const [ran, setRan] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
 
   const runCheck = async () => {
@@ -36,6 +37,7 @@ export function GrammarCheckPanel({ editor, documentId, onClose }: GrammarCheckP
     setLoading(true)
     setDismissed(new Set())
     setSuggestions([])
+    setError(null)
 
     try {
       const { data, error } = await supabase.functions.invoke('ai-assist', {
@@ -50,7 +52,8 @@ export function GrammarCheckPanel({ editor, documentId, onClose }: GrammarCheckP
       setSuggestions(Array.isArray(data?.result) ? (data.result as GrammarSuggestion[]) : [])
       setRan(true)
     } catch (err) {
-      console.error('Grammar check error:', err)
+      console.error('[GrammarCheckPanel]', err)
+      setError('Grammar check is unavailable right now. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -90,6 +93,9 @@ export function GrammarCheckPanel({ editor, documentId, onClose }: GrammarCheckP
           {loading ? 'Checking...' : ran ? 'Re-check' : 'Check Writing'}
         </Button>
         {loading && <div className="mt-2"><AILoadingIndicator /></div>}
+        {error && (
+          <p className="text-xs text-destructive mt-2">{error}</p>
+        )}
       </div>
 
       {ran && !loading && (

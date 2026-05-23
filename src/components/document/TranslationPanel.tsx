@@ -56,7 +56,7 @@ export function TranslationPanel({ documentId, onClose, onInsertTranslation }: T
       setResult(json)
       setState('done')
     } catch (err) {
-      console.error(err)
+      console.error('[TranslationPanel]', err)
       toast.error('Translation failed. Check that ANTHROPIC_API_KEY is configured.')
       setState('error')
     }

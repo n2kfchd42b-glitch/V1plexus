@@ -92,7 +92,7 @@ export function VersionHistory({
       setSelectedVersionId(null)
     } catch (err) {
       toast.error('Failed to restore version')
-      console.error(err)
+      console.error('[VersionHistoryEnhanced]', err)
     } finally {
       setRestoring(null)
     }
