@@ -31,7 +31,7 @@ export const ETHICS_ENABLED = false;
  * DOCUMENTS_ENABLED: Collaborative document editor (TipTap), version history, authorship.
  *   - While false, Documents tab is hidden from project nav.
  */
-export const DOCUMENTS_ENABLED = false;
+export const DOCUMENTS_ENABLED = true;
 
 /**
  * TEAM_ENABLED: Project team management, invitations, role assignment.
@@ -75,6 +75,13 @@ export const PORTFOLIO_ENABLED = false;
  */
 export const SUPERVISOR_ENABLED = false;
 
+/**
+ * AI_ENABLED: Anthropic API features (analysis suggestions, cover letter, translation, project suggestions).
+ *   - While false, all AI API routes return 503 immediately — no credits are consumed.
+ *   - Flip to true when premium user gating is in place.
+ */
+export const AI_ENABLED = false;
+
 // ── Legacy flags (kept for backward compatibility) ────────────────────────
 
 /**
@@ -85,7 +92,7 @@ export const FIELD_OPERATIONS_ENABLED = false;
 /**
  * THESIS_ENABLED: Phase 8 thesis & student management workspace.
  */
-export const THESIS_ENABLED = false;
+export const THESIS_ENABLED = true;
 
 /**
  * PUBLICATION_ENABLED: Phase 9 publication pipeline.

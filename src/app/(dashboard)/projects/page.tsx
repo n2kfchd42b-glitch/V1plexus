@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import {
   Plus, FolderOpen, Search, ChevronRight,
-  Archive, ArchiveRestore, X,
+  Archive, ArchiveRestore, X, GraduationCap,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
@@ -409,13 +409,22 @@ export default function ProjectsPage() {
           </button>
         )}
 
-        <button
-          onClick={() => setShowNew(true)}
-          className="ml-auto inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-white text-xs font-medium btn-press btn-primary"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          {t('projects.newProject', 'New Project')}
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <Link
+            href="/projects/new-thesis"
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] transition-colors"
+          >
+            <GraduationCap className="h-3.5 w-3.5" />
+            {t('projects.newThesis', 'Thesis')}
+          </Link>
+          <button
+            onClick={() => setShowNew(true)}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-white text-xs font-medium btn-press btn-primary"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {t('projects.newProject', 'New Project')}
+          </button>
+        </div>
       </div>
 
       {/* Project list */}

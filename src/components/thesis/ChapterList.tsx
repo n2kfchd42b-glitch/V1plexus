@@ -1,9 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, GripVertical } from "lucide-react";
-import { ThesisChapter } from "@/lib/types/thesis";
+import type { ThesisChapter } from "@/types/database";
 import { ChapterCard } from "./ChapterCard";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 interface ChapterListProps {
   projectId: string;
@@ -16,44 +20,116 @@ export function ChapterList({ projectId, chapters: initialChapters, canEdit }: C
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const { user } = useAuth();
+  const router = useRouter();
 
   const sorted = [...chapters].sort((a, b) => (a.sort_order ?? a.chapter_number) - (b.sort_order ?? b.chapter_number));
 
-  function handleAddChapter() {
+  async function handleStartWriting(chapterId: string) {
+    if (!user || actionLoading) return;
+    setActionLoading(chapterId);
+    try {
+      const supabase = createClient();
+      const chapter = chapters.find(c => c.id === chapterId);
+      if (!chapter) return;
+
+      // Create a document for this chapter
+      const { data: doc, error: docError } = await supabase
+        .from("documents")
+        .insert({
+          project_id: projectId,
+          title: chapter.title,
+          doc_type: "general",
+          content: null,
+          status: "draft",
+          created_by: user.id,
+          current_version: 1,
+        })
+        .select("id")
+        .single();
+      if (docError || !doc) throw new Error(docError?.message ?? "Failed to create document");
+
+      // Link the document to the chapter and move status to drafting
+      const { error: chapterError } = await supabase
+        .from("thesis_chapters")
+        .update({ document_id: doc.id, status: "drafting" })
+        .eq("id", chapterId);
+      if (chapterError) throw new Error(chapterError.message);
+
+      setChapters(prev =>
+        prev.map(c => c.id === chapterId ? { ...c, document_id: doc.id, status: "drafting" as const } : c)
+      );
+      router.push(`/projects/${projectId}/documents/${doc.id}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleSubmitForReview(chapterId: string) {
+    if (actionLoading) return;
+    setActionLoading(chapterId);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("thesis_chapters")
+        .update({ status: "submitted_for_review", submitted_at: new Date().toISOString() })
+        .eq("id", chapterId);
+      if (error) throw new Error(error.message);
+      setChapters(prev =>
+        prev.map(c => c.id === chapterId ? { ...c, status: "submitted_for_review" as const, submitted_at: new Date().toISOString() } : c)
+      );
+      toast.success("Chapter submitted for review");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleAddChapter() {
     if (!newTitle.trim()) return;
-    const next: ThesisChapter = {
-      id: `temp-${Date.now()}`,
+    const supabase = createClient();
+    const newChapter = {
       project_id: projectId,
-      document_id: null,
       chapter_number: chapters.length + 1,
       title: newTitle.trim(),
-      status: "not_started",
-      target_date: null,
-      submitted_at: null,
-      approved_at: null,
-      approved_by: null,
+      status: "not_started" as const,
       sort_order: chapters.length,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     };
-    setChapters(prev => [...prev, next]);
+    const { data, error } = await supabase
+      .from("thesis_chapters")
+      .insert(newChapter)
+      .select()
+      .single();
+    if (error || !data) { toast.error("Failed to add chapter"); return; }
+    setChapters(prev => [...prev, data as ThesisChapter]);
     setNewTitle("");
     setShowAddForm(false);
-    // TODO: persist to Supabase
   }
 
   function handleDragStart(index: number) {
     setDragIndex(index);
   }
 
-  function handleDragOver(e: React.DragEvent, index: number) {
+  async function handleDragOver(e: React.DragEvent, index: number) {
     e.preventDefault();
     if (dragIndex === null || dragIndex === index) return;
     const reordered = [...sorted];
     const [moved] = reordered.splice(dragIndex, 1);
     reordered.splice(index, 0, moved);
-    setChapters(reordered.map((c, i) => ({ ...c, sort_order: i })));
+    const updated = reordered.map((c, i) => ({ ...c, sort_order: i }));
+    setChapters(updated);
     setDragIndex(index);
+
+    const supabase = createClient();
+    await Promise.all(
+      updated.map(c =>
+        supabase.from("thesis_chapters").update({ sort_order: c.sort_order }).eq("id", c.id)
+      )
+    );
   }
 
   if (chapters.length === 0 && !canEdit) {
@@ -75,12 +151,18 @@ export function ChapterList({ projectId, chapters: initialChapters, canEdit }: C
           onDragOver={e => handleDragOver(e, index)}
         >
           {canEdit && (
-            <div className="flex items-center cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 px-1">
+            <div className="flex items-center cursor-grab active:cursor-grabbing px-1" style={{ color: "var(--text-tertiary)" }}>
               <GripVertical className="h-4 w-4" />
             </div>
           )}
           <div className="flex-1">
-            <ChapterCard chapter={chapter} projectId={projectId} />
+            <ChapterCard
+              chapter={chapter}
+              projectId={projectId}
+              onStartWriting={canEdit ? handleStartWriting : undefined}
+              onSubmitForReview={handleSubmitForReview}
+              loading={actionLoading === chapter.id}
+            />
           </div>
         </div>
       ))}
@@ -96,17 +178,19 @@ export function ChapterList({ projectId, chapters: initialChapters, canEdit }: C
                 onChange={e => setNewTitle(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && handleAddChapter()}
                 placeholder="Chapter title..."
-                className="flex-1 text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 text-sm rounded px-3 py-2 outline-none focus:ring-2 focus:ring-[var(--accent-blue)]/20"
+              style={{ border: "1px solid var(--border-default)", background: "var(--bg-surface)", color: "var(--text-primary)" }}
               />
               <button
                 onClick={handleAddChapter}
-                className="text-sm px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                className="text-sm px-3 py-2 rounded text-white btn-primary"
               >
                 Add
               </button>
               <button
                 onClick={() => { setShowAddForm(false); setNewTitle(""); }}
-                className="text-sm px-3 py-2 border border-gray-300 rounded hover:bg-gray-50"
+                className="text-sm px-3 py-2 rounded"
+                style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
               >
                 Cancel
               </button>
@@ -114,7 +198,8 @@ export function ChapterList({ projectId, chapters: initialChapters, canEdit }: C
           ) : (
             <button
               onClick={() => setShowAddForm(true)}
-              className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium"
+              className="flex items-center gap-1.5 text-sm font-medium"
+              style={{ color: "var(--accent-blue)" }}
             >
               <Plus className="h-4 w-4" />
               Add Chapter

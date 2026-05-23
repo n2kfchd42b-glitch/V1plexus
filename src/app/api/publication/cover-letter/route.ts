@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { checkRateLimit } from '@/lib/rateLimit'
+import { AI_ENABLED } from '@/lib/flags'
 
 const MAX_FIELD_LENGTH = 5000
 
@@ -17,6 +18,8 @@ Guidelines:
 - Do NOT include date or postal address — start with "Dear Editor,"`
 
 export async function POST(req: NextRequest) {
+  if (!AI_ENABLED) return NextResponse.json({ error: 'AI features are not available on your plan.' }, { status: 503 })
+
   const rateLimitResponse = checkRateLimit(req, { limit: 10, windowMs: 60 * 60 * 1000 })
   if (rateLimitResponse) return rateLimitResponse
 

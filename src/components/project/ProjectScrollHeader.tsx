@@ -19,6 +19,7 @@ interface ProjectScrollHeaderProps {
   phases: GanttPhase[]
   datasetCount: number
   runCount: number
+  isThesis?: boolean
 }
 
 export function ProjectScrollHeader({
@@ -29,30 +30,34 @@ export function ProjectScrollHeader({
   phases,
   datasetCount,
   runCount,
+  isThesis = false,
 }: ProjectScrollHeaderProps) {
   const pathname = usePathname()
 
-  // Overview is the "home" of a project — show the full hero.
-  // Any work section (Data, Analysis, Writing, sub-pages) collapses it
-  // immediately on navigation, giving the workspace maximum room.
   const overviewHref   = `/projects/${projectId}/overview`
   const isOverview     = pathname === overviewHref || pathname === `/projects/${projectId}`
   const isDocEditor    = pathname.startsWith(`/projects/${projectId}/documents/`)
-  // Non-workflow routes (settings, members, etc.) don't belong to the tab set —
-  // hide the project chrome entirely so the page gets its own uncluttered layout.
   const isOutsideWorkflow = !isOverview
     && !pathname.startsWith(`/projects/${projectId}/data`)
     && !pathname.startsWith(`/projects/${projectId}/analysis`)
     && !pathname.startsWith(`/projects/${projectId}/documents`)
+    && !pathname.startsWith(`/projects/${projectId}/chapters`)
+    && !pathname.startsWith(`/projects/${projectId}/setup`)
   const collapsed      = !isOverview
 
   if (isDocEditor || isOutsideWorkflow) return null
 
   const tabs = [
-    { slug: 'overview',  label: 'Overview', count: null as number | null },
-    { slug: 'data',      label: 'Data',      count: datasetCount          },
-    { slug: 'analysis',  label: 'Analysis',  count: runCount > 0 ? runCount : null },
-    { slug: 'documents', label: 'Writing',   count: null                  },
+    { slug: 'overview',  label: 'Overview',  count: null as number | null },
+    ...(isThesis ? [
+      { slug: 'chapters', label: 'Chapters', count: null as number | null },
+    ] : []),
+    { slug: 'data',      label: 'Data',       count: datasetCount          },
+    { slug: 'analysis',  label: 'Analysis',   count: runCount > 0 ? runCount : null },
+    { slug: 'documents', label: 'Writing',    count: null                  },
+    ...(isThesis ? [
+      { slug: 'setup', label: 'Setup', count: null as number | null },
+    ] : []),
   ]
 
   return (

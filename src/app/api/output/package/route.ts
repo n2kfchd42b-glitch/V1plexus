@@ -26,15 +26,13 @@ export async function GET(request: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    // Filter to packages the user actually has access to
-    const filtered = []
-    for (const pkg of data ?? []) {
-      if (await hasProjectAccess(supabase, pkg.project_id, user.id)) {
-        filtered.push(pkg)
-        break // only need to verify once per project
-      }
+    // All packages share the same project; verify access once then return all or none.
+    const packages = data ?? []
+    if (packages.length > 0) {
+      const allowed = await hasProjectAccess(supabase, packages[0].project_id, user.id)
+      if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
-    return NextResponse.json(data ?? [])
+    return NextResponse.json(packages)
   } catch (err) {
     console.error('[GET /api/output/package]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

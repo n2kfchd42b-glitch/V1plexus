@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Link2, Copy, Check, Clock } from "lucide-react";
-import { ThesisCommittee } from "@/lib/types/thesis";
+import type { ThesisCommittee } from "@/types/database";
 
 interface GuestAccessGeneratorProps {
   member: ThesisCommittee;

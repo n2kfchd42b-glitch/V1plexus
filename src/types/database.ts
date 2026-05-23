@@ -13,6 +13,10 @@ export type AnalysisEngine = 'r' | 'python'
 export type AnalysisStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 export type OutputType = 'table' | 'figure' | 'log' | 'summary' | 'file'
 export type ProjectStatus = 'draft' | 'active' | 'on_hold' | 'completed' | 'archived'
+export type ProjectType = 'research' | 'thesis'
+export type ThesisDegreeType = 'msc' | 'mphil' | 'phd' | 'drph' | 'md' | 'bachelor' | 'other'
+export type ThesisDefenseStatus = 'not_scheduled' | 'proposal_scheduled' | 'proposal_completed' | 'final_scheduled' | 'final_completed' | 'passed' | 'passed_with_corrections' | 'revise_resubmit' | 'failed'
+export type ThesisChapterStatus = 'not_started' | 'drafting' | 'submitted_for_review' | 'revision_requested' | 'approved' | 'locked'
 export type ProjectPhase = 'design' | 'data_collection' | 'analysis' | 'writing' | 'submitted' | 'published'
 export type InstitutionType = 'university' | 'hospital' | 'research_institute' | 'ngo' | 'government' | 'other'
 export type ProjectMemberRole = 'owner' | 'pi' | 'member' | 'viewer'
@@ -217,6 +221,7 @@ export interface Project {
   research_objectives: string | null
   status: ProjectStatus
   phase: ProjectPhase | null
+  project_type: ProjectType
   owner_id: string
   workspace_id: string | null
   institution_id: string | null
@@ -229,6 +234,60 @@ export interface Project {
   deleted_at: string | null
   owner?: Profile
   workspace?: Workspace
+  thesis_metadata?: ThesisMetadata | null
+}
+
+export interface ThesisMetadata {
+  id: string
+  project_id: string
+  degree_type: ThesisDegreeType
+  program_name: string
+  department: string | null
+  institution_id: string | null
+  supervisor_id: string | null
+  enrollment_date: string | null
+  expected_completion: string | null
+  thesis_title: string | null
+  defense_status: ThesisDefenseStatus
+  created_at: string
+  updated_at: string
+  supervisor?: { full_name: string | null; email: string | null } | null
+}
+
+export type ThesisCommitteeRole = 'chair' | 'co_chair' | 'member' | 'external_examiner' | 'advisor'
+export type ThesisCommitteeStatus = 'invited' | 'confirmed' | 'declined' | 'removed'
+
+export interface ThesisCommittee {
+  id: string
+  project_id: string
+  user_id: string | null
+  external_name: string | null
+  external_email: string | null
+  external_institution: string | null
+  role: ThesisCommitteeRole
+  status: ThesisCommitteeStatus
+  invited_at: string
+  confirmed_at: string | null
+  invited_by: string | null
+  created_at: string
+  profile?: { full_name: string | null; email: string | null } | null
+}
+
+export interface ThesisChapter {
+  id: string
+  project_id: string
+  document_id: string | null
+  chapter_number: number
+  title: string
+  status: ThesisChapterStatus
+  target_date: string | null
+  submitted_at: string | null
+  approved_at: string | null
+  approved_by: string | null
+  sort_order: number | null
+  created_at: string
+  updated_at: string
+  approver?: { full_name: string | null } | null
 }
 
 export interface ProjectMember {

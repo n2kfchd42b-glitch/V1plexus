@@ -1,5 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { AI_ENABLED } from "@/lib/flags";
 import { ProjectOverviewClient } from "@/components/project/ProjectOverviewClient";
 import type { GanttPhase } from "@/components/project/ProjectGantt";
 import type { ActivityLog, DbTask, SupervisorMilestone, RecentDoc, LatestRun } from "@/components/project/ProjectOverviewClient";
@@ -129,6 +130,7 @@ export default async function ProjectOverviewPage({
       supervisorMilestones={supervisorMilestones}
       recentDocs={recentDocs}
       latestRun={latestRun}
+      aiEnabled={AI_ENABLED}
     />
   );
 }

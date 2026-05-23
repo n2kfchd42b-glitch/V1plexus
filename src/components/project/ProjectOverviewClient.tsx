@@ -71,6 +71,7 @@ export interface ProjectOverviewClientProps {
   supervisorMilestones: SupervisorMilestone[]
   recentDocs: RecentDoc[]
   latestRun: LatestRun | null
+  aiEnabled?: boolean
 }
 
 // ── Phase mapping ─────────────────────────────────────────────────────────────
@@ -1009,12 +1010,14 @@ export function ProjectOverviewClient({
   supervisorMilestones,
   recentDocs,
   latestRun,
+  aiEnabled = false,
 }: ProjectOverviewClientProps) {
 
-  const [aiState, setAiState] = useState<'loading' | 'loaded' | 'error'>('loading')
+  const [aiState, setAiState] = useState<'loading' | 'loaded' | 'error'>(() => aiEnabled ? 'loading' : 'error')
   const [aiText,  setAiText]  = useState('')
 
   const loadAI = useCallback(async () => {
+    if (!aiEnabled) { setAiState('error'); return }
     setAiState('loading')
     try {
       const res  = await fetch(`/api/projects/${id}/suggestion`)
@@ -1026,7 +1029,7 @@ export function ProjectOverviewClient({
     } catch {
       setAiState('error')
     }
-  }, [id])
+  }, [id, aiEnabled])
 
   useEffect(() => { loadAI() }, [loadAI])
 

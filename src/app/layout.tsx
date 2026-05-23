@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next"
+import Script from "next/script"
 import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
 import { Manrope, Inter, Instrument_Serif, Lora } from "next/font/google"
@@ -81,7 +82,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           media="print"
           suppressHydrationWarning
         />
-        <script dangerouslySetInnerHTML={{ __html: `(function(){var l=document.getElementById('material-symbols-css');if(l)l.addEventListener('load',function(){l.media='all'})})()` }} />
+        <Script id="material-symbols-load" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: `(function(){var l=document.getElementById('material-symbols-css');if(l)l.addEventListener('load',function(){l.media='all'})})()` }} />
         <noscript>
           <link
             href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
@@ -90,7 +91,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </noscript>
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
         {/* Unregister any stale service workers so cached JS chunks never block updates */}
-        <script dangerouslySetInnerHTML={{ __html: `
+        <Script id="sw-cleanup" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `
           if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(regs) {
               regs.forEach(function(reg) { reg.unregister(); });

@@ -30,7 +30,7 @@ export default async function ProjectWorkspaceLayout({
     supabase.auth.getUser(),
     supabase
       .from("projects")
-      .select("id, owner_id, title, status, created_at")
+      .select("id, owner_id, title, status, project_type, created_at")
       .eq("id", id)
       .is("deleted_at", null)
       .single(),
@@ -65,8 +65,10 @@ export default async function ProjectWorkspaceLayout({
     supabase.from("project_phases").select("phase_key, name, color, start_date, end_date, completed_at, sort_order, disabled").eq("project_id", id).then(r => ({ data: r.data ?? [] })),
   ]);
 
-  const phases = (rawPhases ?? []) as GanttPhase[]
-  const badge  = STATUS_BADGE[project.status] ?? STATUS_BADGE.draft
+  const phases    = (rawPhases ?? []) as GanttPhase[]
+  const badge     = STATUS_BADGE[project.status] ?? STATUS_BADGE.draft
+  // project_type is a plain string column — check it directly
+  const isThesis  = 'project_type' in project && (project as Record<string, unknown>).project_type === 'thesis'
 
   return (
     <div className="flex flex-col" style={{ minHeight: '100%', background: 'var(--bg-app)' }}>
@@ -80,6 +82,7 @@ export default async function ProjectWorkspaceLayout({
         phases={phases}
         datasetCount={datasetCount ?? 0}
         runCount={runCount ?? 0}
+        isThesis={isThesis}
       />
 
       {/* ── Tab content ───────────────────────────────────────────────────────── */}

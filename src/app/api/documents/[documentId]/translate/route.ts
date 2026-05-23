@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rateLimit'
+import { AI_ENABLED } from '@/lib/flags'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -39,6 +40,8 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ documentId: string }> },
 ) {
+  if (!AI_ENABLED) return NextResponse.json({ error: 'AI features are not available on your plan.' }, { status: 503 })
+
   const rateLimitResponse = checkRateLimit(req, { limit: 15, windowMs: 60 * 60 * 1000 })
   if (rateLimitResponse) return rateLimitResponse
 

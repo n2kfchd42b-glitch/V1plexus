@@ -34,6 +34,7 @@ type ProjectInsert = {
   description?: string | null
   owner_id: string
   workspace_id?: string | null
+  project_type?: 'research' | 'thesis'
 }
 
 type ProjectUpdate = Partial<Pick<Project,

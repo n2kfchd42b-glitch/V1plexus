@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, ChevronLeft, GripVertical, Trash2, Plus, GraduationCap } from "lucide-react";
+import { ChevronRight, ChevronLeft, GripVertical, Trash2, Plus, GraduationCap, Info } from "lucide-react";
 import { DegreeType, DEGREE_LABELS, DEFAULT_CHAPTERS_BY_DEGREE } from "@/lib/types/thesis";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 interface ThesisCreationWizardProps {
   workspaceId?: string;
@@ -25,6 +28,7 @@ const STEPS = ["Basic Info", "Thesis Details", "Chapter Structure", "Committee"]
 
 export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
   const router = useRouter();
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
 
@@ -97,17 +101,62 @@ export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
   }
 
   async function handleCreate() {
+    if (!user) return;
     setSaving(true);
-    // TODO:
-    // 1. createClient() and insert project with title, description
-    // 2. Insert thesis_metadata with degree info
-    // 3. Insert thesis_chapters entries
-    // 4. Insert thesis_committees entries (if any)
-    // 5. Create documents for each chapter (doc_type = 'thesis_chapter')
-    await new Promise(r => setTimeout(r, 1000));
-    setSaving(false);
-    // router.push(`/projects/${newProjectId}/chapters`);
-    router.push("/projects");
+    try {
+      const supabase = createClient();
+      const resolvedProgram = program === "Other" ? customProgram.trim() : program;
+
+      // 1. Create the project
+      const { data: project, error: projectError } = await supabase
+        .from("projects")
+        .insert({
+          title: title.trim(),
+          description: description.trim() || null,
+          owner_id: user.id,
+          project_type: "thesis",
+          status: "active",
+        })
+        .select("id")
+        .single();
+      if (projectError || !project) throw new Error(projectError?.message ?? "Failed to create project");
+
+      // 2. Insert thesis_metadata
+      const { error: metaError } = await supabase
+        .from("thesis_metadata")
+        .insert({
+          project_id: project.id,
+          degree_type: degreeType,
+          program_name: resolvedProgram,
+          thesis_title: title.trim(),
+          supervisor_id: null,
+          enrollment_date: enrollmentDate || null,
+          expected_completion: expectedCompletion || null,
+          defense_status: "not_scheduled",
+        });
+      if (metaError) throw new Error(metaError.message);
+
+      // 3. Insert thesis_chapters
+      if (chapters.length > 0) {
+        const { error: chaptersError } = await supabase
+          .from("thesis_chapters")
+          .insert(
+            chapters.map((c, i) => ({
+              project_id: project.id,
+              chapter_number: i + 1,
+              title: c.title.trim(),
+              status: "not_started",
+              sort_order: i,
+            }))
+          );
+        if (chaptersError) throw new Error(chaptersError.message);
+      }
+
+      router.push(`/projects/${project.id}/chapters`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Something went wrong");
+      setSaving(false);
+    }
   }
 
   const canProceedStep0 = title.trim().length >= 3;
@@ -234,6 +283,13 @@ export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
                 className="w-full text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+          </div>
+
+          <div className="flex items-start gap-2.5 rounded-lg border border-blue-100 bg-blue-50 px-3.5 py-3">
+            <Info className="h-3.5 w-3.5 text-blue-500 mt-0.5 shrink-0" />
+            <p className="text-xs text-blue-700 leading-relaxed">
+              You can invite your supervisor from the <span className="font-semibold">Setup</span> tab once the project is created.
+            </p>
           </div>
         </div>
       )}
