@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { X, Search, UserCheck, Loader2, CheckCircle2, Mail, ArrowLeft } from 'lucide-react'
+import { useState, useCallback, useEffect } from 'react'
+import { X, Search, UserCheck, Loader2, CheckCircle2, Mail, ArrowLeft, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -35,7 +35,30 @@ export function FindSupervisorModal({ onClose, onRequested }: Props) {
   const [inviting, setInviting] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
 
+  // Whether the student already has a primary supervisor (active or pending).
+  // When true, any new request is auto-assigned as co-supervisor server-side.
+  const [primaryName, setPrimaryName] = useState<string | null>(null)
+
   const supabase = createClient()
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data } = await supabase
+        .from('supervisor_assignments')
+        .select('supervisor:profiles!supervisor_id(full_name, email)')
+        .eq('student_id', user.id)
+        .eq('role', 'primary')
+        .in('status', ['pending', 'active'])
+        .maybeSingle()
+      if (cancelled) return
+      const sup = (data?.supervisor ?? null) as { full_name: string | null, email: string | null } | null
+      if (sup) setPrimaryName(sup.full_name ?? sup.email ?? 'your main supervisor')
+    })()
+    return () => { cancelled = true }
+  }, [supabase])
 
   const search = useCallback(async (q: string) => {
     if (!q.trim()) { setResults([]); return }
@@ -91,7 +114,12 @@ export function FindSupervisorModal({ onClose, onRequested }: Props) {
     const body = await res.json()
     if (res.ok) {
       setSent(prev => new Set(prev).add(supervisorId))
-      toast.success('Supervision request sent')
+      const role = body?.assignedRole as 'primary' | 'co_supervisor' | undefined
+      toast.success(
+        role === 'co_supervisor'
+          ? 'Co-supervisor request sent'
+          : 'Supervision request sent'
+      )
       onRequested()
     } else {
       toast.error(body.error ?? 'Failed to send request')
@@ -184,6 +212,15 @@ export function FindSupervisorModal({ onClose, onRequested }: Props) {
           ) : (
             /* ── Search existing users ── */
             <>
+              {primaryName && (
+                <div className="mb-4 flex items-start gap-2 rounded-lg border border-accent-blue/20 bg-accent-blue/5 p-2.5">
+                  <Info className="h-3.5 w-3.5 mt-0.5 text-accent-blue flex-shrink-0" />
+                  <p className="text-[11px] leading-relaxed text-text-secondary">
+                    <span className="font-semibold text-text-primary">{primaryName}</span> is your main supervisor.
+                    Anyone you request next will be added as a <span className="font-semibold">co-supervisor</span>.
+                  </p>
+                </div>
+              )}
               <div className="relative mb-4">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
                 <input

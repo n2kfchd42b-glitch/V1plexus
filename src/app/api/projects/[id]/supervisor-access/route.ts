@@ -23,12 +23,13 @@ export async function GET(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  // Get all supervisors assigned to this student, including their role
+  // Get all supervisors assigned to this student — include pending so the
+  // student can see in-flight requests waiting for acceptance.
   const { data: assignments } = await supabase
     .from('supervisor_assignments')
-    .select('id, supervisor_id, role, supervisor:profiles!supervisor_id(id, full_name, email)')
+    .select('id, supervisor_id, role, status, supervisor:profiles!supervisor_id(id, full_name, email)')
     .eq('student_id', user.id)
-    .eq('status', 'active')
+    .in('status', ['active', 'pending'])
 
   if (!assignments?.length) return NextResponse.json([])
 
@@ -47,6 +48,7 @@ export async function GET(
     assignmentId: a.id,
     supervisorId: a.supervisor_id,
     role: a.role as 'primary' | 'co_supervisor',
+    status: a.status as 'active' | 'pending',
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     name: (a.supervisor as any)?.full_name ?? (a.supervisor as any)?.email ?? 'Supervisor',
     hasAccess: accessSet.has(a.supervisor_id),

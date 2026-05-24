@@ -77,11 +77,11 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // Notify the student — use service client so the insert bypasses RLS
-  const { data: supervisor } = await supabase
-    .from('profiles')
-    .select('full_name')
-    .eq('id', user.id)
-    .single()
+  const serviceClient = createServiceClient()
+  const [{ data: supervisor }, { data: studentProfile }] = await Promise.all([
+    supabase.from('profiles').select('full_name').eq('id', user.id).single(),
+    serviceClient.from('profiles').select('email').eq('id', parsed.data.student_id).single(),
+  ])
   const supervisorName = supervisor?.full_name ?? 'Your supervisor'
   const sessionTitle   = parsed.data.title ?? 'Supervision Session'
 
@@ -92,7 +92,8 @@ export async function POST(req: NextRequest) {
     sessionTitle,
     `/projects/${parsed.data.project_id}`,
     { resource_type: 'supervision_record', resource_id: data.id },
-    createServiceClient(),
+    serviceClient,
+    studentProfile?.email ?? undefined,
   )
 
   void writeAuditEntry({

@@ -295,6 +295,7 @@ const SORT_OPTIONS: { value: SortMode; label: string }[] = [
 interface PendingRequest {
   id: string
   assigned_at: string
+  role: 'primary' | 'co_supervisor'
   student: {
     id: string
     full_name: string | null
@@ -462,12 +463,23 @@ export default function SupervisorDashboardPage() {
                 <div key={req.id} className="flex items-center gap-3 bg-white rounded-lg border border-indigo-100 px-3 py-2.5">
                   <Avatar name={req.student.full_name} email={req.student.email} size={28} />
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-text-primary truncate">
-                      {req.student.full_name ?? req.student.email}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm font-semibold text-text-primary truncate">
+                        {req.student.full_name ?? req.student.email}
+                      </span>
+                      <span className={cn(
+                        'flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide',
+                        req.role === 'primary'
+                          ? 'bg-indigo-100 text-indigo-700'
+                          : 'bg-slate-100 text-slate-700'
+                      )}>
+                        {req.role === 'primary' ? 'Main' : 'Co-supervisor'}
+                      </span>
                     </div>
-                    {req.student.title && (
-                      <div className="text-[11px] text-text-tertiary font-mono truncate">{req.student.title}</div>
-                    )}
+                    <div className="text-[11px] text-text-tertiary truncate">
+                      requesting you as {req.role === 'primary' ? 'main supervisor' : 'co-supervisor'}
+                      {req.student.title && ` · ${req.student.title}`}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button

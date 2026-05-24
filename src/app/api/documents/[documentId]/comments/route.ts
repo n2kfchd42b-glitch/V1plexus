@@ -63,6 +63,11 @@ export async function POST(
     const anchorSuffix = parsed.data.anchor_text
       ? ` · "${parsed.data.anchor_text.slice(0, 60)}${parsed.data.anchor_text.length > 60 ? '…' : ''}"`
       : ''
+    const { data: ownerProfile } = await svc
+      .from('profiles')
+      .select('email')
+      .eq('id', doc.created_by)
+      .single()
     await sendNotification(
       doc.created_by,
       'document_comment',
@@ -71,6 +76,7 @@ export async function POST(
       `/projects/${doc.project_id}/documents/${documentId}`,
       { resource_type: 'document', resource_id: documentId },
       svc,
+      ownerProfile?.email ?? undefined,
     )
     notified.add(doc.created_by)
   }
@@ -84,6 +90,11 @@ export async function POST(
       .single()
 
     if (parent && parent.author_id !== user.id && !notified.has(parent.author_id)) {
+      const { data: parentAuthorProfile } = await svc
+        .from('profiles')
+        .select('email')
+        .eq('id', parent.author_id)
+        .single()
       await sendNotification(
         parent.author_id,
         'document_comment',
@@ -92,6 +103,7 @@ export async function POST(
         `/projects/${doc.project_id}/documents/${documentId}`,
         { resource_type: 'document', resource_id: documentId },
         svc,
+        parentAuthorProfile?.email ?? undefined,
       )
     }
   }

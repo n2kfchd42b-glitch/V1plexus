@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
+import { sendNotification } from '@/lib/notifications/notificationService'
 import { z } from 'zod'
 
 const VALID_PHASES = ['concept', 'protocol', 'ethics', 'data', 'analysis', 'writing', 'publication'] as const
@@ -74,5 +76,29 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Notify the student that a new milestone was assigned (only when assigned by someone else)
+  if (parsed.data.student_id !== user.id) {
+    const serviceClient = createServiceClient()
+    const [{ data: supervisorProfile }, { data: studentProfile }] = await Promise.all([
+      supabase.from('profiles').select('full_name').eq('id', user.id).single(),
+      serviceClient.from('profiles').select('email').eq('id', parsed.data.student_id).single(),
+    ])
+    const supervisorName = supervisorProfile?.full_name ?? 'Your supervisor'
+
+    await sendNotification(
+      parsed.data.student_id,
+      'milestone_assigned',
+      `${supervisorName} assigned a milestone`,
+      parsed.data.title,
+      parsed.data.project_id
+        ? `/projects/${parsed.data.project_id}/milestones`
+        : '/student/milestones',
+      { resource_type: 'student_milestone', resource_id: data.id },
+      serviceClient,
+      studentProfile?.email ?? undefined,
+    )
+  }
+
   return NextResponse.json(data, { status: 201 })
 }

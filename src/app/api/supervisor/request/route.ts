@@ -6,6 +6,7 @@ import { z } from 'zod'
 
 const RequestSchema = z.object({
   supervisor_id: z.string().uuid(),
+  role: z.enum(['primary', 'co_supervisor']).optional(),
 })
 
 // POST /api/supervisor/request — student requests a supervisor (student-initiated)
@@ -52,6 +53,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No active workspace found. Complete setup first.' }, { status: 400 })
   }
 
+  // If the student already has a primary (active or pending) the new request must be a co-supervisor.
+  // Otherwise honour the requested role, defaulting to primary.
+  const { data: existingPrimary } = await supabase
+    .from('supervisor_assignments')
+    .select('id')
+    .eq('student_id', user.id)
+    .eq('role', 'primary')
+    .in('status', ['pending', 'active'])
+    .maybeSingle()
+
+  const assignedRole: 'primary' | 'co_supervisor' = existingPrimary
+    ? 'co_supervisor'
+    : (parsed.data.role ?? 'primary')
+
   const { data, error } = await supabase
     .from('supervisor_assignments')
     .insert({
@@ -59,7 +74,7 @@ export async function POST(req: NextRequest) {
       student_id: user.id,
       workspace_id: membership.workspace_id,
       department_id: null,
-      role: 'primary',
+      role: assignedRole,
       assigned_by: user.id,
       status: 'pending',
     })
@@ -76,18 +91,20 @@ export async function POST(req: NextRequest) {
   ])
   const studentName = studentProfile?.full_name ?? 'A student'
 
+  const roleLabel = assignedRole === 'primary' ? 'Main Supervisor' : 'Co-supervisor'
+
   await sendNotification(
     supervisor_id,
     'supervision_requested',
     'New supervision request',
-    `${studentName} has requested your supervision on Plexus.`,
+    `${studentName} has requested you as ${roleLabel} on Plexus.`,
     '/supervisor/dashboard',
-    { resource_type: 'supervisor_assignment', resource_id: data.id },
+    { resource_type: 'supervisor_assignment', resource_id: data.id, role: assignedRole },
     serviceClient,
     supervisorProfile?.email ?? undefined,
   )
 
-  return NextResponse.json(data, { status: 201 })
+  return NextResponse.json({ ...data, assignedRole }, { status: 201 })
 }
 
 // GET /api/supervisor/request — supervisor lists pending requests from students
