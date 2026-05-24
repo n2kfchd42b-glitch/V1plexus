@@ -36,9 +36,9 @@ const ARTIFACT_COLORS: Record<string, string> = {
 }
 
 function artifactHref(item: InboxItem) {
-  const base = `/projects/${item.project_id}`
-  if (item.artifact_type === 'dataset')  return `${base}/data/${item.artifact_id}`
-  if (item.artifact_type === 'analysis') return `${base}/analysis/${item.artifact_id}`
+  const base = `/supervisor/projects/${item.project_id}`
+  if (item.artifact_type === 'dataset')  return `${base}/datasets/${item.artifact_id}`
+  if (item.artifact_type === 'analysis') return `${base}/analyses/${item.artifact_id}`
   return `${base}/documents/${item.artifact_id}`
 }
 

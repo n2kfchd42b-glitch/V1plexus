@@ -74,6 +74,10 @@ export interface Profile {
   lat: number | null
   lng: number | null
   show_on_globe: boolean
+  available_to_supervise: boolean
+  supervision_areas: string[]
+  supervision_bio: string | null
+  supervision_max_students: number | null
   last_seen_at: string | null
   created_at: string
   updated_at: string

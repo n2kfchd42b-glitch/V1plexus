@@ -9,7 +9,6 @@ import {
   Users, GraduationCap, Building2, Inbox, UserCheck,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { WorkspaceMemberRole } from '@/types/database'
 import { BrandLogo } from '@/components/layout/BrandLogo'
 import { LanguageSelector } from '@/components/i18n/LanguageSelector'
 import { useTranslations } from '@/i18n/useTranslations'
@@ -26,19 +25,44 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
   const pathname = usePathname()
   const { t } = useTranslations()
   const [collapsed, setCollapsed] = useState(true)
-  const [workspaceRole, setWorkspaceRole] = useState<WorkspaceMemberRole | null>(null)
+  const [isSupervisor, setIsSupervisor] = useState(false)
+  const [isStudent, setIsStudent] = useState(false)
+  const [workspaceType, setWorkspaceType] = useState<'personal' | 'institutional' | null>(null)
   const [thesisProjectId, setThesisProjectId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!profile) return
     const supabase = createClient()
-    supabase
-      .from('workspace_memberships')
-      .select('role')
-      .eq('user_id', profile.id)
-      .eq('status', 'active')
-      .single()
-      .then(({ data }) => { if (data) setWorkspaceRole(data.role as WorkspaceMemberRole) })
+
+    // Optimistically show supervisor nav if the cached profile already says so —
+    // avoids a flash of empty nav while the API call resolves.
+    if (profile.available_to_supervise) setIsSupervisor(true)
+
+    // Authoritative role check — server-side endpoint that does all the OR-logic
+    // under RLS. Returns is_supervisor, is_student, workspace_type.
+    const checkRoles = async () => {
+      try {
+        const res = await fetch('/api/me/roles', { cache: 'no-store' })
+        if (!res.ok) return
+        const data = await res.json() as {
+          is_supervisor: boolean
+          is_student: boolean
+          workspace_type: 'personal' | 'institutional' | null
+        }
+        setIsSupervisor(data.is_supervisor)
+        setIsStudent(data.is_student)
+        // Treat unknown / missing as institutional so legacy users don't lose Department
+        setWorkspaceType(data.workspace_type === 'personal' ? 'personal' : 'institutional')
+      } catch {
+        /* leave previous state */
+      }
+    }
+
+    checkRoles()
+
+    // Re-check when the user toggles availability in Settings
+    const handler = () => checkRoles()
+    window.addEventListener('plexus:supervision-changed', handler)
 
     // Resolve thesis project for "My Roadmap" deep-link
     supabase
@@ -51,6 +75,10 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
       .limit(1)
       .maybeSingle()
       .then(({ data }) => { if (data) setThesisProjectId(data.id) })
+
+    return () => {
+      window.removeEventListener('plexus:supervision-changed', handler)
+    }
   }, [profile])
 
   // Detect if we're inside a project — used only for auto-collapse
@@ -142,8 +170,8 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
         {/* Divider */}
         <div className="my-2 h-px bg-white/10" />
 
-        {/* Role-based nav — supervisor */}
-        {workspaceRole === 'supervisor' && (() => {
+        {/* Role-based nav — supervisor (derived: opted-in OR has active supervisees) */}
+        {isSupervisor && (() => {
           const studentsHref = '/supervisor/dashboard'
           const deptHref = '/department'
           const studentsActive = pathname.startsWith('/supervisor')
@@ -185,28 +213,30 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
                   {!collapsed && <span className="text-sm font-medium">Inbox</span>}
                 </div>
               </Link>
-              <Link href={deptHref} title={collapsed ? 'Department' : undefined}>
-                <div className={cn(
-                  'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
-                  collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
-                  deptActive
-                    ? 'bg-[var(--bg-sidebar-active)] text-[var(--text-sidebar-active)]'
-                    : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
-                )}>
-                  {deptActive && (
-                    <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-primary)]" />
-                  )}
-                  <Building2 className={cn('flex-shrink-0 h-4 w-4', deptActive ? 'text-white' : 'text-[var(--text-sidebar-icon)]')} />
-                  {!collapsed && <span className="text-sm font-medium">Department</span>}
-                </div>
-              </Link>
+              {workspaceType === 'institutional' && (
+                <Link href={deptHref} title={collapsed ? 'Department' : undefined}>
+                  <div className={cn(
+                    'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
+                    collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
+                    deptActive
+                      ? 'bg-[var(--bg-sidebar-active)] text-[var(--text-sidebar-active)]'
+                      : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
+                  )}>
+                    {deptActive && (
+                      <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-primary)]" />
+                    )}
+                    <Building2 className={cn('flex-shrink-0 h-4 w-4', deptActive ? 'text-white' : 'text-[var(--text-sidebar-icon)]')} />
+                    {!collapsed && <span className="text-sm font-medium">Department</span>}
+                  </div>
+                </Link>
+              )}
               <div className="my-2 h-px bg-white/10" />
             </>
           )
         })()}
 
-        {/* Role-based nav — student */}
-        {workspaceRole === 'student' && (() => {
+        {/* Role-based nav — student (derived: has any supervisor assignment as student) */}
+        {isStudent && (() => {
           const roadmapHref = thesisProjectId ? `/projects/${thesisProjectId}/chapters` : '/student/milestones'
           const roadmapActive = pathname.startsWith('/student/milestones') || pathname === '/student'
             || (thesisProjectId ? pathname.startsWith(`/projects/${thesisProjectId}/chapters`) : false)

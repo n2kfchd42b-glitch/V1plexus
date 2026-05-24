@@ -12,6 +12,8 @@ interface SupervisorResult {
   email: string
   title: string | null
   research_discipline: string | null
+  supervision_areas: string[] | null
+  supervision_bio: string | null
 }
 
 interface Props {
@@ -38,10 +40,12 @@ export function FindSupervisorModal({ onClose, onRequested }: Props) {
   const search = useCallback(async (q: string) => {
     if (!q.trim()) { setResults([]); return }
     setSearching(true)
+    // Only surface people who opted in. Search by name, email, OR expertise area.
     const { data } = await supabase
       .from('profiles')
-      .select('id, full_name, email, title, research_discipline')
-      .or(`full_name.ilike.%${q}%,email.ilike.%${q}%`)
+      .select('id, full_name, email, title, research_discipline, supervision_areas, supervision_bio')
+      .eq('available_to_supervise', true)
+      .or(`full_name.ilike.%${q}%,email.ilike.%${q}%,supervision_areas.cs.{${q}}`)
       .limit(8)
     setResults((data as SupervisorResult[]) ?? [])
     setSearching(false)
@@ -251,22 +255,21 @@ export function FindSupervisorModal({ onClose, onRequested }: Props) {
                           <div className="text-sm font-semibold text-text-primary truncate">
                             {person.full_name ?? person.email}
                           </div>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            {person.title && (
-                              <span className="text-[11px] text-text-tertiary truncate">{person.title}</span>
-                            )}
-                            {person.title && person.research_discipline && (
-                              <span className="text-[11px] text-text-tertiary">·</span>
-                            )}
-                            {person.research_discipline && (
-                              <span className="text-[11px] text-text-tertiary truncate">{person.research_discipline}</span>
-                            )}
-                            {!person.title && !person.research_discipline && (
-                              <span className="inline-flex items-center gap-1 text-[11px] text-text-tertiary">
-                                <Mail className="h-3 w-3" />{person.email}
-                              </span>
-                            )}
-                          </div>
+                          {person.title && (
+                            <div className="text-[11px] text-text-tertiary truncate">{person.title}</div>
+                          )}
+                          {(person.supervision_areas?.length ?? 0) > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {person.supervision_areas!.slice(0, 3).map(a => (
+                                <span key={a} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-accent-blue/10 text-accent-blue">
+                                  {a}
+                                </span>
+                              ))}
+                              {person.supervision_areas!.length > 3 && (
+                                <span className="text-[10px] text-text-tertiary">+{person.supervision_areas!.length - 3}</span>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <button
                           onClick={() => !isSent && requestSupervision(person.id)}

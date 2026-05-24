@@ -77,7 +77,10 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
     }
 
     if (inviteType === 'workspace' && workspaceInvite) {
-      // Supervisor email invite: create the assignment instead of a workspace membership
+      // Supervisor email invite: create the assignment, mark the user as
+      // available to supervise (auto opt-in — they accepted, after all), and
+      // make sure workspace setup is marked complete so they don't get bounced
+      // back to /setup on next sign-in.
       if (workspaceInvite.role === 'supervisor') {
         const { error: assignErr } = await supabase
           .from('supervisor_assignments')
@@ -88,7 +91,7 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
             department_id: null,
             role: 'primary',
             assigned_by: workspaceInvite.invited_by,
-            status: 'pending',
+            status: 'active',
           })
 
         if (assignErr) {
@@ -97,12 +100,22 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
           return
         }
 
-        await supabase
-          .from('workspace_invitations')
-          .update({ status: 'accepted' })
-          .eq('token', token)
+        await Promise.all([
+          supabase
+            .from('workspace_invitations')
+            .update({ status: 'accepted' })
+            .eq('token', token),
+          supabase
+            .from('profiles')
+            .update({
+              available_to_supervise: true,
+              workspace_setup_completed: true,
+              onboarding_completed: true,
+            })
+            .eq('id', user.id),
+        ])
 
-        toast.success('Supervision request accepted — the student will be notified.')
+        toast.success('You are now supervising this student on Plexus.')
         router.push('/supervisor/dashboard')
         return
       }

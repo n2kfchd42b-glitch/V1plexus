@@ -14,14 +14,14 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { getInitials } from '@/lib/utils'
+import { cn, getInitials } from '@/lib/utils'
 import { LanguageSelector } from '@/components/i18n/LanguageSelector'
 import Image from 'next/image'
 import { useLocale } from '@/i18n/LocaleProvider'
 import {
   AlertTriangle, ExternalLink, CheckCircle2, Globe, MapPin, Loader2, ChevronDown,
   UserCircle, Pencil, ShieldCheck, BadgeCheck, HelpCircle, Camera, Building2,
-  Phone, Link2, FileText, Upload,
+  Phone, Link2, FileText, Upload, GraduationCap,
 } from 'lucide-react'
 import type { Profile } from '@/types/database'
 import type { User } from '@supabase/supabase-js'
@@ -84,13 +84,22 @@ const COUNTRIES = [
   'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe',
 ]
 
-type Tab = 'overview' | 'edit' | 'security' | 'danger'
+type Tab = 'overview' | 'edit' | 'supervision' | 'security' | 'danger'
 
-const NAV: { id: Tab; labelKey: string; Icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: 'overview', labelKey: 'profileSettings.navOverview', Icon: UserCircle },
-  { id: 'edit',     labelKey: 'profileSettings.navEdit',     Icon: Pencil },
-  { id: 'security', labelKey: 'profileSettings.navSecurity', Icon: ShieldCheck },
-  { id: 'danger',   labelKey: 'profileSettings.navDanger',   Icon: AlertTriangle },
+const NAV: { id: Tab; labelKey: string; fallback: string; Icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: 'overview',    labelKey: 'profileSettings.navOverview',    fallback: 'Profile Overview', Icon: UserCircle },
+  { id: 'edit',        labelKey: 'profileSettings.navEdit',        fallback: 'Edit Profile',     Icon: Pencil },
+  { id: 'supervision', labelKey: 'profileSettings.navSupervision', fallback: 'Supervision',      Icon: GraduationCap },
+  { id: 'security',    labelKey: 'profileSettings.navSecurity',    fallback: 'Security',         Icon: ShieldCheck },
+  { id: 'danger',      labelKey: 'profileSettings.navDanger',      fallback: 'Danger Zone',      Icon: AlertTriangle },
+]
+
+const SUPERVISION_AREAS = [
+  'Global Health', 'Epidemiology', 'Biostatistics', 'Public Health',
+  'Clinical Research', 'Social Science', 'Environmental Health', 'Health Policy',
+  'Infectious Disease', 'Non-communicable Disease', 'Maternal & Child Health',
+  'Mental Health', 'Implementation Science', 'Health Economics',
+  'Qualitative Methods', 'Mixed Methods', 'Other',
 ]
 
 /* ── page ────────────────────────────────────────────────────────────────── */
@@ -130,6 +139,14 @@ export default function ProfilePage() {
   const [showOnGlobe, setShowOnGlobe] = useState(true)
   const [geoState, setGeoState]       = useState<'idle' | 'detecting' | 'detected' | 'denied'>('idle')
 
+  // Supervision capability
+  const [availableToSupervise, setAvailableToSupervise]   = useState(false)
+  const [supervisionAreas, setSupervisionAreas]           = useState<string[]>([])
+  const [supervisionBio, setSupervisionBio]               = useState('')
+  const [supervisionMaxStudents, setSupervisionMaxStudents] = useState<number | ''>('')
+  const [activeSupervisees, setActiveSupervisees]         = useState(0)
+  const [savingSupervision, setSavingSupervision]         = useState(false)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const credInputRef = useRef<HTMLInputElement>(null)
 
@@ -167,7 +184,19 @@ export default function ProfilePage() {
         setPresenceLat((p.lat as number | null) ?? null)
         setPresenceLng((p.lng as number | null) ?? null)
         setShowOnGlobe((p.show_on_globe as boolean | null) ?? true)
+        setAvailableToSupervise((p.available_to_supervise as boolean | null) ?? false)
+        setSupervisionAreas((p.supervision_areas as string[] | null) ?? [])
+        setSupervisionBio((p.supervision_bio as string | null) ?? '')
+        setSupervisionMaxStudents((p.supervision_max_students as number | null) ?? '')
       }
+
+      // Count active supervisees for this user (drives capacity warning)
+      const { count: activeCount } = await supabase
+        .from('supervisor_assignments')
+        .select('id', { count: 'exact', head: true })
+        .eq('supervisor_id', user.id)
+        .eq('status', 'active')
+      setActiveSupervisees(activeCount ?? 0)
       setProjectCount(countResult.data ?? 0)
       setReviewCount(reviewsRes.count ?? 0)
       setRecentProjects((projectsResult.data ?? []).map(p => ({ ...p, phase: p.phase ?? '', status: p.status })))
@@ -285,6 +314,53 @@ export default function ProfilePage() {
     setSaving(false)
   }
 
+  /* ── save supervision settings ─────────────────────────────────────────── */
+  const handleSaveSupervision = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!authUser || savingSupervision) return
+    setSavingSupervision(true)
+
+    try {
+      // Plain update (no joined select) — joins can hang if a related table's
+      // schema cache is stale. We re-read the row separately afterwards.
+      const { error: updErr } = await supabase
+        .from('profiles')
+        .update({
+          available_to_supervise: availableToSupervise,
+          supervision_areas: supervisionAreas,
+          supervision_bio: supervisionBio.trim() || null,
+          supervision_max_students: supervisionMaxStudents === '' ? null : supervisionMaxStudents,
+        })
+        .eq('id', authUser.id)
+
+      if (updErr) {
+        toast.error(updErr.message)
+        return
+      }
+
+      // Optimistic local update — also tell the sidebar to re-check role
+      setProfile(p => ({
+        ...p,
+        available_to_supervise: availableToSupervise,
+        supervision_areas: supervisionAreas,
+        supervision_bio: supervisionBio.trim() || null,
+        supervision_max_students: supervisionMaxStudents === '' ? null : supervisionMaxStudents,
+      }))
+      window.dispatchEvent(new Event('plexus:supervision-changed'))
+      toast.success('Supervision preferences saved')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save')
+    } finally {
+      setSavingSupervision(false)
+    }
+  }
+
+  const toggleArea = (area: string) => {
+    setSupervisionAreas(prev =>
+      prev.includes(area) ? prev.filter(a => a !== area) : [...prev, area]
+    )
+  }
+
   /* ── change password ────────────────────────────────────────────────────── */
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -397,7 +473,7 @@ export default function ProfilePage() {
           {t('profileSettings.navHeader')}
         </p>
 
-        {NAV.map(({ id, labelKey, Icon }) => {
+        {NAV.map(({ id, labelKey, fallback, Icon }) => {
           const isActive = activeTab === id
           const isDanger = id === 'danger'
           return (
@@ -412,7 +488,7 @@ export default function ProfilePage() {
               ].join(' ')}
             >
               <Icon className="h-[18px] w-[18px] flex-shrink-0" />
-              {t(labelKey)}
+              {t(labelKey, fallback)}
             </button>
           )
         })}
@@ -876,6 +952,144 @@ export default function ProfilePage() {
               <p className="text-xs text-[var(--text-tertiary)] mb-4">{t('profileSettings.interfaceLanguageDesc')}</p>
               <LanguageSelector />
             </div>
+          </div>
+        )}
+
+        {/* ══ SUPERVISION TAB ══════════════════════════════════════════════ */}
+        {activeTab === 'supervision' && (
+          <div className="max-w-2xl space-y-6">
+            <div>
+              <h1 className="text-xl font-bold text-[var(--text-primary)] font-manrope">Supervision</h1>
+              <p className="text-sm text-[var(--text-secondary)] mt-0.5">
+                Anyone on Plexus can supervise students. Turn this on to be discoverable, and tell people what you can help with.
+              </p>
+            </div>
+
+            <form onSubmit={handleSaveSupervision} className="space-y-6">
+
+              {/* Master toggle */}
+              <div className="border border-[var(--border-default)] rounded-xl p-5">
+                <label className="flex items-start gap-4 cursor-pointer">
+                  <button
+                    type="button"
+                    onClick={() => setAvailableToSupervise(v => !v)}
+                    className={cn(
+                      'relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 mt-0.5',
+                      availableToSupervise ? 'bg-[var(--accent-blue)]' : 'bg-[var(--border-strong)]'
+                    )}
+                    aria-pressed={availableToSupervise}
+                  >
+                    <span
+                      className={cn(
+                        'inline-block h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-150',
+                        availableToSupervise ? 'translate-x-[22px]' : 'translate-x-0.5'
+                      )}
+                    />
+                  </button>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">I&apos;m available to supervise students</p>
+                    <p className="text-xs text-[var(--text-secondary)] mt-1 leading-relaxed">
+                      When on, students searching for a supervisor on Plexus can find you and send requests.
+                      Turn off any time you&apos;re at capacity — your existing supervisees aren&apos;t affected.
+                    </p>
+                  </div>
+                </label>
+
+                {activeSupervisees > 0 && (
+                  <div className="mt-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--accent-blue-subtle)] text-xs text-[var(--accent-blue)]">
+                    <GraduationCap className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span>
+                      You currently supervise <strong>{activeSupervisees}</strong> student{activeSupervisees === 1 ? '' : 's'}.
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Detail fields — disabled when toggle is off */}
+              <div className={cn(
+                'space-y-5 transition-opacity',
+                !availableToSupervise && 'opacity-50 pointer-events-none'
+              )}>
+
+                {/* Areas of expertise */}
+                <div>
+                  <Label>Areas you can supervise</Label>
+                  <p className="text-xs text-[var(--text-tertiary)] mt-0.5 mb-2.5">
+                    Pick the topics where you can give meaningful feedback. Shown to students browsing supervisors.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {SUPERVISION_AREAS.map(area => {
+                      const selected = supervisionAreas.includes(area)
+                      return (
+                        <button
+                          key={area}
+                          type="button"
+                          onClick={() => toggleArea(area)}
+                          className={cn(
+                            'inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border',
+                            selected
+                              ? 'bg-[var(--accent-blue)] text-white border-[var(--accent-blue)]'
+                              : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border-default)] hover:border-[var(--accent-blue)]/40'
+                          )}
+                        >
+                          {selected && <CheckCircle2 className="h-3 w-3" />}
+                          {area}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Supervision bio */}
+                <div>
+                  <Label htmlFor="supervisionBio">Supervision style <span className="text-[var(--text-tertiary)] font-normal">(optional)</span></Label>
+                  <p className="text-xs text-[var(--text-tertiary)] mt-0.5 mb-1.5">
+                    A short note about how you supervise — meeting cadence, response time, what you expect.
+                  </p>
+                  <Textarea
+                    id="supervisionBio"
+                    rows={3}
+                    placeholder="e.g. Bi-weekly meetings, hands-on with methods, written feedback within a week."
+                    value={supervisionBio}
+                    onChange={e => setSupervisionBio(e.target.value)}
+                    className="resize-none"
+                    maxLength={400}
+                  />
+                  <p className="text-[10px] text-[var(--text-tertiary)] mt-1 text-right">{supervisionBio.length}/400</p>
+                </div>
+
+                {/* Max students */}
+                <div>
+                  <Label htmlFor="maxStudents">Max concurrent students <span className="text-[var(--text-tertiary)] font-normal">(optional)</span></Label>
+                  <p className="text-xs text-[var(--text-tertiary)] mt-0.5 mb-1.5">
+                    Hide yourself from new requests once you hit this many active supervisees.
+                  </p>
+                  <Input
+                    id="maxStudents"
+                    type="number"
+                    min={1}
+                    max={50}
+                    placeholder="No cap"
+                    value={supervisionMaxStudents}
+                    onChange={e => {
+                      const v = e.target.value
+                      setSupervisionMaxStudents(v === '' ? '' : Math.max(1, Math.min(50, Number(v))))
+                    }}
+                    className="max-w-[140px]"
+                  />
+                  {supervisionMaxStudents !== '' && activeSupervisees >= Number(supervisionMaxStudents) && (
+                    <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1.5">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      You&apos;re at or over capacity — new requests will be hidden until a slot opens.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <Button type="submit" disabled={savingSupervision} className="bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)]">
+                {savingSupervision ? 'Saving…' : 'Save supervision preferences'}
+              </Button>
+            </form>
           </div>
         )}
 

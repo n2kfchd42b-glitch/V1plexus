@@ -525,12 +525,11 @@ export default function SupervisorDashboardPage() {
                     </div>
                   </Link>
                 ))}
-                <Link
-                  href="/supervisor/students"
-                  className="flex items-center gap-1 h-8 px-3 rounded-md border border-amber-300 text-xs font-semibold text-amber-700 hover:bg-amber-50 transition-colors"
-                >
-                  Open all <ChevronRight className="h-3 w-3" />
-                </Link>
+                {(urgent.length + needsReview.length) > 2 && (
+                  <span className="text-[11px] font-medium text-amber-700">
+                    +{urgent.length + needsReview.length - 2} more below
+                  </span>
+                )}
               </div>
             </div>
           </div>

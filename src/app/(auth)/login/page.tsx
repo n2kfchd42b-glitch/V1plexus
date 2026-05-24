@@ -48,17 +48,25 @@ function LoginForm() {
 
     // Resolve role-specific landing page client-side so we skip the
     // /dashboard server redirect hop. Only when the caller didn't pass an
-    // explicit ?redirect= override.
+    // explicit ?redirect= override. Role is derived from supervisor_assignments,
+    // not a static membership role.
     let target = redirect
     if (redirect === '/dashboard' && data.user) {
-      const { data: membership } = await supabase
-        .from('workspace_memberships')
-        .select('role')
-        .eq('user_id', data.user.id)
-        .eq('status', 'active')
-        .maybeSingle()
-      if (membership?.role === 'supervisor') target = '/supervisor/dashboard'
-      else if (membership?.role === 'student') target = '/student/milestones'
+      const userId = data.user.id
+      const [supRes, stuRes] = await Promise.all([
+        supabase
+          .from('supervisor_assignments')
+          .select('id', { count: 'exact', head: true })
+          .eq('supervisor_id', userId)
+          .eq('status', 'active'),
+        supabase
+          .from('supervisor_assignments')
+          .select('id', { count: 'exact', head: true })
+          .eq('student_id', userId)
+          .eq('status', 'active'),
+      ])
+      if ((supRes.count ?? 0) > 0)      target = '/supervisor/dashboard'
+      else if ((stuRes.count ?? 0) > 0) target = '/student/milestones'
       else target = '/projects'
     }
 
