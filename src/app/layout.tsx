@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next"
-import Script from "next/script"
 import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
 import { Manrope, Inter, Instrument_Serif, Lora } from "next/font/google"
@@ -10,6 +9,7 @@ import { ConnectionGuard } from '@/components/layout/ConnectionGuard'
 import { AuthProvider } from '@/components/auth/AuthProvider'
 import { LocaleProvider } from '@/i18n/LocaleProvider'
 import { SupabaseLockSuppressor } from '@/components/SupabaseLockSuppressor'
+import { ServiceWorkerCleanup } from '@/components/ServiceWorkerCleanup'
 import { OfflineStatusBar } from '@/components/layout/OfflineStatusBar'
 import { InstallPrompt } from '@/components/layout/InstallPrompt'
 import { SyncProvider } from '@/components/layout/SyncProvider'
@@ -69,38 +69,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link rel="preconnect" href="https://dsswjchsnayhngjkbbed.supabase.co" />
-        {/* Load Material Symbols without blocking initial paint */}
+        {/* Material Symbols — used on landing page + auth brand panel */}
         <link
-          rel="preload"
-          as="style"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
-        />
-        <link
-          id="material-symbols-css"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
           rel="stylesheet"
-          media="print"
-          suppressHydrationWarning
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
         />
-        <Script id="material-symbols-load" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: `(function(){var l=document.getElementById('material-symbols-css');if(l)l.addEventListener('load',function(){l.media='all'})})()` }} />
-        <noscript>
-          <link
-            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
-            rel="stylesheet"
-          />
-        </noscript>
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-        {/* Unregister any stale service workers so cached JS chunks never block updates */}
-        <Script id="sw-cleanup" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `
-          if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(regs) {
-              regs.forEach(function(reg) { reg.unregister(); });
-            });
-            caches.keys().then(function(names) {
-              names.forEach(function(name) { caches.delete(name); });
-            });
-          }
-        ` }} />
       </head>
       <body className={GeistSans.className}>
         <OfflineStatusBar />
@@ -118,6 +92,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </AuthProvider>
         </LocaleProvider>
         <SupabaseLockSuppressor />
+        <ServiceWorkerCleanup />
         <Analytics />
         <SpeedInsights />
         <InstallPrompt />
