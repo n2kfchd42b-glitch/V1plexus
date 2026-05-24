@@ -299,7 +299,7 @@ Where:
             <strong> License:</strong> CC BY 4.0
           </p>
           <p className="text-sm text-gray-500 mt-2">
-            Questions? Contact the PLEXUS research team at support@plexus.health
+            Questions? Contact the PLEXUS research team at plexus.science@outlook.de
           </p>
         </footer>
       </article>

@@ -502,7 +502,7 @@ export default function ProfilePage() {
             {t('profileSettings.manageCredentials')}
           </button>
           <a
-            href="mailto:support@plexus.health"
+            href="mailto:plexus.science@outlook.de"
             className="w-full flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--accent-blue-subtle)] px-2 py-2 rounded-lg transition-colors"
           >
             <HelpCircle className="h-4 w-4 flex-shrink-0" />

@@ -69,7 +69,7 @@ export function CitationPanel({ citations, style, onStyleChange, onInsert, onRem
   async function searchCrossRef(q: string) {
     setLoading(true); setError('')
     try {
-      const url = `https://api.crossref.org/works?query=${encodeURIComponent(q)}&rows=8&select=DOI,title,author,published,container-title,volume,issue,page,is-referenced-by-count,type,publisher&mailto=support@plexus.science`
+      const url = `https://api.crossref.org/works?query=${encodeURIComponent(q)}&rows=8&select=DOI,title,author,published,container-title,volume,issue,page,is-referenced-by-count,type,publisher&mailto=plexus.science@outlook.de`
       const res = await fetch(url)
       if (!res.ok) throw new Error()
       const data = await res.json()

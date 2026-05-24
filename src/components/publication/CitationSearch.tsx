@@ -85,7 +85,7 @@ export function CitationSearch({ onInsert, onClose, projectId }: CitationSearchP
     setLoading(true)
     setError('')
     try {
-      const url = `https://api.crossref.org/works?query=${encodeURIComponent(q)}&rows=8&select=DOI,title,author,published,container-title,volume,issue,page,is-referenced-by-count,type,publisher&mailto=support@plexus.science`
+      const url = `https://api.crossref.org/works?query=${encodeURIComponent(q)}&rows=8&select=DOI,title,author,published,container-title,volume,issue,page,is-referenced-by-count,type,publisher&mailto=plexus.science@outlook.de`
       const res = await fetch(url)
       if (!res.ok) throw new Error('CrossRef request failed')
       const data = await res.json()

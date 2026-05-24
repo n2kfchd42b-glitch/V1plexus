@@ -475,7 +475,7 @@ export default function LandingPage() {
               >
                 {t('landing.cta.getStarted')}
               </Link>
-              <a href="mailto:team@plexusresearch.io" className="text-[#003D9B] font-bold hover:underline font-geist">
+              <a href="mailto:plexus.science@outlook.de" className="text-[#003D9B] font-bold hover:underline font-geist">
                 {t('landing.cta.contact')}
               </a>
             </div>
