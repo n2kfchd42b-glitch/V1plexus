@@ -26,7 +26,7 @@ const STATUS_CONFIG: Record<ThesisCommitteeStatus, { label: string; icon: React.
   confirmed: { label: "Confirmed", icon: UserCheck, color: "text-green-600 bg-green-50 border-green-200" },
   invited:   { label: "Invited",   icon: Mail,      color: "text-amber-600 bg-amber-50 border-amber-200" },
   declined:  { label: "Declined",  icon: UserX,     color: "text-red-600 bg-red-50 border-red-200" },
-  removed:   { label: "Removed",   icon: UserX,     color: "text-gray-500 bg-gray-50 border-gray-200" },
+  removed:   { label: "Removed",   icon: UserX,     color: "text-[var(--text-tertiary)] bg-[var(--bg-surface-active)] border-[var(--border-default)]" },
 };
 
 export function CommitteePanel({ projectId, members: initialMembers, canEdit }: CommitteePanelProps) {

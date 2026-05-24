@@ -134,7 +134,7 @@ export function ChapterList({ projectId, chapters: initialChapters, canEdit }: C
 
   if (chapters.length === 0 && !canEdit) {
     return (
-      <div className="text-center py-16 text-gray-500">
+      <div className="text-center py-16 text-[var(--text-tertiary)]">
         <p className="text-sm">No chapters have been added yet.</p>
       </div>
     );

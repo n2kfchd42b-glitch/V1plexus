@@ -45,8 +45,8 @@ export default async function ThesisSetupPage({
       {/* Supervisor — reuses the same component as the Team page */}
       <div className="border border-[var(--border-default)] rounded-2xl p-5 bg-[var(--bg-surface)]">
         <div className="flex items-start gap-2.5 mb-4">
-          <div className="h-8 w-8 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
-            <GraduationCap className="h-4 w-4 text-indigo-500" />
+          <div className="h-8 w-8 rounded-lg bg-[var(--accent-blue-subtle)] flex items-center justify-center flex-shrink-0">
+            <GraduationCap className="h-4 w-4 text-[var(--accent-blue)]" />
           </div>
           <div>
             <h3 className="text-sm font-semibold text-[var(--text-primary)]">Supervisor</h3>
@@ -60,7 +60,7 @@ export default async function ThesisSetupPage({
 
       {/* Committee */}
       <div>
-        <h2 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: "var(--text-tertiary)" }}>
+        <h2 className="text-xs font-semibold uppercase tracking-wide mb-3 text-[var(--text-tertiary)]">
           Committee
         </h2>
         <CommitteePanel

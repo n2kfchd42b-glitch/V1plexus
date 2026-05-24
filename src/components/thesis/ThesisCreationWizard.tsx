@@ -172,22 +172,22 @@ export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
         {STEPS.map((s, i) => (
           <div key={s} className="flex items-center flex-1">
             <div className={`flex items-center justify-center h-7 w-7 rounded-full text-xs font-bold border-2 transition-all ${
-              i < step ? "bg-blue-600 border-blue-600 text-white" :
-              i === step ? "border-blue-600 text-blue-600" :
-              "border-gray-200 text-gray-400"
+              i < step ? "bg-[var(--accent-blue)] border-[var(--accent-blue)] text-white" :
+              i === step ? "border-[var(--accent-blue)] text-[var(--accent-blue)]" :
+              "border-[var(--border-default)] text-[var(--text-tertiary)]"
             }`}>
               {i < step ? "✓" : i + 1}
             </div>
             {i < STEPS.length - 1 && (
-              <div className={`flex-1 h-0.5 mx-1 ${i < step ? "bg-blue-600" : "bg-gray-100"}`} />
+              <div className={`flex-1 h-0.5 mx-1 ${i < step ? "bg-[var(--accent-blue)]" : "bg-[var(--bg-surface-active)]"}`} />
             )}
           </div>
         ))}
       </div>
 
       <div className="text-center mb-6">
-        <h2 className="text-xl font-bold text-gray-900">{STEPS[step]}</h2>
-        <p className="text-sm text-gray-500 mt-1">
+        <h2 className="text-xl font-bold text-[var(--text-primary)]">{STEPS[step]}</h2>
+        <p className="text-sm text-[var(--text-tertiary)] mt-1">
           {["Enter basic project information", "Configure thesis-specific details", "Set up chapter structure", "Add committee members (optional)"][step]}
         </p>
       </div>
@@ -196,24 +196,24 @@ export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
       {step === 0 && (
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Thesis / Dissertation Title *</label>
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Thesis / Dissertation Title *</label>
             <input
               type="text"
               autoFocus
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="e.g., Malaria Prevalence in Northern Ghana 2020–2024"
-              className="w-full text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full text-sm border border-[var(--border-default)] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Description</label>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
               rows={3}
               placeholder="Brief description of the research..."
-              className="w-full text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full text-sm border border-[var(--border-default)] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] resize-none"
             />
           </div>
         </div>
@@ -223,7 +223,7 @@ export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
       {step === 1 && (
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-2">Degree Type *</label>
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-2">Degree Type *</label>
             <div className="grid grid-cols-3 gap-2">
               {(Object.entries(DEGREE_LABELS) as [DegreeType, string][]).map(([val, lbl]) => (
                 <button
@@ -232,8 +232,8 @@ export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
                   onClick={() => handleDegreeChange(val)}
                   className={`py-2 text-sm font-medium rounded border transition-colors ${
                     degreeType === val
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                      ? "bg-[var(--accent-blue)] text-white border-[var(--accent-blue)]"
+                      : "bg-white text-[var(--text-secondary)] border-[var(--border-default)] hover:bg-[var(--bg-surface-hover)]"
                   }`}
                 >
                   {lbl}
@@ -243,11 +243,11 @@ export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Program / Specialization *</label>
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Program / Specialization *</label>
             <select
               value={program}
               onChange={e => setProgram(e.target.value)}
-              className="w-full text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full text-sm border border-[var(--border-default)] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]"
             >
               <option value="">Select a program...</option>
               {PROGRAMS.map(p => <option key={p} value={p}>{p}</option>)}
@@ -259,35 +259,35 @@ export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
                 value={customProgram}
                 onChange={e => setCustomProgram(e.target.value)}
                 placeholder="Enter program name..."
-                className="w-full text-sm border border-gray-300 rounded px-3 py-2 mt-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full text-sm border border-[var(--border-default)] rounded px-3 py-2 mt-2 focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]"
               />
             )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Enrollment Date</label>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Enrollment Date</label>
               <input
                 type="date"
                 value={enrollmentDate}
                 onChange={e => setEnrollmentDate(e.target.value)}
-                className="w-full text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full text-sm border border-[var(--border-default)] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Expected Completion</label>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Expected Completion</label>
               <input
                 type="date"
                 value={expectedCompletion}
                 onChange={e => setExpectedCompletion(e.target.value)}
-                className="w-full text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full text-sm border border-[var(--border-default)] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]"
               />
             </div>
           </div>
 
-          <div className="flex items-start gap-2.5 rounded-lg border border-blue-100 bg-blue-50 px-3.5 py-3">
-            <Info className="h-3.5 w-3.5 text-blue-500 mt-0.5 shrink-0" />
-            <p className="text-xs text-blue-700 leading-relaxed">
+          <div className="flex items-start gap-2.5 rounded-lg border border-[var(--border-status-info)] bg-[var(--accent-blue-subtle)] px-3.5 py-3">
+            <Info className="h-3.5 w-3.5 text-[var(--accent-blue)] mt-0.5 shrink-0" />
+            <p className="text-xs text-[var(--accent-blue-hover)] leading-relaxed">
               You can invite your supervisor from the <span className="font-semibold">Setup</span> tab once the project is created.
             </p>
           </div>
@@ -297,7 +297,7 @@ export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
       {/* Step 2: Chapters */}
       {step === 2 && (
         <div className="space-y-3">
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[var(--text-tertiary)]">
             Pre-filled based on {DEGREE_LABELS[degreeType]} requirements. Drag to reorder, edit titles as needed.
           </p>
           <div className="space-y-2">
@@ -309,20 +309,20 @@ export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
                 onDragStart={() => handleDragStart(idx)}
                 onDragOver={e => handleDragOver(e, idx)}
               >
-                <div className="cursor-grab text-gray-300 hover:text-gray-500">
+                <div className="cursor-grab text-[var(--border-strong)] hover:text-[var(--text-tertiary)]">
                   <GripVertical className="h-4 w-4" />
                 </div>
-                <span className="text-xs text-gray-400 w-6 shrink-0">{idx + 1}.</span>
+                <span className="text-xs text-[var(--text-tertiary)] w-6 shrink-0">{idx + 1}.</span>
                 <input
                   type="text"
                   value={ch.title}
                   onChange={e => updateChapter(idx, e.target.value)}
                   placeholder={`Chapter ${idx + 1} title...`}
-                  className="flex-1 text-sm border border-gray-300 rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 text-sm border border-[var(--border-default)] rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]"
                 />
                 <button
                   onClick={() => removeChapter(idx)}
-                  className="text-gray-300 hover:text-red-500 transition-colors"
+                  className="text-[var(--border-strong)] hover:text-red-500 transition-colors"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -331,7 +331,7 @@ export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
           </div>
           <button
             onClick={addChapter}
-            className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium mt-1"
+            className="flex items-center gap-1.5 text-sm text-[var(--accent-blue)] hover:text-[var(--accent-blue-hover)] font-medium mt-1"
           >
             <Plus className="h-4 w-4" />
             Add Chapter
@@ -342,14 +342,14 @@ export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
       {/* Step 3: Committee */}
       {step === 3 && (
         <div className="space-y-3">
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[var(--text-tertiary)]">
             Optionally add committee members now. You can also do this later from the Committee tab.
           </p>
           {committeeMembers.map((m, idx) => (
-            <div key={idx} className="rounded-lg border border-gray-200 p-3 space-y-2 relative">
+            <div key={idx} className="rounded-lg border border-[var(--border-default)] p-3 space-y-2 relative">
               <button
                 onClick={() => removeMember(idx)}
-                className="absolute top-2 right-2 text-gray-300 hover:text-red-500"
+                className="absolute top-2 right-2 text-[var(--border-strong)] hover:text-red-500"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -359,12 +359,12 @@ export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
                   placeholder="Full name"
                   value={m.name}
                   onChange={e => updateMember(idx, "name", e.target.value)}
-                  className="text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="text-sm border border-[var(--border-default)] rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[var(--accent-blue)]"
                 />
                 <select
                   value={m.role}
                   onChange={e => updateMember(idx, "role", e.target.value)}
-                  className="text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="text-sm border border-[var(--border-default)] rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[var(--accent-blue)]"
                 >
                   <option value="chair">Chair</option>
                   <option value="co_chair">Co-Chair</option>
@@ -378,20 +378,20 @@ export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
                 placeholder="Email address"
                 value={m.email}
                 onChange={e => updateMember(idx, "email", e.target.value)}
-                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full text-sm border border-[var(--border-default)] rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[var(--accent-blue)]"
               />
               <input
                 type="text"
                 placeholder="Institution (optional)"
                 value={m.institution}
                 onChange={e => updateMember(idx, "institution", e.target.value)}
-                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full text-sm border border-[var(--border-default)] rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[var(--accent-blue)]"
               />
             </div>
           ))}
           <button
             onClick={addCommitteeMember}
-            className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium"
+            className="flex items-center gap-1.5 text-sm text-[var(--accent-blue)] hover:text-[var(--accent-blue-hover)] font-medium"
           >
             <Plus className="h-4 w-4" />
             Add Committee Member
@@ -405,13 +405,13 @@ export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
           {step > 0 ? (
             <button
               onClick={() => setStep(s => s - 1)}
-              className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 px-4 py-2 border border-gray-300 rounded"
+              className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] px-4 py-2 border border-[var(--border-default)] rounded"
             >
               <ChevronLeft className="h-4 w-4" />
               Back
             </button>
           ) : onCancel ? (
-            <button onClick={onCancel} className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">
+            <button onClick={onCancel} className="text-sm text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] px-4 py-2">
               Cancel
             </button>
           ) : null}
@@ -424,7 +424,7 @@ export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
                 if (step === 1 && chapters.length === 0) initChapters(degreeType);
                 setStep(s => s + 1);
               }}
-              className="flex items-center gap-1.5 text-sm bg-blue-600 text-white px-5 py-2 rounded hover:bg-blue-700 disabled:opacity-40"
+              className="flex items-center gap-1.5 text-sm bg-[var(--accent-blue)] text-white px-5 py-2 rounded hover:bg-[var(--accent-blue-hover)] disabled:opacity-40"
             >
               Next
               <ChevronRight className="h-4 w-4" />
@@ -433,7 +433,7 @@ export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
             <button
               disabled={saving}
               onClick={handleCreate}
-              className="flex items-center gap-2 text-sm bg-blue-600 text-white px-5 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+              className="flex items-center gap-2 text-sm bg-[var(--accent-blue)] text-white px-5 py-2 rounded hover:bg-[var(--accent-blue-hover)] disabled:opacity-50"
             >
               <GraduationCap className="h-4 w-4" />
               {saving ? "Creating..." : "Create Thesis Project"}

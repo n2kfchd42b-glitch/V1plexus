@@ -52,16 +52,16 @@ export default async function ChaptersPage({
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">
                 Thesis Workspace
               </h2>
               {supervisorName && (
-                <p className="text-xs mt-0.5" style={{ color: "var(--text-tertiary)" }}>
+                <p className="text-xs mt-0.5 text-[var(--text-tertiary)]">
                   Supervised by {supervisorName}
                 </p>
               )}
             </div>
-            <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+            <span className="text-xs text-[var(--text-tertiary)]">
               {chapters.length} chapter{chapters.length !== 1 ? "s" : ""}
             </span>
           </div>
@@ -72,12 +72,9 @@ export default async function ChaptersPage({
             {/* Left: chapter list */}
             <div>
               {chapters.length === 0 ? (
-                <div
-                  className="text-center py-16 rounded-lg border border-dashed"
-                  style={{ background: "var(--bg-surface)", borderColor: "var(--border-default)" }}
-                >
-                  <p className="text-sm mb-1" style={{ color: "var(--text-secondary)" }}>No chapters yet.</p>
-                  <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+                <div className="text-center py-16 rounded-lg border border-dashed bg-[var(--bg-surface)] border-[var(--border-default)]">
+                  <p className="text-sm mb-1 text-[var(--text-secondary)]">No chapters yet.</p>
+                  <p className="text-xs text-[var(--text-tertiary)]">
                     Chapters are created when you set up this project as a thesis workspace.
                   </p>
                 </div>

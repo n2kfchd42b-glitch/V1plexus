@@ -47,7 +47,10 @@ export default async function DefensePage({
   return (
     <div className="px-6 py-6 max-w-3xl">
       <div className="mb-6">
-        <h2 className="text-base font-semibold text-gray-900">Defense Management</h2>
+        <h2 className="text-base font-semibold text-[var(--text-primary)]">Defense Management</h2>
+        <p className="text-sm text-[var(--text-tertiary)] mt-0.5">
+          Schedule the defense, track committee sign-off, and prepare your final submission.
+        </p>
       </div>
       <DefenseManager
         projectId={id}
