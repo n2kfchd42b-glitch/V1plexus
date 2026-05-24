@@ -49,9 +49,9 @@ export default async function ThesisSetupPage({
             <GraduationCap className="h-4 w-4 text-[var(--accent-blue)]" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-[var(--text-primary)]">Supervisor</h3>
+            <h3 className="text-sm font-semibold text-[var(--text-primary)]">Supervisors</h3>
             <p className="text-xs text-[var(--text-tertiary)]">
-              Grant your supervisor read-only access to this project&apos;s data and documents
+              Grant your supervisors read-only access to this project&apos;s data and documents
             </p>
           </div>
         </div>

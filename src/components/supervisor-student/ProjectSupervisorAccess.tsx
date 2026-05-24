@@ -1,14 +1,23 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { UserCheck, UserX, Eye, Loader2, GraduationCap, ArrowRight } from 'lucide-react'
+import { UserX, Eye, Loader2, GraduationCap, ArrowRight, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
+type SupervisorRole = 'primary' | 'co_supervisor'
+
 interface SupervisorEntry {
+  assignmentId: string
   supervisorId: string
+  role: SupervisorRole
   name: string
   hasAccess: boolean
+}
+
+const ROLE_LABELS: Record<SupervisorRole, string> = {
+  primary: 'Main Supervisor',
+  co_supervisor: 'Co-supervisor',
 }
 
 interface Props {
@@ -19,6 +28,7 @@ export function ProjectSupervisorAccess({ projectId }: Props) {
   const [supervisors, setSupervisors] = useState<SupervisorEntry[]>([])
   const [loading, setLoading]         = useState(true)
   const [toggling, setToggling]       = useState<string | null>(null)
+  const [roleSaving, setRoleSaving]   = useState<string | null>(null)
 
   useEffect(() => {
     fetch(`/api/projects/${projectId}/supervisor-access`)
@@ -28,22 +38,21 @@ export function ProjectSupervisorAccess({ projectId }: Props) {
   }, [projectId])
 
   if (loading) return (
-    <div className="flex items-center gap-2 text-xs text-slate-400 py-2">
+    <div className="flex items-center gap-2 text-xs text-[var(--text-tertiary)] py-2">
       <Loader2 className="h-3 w-3 animate-spin" /> Loading supervisors…
     </div>
   )
 
-  // No supervisors assigned at all
   if (supervisors.length === 0) return (
-    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center">
-      <GraduationCap className="h-6 w-6 mx-auto text-slate-300 mb-2" />
-      <p className="text-xs font-medium text-slate-500 mb-1">No supervisors assigned yet</p>
-      <p className="text-[11px] text-slate-400 mb-3">
+    <div className="rounded-lg border border-dashed border-[var(--border-default)] bg-[var(--bg-app)] p-4 text-center">
+      <GraduationCap className="h-6 w-6 mx-auto text-[var(--text-tertiary)] mb-2" />
+      <p className="text-xs font-medium text-[var(--text-secondary)] mb-1">No supervisors assigned yet</p>
+      <p className="text-[11px] text-[var(--text-tertiary)] mb-3">
         Invite a supervisor from your Supervision page first, then come back here to control their project access.
       </p>
       <Link
         href="/student/supervisor"
-        className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--accent-blue)] hover:text-[var(--accent-blue-hover)] transition-colors"
       >
         Find a supervisor
         <ArrowRight className="h-3 w-3" />
@@ -51,7 +60,7 @@ export function ProjectSupervisorAccess({ projectId }: Props) {
     </div>
   )
 
-  async function toggle(entry: SupervisorEntry) {
+  async function toggleAccess(entry: SupervisorEntry) {
     setToggling(entry.supervisorId)
     try {
       const method = entry.hasAccess ? 'DELETE' : 'POST'
@@ -73,56 +82,106 @@ export function ProjectSupervisorAccess({ projectId }: Props) {
     }
   }
 
+  async function changeRole(entry: SupervisorEntry, newRole: SupervisorRole) {
+    if (newRole === entry.role) return
+    setRoleSaving(entry.assignmentId)
+    try {
+      const res = await fetch(`/api/projects/${projectId}/supervisor-access`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignmentId: entry.assignmentId, role: newRole }),
+      })
+      if (res.ok) {
+        setSupervisors(prev =>
+          prev.map(s => s.assignmentId === entry.assignmentId
+            ? { ...s, role: newRole }
+            : s
+          )
+        )
+      }
+    } finally {
+      setRoleSaving(null)
+    }
+  }
+
   return (
     <div className="space-y-2">
       {supervisors.map(entry => (
         <div
           key={entry.supervisorId}
-          className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-lg bg-white border border-slate-100 shadow-sm"
+          className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-default)] shadow-[var(--shadow-xs)]"
         >
-          <div className="flex items-center gap-2.5">
+          {/* Avatar + name + role selector */}
+          <div className="flex items-center gap-2.5 min-w-0">
             <div className={cn(
-              'w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold',
-              entry.hasAccess ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400'
+              'w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0',
+              entry.hasAccess ? 'bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)]' : 'bg-[var(--bg-inset)] text-[var(--text-tertiary)]'
             )}>
               {entry.name.charAt(0).toUpperCase()}
             </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-800">{entry.name}</p>
-              <p className="text-[10px] text-slate-400">
-                {entry.hasAccess ? 'Can view this project' : 'No access to this project'}
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{entry.name}</p>
+              <p className="text-[10px] text-[var(--text-tertiary)]">
+                {entry.hasAccess ? 'Can view this project' : 'No project access'}
               </p>
             </div>
           </div>
 
-          <button
-            onClick={() => toggle(entry)}
-            disabled={toggling === entry.supervisorId}
-            className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all',
-              entry.hasAccess
-                ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-100'
-                : 'bg-indigo-600 text-white hover:bg-indigo-700'
-            )}
-          >
-            {toggling === entry.supervisorId ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : entry.hasAccess ? (
-              <>
-                <UserX className="h-3 w-3" />
-                Revoke access
-              </>
-            ) : (
-              <>
-                <Eye className="h-3 w-3" />
-                Share with supervisor
-              </>
-            )}
-          </button>
+          {/* Role selector + access toggle */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Role pill / dropdown */}
+            <div className="relative">
+              <select
+                value={entry.role}
+                disabled={roleSaving === entry.assignmentId}
+                onChange={e => changeRole(entry, e.target.value as SupervisorRole)}
+                className={cn(
+                  'appearance-none text-[11px] font-medium pl-2.5 pr-6 py-1 rounded-md border transition-colors cursor-pointer',
+                  'bg-[var(--bg-app)] border-[var(--border-default)] text-[var(--text-secondary)]',
+                  'hover:bg-[var(--bg-surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]',
+                  roleSaving === entry.assignmentId && 'opacity-50 cursor-not-allowed'
+                )}
+              >
+                <option value="primary">Main Supervisor</option>
+                <option value="co_supervisor">Co-supervisor</option>
+              </select>
+              {roleSaving === entry.assignmentId ? (
+                <Loader2 className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-[var(--text-tertiary)] pointer-events-none" />
+              ) : (
+                <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-[var(--text-tertiary)] pointer-events-none" />
+              )}
+            </div>
+
+            {/* Grant / Revoke access */}
+            <button
+              onClick={() => toggleAccess(entry)}
+              disabled={toggling === entry.supervisorId}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all active:scale-[0.98]',
+                entry.hasAccess
+                  ? 'bg-[var(--status-error-bg)] text-[var(--status-error-text)] hover:bg-red-100 border border-[var(--border-status-error)]'
+                  : 'bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-hover)]'
+              )}
+            >
+              {toggling === entry.supervisorId ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : entry.hasAccess ? (
+                <>
+                  <UserX className="h-3 w-3" />
+                  Revoke
+                </>
+              ) : (
+                <>
+                  <Eye className="h-3 w-3" />
+                  Share
+                </>
+              )}
+            </button>
+          </div>
         </div>
       ))}
 
-      <p className="text-[10px] text-slate-400 pt-1">
+      <p className="text-[10px] text-[var(--text-tertiary)] pt-1">
         Supervisors with access can view your datasets, analyses, and documents — but cannot edit anything.
       </p>
     </div>
