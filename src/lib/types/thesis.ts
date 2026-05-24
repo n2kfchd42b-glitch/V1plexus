@@ -99,6 +99,8 @@ export interface ThesisDefense {
   corrections_completed_at: string | null;
   examiner_reports: ExaminerReport[];
   notes: string | null;
+  format_check_completed_at: string | null;
+  final_submission_at: string | null;
   created_at: string;
   updated_at: string;
 }

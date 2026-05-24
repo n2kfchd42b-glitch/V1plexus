@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Calendar, MapPin, Clock, Video } from "lucide-react";
+import { toast } from "sonner";
 import {
   ThesisDefense, ThesisChapter, ThesisCommittee, ThesisMetadata, DefenseType
 } from "@/lib/types/thesis";
+import { createClient } from "@/lib/supabase/client";
 import { DefenseChecklist } from "./DefenseChecklist";
 import { DefenseOutcomeForm } from "./DefenseOutcomeForm";
-import { UnfinishedFeatureBanner } from "./UnfinishedFeatureBanner";
 
 interface DefenseManagerProps {
   projectId: string;
@@ -19,26 +21,81 @@ interface DefenseManagerProps {
 }
 
 export function DefenseManager({
-  metadata,
-  defense,
+  projectId,
+  defense: initialDefense,
   chapters,
   committee,
+  canEdit = false,
 }: DefenseManagerProps) {
-  const [defenseType, setDefenseType] = useState<DefenseType>("final");
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
-  const [location, setLocation] = useState("");
-  const [meetingLink, setMeetingLink] = useState("");
+  const router = useRouter();
+  const [defense, setDefense] = useState<ThesisDefense | null>(initialDefense);
+  const [defenseType, setDefenseType] = useState<DefenseType>(defense?.defense_type ?? "final");
+  const [date, setDate] = useState(defense?.scheduled_date ?? "");
+  const [time, setTime] = useState(defense?.scheduled_time ?? "");
+  const [location, setLocation] = useState(defense?.location ?? "");
+  const [meetingLink, setMeetingLink] = useState(defense?.meeting_link ?? "");
   const [section, setSection] = useState<"checklist" | "schedule" | "outcome">("checklist");
+  const [saving, setSaving] = useState(false);
+  const [marking, setMarking] = useState(false);
 
-  const hasScheduled = !!(defense?.scheduled_date);
+  const hasScheduled = !!defense?.scheduled_date;
 
-  // Defense scheduling backend not yet implemented. Submit handler is disabled.
+  async function handleSchedule(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canEdit || saving) return;
+    if (!date) { toast.error("A date is required"); return; }
+    setSaving(true);
+    const supabase = createClient();
+    const payload = {
+      project_id:     projectId,
+      defense_type:   defenseType,
+      scheduled_date: date,
+      scheduled_time: time || null,
+      location:       location || null,
+      meeting_link:   meetingLink || null,
+      updated_at:     new Date().toISOString(),
+    };
+    const { data, error } = defense
+      ? await supabase.from("thesis_defenses").update(payload).eq("id", defense.id).select().single()
+      : await supabase.from("thesis_defenses").insert(payload).select().single();
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    setDefense(data as ThesisDefense);
+    toast.success(hasScheduled ? "Schedule updated" : "Defense scheduled");
+    router.refresh();
+  }
+
+  async function setMarker(field: "format_check_completed_at" | "final_submission_at", value: string | null) {
+    if (!canEdit || marking) return;
+    setMarking(true);
+    const supabase = createClient();
+    // Need a defense row to attach the marker to; create a minimal one if missing
+    if (!defense) {
+      const { data, error } = await supabase
+        .from("thesis_defenses")
+        .insert({ project_id: projectId, defense_type: "final", [field]: value })
+        .select().single();
+      setMarking(false);
+      if (error) { toast.error(error.message); return; }
+      setDefense(data as ThesisDefense);
+      router.refresh();
+      return;
+    }
+    const { data, error } = await supabase
+      .from("thesis_defenses")
+      .update({ [field]: value, updated_at: new Date().toISOString() })
+      .eq("id", defense.id)
+      .select().single();
+    setMarking(false);
+    if (error) { toast.error(error.message); return; }
+    setDefense(data as ThesisDefense);
+    router.refresh();
+  }
 
   return (
     <div className="space-y-6">
       {/* Section tabs */}
-      <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+      <div className="flex gap-1 bg-[var(--bg-surface-active)] rounded-lg p-1 w-fit">
         {([
           ["checklist", "Pre-Defense Checklist"],
           ["schedule", "Schedule Defense"],
@@ -49,8 +106,8 @@ export function DefenseManager({
             onClick={() => setSection(key)}
             className={`text-xs font-medium px-3 py-1.5 rounded transition-colors ${
               section === key
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
+                ? "bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-sm"
+                : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
             }`}
           >
             {label}
@@ -60,24 +117,28 @@ export function DefenseManager({
 
       {/* Checklist */}
       {section === "checklist" && (
-        <div className="bg-white rounded-lg border border-gray-200 p-5">
-          <h3 className="font-semibold text-gray-900 mb-4">Pre-Defense Checklist</h3>
+        <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] p-5">
+          <h3 className="font-semibold text-[var(--text-primary)] mb-4">Pre-Defense Checklist</h3>
           <DefenseChecklist
             chapters={chapters}
             committee={committee}
-            metadata={metadata}
-            hasScheduledDefense={hasScheduled}
+            defense={defense}
+            canEdit={canEdit}
+            busy={marking}
+            onMarkFormatCheck={()   => setMarker("format_check_completed_at", new Date().toISOString())}
+            onUnmarkFormatCheck={() => setMarker("format_check_completed_at", null)}
+            onMarkSubmission={()    => setMarker("final_submission_at",       new Date().toISOString())}
+            onUnmarkSubmission={()  => setMarker("final_submission_at",       null)}
           />
         </div>
       )}
 
       {/* Schedule */}
       {section === "schedule" && (
-        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
-          <h3 className="font-semibold text-gray-900">Schedule Defense</h3>
-          <UnfinishedFeatureBanner feature="Defense scheduling" />
-          {defense && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+        <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] p-5 space-y-4">
+          <h3 className="font-semibold text-[var(--text-primary)]">Schedule Defense</h3>
+          {defense && hasScheduled && (
+            <div className="mb-4 p-3 bg-[var(--status-info-bg)] border border-[var(--border-status-info)] rounded-lg text-sm text-[var(--status-info-text)]">
               <p className="font-medium">Currently Scheduled</p>
               <p className="text-xs mt-1">
                 {defense.defense_type === "final" ? "Final" : "Proposal"} Defense ·{" "}
@@ -86,13 +147,14 @@ export function DefenseManager({
               </p>
             </div>
           )}
-          <form onSubmit={e => e.preventDefault()} className="space-y-4">
+          <form onSubmit={handleSchedule} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Defense Type</label>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Defense Type</label>
               <select
                 value={defenseType}
                 onChange={e => setDefenseType(e.target.value as DefenseType)}
-                className="w-full text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={!canEdit}
+                className="w-full text-sm border border-[var(--border-default)] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] disabled:opacity-60"
               >
                 <option value="proposal">Proposal Defense</option>
                 <option value="final">Final Defense</option>
@@ -101,7 +163,7 @@ export function DefenseManager({
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                   <Calendar className="inline h-3 w-3 mr-1" />Date *
                 </label>
                 <input
@@ -109,24 +171,26 @@ export function DefenseManager({
                   required
                   value={date}
                   onChange={e => setDate(e.target.value)}
-                  className="w-full text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={!canEdit}
+                  className="w-full text-sm border border-[var(--border-default)] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] disabled:opacity-60"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                   <Clock className="inline h-3 w-3 mr-1" />Time
                 </label>
                 <input
                   type="time"
                   value={time}
                   onChange={e => setTime(e.target.value)}
-                  className="w-full text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={!canEdit}
+                  className="w-full text-sm border border-[var(--border-default)] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] disabled:opacity-60"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                 <MapPin className="inline h-3 w-3 mr-1" />Location
               </label>
               <input
@@ -134,12 +198,13 @@ export function DefenseManager({
                 value={location}
                 onChange={e => setLocation(e.target.value)}
                 placeholder="Room 204, SPH Building"
-                className="w-full text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={!canEdit}
+                className="w-full text-sm border border-[var(--border-default)] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] disabled:opacity-60"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                 <Video className="inline h-3 w-3 mr-1" />Virtual Meeting Link
               </label>
               <input
@@ -147,18 +212,18 @@ export function DefenseManager({
                 value={meetingLink}
                 onChange={e => setMeetingLink(e.target.value)}
                 placeholder="https://meet.google.com/..."
-                className="w-full text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={!canEdit}
+                className="w-full text-sm border border-[var(--border-default)] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)] disabled:opacity-60"
               />
             </div>
 
             <div className="flex justify-end gap-2">
               <button
                 type="submit"
-                disabled
-                title="Backend not yet connected"
-                className="px-4 py-2 text-sm bg-blue-600 text-white rounded opacity-50 cursor-not-allowed"
+                disabled={!canEdit || saving}
+                className="px-4 py-2 text-sm bg-[var(--accent-blue)] text-white rounded hover:bg-[var(--accent-blue-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {hasScheduled ? "Update Schedule" : "Schedule Defense"}
+                {saving ? "Saving…" : hasScheduled ? "Update Schedule" : "Schedule Defense"}
               </button>
             </div>
           </form>
@@ -167,14 +232,18 @@ export function DefenseManager({
 
       {/* Outcome */}
       {section === "outcome" && (
-        <div className="bg-white rounded-lg border border-gray-200 p-5">
-          <h3 className="font-semibold text-gray-900 mb-4">Record Defense Outcome</h3>
+        <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] p-5">
+          <h3 className="font-semibold text-[var(--text-primary)] mb-4">Record Defense Outcome</h3>
           {!hasScheduled ? (
-            <p className="text-sm text-gray-500">Schedule the defense first before recording an outcome.</p>
+            <p className="text-sm text-[var(--text-tertiary)]">Schedule the defense first before recording an outcome.</p>
           ) : defense ? (
-            <DefenseOutcomeForm defense={defense} />
+            <DefenseOutcomeForm
+              defense={defense}
+              canEdit={canEdit}
+              onSaved={updated => { setDefense(updated); router.refresh(); }}
+            />
           ) : (
-            <p className="text-sm text-gray-500">No defense scheduled yet.</p>
+            <p className="text-sm text-[var(--text-tertiary)]">No defense scheduled yet.</p>
           )}
         </div>
       )}
