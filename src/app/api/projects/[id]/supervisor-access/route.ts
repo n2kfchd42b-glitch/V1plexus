@@ -25,36 +25,57 @@ export async function GET(
 
   // Get all supervisors assigned to this student — include pending so the
   // student can see in-flight requests waiting for acceptance.
-  const { data: assignments } = await supabase
-    .from('supervisor_assignments')
-    .select('id, supervisor_id, role, status, supervisor:profiles!supervisor_id(id, full_name, email)')
-    .eq('student_id', user.id)
-    .in('status', ['active', 'pending'])
+  const [{ data: assignments }, { data: emailInvites }] = await Promise.all([
+    supabase
+      .from('supervisor_assignments')
+      .select('id, supervisor_id, role, status, supervisor:profiles!supervisor_id(id, full_name, email)')
+      .eq('student_id', user.id)
+      .in('status', ['active', 'pending']),
+    // Email invites the student sent to people not yet on Plexus.
+    // No supervisor_assignment row exists for these until acceptance.
+    supabase
+      .from('workspace_invitations')
+      .select('id, email, status')
+      .eq('invited_by', user.id)
+      .eq('role', 'supervisor')
+      .eq('status', 'pending'),
+  ])
 
-  if (!assignments?.length) return NextResponse.json([])
+  const supervisorIds = (assignments ?? []).map(a => a.supervisor_id)
 
-  const supervisorIds = assignments.map(a => a.supervisor_id)
-
-  // Check which ones already have access to this project
-  const { data: existingMembers } = await supabase
-    .from('project_members')
-    .select('user_id')
-    .eq('project_id', projectId)
-    .in('user_id', supervisorIds)
+  // Check which assigned supervisors already have access to this project
+  const { data: existingMembers } = supervisorIds.length > 0
+    ? await supabase
+        .from('project_members')
+        .select('user_id')
+        .eq('project_id', projectId)
+        .in('user_id', supervisorIds)
+    : { data: [] as { user_id: string }[] }
 
   const accessSet = new Set((existingMembers ?? []).map(m => m.user_id))
 
-  const result = assignments.map(a => ({
+  const assignmentRows = (assignments ?? []).map(a => ({
     assignmentId: a.id,
     supervisorId: a.supervisor_id,
     role: a.role as 'primary' | 'co_supervisor',
     status: a.status as 'active' | 'pending',
+    kind: 'assignment' as const,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     name: (a.supervisor as any)?.full_name ?? (a.supervisor as any)?.email ?? 'Supervisor',
     hasAccess: accessSet.has(a.supervisor_id),
   }))
 
-  return NextResponse.json(result)
+  const inviteRows = (emailInvites ?? []).map(i => ({
+    assignmentId: i.id,
+    supervisorId: null,
+    role: 'primary' as const,
+    status: 'pending' as const,
+    kind: 'email_invite' as const,
+    name: i.email,
+    hasAccess: false,
+  }))
+
+  return NextResponse.json([...assignmentRows, ...inviteRows])
 }
 
 // POST — grant a supervisor access to this project

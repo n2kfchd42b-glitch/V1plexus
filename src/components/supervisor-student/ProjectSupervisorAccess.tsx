@@ -1,18 +1,20 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { UserX, Eye, Loader2, GraduationCap, Plus, ChevronDown, Clock } from 'lucide-react'
+import { UserX, Eye, Loader2, GraduationCap, Plus, ChevronDown, Clock, Mail } from 'lucide-react'
 import { FindSupervisorModal } from '@/components/supervisor-student/FindSupervisorModal'
 import { cn } from '@/lib/utils'
 
 type SupervisorRole = 'primary' | 'co_supervisor'
 type AssignmentStatus = 'active' | 'pending'
+type EntryKind = 'assignment' | 'email_invite'
 
 interface SupervisorEntry {
   assignmentId: string
-  supervisorId: string
+  supervisorId: string | null
   role: SupervisorRole
   status: AssignmentStatus
+  kind: EntryKind
   name: string
   hasAccess: boolean
 }
@@ -122,17 +124,21 @@ export function ProjectSupervisorAccess({ projectId }: Props) {
     <div className="space-y-2">
       {supervisors.map(entry => entry.status === 'pending' ? (
         <div
-          key={entry.supervisorId}
+          key={`${entry.kind}-${entry.assignmentId}`}
           className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-lg bg-[var(--bg-app)] border border-dashed border-[var(--border-default)]"
         >
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-7 h-7 rounded-full bg-[var(--bg-inset)] text-[var(--text-tertiary)] flex items-center justify-center text-[11px] font-bold flex-shrink-0 opacity-60">
-              {entry.name.charAt(0).toUpperCase()}
+              {entry.kind === 'email_invite'
+                ? <Mail className="h-3.5 w-3.5" />
+                : entry.name.charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0">
               <p className="text-xs font-semibold text-[var(--text-secondary)] truncate">{entry.name}</p>
               <p className="text-[10px] text-[var(--text-tertiary)] truncate">
-                {ROLE_LABELS[entry.role]} · awaiting their acceptance
+                {entry.kind === 'email_invite'
+                  ? 'Email sent — waiting for them to join Plexus'
+                  : `${ROLE_LABELS[entry.role]} · awaiting their acceptance`}
               </p>
             </div>
           </div>
@@ -143,7 +149,7 @@ export function ProjectSupervisorAccess({ projectId }: Props) {
         </div>
       ) : (
         <div
-          key={entry.supervisorId}
+          key={entry.supervisorId ?? entry.assignmentId}
           className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-default)] shadow-[var(--shadow-xs)]"
         >
           {/* Avatar + name + role selector */}
