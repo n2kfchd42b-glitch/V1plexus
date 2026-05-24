@@ -39,6 +39,9 @@ export default async function ProjectOverviewPage({
     { data: rawMilestones },
     { data: rawDocs },
     { data: rawLatestRun },
+    { count: datasetCount },
+    { count: runCount },
+    { data: rawChapters },
   ] = await Promise.all([
     supabase.from("projects").select("*").eq("id", id).single(),
     supabase.from("project_phases").select("phase_key, name, color, start_date, end_date, completed_at, sort_order, disabled").eq("project_id", id).order("sort_order").then(r => ({ data: r.data ?? [] })),
@@ -50,6 +53,9 @@ export default async function ProjectOverviewPage({
       : Promise.resolve({ data: [] }),
     supabase.from("documents").select("id, title, doc_type, updated_at").eq("project_id", id).is("deleted_at", null).order("updated_at", { ascending: false }).limit(4).then(r => ({ data: r.data ?? [] })),
     supabase.from("analysis_runs").select("id, title, analysis_type, status, interpretation, created_at").eq("project_id", id).eq("status", "completed").order("created_at", { ascending: false }).limit(1).then(r => ({ data: r.data ?? [] })),
+    supabase.from("datasets").select("id", { count: "exact", head: true }).eq("project_id", id).is("deleted_at", null),
+    supabase.from("analysis_runs").select("id", { count: "exact", head: true }).eq("project_id", id).eq("status", "completed"),
+    supabase.from("thesis_chapters").select("status").eq("project_id", id).then(r => ({ data: r.data ?? [] })),
   ]);
 
   const project = projectResult.data;
@@ -61,6 +67,11 @@ export default async function ProjectOverviewPage({
   const nextMilestoneKey = PHASE_ORDER.find(
     key => !phases.find(p => p.phase_key === key)?.completed_at
   ) ?? null;
+
+  const isThesis = (project as { project_type?: string }).project_type === "thesis";
+  const chapters = (rawChapters ?? []) as { status: string }[];
+  const chaptersTotal = chapters.length;
+  const chaptersApproved = chapters.filter(c => c.status === "approved").length;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapLog = (e: any): ActivityLog => ({
@@ -130,6 +141,11 @@ export default async function ProjectOverviewPage({
       recentDocs={recentDocs}
       latestRun={latestRun}
       aiEnabled={AI_ENABLED}
+      isThesis={isThesis}
+      datasetCount={datasetCount ?? 0}
+      runCount={runCount ?? 0}
+      chaptersTotal={chaptersTotal}
+      chaptersApproved={chaptersApproved}
     />
   );
 }

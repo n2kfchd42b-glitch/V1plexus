@@ -10,6 +10,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { ThesisCreationWizard } from '@/components/thesis/ThesisCreationWizard'
 import { useAuth } from '@/hooks/useAuth'
 import { useWorkspace } from '@/hooks/useWorkspace'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
@@ -232,6 +233,8 @@ export default function ProjectsPage() {
   const [search, setSearch]             = useState('')
   const [showArchived, setShowArchived] = useState(false)
   const [showNew, setShowNew]           = useState(false)
+  const [showChooser, setShowChooser]   = useState(false)
+  const [showThesis, setShowThesis]     = useState(false)
   const [title, setTitle]               = useState('')
   const [description, setDescription]  = useState('')
   const [creating, setCreating]         = useState(false)
@@ -410,19 +413,12 @@ export default function ProjectsPage() {
         )}
 
         <div className="ml-auto flex items-center gap-2">
-          <Link
-            href="/projects/new-thesis"
-            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] transition-colors"
-          >
-            <GraduationCap className="h-3.5 w-3.5" />
-            {t('projects.newThesis', 'Thesis')}
-          </Link>
           <button
-            onClick={() => setShowNew(true)}
+            onClick={() => setShowChooser(true)}
             className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-white text-xs font-medium btn-press btn-primary"
           >
             <Plus className="h-3.5 w-3.5" />
-            {t('projects.newProject', 'New Project')}
+            {t('projects.new', 'New')}
           </button>
         </div>
       </div>
@@ -445,11 +441,11 @@ export default function ProjectsPage() {
                 {t('projects.emptyDesc', 'Create a project to begin building your research record.')}
               </p>
               <button
-                onClick={() => setShowNew(true)}
+                onClick={() => setShowChooser(true)}
                 className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-white text-xs font-medium btn-primary"
               >
                 <Plus className="h-3.5 w-3.5" />
-                {t('projects.newProject', 'New Project')}
+                {t('projects.new', 'New')}
               </button>
             </div>
           )}
@@ -532,6 +528,63 @@ export default function ProjectsPage() {
               {creating ? t('projects.creating', 'Creating…') : t('projects.createBtn', 'Create Project')}
             </button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Type chooser — entry point for both creation flows */}
+      <Dialog open={showChooser} onOpenChange={setShowChooser}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t('projects.chooserTitle', 'What are you creating?')}</DialogTitle>
+            <DialogDescription>
+              {t('projects.chooserDesc', 'Pick the workspace that matches your research.')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+            <button
+              onClick={() => { setShowChooser(false); setShowNew(true) }}
+              className="text-left rounded-xl border border-[var(--border-default)] p-4 hover:border-[var(--accent-blue)] hover:bg-[var(--accent-blue-subtle)] transition-colors group"
+            >
+              <div className="h-9 w-9 rounded-lg bg-[var(--bg-surface-active)] group-hover:bg-[var(--bg-surface)] flex items-center justify-center mb-3 transition-colors">
+                <FolderOpen className="h-4 w-4 text-[var(--text-secondary)] group-hover:text-[var(--accent-blue)]" />
+              </div>
+              <p className="text-sm font-semibold text-[var(--text-primary)] mb-0.5">
+                {t('projects.chooserStandard', 'Standard project')}
+              </p>
+              <p className="text-xs text-[var(--text-tertiary)] leading-snug">
+                {t('projects.chooserStandardDesc', 'A blank research workspace. Add data, analyses, and writing as you go.')}
+              </p>
+            </button>
+            <button
+              onClick={() => { setShowChooser(false); setShowThesis(true) }}
+              className="text-left rounded-xl border border-[var(--border-default)] p-4 hover:border-[var(--accent-blue)] hover:bg-[var(--accent-blue-subtle)] transition-colors group"
+            >
+              <div className="h-9 w-9 rounded-lg bg-[var(--bg-surface-active)] group-hover:bg-[var(--bg-surface)] flex items-center justify-center mb-3 transition-colors">
+                <GraduationCap className="h-4 w-4 text-[var(--text-secondary)] group-hover:text-[var(--accent-blue)]" />
+              </div>
+              <p className="text-sm font-semibold text-[var(--text-primary)] mb-0.5">
+                {t('projects.chooserThesis', 'Thesis workspace')}
+              </p>
+              <p className="text-xs text-[var(--text-tertiary)] leading-snug">
+                {t('projects.chooserThesisDesc', 'Structured for theses: chapters, committee, defense, milestones.')}
+              </p>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Thesis wizard — opens in a wider dialog */}
+      <Dialog open={showThesis} onOpenChange={setShowThesis}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t('projects.thesisTitle', 'New Thesis Project')}</DialogTitle>
+            <DialogDescription>
+              {t('projects.thesisDesc', 'Create a structured workspace for your thesis or dissertation.')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="pt-2">
+            <ThesisCreationWizard onCancel={() => setShowThesis(false)} />
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -8,6 +8,7 @@ import {
   Sparkles, BarChart2, BookOpen, Calendar, Trash2,
 } from 'lucide-react'
 import { VerifyBadge } from '@/components/ui/verify-badge'
+import { NextActionCard } from '@/components/project/NextActionCard'
 import type { GanttPhase } from '@/components/project/ProjectGantt'
 
 // ── Exported types ────────────────────────────────────────────────────────────
@@ -72,6 +73,11 @@ export interface ProjectOverviewClientProps {
   recentDocs: RecentDoc[]
   latestRun: LatestRun | null
   aiEnabled?: boolean
+  isThesis?: boolean
+  datasetCount?: number
+  runCount?: number
+  chaptersTotal?: number
+  chaptersApproved?: number
 }
 
 // ── Phase mapping ─────────────────────────────────────────────────────────────
@@ -999,9 +1005,9 @@ function LedgerDrawer({ logs, id, onClose }: { logs: ActivityLog[]; id: string; 
 
 export function ProjectOverviewClient({
   id,
-  project: _project,
+  project,
   completedCount,
-  nextMilestoneKey: _nextMilestoneKey,
+  nextMilestoneKey,
   initialPhases,
   activityLogs,
   supervisorLogs,
@@ -1011,6 +1017,11 @@ export function ProjectOverviewClient({
   recentDocs,
   latestRun,
   aiEnabled = false,
+  isThesis = false,
+  datasetCount = 0,
+  runCount = 0,
+  chaptersTotal = 0,
+  chaptersApproved = 0,
 }: ProjectOverviewClientProps) {
 
   const [aiState, setAiState] = useState<'loading' | 'loaded' | 'error'>(() => aiEnabled ? 'loading' : 'error')
@@ -1102,6 +1113,19 @@ export function ProjectOverviewClient({
     <>
       {/* ── Page content ───────────────────────────────────────────────────── */}
       <div className="px-7 py-6 pb-16" style={{ background: 'var(--bg-app)' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto 16px' }}>
+          <NextActionCard
+            projectId={id}
+            status={project.status}
+            isThesis={isThesis}
+            datasetCount={datasetCount}
+            runCount={runCount}
+            hasDocs={recentDocs.length > 0}
+            currentPhase={nextMilestoneKey}
+            chaptersTotal={chaptersTotal}
+            chaptersApproved={chaptersApproved}
+          />
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20, maxWidth: 1200, margin: '0 auto' }}>
 
           {/* LEFT ─ Action Center + Recent Work ─────────────────────────── */}
