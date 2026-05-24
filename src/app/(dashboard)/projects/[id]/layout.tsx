@@ -78,6 +78,7 @@ export default async function ProjectWorkspaceLayout({
         projectId={id}
         userId={user.id}
         title={project.title}
+        status={project.status}
         badge={badge}
         phases={phases}
         datasetCount={datasetCount ?? 0}

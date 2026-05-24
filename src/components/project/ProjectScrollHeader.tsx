@@ -1,10 +1,18 @@
 'use client'
 
+import { useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { MoreHorizontal, Settings, Clock, FileSearch, ArchiveRestore, Package } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
+import { updateProjectStatus } from '@/lib/data'
 import { InteractivePhaseBar } from './InteractivePhaseBar'
 import type { GanttPhase } from './ProjectGantt'
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
 
 // Global Header height (h-16). Tab bar sticks immediately below it.
 const HEADER_HEIGHT = 64
@@ -15,6 +23,7 @@ interface ProjectScrollHeaderProps {
   projectId: string
   userId: string
   title: string
+  status: string
   badge: BadgeStyle
   phases: GanttPhase[]
   datasetCount: number
@@ -26,6 +35,7 @@ export function ProjectScrollHeader({
   projectId,
   userId,
   title,
+  status,
   badge,
   phases,
   datasetCount,
@@ -33,19 +43,16 @@ export function ProjectScrollHeader({
   isThesis = false,
 }: ProjectScrollHeaderProps) {
   const pathname = usePathname()
+  const router   = useRouter()
+  const isArchived = status === 'archived'
 
-  const overviewHref   = `/projects/${projectId}/overview`
-  const isOverview     = pathname === overviewHref || pathname === `/projects/${projectId}`
-  const isDocEditor    = pathname.startsWith(`/projects/${projectId}/documents/`)
-  const isOutsideWorkflow = !isOverview
-    && !pathname.startsWith(`/projects/${projectId}/data`)
-    && !pathname.startsWith(`/projects/${projectId}/analysis`)
-    && !pathname.startsWith(`/projects/${projectId}/documents`)
-    && !pathname.startsWith(`/projects/${projectId}/chapters`)
-    && !pathname.startsWith(`/projects/${projectId}/setup`)
-  const collapsed      = !isOverview
+  const overviewHref = `/projects/${projectId}/overview`
+  const isOverview   = pathname === overviewHref || pathname === `/projects/${projectId}`
+  const isDocEditor  = pathname.startsWith(`/projects/${projectId}/documents/`)
+  const collapsed    = !isOverview
 
-  if (isDocEditor || isOutsideWorkflow) return null
+  // Doc editor needs full screen — everything else keeps the project nav.
+  if (isDocEditor) return null
 
   const tabs = [
     { slug: 'overview',  label: 'Overview',  count: null as number | null },
@@ -56,9 +63,36 @@ export function ProjectScrollHeader({
     { slug: 'analysis',  label: 'Analysis',   count: runCount > 0 ? runCount : null },
     { slug: 'documents', label: 'Writing',    count: null                  },
     ...(isThesis ? [
-      { slug: 'setup', label: 'Setup', count: null as number | null },
+      { slug: 'defense', label: 'Defense', count: null as number | null },
+      { slug: 'setup',   label: 'Setup',   count: null as number | null },
     ] : []),
   ]
+
+  // Alt+1-9 jumps to the matching tab. Skips when focus is in a text input.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return
+      const target = e.target as HTMLElement | null
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+      const idx = parseInt(e.key, 10) - 1
+      if (Number.isNaN(idx) || idx < 0 || idx >= tabs.length) return
+      e.preventDefault()
+      router.push(`/projects/${projectId}/${tabs[idx].slug}`)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [tabs, projectId, router])
+
+  async function handleUnarchive() {
+    const supabase = createClient()
+    const result = await updateProjectStatus(supabase, projectId, 'active')
+    if (result.status === 'error') {
+      toast.error('Could not unarchive project')
+      return
+    }
+    toast.success('Project unarchived')
+    router.refresh()
+  }
 
   return (
     <>
@@ -186,6 +220,45 @@ export function ProjectScrollHeader({
               </Link>
             )
           })}
+        </div>
+
+        {/* Overflow menu — Settings + side routes */}
+        <div className="ml-auto pr-3 sm:pr-4">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="Project menu"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] transition-colors"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem onSelect={() => router.push(`/projects/${projectId}/settings`)}>
+                <Settings className="h-4 w-4" />
+                Project settings
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => router.push(`/projects/${projectId}/timeline`)}>
+                <Clock className="h-4 w-4" />
+                Activity timeline
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => router.push(`/projects/${projectId}/audit`)}>
+                <FileSearch className="h-4 w-4" />
+                Audit log
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => router.push(`/projects/${projectId}/output`)}>
+                <Package className="h-4 w-4" />
+                Output package
+              </DropdownMenuItem>
+              {isArchived && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={handleUnarchive}>
+                    <ArchiveRestore className="h-4 w-4" />
+                    Unarchive project
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </>

@@ -7,13 +7,14 @@ import { usePathname } from 'next/navigation'
 import {
   FolderOpen, LogOut, Menu, X, Command,
   LayoutDashboard, Database, BarChart2, BookOpen, GraduationCap, Settings2,
-  ClipboardList, Bell,
+  ClipboardList, Award,
 } from 'lucide-react'
 import { BrandLogo } from '@/components/layout/BrandLogo'
 import { LanguageSelector } from '@/components/i18n/LanguageSelector'
 import { useTranslations } from '@/i18n/useTranslations'
 import { createClient } from '@/lib/supabase/client'
 import { cn, getInitials } from '@/lib/utils'
+import { REVIEWS_ENABLED } from '@/lib/flags'
 import type { Profile } from '@/types/database'
 
 interface MobileSidebarProps {
@@ -48,9 +49,10 @@ export function MobileSidebar({ profile, onSignOut }: MobileSidebarProps) {
   }, [projectId, isInProject])
 
   const TOP_NAV = [
-    { href: '/projects',      labelKey: 'nav.projects',      icon: FolderOpen    },
-    { href: '/reviews',       labelKey: 'nav.reviews',       icon: ClipboardList },
-    { href: '/notifications', labelKey: 'nav.notifications', icon: Bell          },
+    { href: '/projects', labelKey: 'nav.projects', icon: FolderOpen    },
+    ...(REVIEWS_ENABLED
+      ? [{ href: '/reviews', labelKey: 'nav.reviews', icon: ClipboardList }]
+      : []),
   ]
 
   const RESEARCH_TABS = [
@@ -66,6 +68,7 @@ export function MobileSidebar({ profile, onSignOut }: MobileSidebarProps) {
     { slug: 'data',      label: 'Data',     icon: Database        },
     { slug: 'analysis',  label: 'Analysis', icon: BarChart2       },
     { slug: 'documents', label: 'Writing',  icon: BookOpen        },
+    { slug: 'defense',   label: 'Defense',  icon: Award           },
     { slug: 'setup',     label: 'Setup',    icon: Settings2       },
   ]
 
