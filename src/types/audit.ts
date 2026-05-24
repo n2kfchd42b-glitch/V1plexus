@@ -76,6 +76,7 @@ export type AuditAction =
   | 'supervisor.assignment.accepted'
   | 'supervisor.assignment.declined'
   | 'supervisor.assignment.ended'
+  | 'supervisor.assignment.cancelled'
   // Causal analysis operations
   | 'causal.dag.created'
   | 'causal.dag.confirmed'

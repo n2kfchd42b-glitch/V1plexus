@@ -126,7 +126,10 @@ export async function PATCH(req: NextRequest) {
   return NextResponse.json({ success: true })
 }
 
-// DELETE /api/supervisor/assignments?assignment_id= — end an assignment
+// DELETE /api/supervisor/assignments?assignment_id= — end / cancel an assignment
+// Either party (supervisor or student) may invoke this.
+// Active rows are soft-ended (status='ended'). Pending rows are hard-deleted
+// since they never represented a real relationship.
 export async function DELETE(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -135,20 +138,45 @@ export async function DELETE(req: NextRequest) {
   const assignment_id = new URL(req.url).searchParams.get('assignment_id')
   if (!assignment_id) return NextResponse.json({ error: 'assignment_id required' }, { status: 400 })
 
-  const { error } = await supabase
+  // Look up the row first so we can authorise the caller and pick the right verb.
+  const { data: existing } = await supabase
     .from('supervisor_assignments')
-    .update({ status: 'ended', ended_at: new Date().toISOString() })
+    .select('id, status, supervisor_id, student_id')
     .eq('id', assignment_id)
-    .eq('supervisor_id', user.id)
+    .maybeSingle()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!existing) return NextResponse.json({ error: 'Assignment not found' }, { status: 404 })
+  if (existing.supervisor_id !== user.id && existing.student_id !== user.id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  if (existing.status === 'pending') {
+    const { error } = await supabase
+      .from('supervisor_assignments')
+      .delete()
+      .eq('id', assignment_id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  } else {
+    const { error } = await supabase
+      .from('supervisor_assignments')
+      .update({ status: 'ended', ended_at: new Date().toISOString() })
+      .eq('id', assignment_id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 
   void writeAuditEntry({
     actor_id: user.id,
-    action: 'supervisor.assignment.ended',
+    action: existing.status === 'pending'
+      ? 'supervisor.assignment.cancelled'
+      : 'supervisor.assignment.ended',
     resource_type: 'supervisor_assignment',
     resource_id: assignment_id,
-    details: { summary: 'Supervisor assignment ended' },
+    details: {
+      summary: existing.status === 'pending'
+        ? 'Supervisor request cancelled'
+        : 'Supervisor assignment ended',
+      ended_by_role: existing.supervisor_id === user.id ? 'supervisor' : 'student',
+    },
   }, supabase)
 
   return NextResponse.json({ success: true })

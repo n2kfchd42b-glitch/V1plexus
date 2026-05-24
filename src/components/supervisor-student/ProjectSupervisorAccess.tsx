@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { UserX, Eye, Loader2, GraduationCap, Plus, ChevronDown, Clock, Mail } from 'lucide-react'
+import { UserX, Eye, Loader2, GraduationCap, Plus, ChevronDown, Clock, Mail, X, Trash2 } from 'lucide-react'
 import { FindSupervisorModal } from '@/components/supervisor-student/FindSupervisorModal'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 type SupervisorRole = 'primary' | 'co_supervisor'
@@ -33,6 +34,7 @@ export function ProjectSupervisorAccess({ projectId }: Props) {
   const [loading, setLoading]         = useState(true)
   const [toggling, setToggling]       = useState<string | null>(null)
   const [roleSaving, setRoleSaving]   = useState<string | null>(null)
+  const [removing, setRemoving]       = useState<string | null>(null)
   const [findOpen, setFindOpen]       = useState(false)
 
   const load = useCallback(() => {
@@ -98,6 +100,40 @@ export function ProjectSupervisorAccess({ projectId }: Props) {
     }
   }
 
+  async function removeEntry(entry: SupervisorEntry) {
+    const isPending = entry.status === 'pending'
+    const isInvite  = entry.kind === 'email_invite'
+    const message = isInvite
+      ? `Cancel the invitation sent to ${entry.name}?`
+      : isPending
+        ? `Cancel your request to ${entry.name}?`
+        : `End your supervision relationship with ${entry.name}? They'll lose access to all your work.`
+    if (!confirm(message)) return
+
+    setRemoving(entry.assignmentId)
+    try {
+      const url = isInvite
+        ? `/api/invitations/cancel?invitation_id=${entry.assignmentId}`
+        : `/api/supervisor/assignments?assignment_id=${entry.assignmentId}`
+      const res = await fetch(url, { method: 'DELETE' })
+      if (res.ok) {
+        setSupervisors(prev => prev.filter(s =>
+          !(s.assignmentId === entry.assignmentId && s.kind === entry.kind)
+        ))
+        toast.success(
+          isInvite ? 'Invitation cancelled'
+            : isPending ? 'Request cancelled'
+            : 'Supervision ended'
+        )
+      } else {
+        const body = await res.json().catch(() => ({}))
+        toast.error(body?.error ?? 'Could not remove this supervisor')
+      }
+    } finally {
+      setRemoving(null)
+    }
+  }
+
   async function changeRole(entry: SupervisorEntry, newRole: SupervisorRole) {
     if (newRole === entry.role) return
     setRoleSaving(entry.assignmentId)
@@ -142,10 +178,22 @@ export function ProjectSupervisorAccess({ projectId }: Props) {
               </p>
             </div>
           </div>
-          <span className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-800">
-            <Clock className="h-2.5 w-2.5" />
-            Pending
-          </span>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-800">
+              <Clock className="h-2.5 w-2.5" />
+              Pending
+            </span>
+            <button
+              onClick={() => removeEntry(entry)}
+              disabled={removing === entry.assignmentId}
+              title="Cancel request"
+              className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--status-error-text)] hover:bg-[var(--status-error-bg)] transition-colors disabled:opacity-50"
+            >
+              {removing === entry.assignmentId
+                ? <Loader2 className="h-3 w-3 animate-spin" />
+                : <X className="h-3 w-3" />}
+            </button>
+          </div>
         </div>
       ) : (
         <div
@@ -217,6 +265,18 @@ export function ProjectSupervisorAccess({ projectId }: Props) {
                   Share
                 </>
               )}
+            </button>
+
+            {/* End supervision relationship */}
+            <button
+              onClick={() => removeEntry(entry)}
+              disabled={removing === entry.assignmentId}
+              title="End supervision"
+              className="p-1.5 rounded-md text-[var(--text-tertiary)] hover:text-[var(--status-error-text)] hover:bg-[var(--status-error-bg)] transition-colors disabled:opacity-50"
+            >
+              {removing === entry.assignmentId
+                ? <Loader2 className="h-3 w-3 animate-spin" />
+                : <Trash2 className="h-3 w-3" />}
             </button>
           </div>
         </div>
