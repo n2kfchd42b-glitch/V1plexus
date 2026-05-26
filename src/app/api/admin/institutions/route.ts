@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
   if (process.env.RESEND_API_KEY) {
     try {
       const resend = new Resend(process.env.RESEND_API_KEY)
-      const greeting = input.admin_name ? `Hi ${input.admin_name},` : 'Hi,'
+      const greeting = input.admin_name ? `Hi ${escapeHtml(input.admin_name)},` : 'Hi,'
       const emailResp = await resend.emails.send({
         from: 'Plexus <invitations@plexus.science>',
         to: input.admin_email,

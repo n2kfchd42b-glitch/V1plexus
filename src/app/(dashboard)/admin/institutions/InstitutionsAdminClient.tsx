@@ -92,7 +92,17 @@ export function InstitutionsAdminClient({ inquiries, institutions }: Props) {
       return
     }
 
-    setSuccess(`${form.institution_name} provisioned. Invite sent to ${form.admin_email}.`)
+    let emailWarning: string | null = null
+    try {
+      const json = await res.json()
+      if (typeof json?.email_warning === 'string') emailWarning = json.email_warning
+    } catch { /* ignore */ }
+
+    setSuccess(
+      emailWarning
+        ? `${form.institution_name} provisioned, but the invite email failed: ${emailWarning}. Resend manually from Supabase or check Resend logs.`
+        : `${form.institution_name} provisioned. Invite sent to ${form.admin_email}.`
+    )
     setForm(EMPTY_FORM)
     setShowForm(false)
     router.refresh()
