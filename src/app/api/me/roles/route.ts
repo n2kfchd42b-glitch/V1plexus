@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { isPlatformAdmin } from '@/lib/admin/platformAdmin'
 
 // GET /api/me/roles
 // Returns derived role flags for the current user. Used by the sidebar to
@@ -43,6 +44,7 @@ export async function GET() {
   return NextResponse.json({
     is_supervisor: optedIn || supervisingCount > 0 || legacyRole === 'supervisor',
     is_student: beingSupervisedCount > 0 || legacyRole === 'student',
+    is_platform_admin: isPlatformAdmin(user.id),
     workspace_type: wsType,
     supervising_count: supervisingCount,
     being_supervised_count: beingSupervisedCount,

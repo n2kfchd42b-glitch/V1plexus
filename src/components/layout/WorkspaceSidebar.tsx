@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   FolderOpen, LogOut, ChevronLeft, ChevronRight, Command,
-  Users, GraduationCap, Building2, Inbox, UserCheck,
+  Users, GraduationCap, Building2, Inbox, UserCheck, Shield,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BrandLogo } from '@/components/layout/BrandLogo'
@@ -27,6 +27,7 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
   const [collapsed, setCollapsed] = useState(true)
   const [isSupervisor, setIsSupervisor] = useState(false)
   const [isStudent, setIsStudent] = useState(false)
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
   const [workspaceType, setWorkspaceType] = useState<'personal' | 'institutional' | null>(null)
   const [thesisProjectId, setThesisProjectId] = useState<string | null>(null)
 
@@ -47,10 +48,12 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
         const data = await res.json() as {
           is_supervisor: boolean
           is_student: boolean
+          is_platform_admin?: boolean
           workspace_type: 'personal' | 'institutional' | null
         }
         setIsSupervisor(data.is_supervisor)
         setIsStudent(data.is_student)
+        setIsPlatformAdmin(data.is_platform_admin === true)
         // Treat unknown / missing as institutional so legacy users don't lose Department
         setWorkspaceType(data.workspace_type === 'personal' ? 'personal' : 'institutional')
       } catch {
@@ -276,6 +279,36 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
                   )}
                   <UserCheck className={cn('flex-shrink-0 h-4 w-4', supervisorActive ? 'text-white' : 'text-[var(--text-sidebar-icon)]')} />
                   {!collapsed && <span className="text-sm font-medium">My Supervisor</span>}
+                </div>
+              </Link>
+              <div className="my-2 h-px bg-white/10" />
+            </>
+          )
+        })()}
+
+        {/* Platform admin — visible only to PLATFORM_ADMIN_USER_IDS */}
+        {isPlatformAdmin && (() => {
+          const institutionsActive = pathname.startsWith('/admin/institutions')
+          return (
+            <>
+              {!collapsed && (
+                <p className="px-2.5 pt-0.5 pb-1.5 text-[9px] font-medium uppercase tracking-[0.10em] text-[var(--text-sidebar-icon)]">
+                  Platform
+                </p>
+              )}
+              <Link href="/admin/institutions" title={collapsed ? 'Institutions' : undefined}>
+                <div className={cn(
+                  'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
+                  collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
+                  institutionsActive
+                    ? 'bg-[var(--bg-sidebar-active)] text-[var(--text-sidebar-active)]'
+                    : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
+                )}>
+                  {institutionsActive && (
+                    <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-primary)]" />
+                  )}
+                  <Shield className={cn('flex-shrink-0 h-4 w-4', institutionsActive ? 'text-white' : 'text-[var(--text-sidebar-icon)]')} />
+                  {!collapsed && <span className="text-sm font-medium">Institutions</span>}
                 </div>
               </Link>
               <div className="my-2 h-px bg-white/10" />
