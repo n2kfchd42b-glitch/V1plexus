@@ -138,12 +138,43 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
         return
       }
 
+      // When accepting an institutional workspace admin invite, mirror the
+      // role + institution onto the user's profile so the existing institution
+      // admin surfaces (settings card, thesis policy page, workflow role
+      // resolution) recognise them.
+      const ws = workspaceInvite.workspace as { type?: string; institution_id?: string | null } | null | undefined
+      const isInstitutionalLead =
+        ws?.type === 'institutional'
+        && workspaceInvite.role === 'admin'
+        && !!ws.institution_id
+
+      if (isInstitutionalLead) {
+        const { error: profileErr } = await supabase
+          .from('profiles')
+          .update({
+            institution_id: ws!.institution_id,
+            role: workspaceInvite.role,
+            workspace_setup_completed: true,
+            onboarding_completed: true,
+          })
+          .eq('id', user.id)
+        if (profileErr) {
+          toast.error(profileErr.message)
+          setAccepting(false)
+          return
+        }
+      }
+
       await supabase
         .from('workspace_invitations')
         .update({ status: 'accepted' })
         .eq('token', token)
 
       toast.success(t('invite.joinedWorkspace', 'You joined the workspace!'))
+      if (isInstitutionalLead) {
+        router.push('/settings')
+        return
+      }
       router.push(workspaceInvite.role === 'student' ? '/student/milestones' : '/dashboard')
     } else if (inviteType === 'project' && projectInvite) {
       const { error: memErr } = await supabase

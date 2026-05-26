@@ -43,6 +43,9 @@ export default function LandingPage() {
           <BrandLogo variant="light" href="/" />
           <div className="flex items-center gap-4">
             <LanguageSelector compact />
+            <Link href="/contact-institutions" className="hidden sm:inline text-slate-600 hover:text-blue-800 transition-colors px-4 py-2 text-sm font-medium">
+              {t('landing.nav.forInstitutions', 'For institutions')}
+            </Link>
             <Link href="/login" className="text-slate-600 hover:text-blue-800 transition-colors px-4 py-2 text-sm font-medium">
               {t('landing.nav.login')}
             </Link>

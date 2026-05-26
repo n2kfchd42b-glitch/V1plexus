@@ -42,6 +42,33 @@ export interface Institution {
   email: string | null
   phone: string | null
   logo_url: string | null
+  short_name: string | null
+  email_domain: string | null
+  verification_tier: 'SELF_ATTESTED' | 'DOMAIN_VERIFIED' | 'OFFICIALLY_REGISTERED' | null
+  active: boolean | null
+  auto_link_domains: string[]
+  provisioned_at: string | null
+  provisioned_by: string | null
+  provisioning_notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type InstitutionInquiryStatus = 'new' | 'responded' | 'converted' | 'declined'
+
+export interface InstitutionInquiry {
+  id: string
+  contact_name: string
+  contact_email: string
+  contact_role: string | null
+  institution_name: string
+  country: string | null
+  estimated_seats: number | null
+  message: string | null
+  status: InstitutionInquiryStatus
+  converted_institution_id: string | null
+  responded_at: string | null
+  responded_by: string | null
   created_at: string
   updated_at: string
 }
