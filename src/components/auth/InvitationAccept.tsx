@@ -142,26 +142,34 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
       // role + institution onto the user's profile so the existing institution
       // admin surfaces (settings card, thesis policy page, workflow role
       // resolution) recognise them.
-      const ws = workspaceInvite.workspace as { type?: string; institution_id?: string | null } | null | undefined
-      const isInstitutionalLead =
-        ws?.type === 'institutional'
-        && workspaceInvite.role === 'admin'
-        && !!ws.institution_id
+      //
+      // The workspace must be fetched HERE (after the membership upsert),
+      // not from the pre-accept invitation join — RLS on `workspaces` only
+      // allows SELECT once the user is a member.
+      let isInstitutionalLead = false
+      if (workspaceInvite.role === 'admin') {
+        const { data: ws } = await supabase
+          .from('workspaces')
+          .select('type, institution_id')
+          .eq('id', workspaceInvite.workspace_id)
+          .maybeSingle()
 
-      if (isInstitutionalLead) {
-        const { error: profileErr } = await supabase
-          .from('profiles')
-          .update({
-            institution_id: ws!.institution_id,
-            role: workspaceInvite.role,
-            workspace_setup_completed: true,
-            onboarding_completed: true,
-          })
-          .eq('id', user.id)
-        if (profileErr) {
-          toast.error(profileErr.message)
-          setAccepting(false)
-          return
+        if (ws?.type === 'institutional' && ws.institution_id) {
+          isInstitutionalLead = true
+          const { error: profileErr } = await supabase
+            .from('profiles')
+            .update({
+              institution_id: ws.institution_id,
+              role: 'admin',
+              workspace_setup_completed: true,
+              onboarding_completed: true,
+            })
+            .eq('id', user.id)
+          if (profileErr) {
+            toast.error(profileErr.message)
+            setAccepting(false)
+            return
+          }
         }
       }
 
