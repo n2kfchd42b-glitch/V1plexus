@@ -41,6 +41,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 409 })
   }
 
+  // Capacity guard: don't let a student request a supervisor who's full.
+  // NULL slots_open = no declared cap = unlimited (existing behaviour).
+  // accepting_now = false short-circuits opted-out supervisors too.
+  const { data: capacity } = await supabase
+    .from('v_supervisor_capacity')
+    .select('accepting_now, slots_open')
+    .eq('supervisor_id', supervisor_id)
+    .maybeSingle()
+
+  if (!capacity) {
+    return NextResponse.json(
+      { error: 'This supervisor is not accepting requests right now', code: 'not_accepting' },
+      { status: 409 },
+    )
+  }
+  if (!capacity.accepting_now) {
+    const reason = capacity.slots_open === 0
+      ? 'This supervisor is at capacity'
+      : 'This supervisor is not accepting new students'
+    return NextResponse.json({ error: reason, code: 'capacity_full' }, { status: 409 })
+  }
+
   // Use the student's personal workspace as the assignment workspace
   const { data: membership } = await supabase
     .from('workspace_memberships')

@@ -95,6 +95,21 @@ export const FIELD_OPERATIONS_ENABLED = false;
 export const THESIS_ENABLED = true;
 
 /**
+ * THESIS_WORKFLOW_V2: New institutional thesis workflow layer (May 2026).
+ *   Gates the UI surfaces added by the workflow PRs:
+ *     - ThesisLifecyclePanel (state machine controls on chapters page)
+ *     - ThesisAuditTimelineCard (workflow event timeline)
+ *     - ChapterDecisionPanel (supervisor decide UI in doc viewer)
+ *     - History drawer on ChapterCard
+ *     - /settings/institution/thesis-policy admin page
+ *     - "Institution administration" card in /settings
+ *   API routes (transition, decide, deadline-sweep) remain live regardless —
+ *   the cron sweep and DB triggers keep working so deadlines accrue even when
+ *   the UI is hidden. Flip to true to unlock the visible surfaces.
+ */
+export const THESIS_WORKFLOW_V2 = true;
+
+/**
  * PUBLICATION_ENABLED: Phase 9 publication pipeline.
  */
 export const PUBLICATION_ENABLED = false;

@@ -7,18 +7,28 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
 interface SupervisorResult {
-  id: string
+  supervisor_id: string
   full_name: string | null
   email: string
   title: string | null
   research_discipline: string | null
   supervision_areas: string[] | null
   supervision_bio: string | null
+  slots_total: number | null
+  slots_used: number
+  slots_open: number | null
+  accepting_now: boolean
 }
 
 interface Props {
   onClose: () => void
   onRequested: () => void
+}
+
+function capacityBadge(person: SupervisorResult): string | null {
+  if (!person.accepting_now) return 'Full'
+  if (person.slots_total === null || person.slots_open === null) return null
+  return `${person.slots_open}/${person.slots_total} open`
 }
 
 export function FindSupervisorModal({ onClose, onRequested }: Props) {
@@ -63,16 +73,15 @@ export function FindSupervisorModal({ onClose, onRequested }: Props) {
   const search = useCallback(async (q: string) => {
     if (!q.trim()) { setResults([]); return }
     setSearching(true)
-    // Only surface people who opted in. Search by name, email, OR expertise area.
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, full_name, email, title, research_discipline, supervision_areas, supervision_bio')
-      .eq('available_to_supervise', true)
-      .or(`full_name.ilike.%${q}%,email.ilike.%${q}%,supervision_areas.cs.{${q}}`)
-      .limit(8)
-    setResults((data as SupervisorResult[]) ?? [])
+    const res = await fetch(`/api/supervisors/directory?q=${encodeURIComponent(q)}&limit=8`)
+    if (res.ok) {
+      const data = await res.json() as SupervisorResult[]
+      setResults(data)
+    } else {
+      setResults([])
+    }
     setSearching(false)
-  }, [supabase])
+  }, [])
 
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value
@@ -270,16 +279,20 @@ export function FindSupervisorModal({ onClose, onRequested }: Props) {
               {results.length > 0 && (
                 <div className="space-y-2">
                   {results.map(person => {
-                    const isSent = sent.has(person.id)
-                    const isLoading = sending === person.id
+                    const isSent = sent.has(person.supervisor_id)
+                    const isLoading = sending === person.supervisor_id
+                    const isFull = !person.accepting_now
+                    const capacityLabel = capacityBadge(person)
                     return (
                       <div
-                        key={person.id}
+                        key={person.supervisor_id}
                         className={cn(
                           'flex items-center gap-3 p-3 rounded-lg border transition-colors',
                           isSent
                             ? 'border-status-success/30 bg-status-success/5'
-                            : 'border-border-default bg-bg-surface hover:bg-bg-surface-hover'
+                            : isFull
+                              ? 'border-border-subtle bg-bg-surface opacity-60'
+                              : 'border-border-default bg-bg-surface hover:bg-bg-surface-hover'
                         )}
                       >
                         <div
@@ -289,8 +302,22 @@ export function FindSupervisorModal({ onClose, onRequested }: Props) {
                           {(person.full_name ?? person.email).slice(0, 2).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-semibold text-text-primary truncate">
-                            {person.full_name ?? person.email}
+                          <div className="flex items-center gap-2">
+                            <div className="text-sm font-semibold text-text-primary truncate">
+                              {person.full_name ?? person.email}
+                            </div>
+                            {capacityLabel && (
+                              <span
+                                className={cn(
+                                  'flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium',
+                                  isFull
+                                    ? 'bg-text-tertiary/10 text-text-tertiary'
+                                    : 'bg-status-success/10 text-status-success'
+                                )}
+                              >
+                                {capacityLabel}
+                              </span>
+                            )}
                           </div>
                           {person.title && (
                             <div className="text-[11px] text-text-tertiary truncate">{person.title}</div>
@@ -309,18 +336,27 @@ export function FindSupervisorModal({ onClose, onRequested }: Props) {
                           )}
                         </div>
                         <button
-                          onClick={() => !isSent && requestSupervision(person.id)}
-                          disabled={isSent || isLoading}
+                          onClick={() => !isSent && !isFull && requestSupervision(person.supervisor_id)}
+                          disabled={isSent || isLoading || isFull}
+                          title={isFull ? 'This supervisor is at capacity' : undefined}
                           className={cn(
                             'flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors',
                             isSent
                               ? 'bg-status-success/10 text-status-success cursor-default'
-                              : 'bg-accent-primary text-white hover:opacity-90 disabled:opacity-60'
+                              : isFull
+                                ? 'bg-text-tertiary/10 text-text-tertiary cursor-not-allowed'
+                                : 'bg-accent-primary text-white hover:opacity-90 disabled:opacity-60'
                           )}
                         >
                           {isLoading && <Loader2 className="h-3 w-3 animate-spin" />}
                           {isSent && <CheckCircle2 className="h-3 w-3" />}
-                          {isSent ? 'Requested' : isLoading ? 'Sending…' : 'Request'}
+                          {isFull
+                            ? 'Full'
+                            : isSent
+                              ? 'Requested'
+                              : isLoading
+                                ? 'Sending…'
+                                : 'Request'}
                         </button>
                       </div>
                     )

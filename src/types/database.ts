@@ -17,6 +17,11 @@ export type ProjectType = 'research' | 'thesis'
 export type ThesisDegreeType = 'msc' | 'mphil' | 'phd' | 'drph' | 'md' | 'bachelor' | 'other'
 export type ThesisDefenseStatus = 'not_scheduled' | 'proposal_scheduled' | 'proposal_completed' | 'final_scheduled' | 'final_completed' | 'passed' | 'passed_with_corrections' | 'revise_resubmit' | 'failed'
 export type ThesisChapterStatus = 'not_started' | 'drafting' | 'submitted_for_review' | 'revision_requested' | 'approved' | 'locked'
+export type ThesisLifecycleState = 'matched' | 'proposal_draft' | 'proposal_review' | 'active' | 'chapter_review' | 'submitted' | 'approved' | 'archived'
+export type ThesisActorRole = 'student' | 'primary_supervisor' | 'coordinator' | 'admin' | 'system'
+export type ChapterSubmissionDecision = 'approved' | 'revision_requested'
+export type DeadlineKind = 'chapter_due' | 'milestone_due' | 'thesis_completion' | 'proposal_due' | 'defense_due' | 'custom'
+export type NotificationDigestFrequency = 'instant' | 'daily' | 'weekly' | 'off'
 export type ProjectPhase = 'design' | 'data_collection' | 'analysis' | 'writing' | 'submitted' | 'published'
 export type InstitutionType = 'university' | 'hospital' | 'research_institute' | 'ngo' | 'government' | 'other'
 export type ProjectMemberRole = 'owner' | 'pi' | 'member' | 'viewer'
@@ -253,6 +258,9 @@ export interface ThesisMetadata {
   expected_completion: string | null
   thesis_title: string | null
   defense_status: ThesisDefenseStatus
+  lifecycle_state: ThesisLifecycleState
+  policy_version_snapshot: number | null
+  policy_snapshot: ThesisPolicySnapshot | null
   created_at: string
   updated_at: string
   supervisor?: { full_name: string | null; email: string | null } | null
@@ -289,9 +297,123 @@ export interface ThesisChapter {
   approved_at: string | null
   approved_by: string | null
   sort_order: number | null
+  revision_round: number
+  current_review_id: string | null
   created_at: string
   updated_at: string
   approver?: { full_name: string | null } | null
+}
+
+export interface ThesisChapterSubmission {
+  id: string
+  chapter_id: string
+  project_id: string
+  student_id: string
+  round: number
+  document_id: string | null
+  document_version_number: number | null
+  note: string | null
+  review_request_id: string | null
+  submitted_at: string
+  reviewed_by: string | null
+  reviewed_at: string | null
+  decision: ChapterSubmissionDecision | null
+  feedback: string | null
+}
+
+export interface AllowedThesisTransition {
+  from_state: ThesisLifecycleState
+  to_state: ThesisLifecycleState
+  required_role: ThesisActorRole
+  requires_ethics_gate: boolean
+  requires_all_chapters_approved: boolean
+  requires_defense_pass: boolean
+  description: string | null
+}
+
+/**
+ * Per-institution thesis workflow policy. The DB-side trigger
+ * `bump_thesis_policy_version` auto-increments policy_version on every
+ * UPDATE; theses snapshot this row at creation (see
+ * ThesisMetadata.policy_snapshot).
+ */
+export interface InstitutionThesisPolicy {
+  institution_id: string
+  policy_version: number
+  require_ethics_gate: boolean
+  allow_co_supervisors: boolean
+  max_co_supervisors: number
+  require_oral_defense: boolean
+  require_proposal_defense: boolean
+  min_chapters: number
+  default_chapter_titles: string[]
+  reminder_offsets_days: number[]
+  escalation_delay_hours: number
+  created_at: string
+  updated_at: string
+  updated_by: string | null
+}
+
+/**
+ * Snapshot frozen onto thesis_metadata at creation. Mirrors
+ * InstitutionThesisPolicy minus mutable audit columns.
+ */
+export type ThesisPolicySnapshot = Omit<
+  InstitutionThesisPolicy,
+  'created_at' | 'updated_at' | 'updated_by'
+>
+
+export interface Deadline {
+  id: string
+  project_id: string
+  kind: DeadlineKind
+  source_type: string | null
+  source_id: string | null
+  target_at: string
+  owner_id: string
+  title: string
+  satisfied_at: string | null
+  satisfied_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface DeadlineReminder {
+  id: string
+  deadline_id: string
+  offset_label: string
+  recipient_id: string
+  sent_at: string
+}
+
+export interface NotificationPreferences {
+  user_id: string
+  digest_frequency: NotificationDigestFrequency
+  quiet_hours_start: number | null
+  quiet_hours_end: number | null
+  timezone: string
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * Read-only view: profiles JOIN active supervisor_assignments count.
+ * slots_open / slots_total are NULL when no cap is declared.
+ */
+export interface SupervisorCapacityRow {
+  supervisor_id: string
+  full_name: string | null
+  email: string
+  avatar_url: string | null
+  title: string | null
+  research_discipline: string | null
+  supervision_areas: string[] | null
+  supervision_bio: string | null
+  slots_total: number | null
+  slots_used: number
+  slots_open: number | null
+  accepting_now: boolean
+  available_to_supervise: boolean
 }
 
 export interface ProjectMember {

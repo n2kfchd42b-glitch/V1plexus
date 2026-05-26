@@ -72,16 +72,22 @@ export function ChapterList({ projectId, chapters: initialChapters, canEdit }: C
     if (actionLoading) return;
     setActionLoading(chapterId);
     try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("thesis_chapters")
-        .update({ status: "submitted_for_review", submitted_at: new Date().toISOString() })
-        .eq("id", chapterId);
-      if (error) throw new Error(error.message);
+      const res = await fetch(`/api/thesis/chapters/${chapterId}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error?.formErrors?.join(", ") ?? body.error ?? "Submit failed");
+      const submittedAt = new Date().toISOString();
       setChapters(prev =>
-        prev.map(c => c.id === chapterId ? { ...c, status: "submitted_for_review" as const, submitted_at: new Date().toISOString() } : c)
+        prev.map(c =>
+          c.id === chapterId
+            ? { ...c, status: "submitted_for_review" as const, submitted_at: submittedAt }
+            : c,
+        ),
       );
-      toast.success("Chapter submitted for review");
+      toast.success(`Chapter submitted for review (round ${body.round})`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Something went wrong");
     } finally {

@@ -2,8 +2,10 @@ import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ChapterList } from "@/components/thesis/ChapterList";
 import { ThesisRightPanel } from "@/components/thesis/ThesisRightPanel";
+import { ThesisAuditTimelineCard } from "@/components/thesis/ThesisAuditTimeline";
+import { ThesisLifecyclePanel } from "@/components/thesis/ThesisLifecyclePanel";
 import type { ThesisChapter } from "@/types/database";
-import { THESIS_ENABLED } from "@/lib/flags";
+import { THESIS_ENABLED, THESIS_WORKFLOW_V2 } from "@/lib/flags";
 
 export default async function ChaptersPage({
   params,
@@ -84,6 +86,20 @@ export default async function ChaptersPage({
                   chapters={chapters}
                   canEdit={canEdit}
                 />
+              )}
+
+              {THESIS_WORKFLOW_V2 && (
+                <>
+                  {/* Workflow state + allowed transitions */}
+                  <div className="mt-6">
+                    <ThesisLifecyclePanel projectId={id} />
+                  </div>
+
+                  {/* Thesis workflow timeline — collapsible, lazy-fetches audit events */}
+                  <div className="mt-4">
+                    <ThesisAuditTimelineCard projectId={id} />
+                  </div>
+                </>
               )}
             </div>
 

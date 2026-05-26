@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowLeft, X, Share2, Download, FileText, Shield } from 'lucide-react'
 import { MinimalEditor } from '@/components/document/MinimalEditor'
 import { AnnotationDocumentPanel } from '@/components/supervisor-student/AnnotationDocumentPanel'
+import { ChapterDecisionPanel } from '@/components/thesis/ChapterDecisionPanel'
 import { VerifyBadge } from '@/components/ui/verify-badge'
 import { cn } from '@/lib/utils'
 
@@ -137,6 +138,9 @@ export function SupervisorDocumentViewer({ projectId, docId, title, content, stu
       <div className="flex flex-1 overflow-hidden">
         {/* Editor */}
         <div className="flex-1 overflow-hidden flex flex-col">
+          {/* Chapter decision bar — only renders when this doc has an open submission */}
+          <ChapterDecisionPanel projectId={projectId} documentId={docId} />
+
           <div className="flex-1 overflow-hidden">
             <MinimalEditor
               documentId={docId}

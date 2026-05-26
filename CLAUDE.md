@@ -68,7 +68,7 @@ src/
     decision-engine/  # Analysis recommendation & workflow builder
     [utilities]
   types/
-    database.ts       # Auto-generated Supabase schema types
+    database.ts       # Hand-curated TypeScript mirror of the Supabase schema
     [feature].ts      # Domain-specific types
   middleware.ts       # Supabase auth guard (protects all dashboard routes)
 ```
@@ -109,6 +109,7 @@ src/
 ### Database
 - Table names: `lowercase_with_underscores`
 - All schema types come from `src/types/database.ts` — use them, do not define ad-hoc inline types for DB rows
+- `src/types/database.ts` is hand-curated as `export interface Foo { ... }`, not the Supabase generator's `Database['public']['Tables']['x']['Row']` shape. When you add tables or columns, extend this file by hand and keep the existing style. Running `supabase gen types typescript` would overwrite it with an incompatible shape and break every import.
 - Realtime subscriptions are used for live updates — clean them up in `useEffect` returns
 
 ### State Management
@@ -158,7 +159,7 @@ When adding a new analysis type, register it in `analysisRegistry.ts` and add fe
 - Do not add error handling for impossible scenarios — trust Supabase and Next.js guarantees
 - Do not use `find`, `grep`, `cat` in bash when dedicated tools exist
 - The `_phase7/` directory is legacy/experimental — do not modify it unless explicitly asked
-- `src/types/database.ts` is auto-generated — do not hand-edit it
+- Do not run `supabase gen types typescript` against `src/types/database.ts` — it's hand-curated and the generator's shape is incompatible
 
 ---
 

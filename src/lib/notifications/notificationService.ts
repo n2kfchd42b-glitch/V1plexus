@@ -31,9 +31,40 @@ function buildNotificationEmail(title: string, body: string, link: string): stri
 }
 
 /**
+ * Read the user's notification preferences. Missing row = default
+ * (instant email + in-app), matching the behaviour before the
+ * preferences table existed.
+ *
+ * Returned `digest_frequency`:
+ *   instant — send email immediately (default)
+ *   off     — in-app only, never email
+ *   daily   — currently treated as 'instant' (digest flush job is a
+ *             future PR). Documented so the field round-trips correctly
+ *             once the flush exists.
+ *   weekly  — same as 'daily' for now
+ */
+async function readDigestFrequency(
+  supabase: SupabaseClient,
+  user_id: string,
+): Promise<'instant' | 'daily' | 'weekly' | 'off'> {
+  try {
+    const { data } = await supabase
+      .from('notification_preferences')
+      .select('digest_frequency')
+      .eq('user_id', user_id)
+      .maybeSingle()
+    return (data?.digest_frequency as 'instant' | 'daily' | 'weekly' | 'off' | undefined) ?? 'instant'
+  } catch {
+    return 'instant'
+  }
+}
+
+/**
  * Send a notification to a user.
- * When recipientEmail is provided, also sends an email via Resend.
- * Never throws — notification failures are non-blocking.
+ * When recipientEmail is provided, also sends an email via Resend — subject
+ * to the recipient's notification_preferences. The in-app notification is
+ * always created regardless of digest preference; only email delivery is
+ * gated. Never throws — notification failures are non-blocking.
  */
 export async function sendNotification(
   user_id: string,
@@ -61,17 +92,22 @@ export async function sendNotification(
     console.error('Notification failed:', err)
   }
 
-  if (recipientEmail && resend) {
-    try {
-      await resend.emails.send({
-        from: 'Plexus <notifications@plexus.science>',
-        to: recipientEmail,
-        subject: title,
-        html: buildNotificationEmail(title, body, link),
-      })
-    } catch (err) {
-      console.error('Email notification failed:', err)
-    }
+  if (!recipientEmail || !resend) return
+
+  const frequency = await readDigestFrequency(supabase, user_id)
+  if (frequency === 'off') return
+  // 'daily' / 'weekly' currently send instantly — when the digest flush
+  // job ships, branch here to enqueue instead.
+
+  try {
+    await resend.emails.send({
+      from: 'Plexus <notifications@plexus.science>',
+      to: recipientEmail,
+      subject: title,
+      html: buildNotificationEmail(title, body, link),
+    })
+  } catch (err) {
+    console.error('Email notification failed:', err)
   }
 }
 

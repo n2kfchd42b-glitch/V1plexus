@@ -77,6 +77,18 @@ export type AuditAction =
   | 'supervisor.assignment.declined'
   | 'supervisor.assignment.ended'
   | 'supervisor.assignment.cancelled'
+  | 'supervisor.capacity.changed'
+  // Thesis lifecycle operations
+  | 'thesis.state.transitioned'
+  | 'thesis.state.force_transitioned'
+  | 'thesis.policy.created'
+  | 'thesis.policy.updated'
+  | 'thesis.chapter.submitted'
+  | 'thesis.chapter.decided'
+  | 'thesis.defense.scheduled'
+  | 'thesis.defense.outcome_recorded'
+  | 'thesis.deadline.reminder_sent'
+  | 'thesis.deadline.escalated'
   // Causal analysis operations
   | 'causal.dag.created'
   | 'causal.dag.confirmed'
@@ -103,6 +115,12 @@ export type ResourceType =
   | 'supervision_annotation'
   | 'supervision_record'
   | 'supervisor_assignment'
+  | 'thesis_metadata'
+  | 'thesis_chapter'
+  | 'thesis_chapter_submission'
+  | 'thesis_defense'
+  | 'institution_thesis_policy'
+  | 'thesis_deadline'
   | 'causal_dag'
 
 export type JustificationCategory =

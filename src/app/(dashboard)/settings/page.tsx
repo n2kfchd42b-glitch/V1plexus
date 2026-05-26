@@ -26,6 +26,7 @@ import {
 import type { Profile } from '@/types/database'
 import type { User } from '@supabase/supabase-js'
 import { logAudit } from '@/lib/audit'
+import { THESIS_WORKFLOW_V2 } from '@/lib/flags'
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
 const ROLE_LABELS: Record<string, string> = {
@@ -607,6 +608,32 @@ export default function ProfilePage() {
                 </div>
               ))}
             </section>
+
+            {/* Institution administration — admins and coordinators only, gated by workflow v2 */}
+            {THESIS_WORKFLOW_V2 && (profile.role === 'admin' || profile.role === 'coordinator') && profile.institution_id && (
+              <section className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5">
+                <h2 className="text-base font-bold text-[var(--text-primary)] font-manrope mb-3">
+                  Institution administration
+                </h2>
+                <a
+                  href="/settings/institution/thesis-policy"
+                  className="flex items-center justify-between gap-3 p-3 rounded-lg border border-[var(--border-default)] hover:border-[var(--accent-blue)]/40 hover:bg-[var(--bg-surface-hover)] transition-colors group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-[var(--accent-blue)]/10 flex items-center justify-center">
+                      <GraduationCap className="h-4 w-4 text-[var(--accent-blue)]" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">Thesis policy</p>
+                      <p className="text-xs text-[var(--text-tertiary)]">
+                        Workflow rules applied to every new thesis at your institution
+                      </p>
+                    </div>
+                  </div>
+                  <ExternalLink className="h-4 w-4 text-[var(--text-tertiary)] group-hover:text-[var(--accent-blue)] transition-colors" />
+                </a>
+              </section>
+            )}
 
             {/* Two-column layout */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
