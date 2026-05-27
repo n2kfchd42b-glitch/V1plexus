@@ -42,16 +42,23 @@ export async function GET(request: Request) {
     return NextResponse.json({ workspace: null, members: [], total: 0, limit, offset })
   }
 
-  const { data: memberships, count } = await svc
+  // workspace_memberships has 3 FKs to profiles (user_id, invited_by,
+  // supervisor_id), so the embed alias MUST disambiguate via the FK name
+  // — otherwise PostgREST returns PGRST201 and the page renders empty.
+  const { data: memberships, count, error } = await svc
     .from('workspace_memberships')
     .select(`
       id, role, status, joined_at, department_id,
-      user:profiles(id, full_name, email, avatar_url, title, role, last_seen_at, institution_id),
+      user:profiles!workspace_memberships_user_id_fkey(id, full_name, email, avatar_url, title, role, last_seen_at, institution_id),
       department:departments(id, name)
     `, { count: 'exact' })
     .eq('workspace_id', workspace.id)
-    .order('joined_at', { ascending: false })
+    .order('joined_at', { ascending: false, nullsFirst: false })
     .range(offset, offset + limit - 1)
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 
   return NextResponse.json({
     workspace,
