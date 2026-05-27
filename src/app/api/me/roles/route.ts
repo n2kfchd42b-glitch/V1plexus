@@ -14,7 +14,7 @@ export async function GET() {
   const [profileRes, supAssignRes, stuAssignRes, membershipRes] = await Promise.all([
     supabase
       .from('profiles')
-      .select('available_to_supervise')
+      .select('available_to_supervise, role, institution_id')
       .eq('id', user.id)
       .maybeSingle(),
     supabase
@@ -41,10 +41,16 @@ export async function GET() {
   const legacyRole = membershipRes.data?.role as string | undefined
   const wsType = (membershipRes.data?.workspace as { type?: string } | null)?.type ?? null
 
+  const profileRole = profileRes.data?.role as string | undefined
+  const institutionId = profileRes.data?.institution_id as string | null | undefined
+  const isInstitutionAdmin = profileRole === 'admin' && !!institutionId
+
   return NextResponse.json({
     is_supervisor: optedIn || supervisingCount > 0 || legacyRole === 'supervisor',
     is_student: beingSupervisedCount > 0 || legacyRole === 'student',
     is_platform_admin: isPlatformAdmin(user.id),
+    is_institution_admin: isInstitutionAdmin,
+    institution_id: institutionId ?? null,
     workspace_type: wsType,
     supervising_count: supervisingCount,
     being_supervised_count: beingSupervisedCount,

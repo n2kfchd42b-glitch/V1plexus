@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation'
 import {
   FolderOpen, LogOut, ChevronLeft, ChevronRight, Command,
   Users, GraduationCap, Building2, Inbox, UserCheck, Shield,
+  LayoutDashboard, FileSearch, UserPlus, Mail, ScrollText,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BrandLogo } from '@/components/layout/BrandLogo'
@@ -28,6 +29,7 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
   const [isSupervisor, setIsSupervisor] = useState(false)
   const [isStudent, setIsStudent] = useState(false)
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
+  const [isInstitutionAdmin, setIsInstitutionAdmin] = useState(false)
   const [workspaceType, setWorkspaceType] = useState<'personal' | 'institutional' | null>(null)
   const [thesisProjectId, setThesisProjectId] = useState<string | null>(null)
 
@@ -49,11 +51,13 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
           is_supervisor: boolean
           is_student: boolean
           is_platform_admin?: boolean
+          is_institution_admin?: boolean
           workspace_type: 'personal' | 'institutional' | null
         }
         setIsSupervisor(data.is_supervisor)
         setIsStudent(data.is_student)
         setIsPlatformAdmin(data.is_platform_admin === true)
+        setIsInstitutionAdmin(data.is_institution_admin === true)
         // Treat unknown / missing as institutional so legacy users don't lose Department
         setWorkspaceType(data.workspace_type === 'personal' ? 'personal' : 'institutional')
       } catch {
@@ -176,9 +180,9 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
         {/* Role-based nav — supervisor (derived: opted-in OR has active supervisees) */}
         {isSupervisor && (() => {
           const studentsHref = '/supervisor/dashboard'
-          const deptHref = '/department'
+          const deptHref = '/institution/departments'
           const studentsActive = pathname.startsWith('/supervisor')
-          const deptActive = pathname.startsWith('/department')
+          const deptActive = pathname.startsWith('/institution/departments')
           return (
             <>
               {!collapsed && (
@@ -281,6 +285,49 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
                   {!collapsed && <span className="text-sm font-medium">My Supervisor</span>}
                 </div>
               </Link>
+              <div className="my-2 h-px bg-white/10" />
+            </>
+          )
+        })()}
+
+        {/* Institution admin — visible only when profile.role='admin' && institution_id */}
+        {isInstitutionAdmin && (() => {
+          const items = [
+            { href: '/institution',                icon: LayoutDashboard, label: 'Overview',       exact: true },
+            { href: '/institution/members',        icon: Users,           label: 'Members' },
+            { href: '/institution/departments',    icon: Building2,       label: 'Departments' },
+            { href: '/institution/policy',         icon: ScrollText,      label: 'Thesis policy' },
+            { href: '/institution/link-requests',  icon: UserPlus,        label: 'Link requests' },
+            { href: '/institution/audit',          icon: FileSearch,      label: 'Audit' },
+            { href: '/institution/inquiries',      icon: Mail,            label: 'Inquiries' },
+          ]
+          return (
+            <>
+              {!collapsed && (
+                <p className="px-2.5 pt-0.5 pb-1.5 text-[9px] font-medium uppercase tracking-[0.10em] text-[var(--text-sidebar-icon)]">
+                  Institution
+                </p>
+              )}
+              {items.map(({ href, icon: Icon, label, exact }) => {
+                const active = exact ? pathname === href : (pathname === href || pathname.startsWith(href + '/'))
+                return (
+                  <Link key={href} href={href} title={collapsed ? label : undefined}>
+                    <div className={cn(
+                      'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
+                      collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
+                      active
+                        ? 'bg-[var(--bg-sidebar-active)] text-[var(--text-sidebar-active)]'
+                        : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
+                    )}>
+                      {active && (
+                        <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-primary)]" />
+                      )}
+                      <Icon className={cn('flex-shrink-0 h-4 w-4', active ? 'text-white' : 'text-[var(--text-sidebar-icon)]')} />
+                      {!collapsed && <span className="text-sm font-medium">{label}</span>}
+                    </div>
+                  </Link>
+                )
+              })}
               <div className="my-2 h-px bg-white/10" />
             </>
           )

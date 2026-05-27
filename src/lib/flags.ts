@@ -46,12 +46,6 @@ export const TEAM_ENABLED = false;
 export const REVIEWS_ENABLED = false;
 
 /**
- * INSTITUTION_ENABLED: Institutional dashboard, members, compliance, audit, departments.
- *   - While false, entire Institution section is removed from sidebar.
- */
-export const INSTITUTION_ENABLED = false;
-
-/**
  * CONSENT_ENABLED: Digital consent form builder, capture, and records.
  *   - While false, /consent routes are hidden.
  */
@@ -101,8 +95,7 @@ export const THESIS_ENABLED = true;
  *     - ThesisAuditTimelineCard (workflow event timeline)
  *     - ChapterDecisionPanel (supervisor decide UI in doc viewer)
  *     - History drawer on ChapterCard
- *     - /settings/institution/thesis-policy admin page
- *     - "Institution administration" card in /settings
+ *     - /institution/policy admin page (under the dedicated institution section)
  *   API routes (transition, decide, deadline-sweep) remain live regardless —
  *   the cron sweep and DB triggers keep working so deadlines accrue even when
  *   the UI is hidden. Flip to true to unlock the visible surfaces.
