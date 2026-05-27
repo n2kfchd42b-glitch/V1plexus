@@ -30,7 +30,6 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
   const [isStudent, setIsStudent] = useState(false)
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
   const [isInstitutionAdmin, setIsInstitutionAdmin] = useState(false)
-  const [workspaceType, setWorkspaceType] = useState<'personal' | 'institutional' | null>(null)
   const [thesisProjectId, setThesisProjectId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -42,7 +41,7 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
     if (profile.available_to_supervise) setIsSupervisor(true)
 
     // Authoritative role check — server-side endpoint that does all the OR-logic
-    // under RLS. Returns is_supervisor, is_student, workspace_type.
+    // under RLS. Returns is_supervisor, is_student, plus admin flags.
     const checkRoles = async () => {
       try {
         const res = await fetch('/api/me/roles', { cache: 'no-store' })
@@ -52,14 +51,11 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
           is_student: boolean
           is_platform_admin?: boolean
           is_institution_admin?: boolean
-          workspace_type: 'personal' | 'institutional' | null
         }
         setIsSupervisor(data.is_supervisor)
         setIsStudent(data.is_student)
         setIsPlatformAdmin(data.is_platform_admin === true)
         setIsInstitutionAdmin(data.is_institution_admin === true)
-        // Treat unknown / missing as institutional so legacy users don't lose Department
-        setWorkspaceType(data.workspace_type === 'personal' ? 'personal' : 'institutional')
       } catch {
         /* leave previous state */
       }
@@ -177,12 +173,13 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
         {/* Divider */}
         <div className="my-2 h-px bg-white/10" />
 
-        {/* Role-based nav — supervisor (derived: opted-in OR has active supervisees) */}
+        {/* Role-based nav — supervisor (derived: opted-in OR has active supervisees).
+            "Department" is intentionally NOT here — institution admins reach it via
+            the dedicated Institution group below; supervisors who aren't admins
+            don't have permission to view it. */}
         {isSupervisor && (() => {
           const studentsHref = '/supervisor/dashboard'
-          const deptHref = '/institution/departments'
           const studentsActive = pathname.startsWith('/supervisor')
-          const deptActive = pathname.startsWith('/institution/departments')
           return (
             <>
               {!collapsed && (
@@ -220,23 +217,6 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
                   {!collapsed && <span className="text-sm font-medium">Inbox</span>}
                 </div>
               </Link>
-              {workspaceType === 'institutional' && isInstitutionAdmin && (
-                <Link href={deptHref} title={collapsed ? 'Department' : undefined}>
-                  <div className={cn(
-                    'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
-                    collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
-                    deptActive
-                      ? 'bg-[var(--bg-sidebar-active)] text-[var(--text-sidebar-active)]'
-                      : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
-                  )}>
-                    {deptActive && (
-                      <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-primary)]" />
-                    )}
-                    <Building2 className={cn('flex-shrink-0 h-4 w-4', deptActive ? 'text-white' : 'text-[var(--text-sidebar-icon)]')} />
-                    {!collapsed && <span className="text-sm font-medium">Department</span>}
-                  </div>
-                </Link>
-              )}
               <div className="my-2 h-px bg-white/10" />
             </>
           )
