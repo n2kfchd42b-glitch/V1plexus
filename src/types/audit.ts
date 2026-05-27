@@ -102,6 +102,9 @@ export type AuditAction =
   | 'institution.link.auto_approved'
   | 'institution.link.approved'
   | 'institution.link.declined'
+  // Institution provisioning (platform-admin operations)
+  | 'institution.provisioned'
+  | 'institution.inquiry.converted'
 
 export type ResourceType =
   | 'dataset'

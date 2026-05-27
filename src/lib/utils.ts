@@ -6,6 +6,13 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Escape user/data-controlled values before passing them into a Supabase
+// `.ilike()` or `.like()` predicate. Without this, `%` and `_` in the value
+// would behave as SQL LIKE wildcards.
+export function escapeLikePattern(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')
+}
+
 export function formatDate(date: string | Date | null | undefined): string {
   if (!date) return "—"
   return format(new Date(date), 'MMM d, yyyy')

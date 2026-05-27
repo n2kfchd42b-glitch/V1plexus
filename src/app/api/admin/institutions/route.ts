@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { isPlatformAdmin } from '@/lib/admin/platformAdmin'
+import { writeAuditEntry } from '@/lib/audit/auditLogger'
 
 const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/
 
@@ -187,8 +188,36 @@ export async function POST(request: NextRequest) {
       .eq('id', input.inquiry_id)
     if (inqErr) {
       console.error('[ADMIN_INSTITUTIONS] Inquiry update failed:', inqErr)
+    } else {
+      void writeAuditEntry({
+        actor_id: user.id,
+        action: 'institution.inquiry.converted',
+        resource_type: 'institution',
+        resource_id: institution.id,
+        institution_id: institution.id,
+        details: {
+          summary: `Converted inquiry ${input.inquiry_id} → ${institution.name}`,
+          inquiry_id: input.inquiry_id,
+        },
+      })
     }
   }
+
+  // 6. Audit: institution provisioned (catch-all for the whole flow)
+  void writeAuditEntry({
+    actor_id: user.id,
+    action: 'institution.provisioned',
+    resource_type: 'institution',
+    resource_id: institution.id,
+    institution_id: institution.id,
+    details: {
+      summary: `Provisioned institution ${institution.name} with admin ${input.admin_email}`,
+      workspace_id: workspace.id,
+      admin_email: input.admin_email,
+      auto_link_domains: input.auto_link_domains ?? [],
+      from_inquiry_id: input.inquiry_id ?? null,
+    },
+  })
 
   return NextResponse.json({
     success: true,

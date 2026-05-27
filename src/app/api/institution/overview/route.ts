@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getInstitutionAdminContext } from '@/lib/admin/institutionAdmin'
+import { escapeLikePattern } from '@/lib/utils'
 
 /**
  * GET /api/institution/overview
@@ -55,7 +56,7 @@ export async function GET() {
       ? svc
           .from('institution_inquiries')
           .select('id', { count: 'exact', head: true })
-          .ilike('institution_name', inquiryName)
+          .ilike('institution_name', escapeLikePattern(inquiryName))
       : Promise.resolve({ count: 0 }),
     svc
       .from('audit_logs')
