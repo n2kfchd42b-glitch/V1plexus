@@ -15,6 +15,7 @@ interface ProvisionForm {
   type: InstitutionType | ''
   country: string
   email_domain: string
+  auto_link_domains: string
   admin_email: string
   admin_name: string
   inquiry_id: string | null
@@ -26,9 +27,17 @@ const EMPTY_FORM: ProvisionForm = {
   type: '',
   country: '',
   email_domain: '',
+  auto_link_domains: '',
   admin_email: '',
   admin_name: '',
   inquiry_id: null,
+}
+
+function parseDomainList(input: string): string[] {
+  return input
+    .split(/[,\s]+/)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
 }
 
 const INSTITUTION_TYPES: InstitutionType[] = [
@@ -50,6 +59,7 @@ export function InstitutionsAdminClient({ inquiries, institutions }: Props) {
       type: '',
       country: inq.country ?? '',
       email_domain: inferDomain(inq.contact_email),
+      auto_link_domains: '',
       admin_email: inq.contact_email,
       admin_name: inq.contact_name,
       inquiry_id: inq.id,
@@ -74,6 +84,7 @@ export function InstitutionsAdminClient({ inquiries, institutions }: Props) {
         type: form.type || null,
         country: form.country.trim() || null,
         email_domain: form.email_domain.trim().toLowerCase() || null,
+        auto_link_domains: parseDomainList(form.auto_link_domains),
         admin_email: form.admin_email.trim().toLowerCase(),
         admin_name: form.admin_name.trim() || null,
         inquiry_id: form.inquiry_id,
@@ -203,7 +214,7 @@ export function InstitutionsAdminClient({ inquiries, institutions }: Props) {
                   className={inputClass}
                 />
               </Field>
-              <Field label="Email domain" hint="Used later for domain auto-link (off by default)">
+              <Field label="Email domain" hint="Informational. The institution's main domain.">
                 <input
                   type="text"
                   value={form.email_domain}
@@ -213,6 +224,18 @@ export function InstitutionsAdminClient({ inquiries, institutions }: Props) {
                 />
               </Field>
             </div>
+            <Field
+              label="Auto-link domains"
+              hint="Comma-separated. Users with these email domains skip admin approval. Leave blank for manual review only."
+            >
+              <input
+                type="text"
+                value={form.auto_link_domains}
+                onChange={(e) => setForm({ ...form, auto_link_domains: e.target.value })}
+                placeholder="ug.edu.gh, alumni.ug.edu.gh"
+                className={inputClass}
+              />
+            </Field>
             <div className="pt-4 mt-4 border-t border-[var(--border-default)] space-y-4">
               <p className="text-xs text-[var(--text-tertiary)] uppercase tracking-wider font-semibold">
                 First admin
@@ -273,21 +296,103 @@ export function InstitutionsAdminClient({ inquiries, institutions }: Props) {
         ) : (
           <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-md divide-y divide-[var(--border-default)]">
             {institutions.map((inst) => (
-              <div key={inst.id} className="px-4 py-3 flex items-center justify-between text-sm">
-                <div>
-                  <p className="font-medium text-[var(--text-primary)]">{inst.name}</p>
-                  <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
-                    {[inst.country, inst.email_domain, inst.type].filter(Boolean).join(' · ')}
-                  </p>
-                </div>
-                <p className="text-xs text-[var(--text-tertiary)]">
-                  {inst.provisioned_at ? `Provisioned ${formatDate(inst.provisioned_at)}` : `Created ${formatDate(inst.created_at)}`}
-                </p>
-              </div>
+              <InstitutionRow key={inst.id} institution={inst} />
             ))}
           </div>
         )}
       </section>
+    </div>
+  )
+}
+
+function InstitutionRow({ institution }: { institution: Institution }) {
+  const router = useRouter()
+  const [editing, setEditing] = useState(false)
+  const [domainsText, setDomainsText] = useState((institution.auto_link_domains ?? []).join(', '))
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function save() {
+    setSaving(true)
+    setError(null)
+    const res = await fetch(`/api/admin/institutions/${institution.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auto_link_domains: parseDomainList(domainsText) }),
+    })
+    setSaving(false)
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      setError(body.error ?? 'Save failed')
+      return
+    }
+    setEditing(false)
+    router.refresh()
+  }
+
+  return (
+    <div className="px-4 py-3 text-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-medium text-[var(--text-primary)] truncate">{institution.name}</p>
+          <p className="text-xs text-[var(--text-tertiary)] mt-0.5 truncate">
+            {[institution.country, institution.email_domain, institution.type].filter(Boolean).join(' · ')}
+          </p>
+        </div>
+        <p className="text-xs text-[var(--text-tertiary)] flex-shrink-0">
+          {institution.provisioned_at ? `Provisioned ${formatDate(institution.provisioned_at)}` : `Created ${formatDate(institution.created_at)}`}
+        </p>
+      </div>
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] uppercase tracking-wider font-semibold text-[var(--text-tertiary)]">Auto-link domains</p>
+          {editing ? (
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                type="text"
+                value={domainsText}
+                onChange={(e) => setDomainsText(e.target.value)}
+                placeholder="domain1.edu, domain2.edu"
+                className="flex-1 bg-[var(--bg-app)] border border-[var(--border-default)] rounded px-2 py-1 text-xs text-[var(--text-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
+              />
+              <button
+                onClick={save}
+                disabled={saving}
+                className="text-xs font-medium text-[var(--accent-blue)] hover:underline disabled:opacity-60"
+              >
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+              <button
+                onClick={() => {
+                  setEditing(false)
+                  setDomainsText((institution.auto_link_domains ?? []).join(', '))
+                  setError(null)
+                }}
+                className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+              {(institution.auto_link_domains ?? []).length === 0 ? (
+                <span className="text-[var(--text-tertiary)] italic">none — manual approval only</span>
+              ) : (
+                (institution.auto_link_domains ?? []).join(', ')
+              )}
+            </p>
+          )}
+          {error && <p className="text-xs text-[var(--status-error-text)] mt-1">{error}</p>}
+        </div>
+        {!editing && (
+          <button
+            onClick={() => setEditing(true)}
+            className="text-xs font-medium text-[var(--accent-blue)] hover:underline flex-shrink-0"
+          >
+            Edit
+          </button>
+        )}
+      </div>
     </div>
   )
 }

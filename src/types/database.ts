@@ -56,6 +56,24 @@ export interface Institution {
 
 export type InstitutionInquiryStatus = 'new' | 'responded' | 'converted' | 'declined'
 
+export type InstitutionLinkRequestStatus = 'pending' | 'approved' | 'declined' | 'cancelled'
+
+export interface InstitutionLinkRequest {
+  id: string
+  user_id: string
+  institution_id: string
+  status: InstitutionLinkRequestStatus
+  message: string | null
+  auto_approved: boolean
+  decided_by: string | null
+  decided_at: string | null
+  decline_reason: string | null
+  created_at: string
+  updated_at: string
+  user?: Profile
+  institution?: Institution
+}
+
 export interface InstitutionInquiry {
   id: string
   contact_name: string

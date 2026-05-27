@@ -97,6 +97,11 @@ export type AuditAction =
   | 'auth.logout'
   | 'auth.password.changed'
   | 'auth.account.deleted'
+  // Institution linking operations
+  | 'institution.link.requested'
+  | 'institution.link.auto_approved'
+  | 'institution.link.approved'
+  | 'institution.link.declined'
 
 export type ResourceType =
   | 'dataset'
@@ -122,6 +127,7 @@ export type ResourceType =
   | 'institution_thesis_policy'
   | 'thesis_deadline'
   | 'causal_dag'
+  | 'institution'
 
 export type JustificationCategory =
   | 'equipment_failure'

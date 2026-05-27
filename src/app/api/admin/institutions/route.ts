@@ -7,12 +7,15 @@ import { isPlatformAdmin } from '@/lib/admin/platformAdmin'
 
 const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/
 
+const DOMAIN_REGEX = /^[a-z0-9.-]+\.[a-z]{2,}$/
+
 const provisionSchema = z.object({
   institution_name: z.string().trim().min(1).max(300),
   short_name: z.string().trim().max(60).nullable().optional(),
   type: z.enum(['university', 'hospital', 'research_institute', 'ngo', 'government', 'other']).nullable().optional(),
   country: z.string().trim().max(120).nullable().optional(),
-  email_domain: z.string().trim().toLowerCase().max(253).regex(/^[a-z0-9.-]+\.[a-z]{2,}$/, 'Invalid domain').nullable().optional(),
+  email_domain: z.string().trim().toLowerCase().max(253).regex(DOMAIN_REGEX, 'Invalid domain').nullable().optional(),
+  auto_link_domains: z.array(z.string().trim().toLowerCase().max(253).regex(DOMAIN_REGEX, 'Invalid domain')).max(20).optional(),
   admin_email: z.string().trim().toLowerCase().regex(EMAIL_REGEX, 'Invalid email'),
   admin_name: z.string().trim().max(200).nullable().optional(),
   inquiry_id: z.string().uuid().nullable().optional(),
@@ -60,6 +63,7 @@ export async function POST(request: NextRequest) {
       type: input.type ?? null,
       country: input.country ?? null,
       email_domain: input.email_domain ?? null,
+      auto_link_domains: input.auto_link_domains ?? [],
       verification_tier: 'SELF_ATTESTED',
       provisioned_at: new Date().toISOString(),
       provisioned_by: user.id,
