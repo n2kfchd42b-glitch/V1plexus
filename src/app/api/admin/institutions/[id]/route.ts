@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { isPlatformAdmin } from '@/lib/admin/platformAdmin'
+import { writeAuditEntry } from '@/lib/audit/auditLogger'
 
 const DOMAIN_REGEX = /^[a-z0-9.-]+\.[a-z]{2,}$/
 
@@ -53,12 +54,24 @@ export async function PATCH(
     .from('institutions')
     .update(update)
     .eq('id', id)
-    .select('id, auto_link_domains, active')
+    .select('id, name, auto_link_domains, active')
     .single()
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  void writeAuditEntry({
+    actor_id: user.id,
+    action: 'institution.admin.updated',
+    resource_type: 'institution',
+    resource_id: id,
+    institution_id: id,
+    details: {
+      summary: `Updated ${Object.keys(update).join(', ')} on ${data.name}`,
+      fields: update,
+    },
+  })
 
   return NextResponse.json({ success: true, institution: data })
 }

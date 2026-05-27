@@ -609,8 +609,12 @@ export default function ProfilePage() {
               ))}
             </section>
 
-            {/* Link to institution — visible to everyone; shows linked/pending/unlinked state */}
-            <LinkInstitutionCard userEmail={profile.email ?? authUser?.email ?? null} />
+            {/* Link to institution — shown to non-admins. Institution admins already see
+                the dedicated /institution overview from the sidebar, so the duplicate
+                card here would just restate "linked to X". */}
+            {!(profile.role === 'admin' && profile.institution_id) && (
+              <LinkInstitutionCard userEmail={profile.email ?? authUser?.email ?? null} />
+            )}
 
             {/* Two-column layout */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

@@ -10,11 +10,24 @@ import { getInstitutionAdminContext } from '@/lib/admin/institutionAdmin'
  *
  * Service client because RLS doesn't let admins read all peer profiles in one
  * query — we already authorised the caller via getInstitutionAdminContext.
+ *
+ * Pagination: caller can pass ?limit=N (default 500, max 1000) and ?offset=M.
+ * The response always includes the exact `total` so the UI can render a
+ * "Showing X of Y" hint when the roster is larger than the page.
  */
-export async function GET() {
+const DEFAULT_LIMIT = 500
+const MAX_LIMIT = 1000
+
+export async function GET(request: Request) {
   const supabase = await createClient()
   const ctx = await getInstitutionAdminContext(supabase)
   if (!ctx) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const url = new URL(request.url)
+  const rawLimit = Number(url.searchParams.get('limit'))
+  const rawOffset = Number(url.searchParams.get('offset'))
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, MAX_LIMIT) : DEFAULT_LIMIT
+  const offset = Number.isFinite(rawOffset) && rawOffset > 0 ? rawOffset : 0
 
   const svc = createServiceClient()
 
@@ -26,21 +39,25 @@ export async function GET() {
     .maybeSingle()
 
   if (!workspace) {
-    return NextResponse.json({ workspace: null, members: [] })
+    return NextResponse.json({ workspace: null, members: [], total: 0, limit, offset })
   }
 
-  const { data: memberships } = await svc
+  const { data: memberships, count } = await svc
     .from('workspace_memberships')
     .select(`
       id, role, status, joined_at, department_id,
       user:profiles(id, full_name, email, avatar_url, title, role, last_seen_at, institution_id),
       department:departments(id, name)
-    `)
+    `, { count: 'exact' })
     .eq('workspace_id', workspace.id)
     .order('joined_at', { ascending: false })
+    .range(offset, offset + limit - 1)
 
   return NextResponse.json({
     workspace,
     members: memberships ?? [],
+    total: count ?? 0,
+    limit,
+    offset,
   })
 }

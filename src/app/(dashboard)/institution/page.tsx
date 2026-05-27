@@ -44,7 +44,7 @@ export default function InstitutionOverviewPage() {
 
   useEffect(() => {
     let cancelled = false
-    void (async () => {
+    async function load() {
       const res = await fetch('/api/institution/overview', { cache: 'no-store' })
       if (cancelled) return
       if (!res.ok) {
@@ -55,8 +55,16 @@ export default function InstitutionOverviewPage() {
       }
       setData(await res.json())
       setLoading(false)
-    })()
-    return () => { cancelled = true }
+    }
+    void load()
+    // Re-fetch when the tab regains focus so the pending-link counter doesn't
+    // stay stale after the admin actions a request in another tab.
+    const onFocus = () => { void load() }
+    window.addEventListener('focus', onFocus)
+    return () => {
+      cancelled = true
+      window.removeEventListener('focus', onFocus)
+    }
   }, [])
 
   if (loading) {

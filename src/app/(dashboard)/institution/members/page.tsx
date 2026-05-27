@@ -27,6 +27,9 @@ interface Member {
 interface OverviewData {
   workspace: { id: string; name: string } | null
   members: Member[]
+  total: number
+  limit: number
+  offset: number
 }
 
 const ROLE_TONE: Record<string, string> = {
@@ -123,7 +126,9 @@ export default function InstitutionMembersPage() {
           <div>
             <h1 className="text-xl font-bold text-[var(--text-primary)] font-manrope">Members</h1>
             <p className="text-sm text-[var(--text-secondary)] mt-0.5">
-              {data.members.length} total in <span className="font-medium">{data.workspace.name}</span>
+              {data.total > data.members.length
+                ? <>Showing first {data.members.length} of <span className="font-medium">{data.total}</span> in {data.workspace.name}</>
+                : <>{data.total} total in <span className="font-medium">{data.workspace.name}</span></>}
             </p>
           </div>
         </div>

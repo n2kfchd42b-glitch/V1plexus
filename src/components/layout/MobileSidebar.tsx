@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation'
 import {
   FolderOpen, LogOut, Menu, X, Command,
   LayoutDashboard, Database, BarChart2, BookOpen, GraduationCap, Settings2,
-  ClipboardList, Award,
+  ClipboardList, Award, Users, UserPlus, FileSearch, Mail, ScrollText, Shield, Building2,
 } from 'lucide-react'
 import { BrandLogo } from '@/components/layout/BrandLogo'
 import { LanguageSelector } from '@/components/i18n/LanguageSelector'
@@ -25,11 +25,33 @@ interface MobileSidebarProps {
 export function MobileSidebar({ profile, onSignOut }: MobileSidebarProps) {
   const [open, setOpen] = useState(false)
   const [isThesis, setIsThesis] = useState(false)
+  const [isInstitutionAdmin, setIsInstitutionAdmin] = useState(false)
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
   const pathname = usePathname()
   const { t } = useTranslations()
 
   // Close drawer on any route change
   useEffect(() => { setOpen(false) }, [pathname])
+
+  // Authoritative role check — mirrors WorkspaceSidebar so the mobile drawer
+  // surfaces the same Institution / Platform admin groups.
+  useEffect(() => {
+    if (!profile) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await fetch('/api/me/roles', { cache: 'no-store' })
+        if (!res.ok || cancelled) return
+        const data = await res.json() as {
+          is_platform_admin?: boolean
+          is_institution_admin?: boolean
+        }
+        setIsInstitutionAdmin(data.is_institution_admin === true)
+        setIsPlatformAdmin(data.is_platform_admin === true)
+      } catch { /* leave previous state */ }
+    })()
+    return () => { cancelled = true }
+  }, [profile])
 
   // Detect if we're inside a project
   const projectMatch = pathname.match(/^\/projects\/([^/]+)/)
@@ -172,6 +194,59 @@ export function MobileSidebar({ profile, onSignOut }: MobileSidebarProps) {
                   </Link>
                 )
               })}
+            </>
+          )}
+
+          {isInstitutionAdmin && (
+            <>
+              <div className="my-2 h-px bg-white/10" />
+              <p className="px-2.5 pt-0.5 pb-1.5 text-[9px] font-medium uppercase tracking-[0.10em] text-[var(--text-sidebar-icon)]">
+                Institution
+              </p>
+              {[
+                { href: '/institution',               icon: LayoutDashboard, label: 'Overview',      exact: true },
+                { href: '/institution/members',       icon: Users,           label: 'Members' },
+                { href: '/institution/departments',   icon: Building2,       label: 'Departments' },
+                { href: '/institution/policy',        icon: ScrollText,      label: 'Thesis policy' },
+                { href: '/institution/link-requests', icon: UserPlus,        label: 'Link requests' },
+                { href: '/institution/audit',         icon: FileSearch,      label: 'Audit' },
+                { href: '/institution/inquiries',     icon: Mail,            label: 'Inquiries' },
+              ].map(({ href, icon: Icon, label, exact }) => {
+                const active = exact ? pathname === href : (pathname === href || pathname.startsWith(href + '/'))
+                return (
+                  <Link key={href} href={href}>
+                    <div className={cn(
+                      'flex items-center gap-3 h-11 rounded-md px-3 mb-0.5 transition-all duration-150 cursor-pointer select-none',
+                      active
+                        ? 'bg-[var(--bg-sidebar-active)] text-white'
+                        : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
+                    )}>
+                      <Icon className={cn('h-5 w-5 flex-shrink-0', active ? 'text-white' : 'text-[var(--text-sidebar-icon)]')} />
+                      <span className="text-sm font-medium">{label}</span>
+                    </div>
+                  </Link>
+                )
+              })}
+            </>
+          )}
+
+          {isPlatformAdmin && (
+            <>
+              <div className="my-2 h-px bg-white/10" />
+              <p className="px-2.5 pt-0.5 pb-1.5 text-[9px] font-medium uppercase tracking-[0.10em] text-[var(--text-sidebar-icon)]">
+                Platform
+              </p>
+              <Link href="/admin/institutions">
+                <div className={cn(
+                  'flex items-center gap-3 h-11 rounded-md px-3 mb-0.5 transition-all duration-150 cursor-pointer select-none',
+                  pathname.startsWith('/admin/institutions')
+                    ? 'bg-[var(--bg-sidebar-active)] text-white'
+                    : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
+                )}>
+                  <Shield className={cn('h-5 w-5 flex-shrink-0', pathname.startsWith('/admin/institutions') ? 'text-white' : 'text-[var(--text-sidebar-icon)]')} />
+                  <span className="text-sm font-medium">Institutions</span>
+                </div>
+              </Link>
             </>
           )}
 

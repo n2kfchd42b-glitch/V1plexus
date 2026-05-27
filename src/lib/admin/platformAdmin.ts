@@ -8,19 +8,22 @@
  * (comma-separated auth.users UUIDs). Empty / unset means no one qualifies.
  */
 
-function parseAllowlist(raw: string | undefined): Set<string> {
-  if (!raw) return new Set()
-  return new Set(
-    raw
-      .split(',')
-      .map((id) => id.trim())
-      .filter((id) => id.length > 0)
-  )
+let cachedRaw: string | undefined
+let cachedSet: Set<string> = new Set()
+
+function getAllowlist(): Set<string> {
+  const raw = process.env.PLATFORM_ADMIN_USER_IDS
+  if (raw === cachedRaw) return cachedSet
+  cachedRaw = raw
+  cachedSet = raw
+    ? new Set(raw.split(',').map((id) => id.trim()).filter((id) => id.length > 0))
+    : new Set()
+  return cachedSet
 }
 
 export function isPlatformAdmin(userId: string | null | undefined): boolean {
   if (!userId) return false
-  return parseAllowlist(process.env.PLATFORM_ADMIN_USER_IDS).has(userId)
+  return getAllowlist().has(userId)
 }
 
 export function getInquiryNotifyEmail(): string | null {

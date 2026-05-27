@@ -220,7 +220,7 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
                   {!collapsed && <span className="text-sm font-medium">Inbox</span>}
                 </div>
               </Link>
-              {workspaceType === 'institutional' && (
+              {workspaceType === 'institutional' && isInstitutionAdmin && (
                 <Link href={deptHref} title={collapsed ? 'Department' : undefined}>
                   <div className={cn(
                     'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',

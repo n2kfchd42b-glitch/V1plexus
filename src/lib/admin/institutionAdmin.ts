@@ -1,6 +1,5 @@
 /**
- * Institution admin gate — the per-user replacement for the old global
- * INSTITUTION_ENABLED flag.
+ * Institution admin gate.
  *
  * A user is an "institution admin" when their profile has role='admin' and a
  * non-null institution_id. This is the gate used by the dedicated /institution

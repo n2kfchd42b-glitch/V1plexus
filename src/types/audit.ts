@@ -105,6 +105,7 @@ export type AuditAction =
   // Institution provisioning (platform-admin operations)
   | 'institution.provisioned'
   | 'institution.inquiry.converted'
+  | 'institution.admin.updated'
 
 export type ResourceType =
   | 'dataset'

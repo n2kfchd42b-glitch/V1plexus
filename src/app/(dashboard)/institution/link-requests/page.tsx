@@ -82,6 +82,7 @@ export default function LinkRequestsPage() {
       return
     }
     toast.success(`Approved ${req.user?.full_name ?? req.user?.email ?? 'user'}`)
+    router.refresh()
     await load(tab)
   }
 
@@ -102,6 +103,7 @@ export default function LinkRequestsPage() {
     toast.success('Request declined')
     setDeclineFor(null)
     setDeclineReason('')
+    router.refresh()
     await load(tab)
   }
 
