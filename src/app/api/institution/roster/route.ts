@@ -162,6 +162,7 @@ interface CsvOutcome {
   matric?: string
   status: 'inserted' | 'skipped' | 'error'
   reason?: string
+  warnings?: string[]
 }
 
 async function handleCsvUpload(
@@ -171,8 +172,8 @@ async function handleCsvUpload(
   if (typeof csvRaw !== 'string') {
     return NextResponse.json({ error: 'csv must be a string' }, { status: 400 })
   }
-  if (csvRaw.length > 2_000_000) {
-    return NextResponse.json({ error: 'CSV too large (>2MB)' }, { status: 413 })
+  if (csvRaw.length > 10_000_000) {
+    return NextResponse.json({ error: 'CSV too large (>10MB)' }, { status: 413 })
   }
 
   const rows = parseCsv(csvRaw)
@@ -255,20 +256,19 @@ async function handleCsvUpload(
       continue
     }
 
-    // Programme lookup
+    const rowWarnings: string[] = []
+
+    // Programme lookup — unknown programme is a soft warning, not a fatal error
     let programmeId: string | null = null
     if (idx.programme >= 0) {
       const v = (cells[idx.programme] ?? '').trim()
       if (v) {
         programmeId = progByName.get(normalise(v)) ?? null
-        if (!programmeId) {
-          outcomes.push({ line, matric: matricRaw, status: 'error', reason: `unknown programme: ${v}` })
-          continue
-        }
+        if (!programmeId) rowWarnings.push(`programme '${v}' not found — left unassigned`)
       }
     }
 
-    // Cohort lookup
+    // Cohort lookup — only attempted if programme resolved
     let cohortId: string | null = null
     if (programmeId && idx.cohortYear >= 0) {
       const yearRaw = (cells[idx.cohortYear] ?? '').trim()
@@ -282,29 +282,22 @@ async function handleCsvUpload(
         const key = cohortKey(programmeId, yearN, labelRaw || null)
         cohortId = cohortByKey.get(key) ?? null
         if (!cohortId) {
-          outcomes.push({
-            line, matric: matricRaw, status: 'error',
-            reason: `cohort ${yearN}${labelRaw ? ` (${labelRaw})` : ''} not found for that programme`,
-          })
-          continue
+          rowWarnings.push(`cohort ${yearN}${labelRaw ? ` (${labelRaw})` : ''} not found — left unassigned`)
         }
       }
     }
 
-    // Department lookup
+    // Department lookup — unknown department is a soft warning, not a fatal error
     let departmentId: string | null = null
     if (idx.department >= 0) {
       const v = (cells[idx.department] ?? '').trim()
       if (v) {
         departmentId = deptByName.get(normalise(v)) ?? null
-        if (!departmentId) {
-          outcomes.push({ line, matric: matricRaw, status: 'error', reason: `unknown department: ${v}` })
-          continue
-        }
+        if (!departmentId) rowWarnings.push(`department '${v}' not found — left unassigned`)
       }
     }
 
-    // Role
+    // Role — unknown role is still a hard error (it's a known enum)
     let intendedRole: typeof INTENDED_ROLES[number] = 'researcher'
     if (idx.role >= 0) {
       const v = (cells[idx.role] ?? '').trim().toLowerCase()
@@ -334,7 +327,7 @@ async function handleCsvUpload(
       uploaded_by: ctx.userId,
     })
     seenInBatch.add(matricKey)
-    outcomes.push({ line, matric: matricRaw, status: 'inserted' })
+    outcomes.push({ line, matric: matricRaw, status: 'inserted', ...(rowWarnings.length > 0 && { warnings: rowWarnings }) })
   }
 
   if (toInsert.length === 0) {

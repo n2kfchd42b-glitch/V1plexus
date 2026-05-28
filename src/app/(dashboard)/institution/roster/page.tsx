@@ -31,6 +31,7 @@ interface CsvOutcome {
   matric?: string
   status: 'inserted' | 'skipped' | 'error'
   reason?: string
+  warnings?: string[]
 }
 
 const STATUS_TONE: Record<RosterEntryStatus, string> = {
@@ -165,18 +166,22 @@ export default function RosterPage() {
             </div>
             <button onClick={() => setUploadResult(null)} className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"><X className="h-4 w-4" /></button>
           </div>
-          {uploadResult.outcomes.some((o) => o.status !== 'inserted') && (
+          {uploadResult.outcomes.some((o) => o.status !== 'inserted' || (o.warnings && o.warnings.length > 0)) && (
             <ul className="max-h-48 overflow-y-auto divide-y divide-[var(--border-default)]">
-              {uploadResult.outcomes.filter((o) => o.status !== 'inserted').map((o, i) => (
-                <li key={i} className={cn(
-                  'px-4 py-1.5 text-xs flex items-center gap-3',
-                  o.status === 'error' ? 'text-red-700 bg-red-50/30' : 'text-amber-700 bg-amber-50/30'
-                )}>
-                  <span className="font-mono text-[10px] w-12 flex-shrink-0">line {o.line}</span>
-                  {o.matric && <span className="font-mono text-[11px] flex-shrink-0">{o.matric}</span>}
-                  <span className="truncate">{o.reason}</span>
-                </li>
-              ))}
+              {uploadResult.outcomes
+                .filter((o) => o.status !== 'inserted' || (o.warnings && o.warnings.length > 0))
+                .map((o, i) => (
+                  <li key={i} className={cn(
+                    'px-4 py-1.5 text-xs flex items-start gap-3',
+                    o.status === 'error' ? 'text-red-700 bg-red-50/30' : o.status === 'skipped' ? 'text-amber-700 bg-amber-50/30' : 'text-amber-600 bg-amber-50/20'
+                  )}>
+                    <span className="font-mono text-[10px] w-12 flex-shrink-0 pt-0.5">line {o.line}</span>
+                    {o.matric && <span className="font-mono text-[11px] flex-shrink-0 pt-0.5">{o.matric}</span>}
+                    <span className="truncate">
+                      {o.status !== 'inserted' ? o.reason : o.warnings?.join('; ')}
+                    </span>
+                  </li>
+                ))}
             </ul>
           )}
         </div>
@@ -215,11 +220,11 @@ export default function RosterPage() {
           <FileSpreadsheet className="h-8 w-8 mx-auto text-[var(--text-tertiary)] mb-3" />
           <p className="text-sm font-semibold text-[var(--text-primary)]">No roster entries yet</p>
           <p className="text-xs text-[var(--text-tertiary)] mt-1 max-w-md mx-auto">
-            Upload a CSV with matric numbers (and optionally programme, cohort, department).
+            Upload a CSV or Excel file (.csv, .xlsx, .xls) with matric numbers (and optionally programme, cohort, department).
             Students typing one of these matric numbers on the link page get verified instantly.
           </p>
           <details className="mt-4 text-left max-w-md mx-auto">
-            <summary className="text-xs font-semibold text-[var(--accent-blue)] cursor-pointer">CSV format</summary>
+            <summary className="text-xs font-semibold text-[var(--accent-blue)] cursor-pointer">CSV / Excel format</summary>
             <pre className="mt-2 p-3 bg-[var(--bg-app)] border border-[var(--border-default)] rounded-md text-[10px] font-mono overflow-x-auto whitespace-pre">
 {`matriculation_number,full_name,email,programme,cohort_year,cohort_label,department,intended_role
 UG-2024-001,Jane Doe,jane@ug.edu,MSc Computer Science,2024,Fall,Engineering,student
@@ -322,19 +327,41 @@ function CsvUploadButton({ onUpload, disabled }: { onUpload: (csv: string) => Pr
       <input
         ref={fileRef}
         type="file"
-        accept=".csv,text/csv"
+        accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
         className="hidden"
         onChange={async (e) => {
           const file = e.target.files?.[0]
           if (!file) return
-          if (file.size > 2_000_000) {
-            toast.error('CSV is too large (max 2MB)')
-            e.target.value = ''
+          e.target.value = ''
+
+          const isExcel = /\.(xlsx|xls)$/i.test(file.name)
+
+          if (!isExcel && file.size > 2_000_000) {
+            toast.error('CSV is too large (max 2 MB)')
             return
           }
-          const text = await file.text()
-          await onUpload(text)
-          e.target.value = ''
+          if (isExcel && file.size > 10_000_000) {
+            toast.error('Excel file is too large (max 10 MB)')
+            return
+          }
+
+          try {
+            let csvText: string
+            if (isExcel) {
+              const XLSX = await import('xlsx')
+              const buffer = await file.arrayBuffer()
+              const workbook = XLSX.read(buffer, { type: 'array' })
+              const sheetName = workbook.SheetNames[0]
+              if (!sheetName) throw new Error('Workbook has no sheets')
+              const sheet = workbook.Sheets[sheetName]
+              csvText = XLSX.utils.sheet_to_csv(sheet)
+            } else {
+              csvText = await file.text()
+            }
+            await onUpload(csvText)
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Could not read file')
+          }
         }}
       />
       <button
@@ -343,7 +370,7 @@ function CsvUploadButton({ onUpload, disabled }: { onUpload: (csv: string) => Pr
         className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-hover)] disabled:opacity-60"
       >
         {disabled ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-        {disabled ? 'Uploading…' : 'Upload CSV'}
+        {disabled ? 'Uploading…' : 'Upload CSV / Excel'}
       </button>
     </>
   )
