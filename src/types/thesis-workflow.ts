@@ -55,7 +55,9 @@ export interface AllowedTransition {
 }
 
 export interface InstitutionThesisPolicy {
+  id: string
   institution_id: string
+  programme_id: string | null
   policy_version: number
   require_ethics_gate: boolean
   allow_co_supervisors: boolean
@@ -73,7 +75,9 @@ export interface InstitutionThesisPolicy {
 
 /**
  * Snapshot frozen onto thesis_metadata at creation. Drops mutable audit
- * columns; everything else mirrors InstitutionThesisPolicy.
+ * columns; everything else mirrors InstitutionThesisPolicy, including the
+ * `programme_id` (which records *which* policy row applied — institution
+ * default vs. a specific programme override).
  */
 export type ThesisPolicySnapshot = Omit<
   InstitutionThesisPolicy,

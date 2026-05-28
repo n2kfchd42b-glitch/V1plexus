@@ -83,6 +83,7 @@ export type AuditAction =
   | 'thesis.state.force_transitioned'
   | 'thesis.policy.created'
   | 'thesis.policy.updated'
+  | 'thesis.policy.deleted'
   | 'thesis.chapter.submitted'
   | 'thesis.chapter.decided'
   | 'thesis.defense.scheduled'

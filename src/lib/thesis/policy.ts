@@ -17,7 +17,9 @@ import type {
 } from '@/types/thesis-workflow'
 
 const PERMISSIVE_DEFAULT: ThesisPolicySnapshot = {
+  id: '',
   institution_id: '',
+  programme_id: null,
   policy_version: 0,
   require_ethics_gate: false,
   allow_co_supervisors: true,
@@ -58,6 +60,12 @@ export async function getThesisPolicySnapshot(
   return PERMISSIVE_DEFAULT
 }
 
+/**
+ * Read the live institution-default policy row. Programme overrides are
+ * *not* returned here — for "which policy applies to this user" use the
+ * resolve_thesis_policy_for_user RPC instead (or call the snapshot
+ * trigger via INSERT, which is the production path).
+ */
 export async function getLiveInstitutionPolicy(
   supabase: SupabaseClient,
   institutionId: string,
@@ -66,6 +74,7 @@ export async function getLiveInstitutionPolicy(
     .from('institution_thesis_policy')
     .select('*')
     .eq('institution_id', institutionId)
+    .is('programme_id', null)
     .maybeSingle()
 
   return (data as InstitutionThesisPolicy | null) ?? null
