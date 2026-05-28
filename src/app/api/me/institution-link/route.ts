@@ -6,6 +6,41 @@ import { checkRateLimit } from '@/lib/rateLimit'
 import { writeAuditEntry } from '@/lib/audit/auditLogger'
 import { linkUserToInstitution } from '@/lib/institutionLinking'
 
+// DELETE: self-service unlink. Runs the unlink_user_from_institution RPC
+// (atomic across membership / enrollments / profile) and audits the result.
+export async function DELETE() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const svc = createServiceClient()
+  const { data: priorInstitutionId, error } = await svc.rpc('unlink_user_from_institution', {
+    p_user_id: user.id,
+  })
+
+  if (error) {
+    console.error('[INSTITUTION_UNLINK] RPC failed:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  if (!priorInstitutionId) {
+    return NextResponse.json({ error: 'You are not linked to any institution' }, { status: 409 })
+  }
+
+  void writeAuditEntry({
+    actor_id: user.id,
+    action: 'institution.link.unlinked',
+    resource_type: 'institution',
+    resource_id: priorInstitutionId as string,
+    institution_id: priorInstitutionId as string,
+    details: {
+      summary: 'User unlinked themselves from the institution',
+      target_user_id: user.id,
+    },
+  })
+
+  return NextResponse.json({ success: true })
+}
+
 /**
  * Individual user → institution linking (PR B).
  *
@@ -141,9 +176,16 @@ export async function POST(request: NextRequest) {
     })
 
     if (claimErr) {
-      // 23505 = already claimed (by someone else)
-      if (claimErr.code === '23505') {
+      // PX001 = matric already claimed (explicit RAISE from claim_roster_seat).
+      // 23505 here means a real unique-constraint violation inside the RPC
+      // (e.g. user already has an active enrollment in the programme).
+      if (claimErr.code === 'PX001') {
         return NextResponse.json({ error: 'That matriculation number has already been claimed' }, { status: 409 })
+      }
+      if (claimErr.code === '23505') {
+        return NextResponse.json({
+          error: 'You already have an active enrollment for that programme. Contact your institution admin to switch.',
+        }, { status: 409 })
       }
       console.error('[INSTITUTION_LINK] claim_roster_seat failed:', claimErr)
       return NextResponse.json({ error: claimErr.message }, { status: 500 })

@@ -7,6 +7,7 @@ import {
   Building2, Eye, Check, X,
 } from 'lucide-react'
 import { createClient as createBrowserClient } from '@/lib/supabase/client'
+import { tierLabel } from '@/lib/institutions/tier'
 
 interface BrandingPayload {
   id: string
@@ -18,14 +19,7 @@ interface BrandingPayload {
   brand_color: string | null
   motto: string | null
   public_bio: string | null
-  members_public_default: boolean
   verification_tier: 'SELF_ATTESTED' | 'DOMAIN_VERIFIED' | 'OFFICIALLY_REGISTERED' | null
-}
-
-const TIER_LABEL: Record<string, string> = {
-  SELF_ATTESTED: 'Self-attested',
-  DOMAIN_VERIFIED: 'Domain verified',
-  OFFICIALLY_REGISTERED: 'Officially registered',
 }
 
 const ALLOWED_LOGO_TYPES = ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp']
@@ -40,7 +34,6 @@ export function BrandingEditor() {
   const [brandColor, setBrandColor] = useState<string>('#003D9B')
   const [motto, setMotto] = useState('')
   const [publicBio, setPublicBio] = useState('')
-  const [membersPublic, setMembersPublic] = useState(true)
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
 
   const [saving, setSaving] = useState(false)
@@ -65,7 +58,6 @@ export function BrandingEditor() {
     setBrandColor(inst.brand_color ?? '#003D9B')
     setMotto(inst.motto ?? '')
     setPublicBio(inst.public_bio ?? '')
-    setMembersPublic(inst.members_public_default)
     setLogoUrl(inst.logo_url)
     setError(null)
     setLoading(false)
@@ -131,7 +123,6 @@ export function BrandingEditor() {
       brand_color: brandColor || null,
       motto: motto.trim() || null,
       public_bio: publicBio.trim() || null,
-      members_public_default: membersPublic,
     }
     if (slug !== data.slug) body.slug = slug.trim().toLowerCase()
 
@@ -145,6 +136,10 @@ export function BrandingEditor() {
     if (!res.ok) {
       const j = await res.json().catch(() => ({}))
       setError(j.error ?? 'Save failed')
+      // 409 = slug already taken. Revert the slug input to the prior value
+      // so the user can't be confused by seeing the disputed slug in the
+      // field. Other fields keep their drafted values.
+      if (res.status === 409) setSlug(data.slug)
       return
     }
     setSavedAt(Date.now())
@@ -219,7 +214,7 @@ export function BrandingEditor() {
             Verification tier
           </p>
           <p className="text-sm font-bold text-[var(--text-primary)]">
-            {TIER_LABEL[data.verification_tier ?? 'SELF_ATTESTED']}
+            {tierLabel(data.verification_tier)}
           </p>
         </div>
         <p className="text-[11px] text-[var(--text-tertiary)] max-w-[260px] text-right">
@@ -354,25 +349,15 @@ export function BrandingEditor() {
           </div>
         </section>
 
-        {/* Privacy */}
+        {/* Privacy note: institution-wide default was retired in favour of
+            per-user opt-in. The AffiliationPanel toggle in /settings is the
+            only control over public visibility now — there's no institution
+            override. */}
         <section className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-5">
-          <h2 className="text-sm font-bold text-[var(--text-primary)] mb-3">Public directory</h2>
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={membersPublic}
-              onChange={(e) => setMembersPublic(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-[var(--border-default)]"
-            />
-            <span className="flex-1">
-              <span className="block text-sm font-semibold text-[var(--text-primary)]">
-                Show affiliated researchers by default
-              </span>
-              <span className="block text-xs text-[var(--text-tertiary)] mt-0.5">
-                When on, every affiliated researcher appears on your public page unless they opt out individually in their settings. When off, only opted-in researchers are listed.
-              </span>
-            </span>
-          </label>
+          <h2 className="text-sm font-bold text-[var(--text-primary)] mb-1">Public directory</h2>
+          <p className="text-xs text-[var(--text-tertiary)]">
+            Researchers at your institution control their own visibility on the public page from <code className="text-[10px] font-mono">Settings → Affiliation</code>. New profiles default to hidden — they appear once they opt in.
+          </p>
         </section>
 
         {error && (

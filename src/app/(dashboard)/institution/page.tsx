@@ -6,6 +6,7 @@ import {
   Building2, Users, UserPlus, Mail, GraduationCap,
   ArrowRight, ShieldCheck, Loader2, Activity, ClipboardList, Layers, ScrollText,
 } from 'lucide-react'
+import { tierLabel } from '@/lib/institutions/tier'
 
 interface AuditEntry {
   id: string
@@ -88,11 +89,6 @@ export default function InstitutionOverviewPage() {
   }
 
   const inst = data.institution
-  const verificationLabel: Record<string, string> = {
-    SELF_ATTESTED: 'Self-attested',
-    DOMAIN_VERIFIED: 'Domain verified',
-    OFFICIALLY_REGISTERED: 'Officially registered',
-  }
 
   return (
     <div className="px-8 py-8 max-w-5xl mx-auto">
@@ -117,7 +113,7 @@ export default function InstitutionOverviewPage() {
         {inst?.verification_tier && (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--status-success-bg)] text-[var(--status-success-text)] text-[11px] font-semibold">
             <ShieldCheck className="h-3.5 w-3.5" />
-            {verificationLabel[inst.verification_tier] ?? inst.verification_tier}
+            {tierLabel(inst.verification_tier)}
           </span>
         )}
       </header>

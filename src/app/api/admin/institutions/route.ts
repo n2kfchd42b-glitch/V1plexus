@@ -5,10 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { isPlatformAdmin } from '@/lib/admin/platformAdmin'
 import { writeAuditEntry } from '@/lib/audit/auditLogger'
-
-const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/
-
-const DOMAIN_REGEX = /^[a-z0-9.-]+\.[a-z]{2,}$/
+import { DOMAIN_REGEX, EMAIL_REGEX, escapeHtml, slugify } from '@/lib/utils'
 
 const provisionSchema = z.object({
   institution_name: z.string().trim().min(1).max(300),
@@ -21,16 +18,6 @@ const provisionSchema = z.object({
   admin_name: z.string().trim().max(200).nullable().optional(),
   inquiry_id: z.string().uuid().nullable().optional(),
 })
-
-function slugify(input: string): string {
-  return input
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60) || 'workspace'
-}
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
@@ -55,74 +42,47 @@ export async function POST(request: NextRequest) {
   const input = parsed.data
   const svc = createServiceClient()
 
-  // 1. Create institution
-  const { data: institution, error: instErr } = await svc
-    .from('institutions')
-    .insert({
-      name: input.institution_name,
-      short_name: input.short_name ?? null,
-      type: input.type ?? null,
-      country: input.country ?? null,
-      email_domain: input.email_domain ?? null,
-      auto_link_domains: input.auto_link_domains ?? [],
-      verification_tier: 'SELF_ATTESTED',
-      provisioned_at: new Date().toISOString(),
-      provisioned_by: user.id,
-    })
-    .select('id, name')
-    .single()
-
-  if (instErr || !institution) {
-    console.error('[ADMIN_INSTITUTIONS] Institution insert failed:', instErr)
-    return NextResponse.json({ error: instErr?.message ?? 'Failed to create institution' }, { status: 500 })
-  }
-
-  // 2. Create the institutional workspace (with a unique slug)
+  // Resolve a slug that's free in both workspaces.slug AND institutions.slug.
+  // institutions.slug was made NOT NULL + UNIQUE by PR G; the RPC INSERTs
+  // both rows with the same slug so we check both tables here before
+  // committing to a candidate.
   const baseSlug = slugify(input.short_name || input.institution_name)
-  let slug = baseSlug
+  let candidateSlug = baseSlug
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    const { data: clash } = await svc
-      .from('workspaces')
-      .select('id')
-      .eq('slug', slug)
-      .maybeSingle()
-    if (!clash) break
-    slug = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`
+    const [{ data: wsClash }, { data: instClash }] = await Promise.all([
+      svc.from('workspaces').select('id').eq('slug', candidateSlug).maybeSingle(),
+      svc.from('institutions').select('id').eq('slug', candidateSlug).maybeSingle(),
+    ])
+    if (!wsClash && !instClash) break
+    candidateSlug = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`
   }
 
-  const { data: workspace, error: wsErr } = await svc
-    .from('workspaces')
-    .insert({
-      type: 'institutional',
-      name: input.institution_name,
-      slug,
-      institution_id: institution.id,
-    })
-    .select('id')
-    .single()
-
-  if (wsErr || !workspace) {
-    console.error('[ADMIN_INSTITUTIONS] Workspace insert failed:', wsErr)
-    return NextResponse.json({ error: wsErr?.message ?? 'Failed to create workspace' }, { status: 500 })
-  }
-
-  // 3. Create the admin invitation
   const token = crypto.randomUUID().replace(/-/g, '')
-  const { error: inviteErr } = await svc
-    .from('workspace_invitations')
-    .insert({
-      workspace_id: workspace.id,
-      email: input.admin_email,
-      role: 'admin',
-      token,
-      invited_by: user.id,
-      status: 'pending',
-    })
 
-  if (inviteErr) {
-    console.error('[ADMIN_INSTITUTIONS] Invitation insert failed:', inviteErr)
-    return NextResponse.json({ error: inviteErr.message }, { status: 500 })
+  // Atomic provisioning: institution + workspace + invitation in one txn.
+  // If any step fails the whole thing rolls back, no orphans.
+  const { data: provisioned, error: rpcErr } = await svc.rpc('provision_institution', {
+    p_actor_id: user.id,
+    p_institution_name: input.institution_name,
+    p_institution_slug: candidateSlug,
+    p_short_name: input.short_name ?? '',
+    p_type: input.type ?? '',
+    p_country: input.country ?? '',
+    p_email_domain: input.email_domain ?? '',
+    p_auto_link_domains: input.auto_link_domains ?? [],
+    p_workspace_slug: candidateSlug,
+    p_admin_email: input.admin_email,
+    p_invite_token: token,
+  })
+
+  if (rpcErr || !provisioned || (Array.isArray(provisioned) && provisioned.length === 0)) {
+    console.error('[ADMIN_INSTITUTIONS] provision_institution RPC failed:', rpcErr)
+    return NextResponse.json({ error: rpcErr?.message ?? 'Failed to provision institution' }, { status: 500 })
   }
+
+  const row = Array.isArray(provisioned) ? provisioned[0] : provisioned
+  const institution = { id: row.institution_id as string, name: input.institution_name }
+  const workspace = { id: row.workspace_id as string }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://plexus.science'
   const inviteLink = `${appUrl}/invite/${token}`
@@ -226,13 +186,4 @@ export async function POST(request: NextRequest) {
     invite_link: inviteLink,
     email_warning: emailWarning,
   })
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
 }

@@ -98,20 +98,24 @@ export default function ProgrammeDetailPage() {
     return <div className="px-8 py-10 text-center text-sm text-[var(--text-tertiary)]">{error ?? 'Programme not found'}</div>
   }
 
-  async function deactivate() {
+  async function setActive(active: boolean) {
     if (!data) return
-    if (!confirm(`Deactivate ${data.programme.name}? It will be hidden from the active list but existing enrollments stay intact.`)) return
+    const verb = active ? 'Re-activate' : 'Deactivate'
+    const msg = active
+      ? `Re-activate ${data.programme.name}? It will reappear in the active list and the linker.`
+      : `Deactivate ${data.programme.name}? It will be hidden from the active list but existing enrollments stay intact.`
+    if (!confirm(msg)) return
     const res = await fetch(`/api/institution/programmes/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ active: false }),
+      body: JSON.stringify({ active }),
     })
     if (!res.ok) {
       const body = await res.json().catch(() => ({}))
-      toast.error(body.error ?? 'Could not deactivate')
+      toast.error(body.error ?? `Could not ${verb.toLowerCase()}`)
       return
     }
-    toast.success('Programme deactivated')
+    toast.success(active ? 'Programme re-activated' : 'Programme deactivated')
     await load()
   }
 
@@ -160,13 +164,21 @@ export default function ProgrammeDetailPage() {
             )}
           </div>
         </div>
-        {data.programme.active && (
+        {data.programme.active ? (
           <button
-            onClick={deactivate}
+            onClick={() => setActive(false)}
             className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-default)] hover:border-amber-400 text-[var(--text-secondary)] hover:text-amber-600"
           >
             <Power className="h-3.5 w-3.5" />
             Deactivate
+          </button>
+        ) : (
+          <button
+            onClick={() => setActive(true)}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-default)] hover:border-emerald-400 text-[var(--text-secondary)] hover:text-emerald-600"
+          >
+            <Power className="h-3.5 w-3.5" />
+            Re-activate
           </button>
         )}
       </header>

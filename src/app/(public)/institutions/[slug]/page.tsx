@@ -1,96 +1,18 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { headers } from 'next/headers'
 import {
   Building2, MapPin, Globe, ShieldCheck, ScrollText, GraduationCap, Users,
   FileCheck2, ExternalLink, Quote,
 } from 'lucide-react'
 import { BrandLogo } from '@/components/layout/BrandLogo'
-
-interface PublicInstitution {
-  id: string
-  name: string
-  short_name: string | null
-  slug: string
-  type: string | null
-  country: string | null
-  city: string | null
-  website: string | null
-  logo_url: string | null
-  brand_color: string | null
-  motto: string | null
-  public_bio: string | null
-  verification_tier: 'SELF_ATTESTED' | 'DOMAIN_VERIFIED' | 'OFFICIALLY_REGISTERED' | null
-  members_public_default: boolean
-  active: boolean | null
-  created_at: string
-}
-
-interface PublicMember {
-  id: string
-  full_name: string | null
-  avatar_url: string | null
-  title: string | null
-  city: string | null
-  country: string | null
-}
-
-interface PublicOutput {
-  project_id: string
-  title: string | null
-  lifecycle_state: string
-  issued_at: string | null
-  root_hash: string | null
-}
-
-interface PublicPayload {
-  institution: PublicInstitution
-  departments: Array<{ id: string; name: string; description: string | null }>
-  members: PublicMember[]
-  member_total: number
-  outputs: PublicOutput[]
-}
-
-const TIER_INFO: Record<string, { label: string; subline: string; tone: 'gray' | 'blue' | 'green' }> = {
-  SELF_ATTESTED: {
-    label: 'Self-attested',
-    subline: 'Institution is registered on Plexus by its own admin.',
-    tone: 'gray',
-  },
-  DOMAIN_VERIFIED: {
-    label: 'Domain verified',
-    subline: 'Plexus has verified control of the institution\'s email domain.',
-    tone: 'blue',
-  },
-  OFFICIALLY_REGISTERED: {
-    label: 'Officially registered',
-    subline: 'Plexus has confirmed registration with a recognised authority.',
-    tone: 'green',
-  },
-}
-
-async function fetchPayload(slug: string): Promise<PublicPayload | null> {
-  const h = await headers()
-  const host = h.get('host')
-  const protocol = h.get('x-forwarded-proto') ?? 'https'
-  const base = host ? `${protocol}://${host}` : (process.env.NEXT_PUBLIC_APP_URL ?? '')
-  if (!base) return null
-  try {
-    const res = await fetch(`${base}/api/institutions/${encodeURIComponent(slug)}`, {
-      cache: 'no-store',
-    })
-    if (!res.ok) return null
-    return (await res.json()) as PublicPayload
-  } catch {
-    return null
-  }
-}
+import { loadPublicInstitution } from '@/lib/institutions/publicInstitution'
+import { TIER_INFO } from '@/lib/institutions/tier'
 
 export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params
-  const payload = await fetchPayload(slug)
+  const payload = await loadPublicInstitution(slug)
   if (!payload) return { title: 'Institution Not Found — Plexus' }
   const { institution } = payload
   return {
@@ -110,7 +32,7 @@ export default async function PublicInstitutionPage(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params
-  const payload = await fetchPayload(slug)
+  const payload = await loadPublicInstitution(slug)
   if (!payload) notFound()
 
   const { institution: inst, departments, members, member_total, outputs } = payload
@@ -308,11 +230,7 @@ export default async function PublicInstitutionPage(
               <EmptyState
                 icon={Users}
                 title="No public researchers"
-                body={
-                  inst.members_public_default
-                    ? 'No affiliated researchers yet.'
-                    : 'This institution has opted out of a public researcher list. Individual researchers can still opt in from their settings.'
-                }
+                body="Affiliated researchers are hidden by default. They appear here once they opt in from their settings."
               />
             ) : (
               <ul className="space-y-1.5">

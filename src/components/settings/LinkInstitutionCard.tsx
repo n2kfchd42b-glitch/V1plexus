@@ -6,10 +6,11 @@ import { Building2, CheckCircle2, Clock, Loader2, Search, X } from 'lucide-react
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
+// Component invariant: the parent (AffiliationPanel) only mounts this for
+// unlinked users. The card therefore tracks only loading / pending-or-empty.
 type LinkState =
   | { kind: 'loading' }
   | { kind: 'unlinked'; pending: PendingRequest | null }
-  | { kind: 'linked'; institution: InstitutionSummary }
 
 interface InstitutionSummary {
   id: string
@@ -31,9 +32,9 @@ interface ProvisionedInstitution extends InstitutionSummary {
 }
 
 /**
- * /settings card that lets an individual researcher request to link their
- * account to a registered institution. Once linked, the existing
- * institutional surfaces (workflow v2, thesis policy) appear automatically.
+ * /settings card that lets an unlinked researcher submit a link request to a
+ * registered institution. Once linked, AffiliationPanel renders its own
+ * surface and this component is never mounted.
  */
 export function LinkInstitutionCard({ userEmail }: { userEmail: string | null }) {
   const [state, setState] = useState<LinkState>({ kind: 'loading' })
@@ -51,7 +52,6 @@ export function LinkInstitutionCard({ userEmail }: { userEmail: string | null })
       return
     }
     const body = await res.json() as {
-      profile: { institution_id: string | null; institution: InstitutionSummary | null } | null
       requests: Array<{
         id: string
         status: string
@@ -61,10 +61,6 @@ export function LinkInstitutionCard({ userEmail }: { userEmail: string | null })
       }>
     }
 
-    if (body.profile?.institution_id && body.profile.institution) {
-      setState({ kind: 'linked', institution: body.profile.institution })
-      return
-    }
     const pending = body.requests.find((r) => r.status === 'pending') ?? null
     setState({
       kind: 'unlinked',
@@ -95,28 +91,6 @@ export function LinkInstitutionCard({ userEmail }: { userEmail: string | null })
       <section className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5 flex items-center gap-2">
         <Loader2 className="h-4 w-4 animate-spin text-[var(--text-tertiary)]" />
         <span className="text-sm text-[var(--text-tertiary)]">Loading institution status…</span>
-      </section>
-    )
-  }
-
-  if (state.kind === 'linked') {
-    return (
-      <section className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-5">
-        <div className="flex items-start gap-3">
-          <div className="w-9 h-9 rounded-lg bg-[var(--accent-blue)]/10 flex items-center justify-center flex-shrink-0">
-            <Building2 className="h-4 w-4 text-[var(--accent-blue)]" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-base font-bold text-[var(--text-primary)] font-manrope">Institution</h2>
-            <p className="text-sm text-[var(--text-secondary)] mt-0.5 truncate">
-              You&apos;re linked to <span className="font-semibold text-[var(--text-primary)]">{state.institution.name}</span>
-              {state.institution.country ? ` · ${state.institution.country}` : ''}
-            </p>
-            <p className="text-xs text-[var(--text-tertiary)] mt-1">
-              Your institution&apos;s admins handle membership changes. Contact them to unlink or switch.
-            </p>
-          </div>
-        </div>
       </section>
     )
   }

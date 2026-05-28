@@ -4,8 +4,7 @@ import { z } from 'zod'
 import { createServiceClient } from '@/lib/supabase/service'
 import { checkRateLimit } from '@/lib/rateLimit'
 import { getInquiryNotifyEmail } from '@/lib/admin/platformAdmin'
-
-const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/
+import { EMAIL_REGEX, escapeHtml } from '@/lib/utils'
 
 const inquirySchema = z.object({
   contact_name: z.string().trim().min(1).max(200),
@@ -16,15 +15,6 @@ const inquirySchema = z.object({
   estimated_seats: z.coerce.number().int().positive().max(1_000_000).optional(),
   message: z.string().trim().max(5000).optional().or(z.literal('')),
 })
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
 
 export async function POST(request: NextRequest) {
   // 5 inquiries per hour per IP — institutions don't submit many.

@@ -13,6 +13,46 @@ export function escapeLikePattern(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')
 }
 
+// Quote a value for use inside a PostgREST `.or()` expression. PostgREST
+// parses `or=(col.op.val,col.op.val)` where `,` and `)` are structural
+// delimiters; wrapping the value in double-quotes (with internal `"` and `\`
+// backslash-escaped) makes those characters literal. Always combine with
+// escapeLikePattern when the operator is ilike/like.
+export function postgrestQuote(value: string): string {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+}
+
+// HTML-escape a string for safe interpolation into outbound transactional
+// emails. Centralised so all email templates use the same rules.
+export function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+// Shared email + domain validation regexes. Used by Zod schemas in the
+// inquiry / provisioning / linking routes — keep one canonical source.
+export const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/
+export const DOMAIN_REGEX = /^[a-z0-9.-]+\.[a-z]{2,}$/
+
+// Slugify human input → kebab-case ASCII suitable for URLs. Strips
+// diacritics via NFKD, drops non-alphanumerics, collapses dashes.
+// Returns "workspace" for empty input so callers always get a usable slug.
+export function slugify(input: string): string {
+  return (
+    input
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60) || 'workspace'
+  )
+}
+
 export function formatDate(date: string | Date | null | undefined): string {
   if (!date) return "—"
   return format(new Date(date), 'MMM d, yyyy')

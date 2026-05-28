@@ -5,6 +5,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { getInstitutionAdminContext } from '@/lib/admin/institutionAdmin'
 import { writeAuditEntry } from '@/lib/audit/auditLogger'
 import { parseCsv, indexHeader } from '@/lib/csv'
+import { escapeLikePattern, postgrestQuote } from '@/lib/utils'
 
 /**
  * Roster (the matriculation list).
@@ -58,8 +59,16 @@ export async function GET(request: NextRequest) {
   if (programmeId) q = q.eq('programme_id', programmeId)
   if (cohortId) q = q.eq('cohort_id', cohortId)
   if (search) {
-    // Search across matric, full_name, email
-    q = q.or(`matriculation_number.ilike.%${search}%,full_name_hint.ilike.%${search}%,email_hint.ilike.%${search}%`)
+    // Search across matric, full_name, email. Wildcards in user input are
+    // escaped so they're treated literally, and the pattern is wrapped in
+    // PostgREST quotes so `,` / `)` in the search term can't break out of
+    // the .or() expression.
+    const pattern = postgrestQuote(`%${escapeLikePattern(search)}%`)
+    q = q.or(
+      `matriculation_number.ilike.${pattern},` +
+      `full_name_hint.ilike.${pattern},` +
+      `email_hint.ilike.${pattern}`
+    )
   }
 
   const { data, count, error } = await q

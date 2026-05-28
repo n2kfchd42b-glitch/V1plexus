@@ -6,10 +6,9 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   FolderOpen, LogOut, ChevronLeft, ChevronRight, Command,
-  Users, GraduationCap, Building2, Inbox, UserCheck, Shield,
-  LayoutDashboard, FileSearch, UserPlus, Mail, ScrollText, ClipboardList,
-  Palette,
+  Users, GraduationCap, Inbox, UserCheck, Shield,
 } from 'lucide-react'
+import { INSTITUTION_NAV, isInstitutionNavActive } from '@/components/layout/institutionNav'
 import { createClient } from '@/lib/supabase/client'
 import { BrandLogo } from '@/components/layout/BrandLogo'
 import { LanguageSelector } from '@/components/i18n/LanguageSelector'
@@ -271,51 +270,39 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
           )
         })()}
 
-        {/* Institution admin — visible only when profile.role='admin' && institution_id */}
-        {isInstitutionAdmin && (() => {
-          const items = [
-            { href: '/institution',                icon: LayoutDashboard, label: 'Overview',       exact: true },
-            { href: '/institution/members',        icon: Users,           label: 'Members' },
-            { href: '/institution/programmes',     icon: GraduationCap,   label: 'Programmes' },
-            { href: '/institution/roster',         icon: ClipboardList,   label: 'Roster' },
-            { href: '/institution/departments',    icon: Building2,       label: 'Departments' },
-            { href: '/institution/branding',       icon: Palette,         label: 'Branding' },
-            { href: '/institution/policy',         icon: ScrollText,      label: 'Thesis policy' },
-            { href: '/institution/link-requests',  icon: UserPlus,        label: 'Link requests' },
-            { href: '/institution/audit',          icon: FileSearch,      label: 'Audit' },
-            { href: '/institution/inquiries',      icon: Mail,            label: 'Inquiries' },
-          ]
-          return (
-            <>
-              {!collapsed && (
-                <p className="px-2.5 pt-0.5 pb-1.5 text-[9px] font-medium uppercase tracking-[0.10em] text-[var(--text-sidebar-icon)]">
-                  Institution
-                </p>
-              )}
-              {items.map(({ href, icon: Icon, label, exact }) => {
-                const active = exact ? pathname === href : (pathname === href || pathname.startsWith(href + '/'))
-                return (
-                  <Link key={href} href={href} title={collapsed ? label : undefined}>
-                    <div className={cn(
-                      'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
-                      collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
-                      active
-                        ? 'bg-[var(--bg-sidebar-active)] text-[var(--text-sidebar-active)]'
-                        : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
-                    )}>
-                      {active && (
-                        <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-primary)]" />
-                      )}
-                      <Icon className={cn('flex-shrink-0 h-4 w-4', active ? 'text-white' : 'text-[var(--text-sidebar-icon)]')} />
-                      {!collapsed && <span className="text-sm font-medium">{label}</span>}
-                    </div>
-                  </Link>
-                )
-              })}
-              <div className="my-2 h-px bg-white/10" />
-            </>
-          )
-        })()}
+        {/* Institution admin — visible only when profile.role='admin' && institution_id.
+            Menu structure lives in INSTITUTION_NAV (shared with MobileSidebar). */}
+        {isInstitutionAdmin && (
+          <>
+            {!collapsed && (
+              <p className="px-2.5 pt-0.5 pb-1.5 text-[9px] font-medium uppercase tracking-[0.10em] text-[var(--text-sidebar-icon)]">
+                Institution
+              </p>
+            )}
+            {INSTITUTION_NAV.map((item) => {
+              const Icon = item.icon
+              const active = isInstitutionNavActive(pathname, item)
+              return (
+                <Link key={item.href} href={item.href} title={collapsed ? item.label : undefined}>
+                  <div className={cn(
+                    'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
+                    collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
+                    active
+                      ? 'bg-[var(--bg-sidebar-active)] text-[var(--text-sidebar-active)]'
+                      : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
+                  )}>
+                    {active && (
+                      <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-primary)]" />
+                    )}
+                    <Icon className={cn('flex-shrink-0 h-4 w-4', active ? 'text-white' : 'text-[var(--text-sidebar-icon)]')} />
+                    {!collapsed && <span className="text-sm font-medium">{item.label}</span>}
+                  </div>
+                </Link>
+              )
+            })}
+            <div className="my-2 h-px bg-white/10" />
+          </>
+        )}
 
         {/* Platform admin — visible only to PLATFORM_ADMIN_USER_IDS */}
         {isPlatformAdmin && (() => {

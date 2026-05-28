@@ -125,9 +125,12 @@ export async function PUT(req: NextRequest) {
   if (ctx.error) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
   const { profile, user } = ctx
 
-  if (profile!.role !== 'admin' && profile!.role !== 'coordinator') {
+  // Aligned with the Institution sidebar group, which is admin-only. The
+  // table's RLS policy_write_admin still allows coordinators (legacy from
+  // PR D), but coordinators have no UI path so we gate at the API too.
+  if (profile!.role !== 'admin') {
     return NextResponse.json(
-      { error: 'Only admins or coordinators can edit the thesis policy' },
+      { error: 'Only institution admins can edit the thesis policy' },
       { status: 403 },
     )
   }

@@ -7,8 +7,9 @@ import { usePathname } from 'next/navigation'
 import {
   FolderOpen, LogOut, Menu, X, Command,
   LayoutDashboard, Database, BarChart2, BookOpen, GraduationCap, Settings2,
-  ClipboardList, Award, Users, UserPlus, FileSearch, Mail, ScrollText, Shield, Building2, Palette,
+  ClipboardList, Award, Shield,
 } from 'lucide-react'
+import { INSTITUTION_NAV, isInstitutionNavActive } from '@/components/layout/institutionNav'
 import { BrandLogo } from '@/components/layout/BrandLogo'
 import { LanguageSelector } from '@/components/i18n/LanguageSelector'
 import { useTranslations } from '@/i18n/useTranslations'
@@ -203,21 +204,11 @@ export function MobileSidebar({ profile, onSignOut }: MobileSidebarProps) {
               <p className="px-2.5 pt-0.5 pb-1.5 text-[9px] font-medium uppercase tracking-[0.10em] text-[var(--text-sidebar-icon)]">
                 Institution
               </p>
-              {[
-                { href: '/institution',               icon: LayoutDashboard, label: 'Overview',      exact: true },
-                { href: '/institution/members',       icon: Users,           label: 'Members' },
-                { href: '/institution/programmes',    icon: GraduationCap,   label: 'Programmes' },
-                { href: '/institution/roster',        icon: ClipboardList,   label: 'Roster' },
-                { href: '/institution/departments',   icon: Building2,       label: 'Departments' },
-                { href: '/institution/branding',      icon: Palette,         label: 'Branding' },
-                { href: '/institution/policy',        icon: ScrollText,      label: 'Thesis policy' },
-                { href: '/institution/link-requests', icon: UserPlus,        label: 'Link requests' },
-                { href: '/institution/audit',         icon: FileSearch,      label: 'Audit' },
-                { href: '/institution/inquiries',     icon: Mail,            label: 'Inquiries' },
-              ].map(({ href, icon: Icon, label, exact }) => {
-                const active = exact ? pathname === href : (pathname === href || pathname.startsWith(href + '/'))
+              {INSTITUTION_NAV.map((item) => {
+                const Icon = item.icon
+                const active = isInstitutionNavActive(pathname, item)
                 return (
-                  <Link key={href} href={href}>
+                  <Link key={item.href} href={item.href}>
                     <div className={cn(
                       'flex items-center gap-3 h-11 rounded-md px-3 mb-0.5 transition-all duration-150 cursor-pointer select-none',
                       active
@@ -225,7 +216,7 @@ export function MobileSidebar({ profile, onSignOut }: MobileSidebarProps) {
                         : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
                     )}>
                       <Icon className={cn('h-5 w-5 flex-shrink-0', active ? 'text-white' : 'text-[var(--text-sidebar-icon)]')} />
-                      <span className="text-sm font-medium">{label}</span>
+                      <span className="text-sm font-medium">{item.label}</span>
                     </div>
                   </Link>
                 )

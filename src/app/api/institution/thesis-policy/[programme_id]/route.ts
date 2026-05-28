@@ -37,9 +37,9 @@ export async function DELETE(
   if (!profile?.institution_id) {
     return NextResponse.json({ error: 'No institution' }, { status: 404 })
   }
-  if (profile.role !== 'admin' && profile.role !== 'coordinator') {
+  if (profile.role !== 'admin') {
     return NextResponse.json(
-      { error: 'Only admins or coordinators can edit the thesis policy' },
+      { error: 'Only institution admins can edit the thesis policy' },
       { status: 403 },
     )
   }

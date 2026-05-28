@@ -1,10 +1,20 @@
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { isPlatformAdmin } from '@/lib/admin/platformAdmin'
 import type { Institution, InstitutionInquiry } from '@/types/database'
 import { InstitutionsAdminClient } from './InstitutionsAdminClient'
 
 export const dynamic = 'force-dynamic'
 
 export default async function InstitutionsAdminPage() {
+  // Defence in depth: the parent layout already gates this, but the page
+  // reads every inquiry's PII via the service client, so we re-verify
+  // platform-admin membership here too. Don't rely on layout alone.
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || !isPlatformAdmin(user.id)) redirect('/projects')
+
   const svc = createServiceClient()
 
   const [{ data: inquiries }, { data: institutions }] = await Promise.all([

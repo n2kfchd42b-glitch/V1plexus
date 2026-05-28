@@ -58,35 +58,33 @@ export default function InstitutionMembersPage() {
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('')
 
+  // Server-side search via ?search=. Debounce 250ms so we don't fire a
+  // request per keystroke.
   useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      const res = await fetch('/api/institution/members', { cache: 'no-store' })
-      if (cancelled) return
+    const handle = setTimeout(async () => {
+      const params = new URLSearchParams()
+      if (search.trim()) params.set('search', search.trim())
+      const res = await fetch(`/api/institution/members?${params.toString()}`, { cache: 'no-store' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         setError(body.error ?? 'Could not load members')
         setLoading(false)
         return
       }
+      setError(null)
       setData(await res.json())
       setLoading(false)
-    })()
-    return () => { cancelled = true }
-  }, [])
+    }, search ? 250 : 0)
+    return () => clearTimeout(handle)
+  }, [search])
 
+  // Role filter still runs client-side over the loaded page — the role
+  // counts in the dropdown are derived from the current result set.
   const filtered = useMemo(() => {
     const members = data?.members ?? []
-    const q = search.trim().toLowerCase()
-    return members.filter((m) => {
-      if (roleFilter && m.role !== roleFilter) return false
-      if (!q) return true
-      const haystack = [
-        m.user?.full_name, m.user?.email, m.user?.title, m.department?.name,
-      ].filter(Boolean).join(' ').toLowerCase()
-      return haystack.includes(q)
-    })
-  }, [data, search, roleFilter])
+    if (!roleFilter) return members
+    return members.filter((m) => m.role === roleFilter)
+  }, [data, roleFilter])
 
   const roleCounts = useMemo(() => {
     const counts: Record<string, number> = {}

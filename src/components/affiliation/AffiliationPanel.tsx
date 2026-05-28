@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Building2, GraduationCap, Layers, Hash, MapPin, BadgeCheck, Loader2, ExternalLink, Eye, EyeOff } from 'lucide-react'
+import { Building2, GraduationCap, Layers, Hash, MapPin, BadgeCheck, Loader2, ExternalLink, Eye, EyeOff, Unlink } from 'lucide-react'
+import { toast } from 'sonner'
 import { useAffiliation } from '@/hooks/useAffiliation'
 import { LinkInstitutionCard } from '@/components/settings/LinkInstitutionCard'
 import { createClient as createBrowserClient } from '@/lib/supabase/client'
@@ -27,7 +28,26 @@ const DEGREE_LABEL: Record<string, string> = {
  * /settings#affiliation and is anchored by the AffiliationBadge in the header.
  */
 export function AffiliationPanel({ userEmail }: { userEmail: string | null }) {
-  const { data, loading, linked, activeEnrollment } = useAffiliation()
+  const { data, loading, linked, activeEnrollment, refresh } = useAffiliation()
+  const [unlinking, setUnlinking] = useState(false)
+
+  async function handleUnlink() {
+    if (!data?.profile?.institution) return
+    const confirmed = window.confirm(
+      `Unlink yourself from ${data.profile.institution.name}? Your workspace membership will be set to 'left' and any active enrollments withdrawn. You can re-link later if you need to.`
+    )
+    if (!confirmed) return
+    setUnlinking(true)
+    const res = await fetch('/api/me/institution-link', { method: 'DELETE' })
+    setUnlinking(false)
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      toast.error(body.error ?? 'Could not unlink')
+      return
+    }
+    toast.success('Unlinked from institution')
+    await refresh()
+  }
 
   if (loading) {
     return (
@@ -143,7 +163,7 @@ export function AffiliationPanel({ userEmail }: { userEmail: string | null }) {
 
       <div className="px-5 py-3 bg-[var(--bg-surface-2)] border-t border-[var(--border-default)] text-[11px] text-[var(--text-tertiary)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <span>
-          Membership changes are handled by your institution&rsquo;s admins. Contact them to unlink, switch programme, or update your matriculation.
+          Programme / matriculation changes are handled by your institution&rsquo;s admins. Unlink below if you need to leave or switch.
         </span>
         {data.profile && (
           <PublicVisibilityToggle
@@ -152,6 +172,19 @@ export function AffiliationPanel({ userEmail }: { userEmail: string | null }) {
             institutionSlug={inst.slug ?? null}
           />
         )}
+      </div>
+
+      <div className="px-5 py-3 border-t border-[var(--border-default)] flex items-center justify-end">
+        <button
+          type="button"
+          onClick={handleUnlink}
+          disabled={unlinking}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-[var(--border-default)] text-[11px] font-semibold text-[var(--text-secondary)] hover:text-[var(--status-error-text)] hover:border-[var(--status-error-text)]/40 disabled:opacity-60 transition-colors"
+          title="Remove your link to this institution. Workspace membership is set to 'left' and active enrollments are withdrawn — recoverable by re-linking."
+        >
+          <Unlink className="h-3 w-3" />
+          {unlinking ? 'Unlinking…' : 'Unlink from institution'}
+        </button>
       </div>
     </section>
   )

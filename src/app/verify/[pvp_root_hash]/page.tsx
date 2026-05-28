@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { BrandLogo } from '@/components/layout/BrandLogo'
+import { tierLabel } from '@/lib/institutions/tier'
 import {
   CheckCircle2,
   XCircle,
@@ -327,8 +328,8 @@ export default function VerifyHashPage() {
                   {result.institution_branding.name}
                 </p>
                 {result.institution_branding.verification_tier && (
-                  <p className="text-[11px] text-zinc-500 mt-0.5 capitalize">
-                    {result.institution_branding.verification_tier.toLowerCase().replace(/_/g, ' ')}
+                  <p className="text-[11px] text-zinc-500 mt-0.5">
+                    {tierLabel(result.institution_branding.verification_tier)}
                   </p>
                 )}
               </div>

@@ -14,7 +14,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
   InstitutionThesisPolicy,
   ThesisPolicySnapshot,
-} from '@/types/thesis-workflow'
+} from '@/types/database'
 
 const PERMISSIVE_DEFAULT: ThesisPolicySnapshot = {
   id: '',
@@ -33,9 +33,13 @@ const PERMISSIVE_DEFAULT: ThesisPolicySnapshot = {
 }
 
 /**
- * Get the snapshot frozen onto this thesis at creation. Falls back to the
- * permissive default for theses created before the snapshot column was
- * backfilled and for projects with no institution.
+ * Get the snapshot frozen onto this thesis at creation. If the snapshot is
+ * missing (pre-PR-H rows, imports, or NULL projects), we *resolve* the
+ * most-specific policy for the project owner via the
+ * `resolve_thesis_policy_for_user` RPC — NOT the institution default. The
+ * old "live institution default" fallback silently ignored programme
+ * overrides and surfaced the wrong policy whenever a student had an
+ * override-bearing enrollment.
  */
 export async function getThesisPolicySnapshot(
   supabase: SupabaseClient,
@@ -43,7 +47,7 @@ export async function getThesisPolicySnapshot(
 ): Promise<ThesisPolicySnapshot> {
   const { data } = await supabase
     .from('thesis_metadata')
-    .select('policy_snapshot, institution_id')
+    .select('policy_snapshot, institution_id, project_id, projects:projects!inner(owner_id)')
     .eq('project_id', projectId)
     .maybeSingle()
 
@@ -51,10 +55,19 @@ export async function getThesisPolicySnapshot(
     return data.policy_snapshot as ThesisPolicySnapshot
   }
 
-  // No snapshot yet — read the live institution policy as a fallback.
-  if (data?.institution_id) {
-    const live = await getLiveInstitutionPolicy(supabase, data.institution_id)
-    if (live) return policyToSnapshot(live)
+  // Fallback: resolve the most-specific policy via RPC so programme
+  // overrides apply. The RPC is SECURITY DEFINER on the server side; only
+  // service_role is granted execute, so this fallback path only really
+  // works in server contexts. The browser path will see PERMISSIVE_DEFAULT.
+  const ownerId = (data?.projects as { owner_id?: string } | null)?.owner_id ?? null
+  if (data?.institution_id && ownerId) {
+    const { data: resolved } = await supabase.rpc('resolve_thesis_policy_for_user', {
+      p_user_id: ownerId,
+      p_institution_id: data.institution_id,
+    })
+    if (resolved && (resolved as InstitutionThesisPolicy).id) {
+      return policyToSnapshot(resolved as InstitutionThesisPolicy)
+    }
   }
 
   return PERMISSIVE_DEFAULT
@@ -62,9 +75,9 @@ export async function getThesisPolicySnapshot(
 
 /**
  * Read the live institution-default policy row. Programme overrides are
- * *not* returned here — for "which policy applies to this user" use the
- * resolve_thesis_policy_for_user RPC instead (or call the snapshot
- * trigger via INSERT, which is the production path).
+ * *not* returned here — used only by the admin editor that wants to display
+ * the institution default specifically. For "which policy applies to this
+ * user," call the resolve_thesis_policy_for_user RPC.
  */
 export async function getLiveInstitutionPolicy(
   supabase: SupabaseClient,

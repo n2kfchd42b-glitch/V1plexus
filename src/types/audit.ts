@@ -103,6 +103,7 @@ export type AuditAction =
   | 'institution.link.auto_approved'
   | 'institution.link.approved'
   | 'institution.link.declined'
+  | 'institution.link.unlinked'
   // Institution provisioning (platform-admin operations)
   | 'institution.provisioned'
   | 'institution.inquiry.converted'

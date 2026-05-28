@@ -56,7 +56,6 @@ export interface Institution {
   brand_color: string | null
   motto: string | null
   public_bio: string | null
-  members_public_default: boolean
   created_at: string
   updated_at: string
 }
@@ -482,13 +481,20 @@ export interface InstitutionEnrollment {
 }
 
 /**
- * Per-institution thesis workflow policy. The DB-side trigger
- * `bump_thesis_policy_version` auto-increments policy_version on every
- * UPDATE; theses snapshot this row at creation (see
+ * Per-institution thesis workflow policy.
+ *
+ * One row per (institution_id, programme_id):
+ *   - programme_id IS NULL  → institution default
+ *   - programme_id non-NULL → per-programme override (PR H)
+ *
+ * The DB trigger `bump_thesis_policy_version` auto-increments policy_version
+ * on every UPDATE; theses snapshot the resolved row at creation (see
  * ThesisMetadata.policy_snapshot).
  */
 export interface InstitutionThesisPolicy {
+  id: string
   institution_id: string
+  programme_id: string | null
   policy_version: number
   require_ethics_gate: boolean
   allow_co_supervisors: boolean
@@ -505,8 +511,9 @@ export interface InstitutionThesisPolicy {
 }
 
 /**
- * Snapshot frozen onto thesis_metadata at creation. Mirrors
- * InstitutionThesisPolicy minus mutable audit columns.
+ * Snapshot frozen onto thesis_metadata at creation. Drops mutable audit
+ * columns; the snapshot still carries `programme_id` so callers can tell
+ * which policy row (default vs programme override) applied.
  */
 export type ThesisPolicySnapshot = Omit<
   InstitutionThesisPolicy,

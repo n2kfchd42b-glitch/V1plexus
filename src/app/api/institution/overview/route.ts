@@ -90,19 +90,30 @@ export async function GET() {
       .eq('status', 'active'),
   ])
 
-  return NextResponse.json({
-    institution: institution ?? null,
-    institutional_workspace: workspaceRes.data ?? null,
-    counts: {
-      members: memberCountRes.count ?? 0,
-      departments: departmentCountRes.count ?? 0,
-      pending_link_requests: pendingLinkRes.count ?? 0,
-      inquiries: inquiryCountRes.count ?? 0,
-      programmes: programmeCountRes.count ?? 0,
-      roster_unclaimed: rosterUnclaimedRes.count ?? 0,
-      roster_claimed: rosterClaimedRes.count ?? 0,
-      enrollments_active: enrollmentActiveRes.count ?? 0,
+  return NextResponse.json(
+    {
+      institution: institution ?? null,
+      institutional_workspace: workspaceRes.data ?? null,
+      counts: {
+        members: memberCountRes.count ?? 0,
+        departments: departmentCountRes.count ?? 0,
+        pending_link_requests: pendingLinkRes.count ?? 0,
+        inquiries: inquiryCountRes.count ?? 0,
+        programmes: programmeCountRes.count ?? 0,
+        roster_unclaimed: rosterUnclaimedRes.count ?? 0,
+        roster_claimed: rosterClaimedRes.count ?? 0,
+        enrollments_active: enrollmentActiveRes.count ?? 0,
+      },
+      recent_audit: recentAuditRes.data ?? [],
     },
-    recent_audit: recentAuditRes.data ?? [],
-  })
+    {
+      // Private — this is per-admin data. Short max-age absorbs the
+      // focus-refetch storm that the dashboard triggers when an admin
+      // alt-tabs back into the tab; stale-while-revalidate keeps subsequent
+      // loads instant while a background refresh runs.
+      headers: {
+        'Cache-Control': 'private, max-age=15, stale-while-revalidate=60',
+      },
+    },
+  )
 }

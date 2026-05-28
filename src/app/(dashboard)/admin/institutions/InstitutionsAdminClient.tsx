@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Institution, InstitutionInquiry, InstitutionType } from '@/types/database'
+import type { Institution, InstitutionInquiry, InstitutionType, VerificationTier } from '@/types/database'
+import { TIER_INFO, TIER_ORDER } from '@/lib/institutions/tier'
 
 interface Props {
   inquiries: InstitutionInquiry[]
@@ -305,11 +306,10 @@ export function InstitutionsAdminClient({ inquiries, institutions }: Props) {
   )
 }
 
-const TIER_OPTIONS: Array<{ value: 'SELF_ATTESTED' | 'DOMAIN_VERIFIED' | 'OFFICIALLY_REGISTERED'; label: string }> = [
-  { value: 'SELF_ATTESTED', label: 'Self-attested' },
-  { value: 'DOMAIN_VERIFIED', label: 'Domain verified' },
-  { value: 'OFFICIALLY_REGISTERED', label: 'Officially registered' },
-]
+const TIER_OPTIONS: Array<{ value: VerificationTier; label: string }> = TIER_ORDER.map((t) => ({
+  value: t,
+  label: TIER_INFO[t].label,
+}))
 
 function InstitutionRow({ institution }: { institution: Institution }) {
   const router = useRouter()

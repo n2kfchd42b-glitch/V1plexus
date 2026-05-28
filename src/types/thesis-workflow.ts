@@ -54,35 +54,11 @@ export interface AllowedTransition {
   description: string | null
 }
 
-export interface InstitutionThesisPolicy {
-  id: string
-  institution_id: string
-  programme_id: string | null
-  policy_version: number
-  require_ethics_gate: boolean
-  allow_co_supervisors: boolean
-  max_co_supervisors: number
-  require_oral_defense: boolean
-  require_proposal_defense: boolean
-  min_chapters: number
-  default_chapter_titles: string[]
-  reminder_offsets_days: number[]
-  escalation_delay_hours: number
-  created_at: string
-  updated_at: string
-  updated_by: string | null
-}
-
-/**
- * Snapshot frozen onto thesis_metadata at creation. Drops mutable audit
- * columns; everything else mirrors InstitutionThesisPolicy, including the
- * `programme_id` (which records *which* policy row applied — institution
- * default vs. a specific programme override).
- */
-export type ThesisPolicySnapshot = Omit<
-  InstitutionThesisPolicy,
-  'created_at' | 'updated_at' | 'updated_by'
->
+// InstitutionThesisPolicy + ThesisPolicySnapshot live in src/types/database.ts
+// (canonical hand-curated schema mirror). Re-export here so existing imports
+// from '@/types/thesis-workflow' keep working without duplicating the shape.
+export type { InstitutionThesisPolicy, ThesisPolicySnapshot } from '@/types/database'
+import type { ThesisPolicySnapshot } from '@/types/database'
 
 export interface ThesisLifecycleContext {
   thesis_id: string
