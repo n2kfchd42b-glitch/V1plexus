@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation'
 import {
   FolderOpen, LogOut, ChevronLeft, ChevronRight, Command,
   Users, GraduationCap, Building2, Inbox, UserCheck, Shield,
-  LayoutDashboard, FileSearch, UserPlus, Mail, ScrollText,
+  LayoutDashboard, FileSearch, UserPlus, Mail, ScrollText, ClipboardList,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BrandLogo } from '@/components/layout/BrandLogo'
@@ -275,6 +275,8 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
           const items = [
             { href: '/institution',                icon: LayoutDashboard, label: 'Overview',       exact: true },
             { href: '/institution/members',        icon: Users,           label: 'Members' },
+            { href: '/institution/programmes',     icon: GraduationCap,   label: 'Programmes' },
+            { href: '/institution/roster',         icon: ClipboardList,   label: 'Roster' },
             { href: '/institution/departments',    icon: Building2,       label: 'Departments' },
             { href: '/institution/policy',         icon: ScrollText,      label: 'Thesis policy' },
             { href: '/institution/link-requests',  icon: UserPlus,        label: 'Link requests' },

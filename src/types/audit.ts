@@ -106,6 +106,20 @@ export type AuditAction =
   | 'institution.provisioned'
   | 'institution.inquiry.converted'
   | 'institution.admin.updated'
+  // Institution programmes / cohorts / roster / enrollments
+  | 'institution.programme.created'
+  | 'institution.programme.updated'
+  | 'institution.programme.deactivated'
+  | 'institution.cohort.created'
+  | 'institution.cohort.updated'
+  | 'institution.roster.uploaded'
+  | 'institution.roster.entry.updated'
+  | 'institution.roster.entry.deleted'
+  | 'institution.roster.entry.invalidated'
+  | 'institution.enrollment.created'
+  | 'institution.enrollment.updated'
+  | 'institution.enrollment.withdrawn'
+  | 'institution.roster.claimed'
 
 export type ResourceType =
   | 'dataset'
@@ -132,6 +146,10 @@ export type ResourceType =
   | 'thesis_deadline'
   | 'causal_dag'
   | 'institution'
+  | 'institution_programme'
+  | 'institution_cohort'
+  | 'institution_roster_entry'
+  | 'institution_enrollment'
 
 export type JustificationCategory =
   | 'equipment_failure'

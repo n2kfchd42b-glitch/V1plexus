@@ -202,6 +202,7 @@ function InstitutionPicker({
   const [loadingList, setLoadingList] = useState(true)
   const [selected, setSelected] = useState<ProvisionedInstitution | null>(null)
   const [message, setMessage] = useState('')
+  const [matric, setMatric] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
@@ -261,17 +262,29 @@ function InstitutionPicker({
       body: JSON.stringify({
         institution_id: selected.id,
         message: message.trim() || undefined,
+        matriculation_number: matric.trim() || undefined,
       }),
     })
     setSubmitting(false)
     if (!res.ok) {
       const body = await res.json().catch(() => ({}))
+      // 404 from the matric path means "we tried roster verification and the
+      // matric didn't match." Surface that clearly so the user can correct
+      // it or pick the manual-request path explicitly.
       toast.error(body.error ?? 'Could not submit your request')
       return
     }
-    const body = await res.json() as { status: 'approved' | 'pending'; auto_approved: boolean }
+    const body = await res.json() as {
+      status: 'approved' | 'pending'
+      auto_approved: boolean
+      verified_via?: 'matriculation'
+    }
     if (body.status === 'approved') {
-      toast.success(`Linked to ${selected.name}`)
+      toast.success(
+        body.verified_via === 'matriculation'
+          ? `Verified — welcome to ${selected.name}`
+          : `Linked to ${selected.name}`
+      )
     } else {
       toast.success('Request sent — an admin will review it.')
     }
@@ -380,6 +393,22 @@ function InstitutionPicker({
 
             <div>
               <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">
+                Matriculation number <span className="text-[var(--text-tertiary)] font-normal">(optional, instant verification)</span>
+              </label>
+              <input
+                value={matric}
+                onChange={(e) => setMatric(e.target.value)}
+                placeholder="e.g. UG-2024-001"
+                className="w-full bg-[var(--bg-app)] border border-[var(--border-default)] rounded-md px-2.5 py-1.5 text-sm font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
+                maxLength={100}
+              />
+              <p className="text-[11px] text-[var(--text-tertiary)] mt-1">
+                If {selected.name} has pre-loaded a roster, entering your matric number links you instantly with your programme and cohort already set.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">
                 Note to the admin <span className="text-[var(--text-tertiary)] font-normal">(optional)</span>
               </label>
               <textarea
@@ -400,7 +429,13 @@ function InstitutionPicker({
                 'bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] disabled:opacity-60',
               )}
             >
-              {submitting ? 'Submitting…' : willAutoApprove ? 'Link me now' : 'Send request'}
+              {submitting
+                ? 'Submitting…'
+                : matric.trim()
+                  ? 'Verify with matric'
+                  : willAutoApprove
+                    ? 'Link me now'
+                    : 'Send request'}
             </button>
           </div>
         )}

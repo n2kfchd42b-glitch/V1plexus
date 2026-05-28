@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
-  Building2, Users, UserPlus, FileSearch, Mail, GraduationCap,
-  ArrowRight, ShieldCheck, Loader2, Activity,
+  Building2, Users, UserPlus, Mail, GraduationCap,
+  ArrowRight, ShieldCheck, Loader2, Activity, ClipboardList, Layers, ScrollText,
 } from 'lucide-react'
 
 interface AuditEntry {
@@ -33,6 +33,10 @@ interface OverviewData {
     departments: number
     pending_link_requests: number
     inquiries: number
+    programmes: number
+    roster_unclaimed: number
+    roster_claimed: number
+    enrollments_active: number
   }
   recent_audit: AuditEntry[]
 }
@@ -119,19 +123,10 @@ export default function InstitutionOverviewPage() {
       </header>
 
       {/* Stat tiles */}
-      <section className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-        <StatTile
-          icon={Users}
-          label="Members"
-          value={data.counts.members}
-          href="/institution/members"
-        />
-        <StatTile
-          icon={GraduationCap}
-          label="Departments"
-          value={data.counts.departments}
-          href="/institution/departments"
-        />
+      <section className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <StatTile icon={Users} label="Members" value={data.counts.members} href="/institution/members" />
+        <StatTile icon={GraduationCap} label="Programmes" value={data.counts.programmes} href="/institution/programmes" />
+        <StatTile icon={Layers} label="Active enrollments" value={data.counts.enrollments_active} href="/institution/programmes" />
         <StatTile
           icon={UserPlus}
           label="Pending link requests"
@@ -139,33 +134,33 @@ export default function InstitutionOverviewPage() {
           href="/institution/link-requests"
           highlight={data.counts.pending_link_requests > 0}
         />
-        <StatTile
-          icon={Mail}
-          label="Inquiries"
-          value={data.counts.inquiries}
-          href="/institution/inquiries"
-        />
+      </section>
+      <section className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+        <StatTile icon={ClipboardList} label="Roster · unclaimed" value={data.counts.roster_unclaimed} href="/institution/roster" />
+        <StatTile icon={ClipboardList} label="Roster · claimed" value={data.counts.roster_claimed} href="/institution/roster" />
+        <StatTile icon={Building2} label="Departments" value={data.counts.departments} href="/institution/departments" />
+        <StatTile icon={Mail} label="Inquiries" value={data.counts.inquiries} href="/institution/inquiries" />
       </section>
 
       {/* Quick actions */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-8">
         <QuickAction
-          href="/institution/policy"
+          href="/institution/roster"
+          icon={ClipboardList}
+          title="Upload roster"
+          subtitle="Pre-load matric numbers for instant verification"
+        />
+        <QuickAction
+          href="/institution/programmes"
           icon={GraduationCap}
+          title="Programmes & cohorts"
+          subtitle="Bachelors, Masters, PhD — and who's in each"
+        />
+        <QuickAction
+          href="/institution/policy"
+          icon={ScrollText}
           title="Thesis policy"
           subtitle="Workflow rules for every new thesis"
-        />
-        <QuickAction
-          href="/institution/audit"
-          icon={FileSearch}
-          title="Audit timeline"
-          subtitle="Every action across your institution"
-        />
-        <QuickAction
-          href="/institution/link-requests"
-          icon={UserPlus}
-          title="Link requests"
-          subtitle="Approve people joining your institution"
         />
       </section>
 

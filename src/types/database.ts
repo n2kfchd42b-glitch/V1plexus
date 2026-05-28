@@ -376,6 +376,89 @@ export interface AllowedThesisTransition {
   description: string | null
 }
 
+// ── Institution programmes / cohorts / roster / enrollments ────────────────
+// Phase 1+2 of the premium institution loop. profiles.institution_id remains
+// the canonical "linked" flag; enrollments add programme/cohort context.
+
+export type DegreeLevel = 'bachelor' | 'master' | 'phd' | 'postdoc' | 'staff' | 'other'
+
+export type RosterIntendedRole =
+  | 'researcher' | 'student' | 'supervisor' | 'admin' | 'coordinator' | 'viewer'
+
+export type RosterEntryStatus = 'unclaimed' | 'claimed' | 'invalidated'
+
+export type EnrollmentStatus = 'active' | 'on_leave' | 'graduated' | 'withdrawn'
+
+export interface InstitutionProgramme {
+  id: string
+  institution_id: string
+  department_id: string | null
+  name: string
+  short_code: string | null
+  degree_level: DegreeLevel
+  duration_months: number | null
+  description: string | null
+  active: boolean
+  created_at: string
+  updated_at: string
+  department?: Department | null
+}
+
+export interface InstitutionCohort {
+  id: string
+  programme_id: string
+  year: number
+  label: string | null
+  start_date: string | null
+  expected_completion: string | null
+  created_at: string
+  updated_at: string
+  programme?: InstitutionProgramme | null
+}
+
+export interface InstitutionRosterEntry {
+  id: string
+  institution_id: string
+  matriculation_number: string
+  programme_id: string | null
+  cohort_id: string | null
+  department_id: string | null
+  intended_role: RosterIntendedRole
+  full_name_hint: string | null
+  email_hint: string | null
+  notes: string | null
+  status: RosterEntryStatus
+  claimed_by: string | null
+  claimed_at: string | null
+  uploaded_by: string | null
+  created_at: string
+  updated_at: string
+  programme?: InstitutionProgramme | null
+  cohort?: InstitutionCohort | null
+  department?: Department | null
+  claimed_user?: Profile | null
+}
+
+export interface InstitutionEnrollment {
+  id: string
+  user_id: string
+  institution_id: string
+  programme_id: string | null
+  cohort_id: string | null
+  department_id: string | null
+  matriculation_number: string | null
+  roster_entry_id: string | null
+  status: EnrollmentStatus
+  enrolled_at: string
+  end_date: string | null
+  created_at: string
+  updated_at: string
+  user?: Profile | null
+  programme?: InstitutionProgramme | null
+  cohort?: InstitutionCohort | null
+  department?: Department | null
+}
+
 /**
  * Per-institution thesis workflow policy. The DB-side trigger
  * `bump_thesis_policy_version` auto-increments policy_version on every

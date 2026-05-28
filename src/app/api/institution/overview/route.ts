@@ -32,6 +32,10 @@ export async function GET() {
     departmentCountRes,
     inquiryCountRes,
     recentAuditRes,
+    programmeCountRes,
+    rosterUnclaimedRes,
+    rosterClaimedRes,
+    enrollmentActiveRes,
   ] = await Promise.all([
     svc
       .from('workspaces')
@@ -64,6 +68,26 @@ export async function GET() {
       .eq('institution_id', ctx.institutionId)
       .order('timestamp', { ascending: false })
       .limit(8),
+    svc
+      .from('institution_programmes')
+      .select('id', { count: 'exact', head: true })
+      .eq('institution_id', ctx.institutionId)
+      .eq('active', true),
+    svc
+      .from('institution_roster_entries')
+      .select('id', { count: 'exact', head: true })
+      .eq('institution_id', ctx.institutionId)
+      .eq('status', 'unclaimed'),
+    svc
+      .from('institution_roster_entries')
+      .select('id', { count: 'exact', head: true })
+      .eq('institution_id', ctx.institutionId)
+      .eq('status', 'claimed'),
+    svc
+      .from('institution_enrollments')
+      .select('id', { count: 'exact', head: true })
+      .eq('institution_id', ctx.institutionId)
+      .eq('status', 'active'),
   ])
 
   return NextResponse.json({
@@ -74,6 +98,10 @@ export async function GET() {
       departments: departmentCountRes.count ?? 0,
       pending_link_requests: pendingLinkRes.count ?? 0,
       inquiries: inquiryCountRes.count ?? 0,
+      programmes: programmeCountRes.count ?? 0,
+      roster_unclaimed: rosterUnclaimedRes.count ?? 0,
+      roster_claimed: rosterClaimedRes.count ?? 0,
+      enrollments_active: enrollmentActiveRes.count ?? 0,
     },
     recent_audit: recentAuditRes.data ?? [],
   })

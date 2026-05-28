@@ -26,7 +26,7 @@ import {
 import type { Profile } from '@/types/database'
 import type { User } from '@supabase/supabase-js'
 import { logAudit } from '@/lib/audit'
-import { LinkInstitutionCard } from '@/components/settings/LinkInstitutionCard'
+import { AffiliationPanel } from '@/components/affiliation/AffiliationPanel'
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
 const ROLE_LABELS: Record<string, string> = {
@@ -609,11 +609,11 @@ export default function ProfilePage() {
               ))}
             </section>
 
-            {/* Link to institution — shown to non-admins. Institution admins already see
-                the dedicated /institution overview from the sidebar, so the duplicate
-                card here would just restate "linked to X". */}
+            {/* Affiliation — premium end-to-end surface for the linked user.
+                Institution admins already see the dedicated /institution overview
+                from the sidebar, so we skip the duplicate panel for them. */}
             {!(profile.role === 'admin' && profile.institution_id) && (
-              <LinkInstitutionCard userEmail={profile.email ?? authUser?.email ?? null} />
+              <AffiliationPanel userEmail={profile.email ?? authUser?.email ?? null} />
             )}
 
             {/* Two-column layout */}

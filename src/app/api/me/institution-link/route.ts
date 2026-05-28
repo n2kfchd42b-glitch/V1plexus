@@ -19,6 +19,7 @@ import { linkUserToInstitution } from '@/lib/institutionLinking'
 const submitSchema = z.object({
   institution_id: z.string().uuid(),
   message: z.string().trim().max(2000).optional().or(z.literal('')),
+  matriculation_number: z.string().trim().max(100).optional().or(z.literal('')),
 })
 
 export async function GET() {
@@ -26,10 +27,10 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const [profileRes, requestRes] = await Promise.all([
+  const [profileRes, requestRes, enrollmentRes] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, email, institution_id, institution:institutions(id, name, short_name, country, type, auto_link_domains)')
+      .select('id, email, institution_id, institution:institutions(id, name, short_name, country, type, auto_link_domains, logo_url)')
       .eq('id', user.id)
       .maybeSingle(),
     supabase
@@ -38,11 +39,23 @@ export async function GET() {
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(5),
+    supabase
+      .from('institution_enrollments')
+      .select(`
+        id, institution_id, programme_id, cohort_id, department_id,
+        matriculation_number, status, enrolled_at, end_date,
+        programme:institution_programmes(id, name, short_code, degree_level),
+        cohort:institution_cohorts(id, year, label),
+        department:departments(id, name)
+      `)
+      .eq('user_id', user.id)
+      .order('enrolled_at', { ascending: false }),
   ])
 
   return NextResponse.json({
     profile: profileRes.data ?? null,
     requests: requestRes.data ?? [],
+    enrollments: enrollmentRes.data ?? [],
   })
 }
 
@@ -67,7 +80,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid input', details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { institution_id, message } = parsed.data
+  const { institution_id, message, matriculation_number } = parsed.data
   const svc = createServiceClient()
 
   const { data: institution, error: instErr } = await svc
@@ -113,6 +126,58 @@ export async function POST(request: NextRequest) {
 
   if (existing) {
     return NextResponse.json({ error: 'You already have a pending request to this institution' }, { status: 409 })
+  }
+
+  // ── Matriculation roster claim (preferred path when supplied) ────────────
+  // If the user provides a matric number, try claim_roster_seat first. On a
+  // match it links + enrols atomically; on no-match we fall through to the
+  // auto-domain / pending paths below so the user isn't blocked.
+  if (matriculation_number && matriculation_number.trim().length > 0) {
+    const { data: enrollmentId, error: claimErr } = await svc.rpc('claim_roster_seat', {
+      p_user_id: user.id,
+      p_institution_id: institution.id,
+      p_matriculation_number: matriculation_number.trim(),
+      p_decided_by: user.id,
+    })
+
+    if (claimErr) {
+      // 23505 = already claimed (by someone else)
+      if (claimErr.code === '23505') {
+        return NextResponse.json({ error: 'That matriculation number has already been claimed' }, { status: 409 })
+      }
+      console.error('[INSTITUTION_LINK] claim_roster_seat failed:', claimErr)
+      return NextResponse.json({ error: claimErr.message }, { status: 500 })
+    }
+
+    if (enrollmentId) {
+      void writeAuditEntry({
+        actor_id: user.id,
+        action: 'institution.roster.claimed',
+        resource_type: 'institution_enrollment',
+        resource_id: enrollmentId as string,
+        institution_id: institution.id,
+        details: {
+          summary: `${profile.full_name ?? profile.email} verified via matriculation number → ${institution.name}`,
+          matriculation_number: matriculation_number.trim(),
+        },
+      })
+      return NextResponse.json({
+        status: 'approved',
+        auto_approved: true,
+        verified_via: 'matriculation',
+        institution_id: institution.id,
+        enrollment_id: enrollmentId,
+      })
+    }
+
+    // No match — fail fast rather than silently routing to the manual queue.
+    // The user provided a specific matric; if it doesn't match, the right
+    // response is "we couldn't find that" so they can correct it or pick the
+    // manual-request path explicitly.
+    return NextResponse.json({
+      error: 'Matriculation number not found in this institution\'s roster',
+      hint: 'Double-check the number, or leave the field blank to submit a manual link request.',
+    }, { status: 404 })
   }
 
   const callerEmail = (profile.email ?? user.email ?? '').toLowerCase()

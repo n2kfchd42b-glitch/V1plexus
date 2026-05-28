@@ -6,6 +6,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { ChevronRight, Search } from 'lucide-react'
 import { NotificationBell } from '@/components/notification/NotificationBell'
+import { AffiliationBadge } from '@/components/affiliation/AffiliationBadge'
 import { useTranslations } from '@/i18n/useTranslations'
 import { cn, getInitials } from '@/lib/utils'
 import type { Profile } from '@/types/database'
@@ -117,6 +118,9 @@ export function Header({ profile, title, onSearchClick }: HeaderProps) {
         >
           <Search className="h-5 w-5" />
         </button>
+
+        {/* Institutional affiliation chip — visible everywhere once linked */}
+        {profile && <AffiliationBadge />}
 
         {/* Notifications */}
         {profile && <NotificationBell userId={profile.id} />}

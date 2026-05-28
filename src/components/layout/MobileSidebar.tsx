@@ -206,6 +206,8 @@ export function MobileSidebar({ profile, onSignOut }: MobileSidebarProps) {
               {[
                 { href: '/institution',               icon: LayoutDashboard, label: 'Overview',      exact: true },
                 { href: '/institution/members',       icon: Users,           label: 'Members' },
+                { href: '/institution/programmes',    icon: GraduationCap,   label: 'Programmes' },
+                { href: '/institution/roster',        icon: ClipboardList,   label: 'Roster' },
                 { href: '/institution/departments',   icon: Building2,       label: 'Departments' },
                 { href: '/institution/policy',        icon: ScrollText,      label: 'Thesis policy' },
                 { href: '/institution/link-requests', icon: UserPlus,        label: 'Link requests' },
