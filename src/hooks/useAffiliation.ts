@@ -7,6 +7,7 @@ export interface AffiliationData {
     id: string
     email: string
     institution_id: string | null
+    public_affiliation_visible?: boolean
     institution: {
       id: string
       name: string
@@ -14,6 +15,8 @@ export interface AffiliationData {
       country: string | null
       type: string | null
       logo_url: string | null
+      slug: string | null
+      verification_tier: 'SELF_ATTESTED' | 'DOMAIN_VERIFIED' | 'OFFICIALLY_REGISTERED' | null
     } | null
   } | null
   enrollments: Array<{

@@ -32,6 +32,8 @@ export type ReviewPriority = 'low' | 'normal' | 'high' | 'urgent'
 export type GateStatus = 'pending' | 'approved' | 'blocked'
 export type NotificationType = 'review_request' | 'review_complete' | 'ethics_expiry' | 'comment' | 'gate_approved' | 'invitation_received'
 
+export type VerificationTier = 'SELF_ATTESTED' | 'DOMAIN_VERIFIED' | 'OFFICIALLY_REGISTERED'
+
 export interface Institution {
   id: string
   name: string
@@ -44,14 +46,31 @@ export interface Institution {
   logo_url: string | null
   short_name: string | null
   email_domain: string | null
-  verification_tier: 'SELF_ATTESTED' | 'DOMAIN_VERIFIED' | 'OFFICIALLY_REGISTERED' | null
+  verification_tier: VerificationTier | null
   active: boolean | null
   auto_link_domains: string[]
   provisioned_at: string | null
   provisioned_by: string | null
   provisioning_notes: string | null
+  slug: string
+  brand_color: string | null
+  motto: string | null
+  public_bio: string | null
+  members_public_default: boolean
   created_at: string
   updated_at: string
+}
+
+export interface InstitutionBrandingSnapshot {
+  id: string
+  slug: string
+  name: string
+  short_name: string | null
+  logo_url: string | null
+  brand_color: string | null
+  motto: string | null
+  verification_tier: VerificationTier | null
+  snapshotted_at: string
 }
 
 export type InstitutionInquiryStatus = 'new' | 'responded' | 'converted' | 'declined'
@@ -128,6 +147,7 @@ export interface Profile {
   supervision_areas: string[]
   supervision_bio: string | null
   supervision_max_students: number | null
+  public_affiliation_visible: boolean
   last_seen_at: string | null
   created_at: string
   updated_at: string
@@ -306,6 +326,8 @@ export interface ThesisMetadata {
   lifecycle_state: ThesisLifecycleState
   policy_version_snapshot: number | null
   policy_snapshot: ThesisPolicySnapshot | null
+  institution_id_at_submission: string | null
+  institution_branding_snapshot: InstitutionBrandingSnapshot | null
   created_at: string
   updated_at: string
   supervisor?: { full_name: string | null; email: string | null } | null

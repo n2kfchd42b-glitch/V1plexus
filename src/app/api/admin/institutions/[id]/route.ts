@@ -10,6 +10,7 @@ const DOMAIN_REGEX = /^[a-z0-9.-]+\.[a-z]{2,}$/
 const patchSchema = z.object({
   auto_link_domains: z.array(z.string().trim().toLowerCase().max(253).regex(DOMAIN_REGEX, 'Invalid domain')).max(20).optional(),
   active: z.boolean().optional(),
+  verification_tier: z.enum(['SELF_ATTESTED', 'DOMAIN_VERIFIED', 'OFFICIALLY_REGISTERED']).optional(),
 })
 
 /**
@@ -45,20 +46,53 @@ export async function PATCH(
   if (parsed.data.active !== undefined) {
     update.active = parsed.data.active
   }
+  if (parsed.data.verification_tier !== undefined) {
+    update.verification_tier = parsed.data.verification_tier
+  }
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: 'No updatable fields supplied' }, { status: 400 })
   }
 
   const svc = createServiceClient()
+
+  // Capture the prior tier so we can audit a true before→after when
+  // verification_tier is part of the patch.
+  let priorTier: string | null = null
+  if (update.verification_tier !== undefined) {
+    const { data: prior } = await svc
+      .from('institutions')
+      .select('verification_tier')
+      .eq('id', id)
+      .maybeSingle()
+    priorTier = (prior?.verification_tier as string | null) ?? null
+  }
+
   const { data, error } = await svc
     .from('institutions')
     .update(update)
     .eq('id', id)
-    .select('id, name, auto_link_domains, active')
+    .select('id, name, auto_link_domains, active, verification_tier')
     .single()
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Tier change is its own audit row alongside the generic admin.updated
+  // so it lights up timelines and platform admin search.
+  if (update.verification_tier !== undefined && priorTier !== update.verification_tier) {
+    void writeAuditEntry({
+      actor_id: user.id,
+      action: 'institution.verification_tier.changed',
+      resource_type: 'institution',
+      resource_id: id,
+      institution_id: id,
+      details: {
+        summary: `Verification tier ${priorTier ?? 'NONE'} → ${update.verification_tier} on ${data.name}`,
+        from_tier: priorTier,
+        to_tier: update.verification_tier,
+      },
+    })
   }
 
   void writeAuditEntry({

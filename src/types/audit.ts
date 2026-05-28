@@ -106,6 +106,8 @@ export type AuditAction =
   | 'institution.provisioned'
   | 'institution.inquiry.converted'
   | 'institution.admin.updated'
+  | 'institution.branding.updated'
+  | 'institution.verification_tier.changed'
   // Institution programmes / cohorts / roster / enrollments
   | 'institution.programme.created'
   | 'institution.programme.updated'

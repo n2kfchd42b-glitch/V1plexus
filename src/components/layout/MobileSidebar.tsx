@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation'
 import {
   FolderOpen, LogOut, Menu, X, Command,
   LayoutDashboard, Database, BarChart2, BookOpen, GraduationCap, Settings2,
-  ClipboardList, Award, Users, UserPlus, FileSearch, Mail, ScrollText, Shield, Building2,
+  ClipboardList, Award, Users, UserPlus, FileSearch, Mail, ScrollText, Shield, Building2, Palette,
 } from 'lucide-react'
 import { BrandLogo } from '@/components/layout/BrandLogo'
 import { LanguageSelector } from '@/components/i18n/LanguageSelector'
@@ -209,6 +209,7 @@ export function MobileSidebar({ profile, onSignOut }: MobileSidebarProps) {
                 { href: '/institution/programmes',    icon: GraduationCap,   label: 'Programmes' },
                 { href: '/institution/roster',        icon: ClipboardList,   label: 'Roster' },
                 { href: '/institution/departments',   icon: Building2,       label: 'Departments' },
+                { href: '/institution/branding',      icon: Palette,         label: 'Branding' },
                 { href: '/institution/policy',        icon: ScrollText,      label: 'Thesis policy' },
                 { href: '/institution/link-requests', icon: UserPlus,        label: 'Link requests' },
                 { href: '/institution/audit',         icon: FileSearch,      label: 'Audit' },

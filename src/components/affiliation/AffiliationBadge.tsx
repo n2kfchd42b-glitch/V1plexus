@@ -28,10 +28,12 @@ export function AffiliationBadge() {
   const programme = activeEnrollment?.programme
   const cohort = activeEnrollment?.cohort
 
+  const href = institution.slug ? `/institutions/${institution.slug}` : '/settings#affiliation'
+
   return (
     <Link
-      href="/settings#affiliation"
-      title="Institutional affiliation"
+      href={href}
+      title={institution.slug ? `${institution.name} on Plexus` : 'Institutional affiliation'}
       className="hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[var(--bg-inset)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-row)] hover:border-[var(--border-strong)] transition-colors max-w-[300px] group"
     >
       {institution.logo_url ? (

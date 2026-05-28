@@ -305,12 +305,20 @@ export function InstitutionsAdminClient({ inquiries, institutions }: Props) {
   )
 }
 
+const TIER_OPTIONS: Array<{ value: 'SELF_ATTESTED' | 'DOMAIN_VERIFIED' | 'OFFICIALLY_REGISTERED'; label: string }> = [
+  { value: 'SELF_ATTESTED', label: 'Self-attested' },
+  { value: 'DOMAIN_VERIFIED', label: 'Domain verified' },
+  { value: 'OFFICIALLY_REGISTERED', label: 'Officially registered' },
+]
+
 function InstitutionRow({ institution }: { institution: Institution }) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [domainsText, setDomainsText] = useState((institution.auto_link_domains ?? []).join(', '))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [tierSaving, setTierSaving] = useState(false)
+  const [tierError, setTierError] = useState<string | null>(null)
 
   async function save() {
     setSaving(true)
@@ -330,11 +338,40 @@ function InstitutionRow({ institution }: { institution: Institution }) {
     router.refresh()
   }
 
+  async function changeTier(next: 'SELF_ATTESTED' | 'DOMAIN_VERIFIED' | 'OFFICIALLY_REGISTERED') {
+    if (next === institution.verification_tier) return
+    const confirmed = window.confirm(
+      `Change verification tier for ${institution.name} to "${TIER_OPTIONS.find((t) => t.value === next)?.label}"? This is visible on the public institution page and on verified outputs.`
+    )
+    if (!confirmed) return
+    setTierSaving(true)
+    setTierError(null)
+    const res = await fetch(`/api/admin/institutions/${institution.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ verification_tier: next }),
+    })
+    setTierSaving(false)
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      setTierError(body.error ?? 'Could not change tier')
+      return
+    }
+    router.refresh()
+  }
+
   return (
     <div className="px-4 py-3 text-sm">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-medium text-[var(--text-primary)] truncate">{institution.name}</p>
+          <p className="font-medium text-[var(--text-primary)] truncate">
+            {institution.name}
+            {institution.slug && (
+              <span className="ml-2 text-[10px] font-mono text-[var(--text-tertiary)]">
+                /{institution.slug}
+              </span>
+            )}
+          </p>
           <p className="text-xs text-[var(--text-tertiary)] mt-0.5 truncate">
             {[institution.country, institution.email_domain, institution.type].filter(Boolean).join(' · ')}
           </p>
@@ -342,6 +379,23 @@ function InstitutionRow({ institution }: { institution: Institution }) {
         <p className="text-xs text-[var(--text-tertiary)] flex-shrink-0">
           {institution.provisioned_at ? `Provisioned ${formatDate(institution.provisioned_at)}` : `Created ${formatDate(institution.created_at)}`}
         </p>
+      </div>
+      <div className="mt-2 flex items-center gap-3">
+        <p className="text-[10px] uppercase tracking-wider font-semibold text-[var(--text-tertiary)] flex-shrink-0">
+          Verification tier
+        </p>
+        <select
+          value={institution.verification_tier ?? 'SELF_ATTESTED'}
+          onChange={(e) => void changeTier(e.target.value as typeof TIER_OPTIONS[number]['value'])}
+          disabled={tierSaving}
+          className="bg-[var(--bg-app)] border border-[var(--border-default)] rounded px-2 py-1 text-xs text-[var(--text-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] disabled:opacity-60"
+        >
+          {TIER_OPTIONS.map((t) => (
+            <option key={t.value} value={t.value}>{t.label}</option>
+          ))}
+        </select>
+        {tierSaving && <span className="text-[10px] text-[var(--text-tertiary)]">Saving…</span>}
+        {tierError && <span className="text-[10px] text-[var(--status-error-text)]">{tierError}</span>}
       </div>
       <div className="mt-2 flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">

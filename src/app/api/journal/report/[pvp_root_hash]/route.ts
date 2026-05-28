@@ -74,6 +74,38 @@ export async function GET(
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://plexus.science'
   const shareUrl = `${baseUrl}/verify/${pvp_root_hash}`
 
+  // Institution wordmark — if this certificate belongs to a project with a
+  // thesis that snapshotted its institution at submission time, expose the
+  // frozen branding so the verify page can stamp it. Snapshots are immutable
+  // (see migration 20260528000002), so a certificate's institution stamp never
+  // shifts even if the author later moves institutions.
+  let institutionBranding: {
+    slug: string
+    name: string
+    short_name: string | null
+    logo_url: string | null
+    brand_color: string | null
+    verification_tier: string | null
+  } | null = null
+  if (row.project_id) {
+    const { data: thesis } = await supabase
+      .from('thesis_metadata')
+      .select('institution_branding_snapshot')
+      .eq('project_id', row.project_id)
+      .maybeSingle()
+    const snap = thesis?.institution_branding_snapshot as Record<string, unknown> | null
+    if (snap && typeof snap.slug === 'string') {
+      institutionBranding = {
+        slug: snap.slug,
+        name: (snap.name as string) ?? '',
+        short_name: (snap.short_name as string | null) ?? null,
+        logo_url: (snap.logo_url as string | null) ?? null,
+        brand_color: (snap.brand_color as string | null) ?? null,
+        verification_tier: (snap.verification_tier as string | null) ?? null,
+      }
+    }
+  }
+
   return NextResponse.json({
     pvp_root_hash,
     trust_level: row.trust_level,
@@ -89,5 +121,6 @@ export async function GET(
     share_url: shareUrl,
     aad_flags: row.aad_flags,
     integrity_passed: row.integrity_passed,
+    institution_branding: institutionBranding,
   })
 }

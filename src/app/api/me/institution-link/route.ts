@@ -30,7 +30,7 @@ export async function GET() {
   const [profileRes, requestRes, enrollmentRes] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, email, institution_id, institution:institutions(id, name, short_name, country, type, auto_link_domains, logo_url)')
+      .select('id, email, institution_id, public_affiliation_visible, institution:institutions(id, name, short_name, country, type, auto_link_domains, logo_url, slug, verification_tier)')
       .eq('id', user.id)
       .maybeSingle(),
     supabase

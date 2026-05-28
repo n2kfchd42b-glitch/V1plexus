@@ -23,6 +23,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/registry/") ||
     pathname.startsWith("/data/") ||
     pathname.startsWith("/profile/") ||
+    pathname.startsWith("/institutions/") ||
     pathname.startsWith("/terms") ||
     pathname.startsWith("/privacy") ||
     pathname.startsWith("/contact") ||

@@ -1,8 +1,11 @@
 'use client'
 
-import { Building2, GraduationCap, Layers, CalendarDays, Hash, MapPin, BadgeCheck, Loader2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { Building2, GraduationCap, Layers, Hash, MapPin, BadgeCheck, Loader2, ExternalLink, Eye, EyeOff } from 'lucide-react'
 import { useAffiliation } from '@/hooks/useAffiliation'
 import { LinkInstitutionCard } from '@/components/settings/LinkInstitutionCard'
+import { createClient as createBrowserClient } from '@/lib/supabase/client'
 
 const DEGREE_LABEL: Record<string, string> = {
   bachelor: "Bachelor's",
@@ -73,6 +76,16 @@ export function AffiliationPanel({ userEmail }: { userEmail: string | null }) {
             <span className="inline-flex items-center gap-1 text-emerald-700"><BadgeCheck className="h-3 w-3" />Linked</span>
           </div>
         </div>
+        {inst.slug && (
+          <Link
+            href={`/institutions/${inst.slug}`}
+            target="_blank"
+            className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--text-secondary)] hover:text-[var(--accent-blue)] flex-shrink-0"
+          >
+            Public page
+            <ExternalLink className="h-3 w-3" />
+          </Link>
+        )}
       </div>
 
       {/* Enrollment */}
@@ -128,10 +141,80 @@ export function AffiliationPanel({ userEmail }: { userEmail: string | null }) {
         )}
       </div>
 
-      <div className="px-5 py-3 bg-[var(--bg-surface-2)] border-t border-[var(--border-default)] text-[11px] text-[var(--text-tertiary)]">
-        Membership changes are handled by your institution&rsquo;s admins. Contact them to unlink, switch programme, or update your matriculation.
+      <div className="px-5 py-3 bg-[var(--bg-surface-2)] border-t border-[var(--border-default)] text-[11px] text-[var(--text-tertiary)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <span>
+          Membership changes are handled by your institution&rsquo;s admins. Contact them to unlink, switch programme, or update your matriculation.
+        </span>
+        {data.profile && (
+          <PublicVisibilityToggle
+            userId={data.profile.id}
+            initial={data.profile.public_affiliation_visible ?? true}
+            institutionSlug={inst.slug ?? null}
+          />
+        )}
       </div>
     </section>
+  )
+}
+
+function PublicVisibilityToggle({
+  userId,
+  initial,
+  institutionSlug,
+}: {
+  userId: string
+  initial: boolean
+  institutionSlug: string | null
+}) {
+  const [visible, setVisible] = useState(initial)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => { setVisible(initial) }, [initial])
+
+  async function toggle() {
+    setSaving(true)
+    setError(null)
+    const next = !visible
+    const supabase = createBrowserClient()
+    const { error: e } = await supabase
+      .from('profiles')
+      .update({ public_affiliation_visible: next })
+      .eq('id', userId)
+    setSaving(false)
+    if (e) {
+      setError(e.message)
+      return
+    }
+    setVisible(next)
+  }
+
+  return (
+    <div className="inline-flex items-center gap-2 text-[11px]">
+      <button
+        type="button"
+        onClick={toggle}
+        disabled={saving}
+        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-[var(--accent-blue)]/40 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-60 transition-colors"
+        title={visible
+          ? 'You appear on your institution’s public page. Click to hide.'
+          : 'You are hidden from your institution’s public page. Click to show.'}
+      >
+        {visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+        {visible ? 'Listed publicly' : 'Hidden from public list'}
+      </button>
+      {institutionSlug && (
+        <Link
+          href={`/institutions/${institutionSlug}`}
+          target="_blank"
+          className="text-[var(--text-tertiary)] hover:text-[var(--accent-blue)] inline-flex items-center gap-0.5"
+        >
+          preview
+          <ExternalLink className="h-2.5 w-2.5" />
+        </Link>
+      )}
+      {error && <span className="text-[var(--status-error-text)]">{error}</span>}
+    </div>
   )
 }
 

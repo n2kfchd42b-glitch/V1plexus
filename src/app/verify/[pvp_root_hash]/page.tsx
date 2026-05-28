@@ -25,6 +25,15 @@ interface AADFlag {
   triggered: boolean
 }
 
+interface InstitutionStamp {
+  slug: string
+  name: string
+  short_name: string | null
+  logo_url: string | null
+  brand_color: string | null
+  verification_tier: string | null
+}
+
 interface SharedVerificationResult {
   pvp_root_hash: string
   trust_level: number
@@ -40,6 +49,7 @@ interface SharedVerificationResult {
   share_url: string
   aad_flags: AADFlag[]
   integrity_passed: boolean
+  institution_branding: InstitutionStamp | null
 }
 
 // ── Trust level config ────────────────────────────────────────────────────────
@@ -286,6 +296,45 @@ export default function VerifyHashPage() {
 
       <div className="flex-1 flex items-start justify-center px-4 py-10">
         <div className="w-full max-w-2xl space-y-5">
+
+          {/* ── Institution wordmark (only when the certificate is from a thesis whose institution was snapshotted at submission) ── */}
+          {result.institution_branding && (
+            <a
+              href={`/institutions/${result.institution_branding.slug}`}
+              className="flex items-center gap-3 bg-white rounded-2xl border border-zinc-100 px-5 py-4 shadow-[0_1px_6px_rgba(0,0,0,0.04)] hover:shadow-[0_2px_10px_rgba(0,0,0,0.08)] transition-shadow"
+              style={result.institution_branding.brand_color ? { borderColor: `${result.institution_branding.brand_color}33` } : undefined}
+            >
+              <div
+                className="w-12 h-12 rounded-lg border border-zinc-100 bg-white flex items-center justify-center flex-shrink-0 overflow-hidden"
+                style={result.institution_branding.brand_color ? { borderColor: `${result.institution_branding.brand_color}40` } : undefined}
+              >
+                {result.institution_branding.logo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={result.institution_branding.logo_url}
+                    alt={`${result.institution_branding.name} logo`}
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <Shield className="h-5 w-5 text-zinc-300" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-0.5">
+                  Submitted at
+                </p>
+                <p className="text-sm font-bold text-zinc-800 truncate">
+                  {result.institution_branding.name}
+                </p>
+                {result.institution_branding.verification_tier && (
+                  <p className="text-[11px] text-zinc-500 mt-0.5 capitalize">
+                    {result.institution_branding.verification_tier.toLowerCase().replace(/_/g, ' ')}
+                  </p>
+                )}
+              </div>
+              <ExternalLink className="h-4 w-4 text-zinc-400 flex-shrink-0" />
+            </a>
+          )}
 
           {/* ── Section 1: Trust Badge ────────────────────────────────── */}
           <div
