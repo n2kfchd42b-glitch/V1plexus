@@ -49,11 +49,29 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!programme) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const [{ data: cohorts }, { data: enrollments }] = await Promise.all([
+  // Under the thesis-manager model the roster IS the enrollment list. We
+  // return the roster (every student the admin attested to) and let the UI
+  // overlay the "signed up" / "not yet" badge from status. Enrollment-table
+  // rows are also returned (only those without a matching roster row) for
+  // back-compat with admin-assigned members.
+  const [{ data: cohorts }, { data: roster }, { data: enrollments }] = await Promise.all([
     svc.from('institution_cohorts')
       .select('id, year, label, start_date, expected_completion')
       .eq('programme_id', id)
       .order('year', { ascending: false }),
+    svc.from('institution_roster_entries')
+      .select(`
+        id, matriculation_number, full_name_hint, email_hint, intended_role,
+        status, claimed_at, created_at,
+        cohort:institution_cohorts(id, year, label),
+        department:departments(id, name),
+        claimed_user:profiles!institution_roster_entries_claimed_by_fkey(id, full_name, email, avatar_url, title)
+      `)
+      .eq('programme_id', id)
+      .neq('status', 'invalidated')
+      .order('status', { ascending: false }) // claimed first
+      .order('claimed_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false }),
     svc.from('institution_enrollments')
       .select(`
         id, user_id, cohort_id, department_id, matriculation_number,
@@ -69,6 +87,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   return NextResponse.json({
     programme,
     cohorts: cohorts ?? [],
+    roster: roster ?? [],
     enrollments: enrollments ?? [],
   })
 }

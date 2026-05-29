@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, CheckCircle2, Loader2, UserPlus, X } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Loader2, UserPlus, X, GraduationCap } from 'lucide-react'
 import { toast } from 'sonner'
+import type { InstitutionProgramme, InstitutionCohort, Department } from '@/types/database'
 
 interface LinkRequest {
   id: string
@@ -37,6 +38,24 @@ export default function LinkRequestsPage() {
   const [acting, setActing] = useState<string | null>(null)
   const [declineFor, setDeclineFor] = useState<LinkRequest | null>(null)
   const [declineReason, setDeclineReason] = useState('')
+  const [approveFor, setApproveFor] = useState<LinkRequest | null>(null)
+  const [programmes, setProgrammes] = useState<InstitutionProgramme[]>([])
+  const [cohorts, setCohorts] = useState<InstitutionCohort[]>([])
+  const [departments, setDepartments] = useState<Department[]>([])
+
+  useEffect(() => {
+    async function loadMeta() {
+      const [pRes, cRes, dRes] = await Promise.all([
+        fetch('/api/institution/programmes', { cache: 'no-store' }),
+        fetch('/api/institution/cohorts', { cache: 'no-store' }),
+        fetch('/api/institution/departments', { cache: 'no-store' }),
+      ])
+      if (pRes.ok) setProgrammes((await pRes.json()).programmes ?? [])
+      if (cRes.ok) setCohorts((await cRes.json()).cohorts ?? [])
+      if (dRes.ok) setDepartments((await dRes.json()).departments ?? [])
+    }
+    void loadMeta()
+  }, [])
 
   useEffect(() => {
     void load(tab)
@@ -68,12 +87,12 @@ export default function LinkRequestsPage() {
     setLoading(false)
   }
 
-  async function approve(req: LinkRequest) {
+  async function approve(req: LinkRequest, assignment: ApprovalAssignment) {
     setActing(req.id)
     const res = await fetch(`/api/institution/link-requests/${req.id}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'approve' }),
+      body: JSON.stringify({ action: 'approve', ...assignment }),
     })
     setActing(null)
     if (!res.ok) {
@@ -82,6 +101,7 @@ export default function LinkRequestsPage() {
       return
     }
     toast.success(`Approved ${req.user?.full_name ?? req.user?.email ?? 'user'}`)
+    setApproveFor(null)
     router.refresh()
     await load(tab)
   }
@@ -195,12 +215,12 @@ export default function LinkRequestsPage() {
                     {req.status === 'pending' && (
                       <div className="mt-3 flex items-center gap-2">
                         <button
-                          onClick={() => approve(req)}
+                          onClick={() => setApproveFor(req)}
                           disabled={acting === req.id}
                           className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] disabled:opacity-60 text-white text-xs font-semibold transition-colors"
                         >
                           {acting === req.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                          Approve
+                          Approve…
                         </button>
                         <button
                           onClick={() => { setDeclineFor(req); setDeclineReason('') }}
@@ -219,6 +239,18 @@ export default function LinkRequestsPage() {
           </ul>
         )}
       </div>
+
+      {approveFor && (
+        <ApprovalModal
+          request={approveFor}
+          programmes={programmes}
+          cohorts={cohorts}
+          departments={departments}
+          submitting={acting === approveFor.id}
+          onClose={() => setApproveFor(null)}
+          onSubmit={(assignment) => approve(approveFor, assignment)}
+        />
+      )}
 
       {declineFor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -268,6 +300,137 @@ export default function LinkRequestsPage() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+interface ApprovalAssignment {
+  programme_id: string | null
+  cohort_id: string | null
+  department_id: string | null
+  matriculation_number: string | null
+}
+
+function ApprovalModal({
+  request, programmes, cohorts, departments, submitting, onClose, onSubmit,
+}: {
+  request: LinkRequest
+  programmes: InstitutionProgramme[]
+  cohorts: InstitutionCohort[]
+  departments: Department[]
+  submitting: boolean
+  onClose: () => void
+  onSubmit: (a: ApprovalAssignment) => void
+}) {
+  const [programmeId, setProgrammeId] = useState('')
+  const [cohortId, setCohortId] = useState('')
+  const [departmentId, setDepartmentId] = useState('')
+  const [matric, setMatric] = useState('')
+
+  const cohortsForProgramme = useMemo(
+    () => cohorts.filter((c) => c.programme_id === programmeId),
+    [cohorts, programmeId]
+  )
+
+  useEffect(() => {
+    // Clear cohort when programme changes and the previous cohort no longer applies.
+    if (programmeId && cohortId && !cohortsForProgramme.find((c) => c.id === cohortId)) {
+      setCohortId('')
+    }
+  }, [programmeId, cohortId, cohortsForProgramme])
+
+  const userLabel = request.user?.full_name ?? request.user?.email ?? 'this user'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-[var(--bg-surface)] rounded-xl shadow-xl border border-[var(--border-default)] w-full max-w-lg">
+        <div className="px-5 py-4 border-b border-[var(--border-default)] flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <GraduationCap className="h-4 w-4 text-[var(--accent-blue)]" />
+            <h3 className="text-base font-bold text-[var(--text-primary)]">Approve & assign</h3>
+          </div>
+          <button onClick={onClose} className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]" aria-label="Close">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-3">
+          <p className="text-sm text-[var(--text-secondary)]">
+            Linking <strong className="text-[var(--text-primary)]">{userLabel}</strong>. All assignments are optional &mdash;
+            you can leave them blank and assign later from <code className="text-[10px] font-mono bg-[var(--bg-app)] px-1 py-0.5 rounded">/institution/members</code>.
+          </p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium mb-1">Programme</label>
+              <select
+                value={programmeId}
+                onChange={(e) => setProgrammeId(e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-[var(--bg-app)] border border-[var(--border-default)] rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
+              >
+                <option value="">— None —</option>
+                {programmes.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1">Cohort</label>
+              <select
+                value={cohortId}
+                onChange={(e) => setCohortId(e.target.value)}
+                disabled={!programmeId}
+                className="w-full px-3 py-2 text-sm bg-[var(--bg-app)] border border-[var(--border-default)] rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] disabled:opacity-50"
+              >
+                <option value="">— None —</option>
+                {cohortsForProgramme.map((c) => <option key={c.id} value={c.id}>{c.year}{c.label && ` (${c.label})`}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium mb-1">Department</label>
+              <select
+                value={departmentId}
+                onChange={(e) => setDepartmentId(e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-[var(--bg-app)] border border-[var(--border-default)] rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
+              >
+                <option value="">— None —</option>
+                {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1">Matriculation #</label>
+              <input
+                value={matric}
+                onChange={(e) => setMatric(e.target.value)}
+                placeholder="e.g. UG-2024-001"
+                className="w-full px-3 py-2 text-sm bg-[var(--bg-app)] border border-[var(--border-default)] rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] font-mono"
+                maxLength={100}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-[var(--border-default)] bg-[var(--bg-surface-2)] rounded-b-xl">
+          <button
+            onClick={onClose}
+            className="text-xs font-semibold px-3 py-1.5 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          >Cancel</button>
+          <button
+            onClick={() => onSubmit({
+              programme_id: programmeId || null,
+              cohort_id: cohortId || null,
+              department_id: departmentId || null,
+              matriculation_number: matric.trim() || null,
+            })}
+            disabled={submitting}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-1.5 rounded-md bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-hover)] disabled:opacity-60"
+          >
+            {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+            {submitting ? 'Approving…' : 'Approve & link'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

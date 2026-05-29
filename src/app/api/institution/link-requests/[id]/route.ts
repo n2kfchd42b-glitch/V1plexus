@@ -15,6 +15,12 @@ import { writeAuditEntry } from '@/lib/audit/auditLogger'
 const bodySchema = z.object({
   action: z.enum(['approve', 'decline']),
   decline_reason: z.string().trim().max(500).optional(),
+  // Enrollment fields (approve only). All optional — admin may approve and
+  // assign programme/cohort later.
+  programme_id: z.string().uuid().nullable().optional(),
+  cohort_id: z.string().uuid().nullable().optional(),
+  department_id: z.string().uuid().nullable().optional(),
+  matriculation_number: z.string().trim().max(100).nullable().optional(),
 })
 
 export async function POST(
@@ -82,6 +88,45 @@ export async function POST(
       )
     }
 
+    // Validate enrollment fields belong to this institution before we link.
+    const { programme_id, cohort_id, department_id, matriculation_number } = parsed.data
+    if (programme_id) {
+      const { data: prog } = await svc
+        .from('institution_programmes')
+        .select('id')
+        .eq('id', programme_id)
+        .eq('institution_id', requestRow.institution_id)
+        .maybeSingle()
+      if (!prog) {
+        return NextResponse.json({ error: 'Programme is not in this institution' }, { status: 400 })
+      }
+    }
+    if (cohort_id) {
+      if (!programme_id) {
+        return NextResponse.json({ error: 'Cohort requires a programme' }, { status: 400 })
+      }
+      const { data: cohort } = await svc
+        .from('institution_cohorts')
+        .select('id')
+        .eq('id', cohort_id)
+        .eq('programme_id', programme_id)
+        .maybeSingle()
+      if (!cohort) {
+        return NextResponse.json({ error: 'Cohort does not belong to the selected programme' }, { status: 400 })
+      }
+    }
+    if (department_id) {
+      const { data: dept } = await svc
+        .from('departments')
+        .select('id')
+        .eq('id', department_id)
+        .eq('institution_id', requestRow.institution_id)
+        .maybeSingle()
+      if (!dept) {
+        return NextResponse.json({ error: 'Department is not in this institution' }, { status: 400 })
+      }
+    }
+
     const linked = await linkUserToInstitution({
       svc,
       userId: requestRow.user_id,
@@ -95,6 +140,27 @@ export async function POST(
       return NextResponse.json({ error: linked.error }, { status: 500 })
     }
 
+    // Create the enrollment row so the student's programme/cohort surfaces
+    // on /settings#affiliation and in the header badge.
+    const matric = matriculation_number?.trim() || null
+    const { error: enrollErr } = await svc
+      .from('institution_enrollments')
+      .insert({
+        user_id: requestRow.user_id,
+        institution_id: requestRow.institution_id,
+        programme_id: programme_id ?? null,
+        cohort_id: cohort_id ?? null,
+        department_id: department_id ?? null,
+        matriculation_number: matric,
+        status: 'active',
+      })
+    if (enrollErr) {
+      // Non-fatal: link succeeded, enrollment failed. Log and return success
+      // with a warning so the admin sees something went wrong rather than
+      // silently dropping the assignment.
+      console.error('[INSTITUTION_LINK_APPROVE] Enrollment insert failed:', enrollErr)
+    }
+
     const institutionName = (requestRow.institution as { name?: string } | null)?.name ?? 'institution'
     void writeAuditEntry({
       actor_id: user.id,
@@ -106,10 +172,20 @@ export async function POST(
         summary: `Approved link request for ${targetProfile?.full_name ?? targetProfile?.email ?? requestRow.user_id} → ${institutionName}`,
         request_id: requestRow.id,
         target_user_id: requestRow.user_id,
+        programme_id: programme_id ?? null,
+        cohort_id: cohort_id ?? null,
+        department_id: department_id ?? null,
+        matriculation_number: matric,
+        enrollment_created: !enrollErr,
       },
     })
 
-    return NextResponse.json({ success: true, status: 'approved' })
+    return NextResponse.json({
+      success: true,
+      status: 'approved',
+      enrollment_created: !enrollErr,
+      enrollment_warning: enrollErr ? enrollErr.message : null,
+    })
   }
 
   // decline

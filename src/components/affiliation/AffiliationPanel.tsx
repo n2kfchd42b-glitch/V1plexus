@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Building2, GraduationCap, Layers, Hash, MapPin, BadgeCheck, Loader2, ExternalLink, Eye, EyeOff, Unlink } from 'lucide-react'
+import { Building2, GraduationCap, Layers, Hash, MapPin, BadgeCheck, Loader2, ExternalLink, Eye, EyeOff, Unlink, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAffiliation } from '@/hooks/useAffiliation'
 import { LinkInstitutionCard } from '@/components/settings/LinkInstitutionCard'
@@ -137,10 +137,7 @@ export function AffiliationPanel({ userEmail }: { userEmail: string | null }) {
             />
           </dl>
         ) : (
-          <p className="text-xs text-[var(--text-tertiary)]">
-            You&rsquo;re linked to this institution, but you don&rsquo;t have a programme enrollment yet.
-            Ask an admin to assign you to a programme, or enter a matriculation number to verify yourself.
-          </p>
+          <MatricClaimPrompt institutionName={inst.name} onClaimed={refresh} />
         )}
 
         {data.enrollments.length > 1 && (
@@ -187,6 +184,75 @@ export function AffiliationPanel({ userEmail }: { userEmail: string | null }) {
         </button>
       </div>
     </section>
+  )
+}
+
+/**
+ * Shown when the user is linked to an institution but has no enrollment row
+ * yet (admin approved the link without assigning a programme, or the user got
+ * auto-linked via email domain). Lets them self-verify by entering their
+ * matric number — the same path students use on first link.
+ */
+function MatricClaimPrompt({
+  institutionName, onClaimed,
+}: { institutionName: string; onClaimed: () => Promise<void> | void }) {
+  const [matric, setMatric] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    const value = matric.trim()
+    if (!value) return
+    setSubmitting(true)
+    const res = await fetch('/api/me/enrollment/claim-matric', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ matriculation_number: value }),
+    })
+    setSubmitting(false)
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      toast.error(body.error ?? 'Could not verify that matric number')
+      return
+    }
+    toast.success('Programme verified')
+    setMatric('')
+    await onClaimed()
+  }
+
+  return (
+    <div className="bg-[var(--bg-surface-2)] border border-[var(--border-default)] rounded-lg px-4 py-3.5">
+      <div className="flex items-start gap-2 mb-2.5">
+        <Hash className="h-3.5 w-3.5 text-[var(--accent-blue)] mt-0.5 flex-shrink-0" />
+        <div>
+          <p className="text-sm font-bold text-[var(--text-primary)]">
+            Add your matriculation number to unlock your programme
+          </p>
+          <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
+            You&rsquo;re linked to {institutionName}, but your programme, cohort, and matric aren&rsquo;t set yet.
+            Enter the matric your institution issued you, or ask an admin to assign you on
+            {' '}<code className="text-[10px] font-mono bg-[var(--bg-app)] px-1 py-0.5 rounded">/institution/members</code>.
+          </p>
+        </div>
+      </div>
+      <form onSubmit={submit} className="flex flex-col sm:flex-row gap-2">
+        <input
+          value={matric}
+          onChange={(e) => setMatric(e.target.value)}
+          placeholder="e.g. UG-2024-001"
+          maxLength={100}
+          className="flex-1 min-w-0 px-3 py-2 text-sm font-mono bg-[var(--bg-app)] border border-[var(--border-default)] rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
+        />
+        <button
+          type="submit"
+          disabled={submitting || !matric.trim()}
+          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md bg-[var(--accent-blue)] text-white text-xs font-semibold hover:bg-[var(--accent-blue-hover)] disabled:opacity-60 flex-shrink-0"
+        >
+          {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+          {submitting ? 'Verifying…' : 'Verify'}
+        </button>
+      </form>
+    </div>
   )
 }
 

@@ -18,6 +18,7 @@ interface ProgrammeRow {
   department: { id: string; name: string } | null
   cohort_count: number
   enrolled_count: number
+  signed_up_count: number
 }
 
 const DEGREE_LABEL: Record<DegreeLevel, string> = {
@@ -183,7 +184,19 @@ export default function ProgrammesPage() {
                       </div>
                       <div className="flex items-center gap-4 text-xs text-[var(--text-tertiary)]">
                         <span className="inline-flex items-center gap-1"><Layers className="h-3 w-3" />{p.cohort_count} cohorts</span>
-                        <span className="inline-flex items-center gap-1"><Users className="h-3 w-3" />{p.enrolled_count} enrolled</span>
+                        <span
+                          className="inline-flex items-center gap-1"
+                          title={`${p.enrolled_count} on roster, ${p.signed_up_count} signed up to Plexus`}
+                        >
+                          <Users className="h-3 w-3" />
+                          <span className="font-semibold text-[var(--text-secondary)]">{p.enrolled_count}</span>
+                          <span>enrolled</span>
+                          {p.enrolled_count > 0 && (
+                            <span className="text-[10px] text-[var(--text-tertiary)] ml-0.5">
+                              · {p.signed_up_count} signed up
+                            </span>
+                          )}
+                        </span>
                         {!p.active && <span className="ml-auto text-[10px] font-semibold uppercase">Inactive</span>}
                         <ArrowRight className="ml-auto h-3.5 w-3.5 text-[var(--text-tertiary)] group-hover:text-[var(--accent-blue)]" />
                       </div>

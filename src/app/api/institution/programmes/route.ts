@@ -51,12 +51,15 @@ export async function GET() {
     return NextResponse.json({ programmes: [] })
   }
 
-  const [cohortAgg, enrollmentAgg] = await Promise.all([
+  // "Enrolled" in Plexus's model = on the roster (the admin has uploaded them
+  // as students of this programme). "Signed up" = they've claimed their matric
+  // and activated their Plexus account. The two metrics live side by side.
+  const [cohortAgg, rosterAgg] = await Promise.all([
     svc.from('institution_cohorts').select('programme_id').in('programme_id', ids),
-    svc.from('institution_enrollments')
+    svc.from('institution_roster_entries')
       .select('programme_id, status')
       .in('programme_id', ids)
-      .eq('status', 'active'),
+      .neq('status', 'invalidated'),
   ])
 
   const cohortCounts = new Map<string, number>()
@@ -64,8 +67,13 @@ export async function GET() {
     cohortCounts.set(row.programme_id, (cohortCounts.get(row.programme_id) ?? 0) + 1)
   }
   const enrolledCounts = new Map<string, number>()
-  for (const row of enrollmentAgg.data ?? []) {
+  const signedUpCounts = new Map<string, number>()
+  for (const row of rosterAgg.data ?? []) {
+    if (!row.programme_id) continue
     enrolledCounts.set(row.programme_id, (enrolledCounts.get(row.programme_id) ?? 0) + 1)
+    if (row.status === 'claimed') {
+      signedUpCounts.set(row.programme_id, (signedUpCounts.get(row.programme_id) ?? 0) + 1)
+    }
   }
 
   return NextResponse.json({
@@ -73,6 +81,7 @@ export async function GET() {
       ...p,
       cohort_count: cohortCounts.get(p.id) ?? 0,
       enrolled_count: enrolledCounts.get(p.id) ?? 0,
+      signed_up_count: signedUpCounts.get(p.id) ?? 0,
     })),
   })
 }

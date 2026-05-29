@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
   Building2, Users, UserPlus, Mail, GraduationCap,
-  ArrowRight, ShieldCheck, Loader2, Activity, ClipboardList, Layers, ScrollText,
+  ArrowRight, ShieldCheck, Loader2, Activity, ClipboardList, ScrollText, UserCheck,
 } from 'lucide-react'
 import { tierLabel } from '@/lib/institutions/tier'
 
@@ -14,6 +14,17 @@ interface AuditEntry {
   resource_type: string | null
   timestamp: string
   actor: { id: string; full_name: string | null; email: string; avatar_url: string | null } | null
+}
+
+interface RecentSignUp {
+  id: string
+  matriculation_number: string
+  full_name_hint: string | null
+  email_hint: string | null
+  claimed_at: string | null
+  programme: { id: string; name: string; degree_level: string } | null
+  cohort: { id: string; year: number; label: string | null } | null
+  claimed_user: { id: string; full_name: string | null; email: string; avatar_url: string | null } | null
 }
 
 interface OverviewData {
@@ -35,11 +46,11 @@ interface OverviewData {
     pending_link_requests: number
     inquiries: number
     programmes: number
-    roster_unclaimed: number
-    roster_claimed: number
-    enrollments_active: number
+    enrolled_total: number
+    signed_up: number
   }
   recent_audit: AuditEntry[]
+  recent_sign_ups: RecentSignUp[]
 }
 
 export default function InstitutionOverviewPage() {
@@ -122,7 +133,13 @@ export default function InstitutionOverviewPage() {
       <section className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <StatTile icon={Users} label="Members" value={data.counts.members} href="/institution/members" />
         <StatTile icon={GraduationCap} label="Programmes" value={data.counts.programmes} href="/institution/programmes" />
-        <StatTile icon={Layers} label="Active enrollments" value={data.counts.enrollments_active} href="/institution/programmes" />
+        <StatTile
+          icon={ClipboardList}
+          label="Enrolled"
+          value={data.counts.enrolled_total}
+          href="/institution/roster"
+          sub={`${data.counts.signed_up} signed up to Plexus`}
+        />
         <StatTile
           icon={UserPlus}
           label="Pending link requests"
@@ -131,9 +148,7 @@ export default function InstitutionOverviewPage() {
           highlight={data.counts.pending_link_requests > 0}
         />
       </section>
-      <section className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-        <StatTile icon={ClipboardList} label="Roster · unclaimed" value={data.counts.roster_unclaimed} href="/institution/roster" />
-        <StatTile icon={ClipboardList} label="Roster · claimed" value={data.counts.roster_claimed} href="/institution/roster" />
+      <section className="grid grid-cols-2 gap-3 mb-8">
         <StatTile icon={Building2} label="Departments" value={data.counts.departments} href="/institution/departments" />
         <StatTile icon={Mail} label="Inquiries" value={data.counts.inquiries} href="/institution/inquiries" />
       </section>
@@ -179,6 +194,54 @@ export default function InstitutionOverviewPage() {
         </section>
       )}
 
+      {/* Recently signed up */}
+      <section className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl mb-6">
+        <div className="px-5 py-4 border-b border-[var(--border-default)] flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <UserCheck className="h-4 w-4 text-[var(--text-tertiary)]" />
+            <h2 className="text-sm font-bold text-[var(--text-primary)]">Recently signed up to Plexus</h2>
+          </div>
+          <Link href="/institution/roster?status=claimed" className="text-xs font-semibold text-[var(--accent-blue)] hover:underline">
+            See all
+          </Link>
+        </div>
+        {data.recent_sign_ups.length === 0 ? (
+          <p className="px-5 py-8 text-center text-xs text-[var(--text-tertiary)]">
+            No students have signed up to Plexus yet. They&rsquo;ll appear here as soon as they claim their matric on the link page.
+          </p>
+        ) : (
+          <ul className="divide-y divide-[var(--border-default)]">
+            {data.recent_sign_ups.map((s) => {
+              const name = s.claimed_user?.full_name ?? s.full_name_hint ?? s.email_hint ?? s.matriculation_number
+              const initials = (name ?? '?').split(/[\s@]+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('')
+              return (
+                <li key={s.id} className="px-5 py-3 flex items-center gap-3">
+                  {s.claimed_user?.avatar_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={s.claimed_user.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-[var(--bg-surface-2)] flex items-center justify-center text-[10px] font-bold text-[var(--text-secondary)] flex-shrink-0">
+                      {initials || '?'}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{name}</p>
+                    <p className="text-[11px] text-[var(--text-tertiary)] truncate">
+                      <span className="font-mono">{s.matriculation_number}</span>
+                      {s.programme && <> · {s.programme.name}</>}
+                      {s.cohort && <> · {s.cohort.year}{s.cohort.label && ` ${s.cohort.label}`}</>}
+                    </p>
+                  </div>
+                  <span className="text-[10px] text-[var(--text-tertiary)] flex-shrink-0">
+                    {s.claimed_at ? formatTime(s.claimed_at) : '—'}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </section>
+
       {/* Recent activity */}
       <section className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl">
         <div className="px-5 py-4 border-b border-[var(--border-default)] flex items-center justify-between">
@@ -222,8 +285,8 @@ export default function InstitutionOverviewPage() {
 }
 
 function StatTile({
-  icon: Icon, label, value, href, highlight,
-}: { icon: React.ElementType; label: string; value: number; href: string; highlight?: boolean }) {
+  icon: Icon, label, value, href, highlight, sub,
+}: { icon: React.ElementType; label: string; value: number; href: string; highlight?: boolean; sub?: string }) {
   return (
     <Link
       href={href}
@@ -238,6 +301,7 @@ function StatTile({
         <span className="text-[10px] uppercase tracking-wider font-semibold">{label}</span>
       </div>
       <p className="text-2xl font-bold text-[var(--text-primary)] tabular-nums">{value}</p>
+      {sub && <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">{sub}</p>}
     </Link>
   )
 }

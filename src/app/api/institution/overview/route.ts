@@ -33,9 +33,9 @@ export async function GET() {
     inquiryCountRes,
     recentAuditRes,
     programmeCountRes,
-    rosterUnclaimedRes,
-    rosterClaimedRes,
-    enrollmentActiveRes,
+    enrolledTotalRes,
+    signedUpCountRes,
+    recentSignUpsRes,
   ] = await Promise.all([
     svc
       .from('workspaces')
@@ -77,17 +77,24 @@ export async function GET() {
       .from('institution_roster_entries')
       .select('id', { count: 'exact', head: true })
       .eq('institution_id', ctx.institutionId)
-      .eq('status', 'unclaimed'),
+      .neq('status', 'invalidated'),
     svc
       .from('institution_roster_entries')
       .select('id', { count: 'exact', head: true })
       .eq('institution_id', ctx.institutionId)
       .eq('status', 'claimed'),
     svc
-      .from('institution_enrollments')
-      .select('id', { count: 'exact', head: true })
+      .from('institution_roster_entries')
+      .select(`
+        id, matriculation_number, full_name_hint, email_hint, claimed_at,
+        programme:institution_programmes(id, name, degree_level),
+        cohort:institution_cohorts(id, year, label),
+        claimed_user:profiles!institution_roster_entries_claimed_by_fkey(id, full_name, email, avatar_url)
+      `)
       .eq('institution_id', ctx.institutionId)
-      .eq('status', 'active'),
+      .eq('status', 'claimed')
+      .order('claimed_at', { ascending: false })
+      .limit(8),
   ])
 
   return NextResponse.json(
@@ -100,11 +107,14 @@ export async function GET() {
         pending_link_requests: pendingLinkRes.count ?? 0,
         inquiries: inquiryCountRes.count ?? 0,
         programmes: programmeCountRes.count ?? 0,
-        roster_unclaimed: rosterUnclaimedRes.count ?? 0,
-        roster_claimed: rosterClaimedRes.count ?? 0,
-        enrollments_active: enrollmentActiveRes.count ?? 0,
+        // "Enrolled" = on the roster (admin attestation). "Signed up" = claimed
+        // their matric and activated Plexus. The difference between them is
+        // the students who haven't logged in yet.
+        enrolled_total: enrolledTotalRes.count ?? 0,
+        signed_up: signedUpCountRes.count ?? 0,
       },
       recent_audit: recentAuditRes.data ?? [],
+      recent_sign_ups: recentSignUpsRes.data ?? [],
     },
     {
       // Private — this is per-admin data. Short max-age absorbs the

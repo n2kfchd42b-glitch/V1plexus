@@ -6,10 +6,10 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import {
   ArrowLeft, Loader2, Plus, Layers, Users, GraduationCap,
-  Calendar, Power, X, UserMinus,
+  Calendar, Power, X, Trash2, CheckCircle2, Clock,
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
-import type { DegreeLevel, EnrollmentStatus } from '@/types/database'
+import type { DegreeLevel, EnrollmentStatus, RosterEntryStatus, RosterIntendedRole } from '@/types/database'
 
 interface Programme {
   id: string
@@ -41,22 +41,30 @@ interface EnrollmentRow {
   department: { id: string; name: string } | null
 }
 
+interface RosterRow {
+  id: string
+  matriculation_number: string
+  full_name_hint: string | null
+  email_hint: string | null
+  intended_role: RosterIntendedRole
+  status: RosterEntryStatus
+  claimed_at: string | null
+  created_at: string
+  cohort: { id: string; year: number; label: string | null } | null
+  department: { id: string; name: string } | null
+  claimed_user: { id: string; full_name: string | null; email: string; avatar_url: string | null; title: string | null } | null
+}
+
 interface Detail {
   programme: Programme
   cohorts: Cohort[]
+  roster: RosterRow[]
   enrollments: EnrollmentRow[]
 }
 
 const DEGREE_LABEL: Record<DegreeLevel, string> = {
   bachelor: "Bachelor's", master: "Master's", phd: 'PhD',
   postdoc: 'Postdoc', staff: 'Staff', other: 'Other',
-}
-
-const STATUS_TONE: Record<EnrollmentStatus, string> = {
-  active: 'bg-emerald-100 text-emerald-700',
-  on_leave: 'bg-amber-100 text-amber-700',
-  graduated: 'bg-sky-100 text-sky-700',
-  withdrawn: 'bg-slate-100 text-slate-500',
 }
 
 export default function ProgrammeDetailPage() {
@@ -84,11 +92,11 @@ export default function ProgrammeDetailPage() {
   }
   useEffect(() => { if (id) void load() }, [id])
 
-  const filteredEnrollments = useMemo(() => {
+  const filteredRoster = useMemo(() => {
     if (!data) return []
-    if (!cohortFilter) return data.enrollments
-    if (cohortFilter === '__nocohort__') return data.enrollments.filter((e) => !e.cohort)
-    return data.enrollments.filter((e) => e.cohort?.id === cohortFilter)
+    if (!cohortFilter) return data.roster
+    if (cohortFilter === '__nocohort__') return data.roster.filter((r) => !r.cohort)
+    return data.roster.filter((r) => r.cohort?.id === cohortFilter)
   }, [data, cohortFilter])
 
   if (loading) {
@@ -119,20 +127,20 @@ export default function ProgrammeDetailPage() {
     await load()
   }
 
-  async function withdrawEnrollment(enrollmentId: string, userName: string) {
-    if (!confirm(`Withdraw ${userName} from this programme?`)) return
-    const res = await fetch(`/api/institution/enrollments/${enrollmentId}`, { method: 'DELETE' })
+  async function removeFromRoster(rosterId: string, label: string) {
+    if (!confirm(`Remove ${label} from this programme's roster?`)) return
+    const res = await fetch(`/api/institution/roster/${rosterId}`, { method: 'DELETE' })
     if (!res.ok) {
       const body = await res.json().catch(() => ({}))
-      toast.error(body.error ?? 'Could not withdraw')
+      toast.error(body.error ?? 'Could not remove')
       return
     }
-    toast.success(`${userName} withdrawn`)
+    toast.success(`${label} removed`)
     await load()
   }
 
-  const active = filteredEnrollments.filter((e) => e.status === 'active')
-  const other = filteredEnrollments.filter((e) => e.status !== 'active')
+  const signedUp = filteredRoster.filter((r) => r.status === 'claimed')
+  const notYet = filteredRoster.filter((r) => r.status === 'unclaimed')
 
   return (
     <div className="px-8 py-8 max-w-5xl mx-auto">
@@ -205,7 +213,8 @@ export default function ProgrammeDetailPage() {
         ) : (
           <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             {data.cohorts.map((c) => {
-              const enrolledInCohort = data.enrollments.filter((e) => e.cohort?.id === c.id && e.status === 'active').length
+              const inCohort = data.roster.filter((r) => r.cohort?.id === c.id)
+              const signedUpInCohort = inCohort.filter((r) => r.status === 'claimed').length
               return (
                 <li key={c.id}>
                   <button
@@ -220,7 +229,8 @@ export default function ProgrammeDetailPage() {
                     <p className="text-sm font-bold text-[var(--text-primary)]">{c.year}{c.label && <span className="ml-1 text-xs font-normal text-[var(--text-tertiary)]">{c.label}</span>}</p>
                     <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5 flex items-center gap-1">
                       <Users className="h-3 w-3" />
-                      {enrolledInCohort} enrolled
+                      {inCohort.length} enrolled
+                      {inCohort.length > 0 && <span className="text-[10px]"> · {signedUpInCohort} signed up</span>}
                     </p>
                     {c.start_date && (
                       <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5 flex items-center gap-1">
@@ -236,13 +246,16 @@ export default function ProgrammeDetailPage() {
         )}
       </section>
 
-      {/* Enrollments */}
+      {/* Enrolled (roster) */}
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
             <Users className="h-4 w-4 text-[var(--text-tertiary)]" />
             Enrolled
-            <span className="text-xs font-normal text-[var(--text-tertiary)]">({active.length} active{other.length > 0 && `, ${other.length} other`})</span>
+            <span className="text-xs font-normal text-[var(--text-tertiary)]">
+              ({filteredRoster.length}
+              {filteredRoster.length > 0 && ` · ${signedUp.length} signed up to Plexus`})
+            </span>
             {cohortFilter && (
               <button onClick={() => setCohortFilter('')} className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/20">
                 Cohort filter on · clear
@@ -258,50 +271,63 @@ export default function ProgrammeDetailPage() {
           </button>
         </div>
 
-        {active.length === 0 && other.length === 0 ? (
+        {filteredRoster.length === 0 ? (
           <div className="bg-[var(--bg-surface)] border border-dashed border-[var(--border-default)] rounded-xl p-6 text-center">
             <p className="text-xs text-[var(--text-tertiary)]">
-              No one enrolled{cohortFilter ? ' in this cohort' : ''} yet.
+              No students enrolled in this programme{cohortFilter ? "'s selected cohort" : ''} yet.
               Upload a <Link href="/institution/roster" className="text-[var(--accent-blue)] hover:underline">roster</Link> or assign existing members.
             </p>
           </div>
         ) : (
           <ul className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-md divide-y divide-[var(--border-default)]">
-            {[...active, ...other].map((e) => (
-              <li key={e.id} className="px-4 py-3 flex items-center gap-3">
+            {[...signedUp, ...notYet].map((r) => {
+              const claimed = r.status === 'claimed'
+              const name = r.claimed_user?.full_name ?? r.full_name_hint ?? r.email_hint ?? r.matriculation_number
+              const email = r.claimed_user?.email ?? r.email_hint ?? null
+              return (
+              <li key={r.id} className="px-4 py-3 flex items-center gap-3">
                 <div className="h-8 w-8 rounded-full bg-[var(--accent-primary)] flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden">
-                  {e.user?.avatar_url
-                    ? <img src={e.user.avatar_url} alt="" className="h-8 w-8 object-cover" />
-                    : getInitials(e.user?.full_name)}
+                  {r.claimed_user?.avatar_url
+                    ? <img src={r.claimed_user.avatar_url} alt="" className="h-8 w-8 object-cover" />
+                    : getInitials(name)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-[var(--text-primary)] truncate">
-                    {[e.user?.title, e.user?.full_name].filter(Boolean).join(' ') || e.user?.email || 'Unknown'}
+                    {[r.claimed_user?.title, name].filter(Boolean).join(' ') || 'Unknown'}
                   </p>
                   <p className="text-xs text-[var(--text-tertiary)] truncate">
-                    {e.user?.email}
-                    {e.matriculation_number && <span className="ml-2 font-mono text-[10px]">· {e.matriculation_number}</span>}
+                    {email}
+                    <span className="ml-2 font-mono text-[10px]">· {r.matriculation_number}</span>
                   </p>
                 </div>
-                {e.cohort && (
+                {r.cohort && (
                   <span className="text-[10px] text-[var(--text-tertiary)] flex-shrink-0">
-                    {e.cohort.year}{e.cohort.label && ` ${e.cohort.label}`}
+                    {r.cohort.year}{r.cohort.label && ` ${r.cohort.label}`}
                   </span>
                 )}
-                <span className={cn('text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md flex-shrink-0', STATUS_TONE[e.status])}>
-                  {e.status.replace('_', ' ')}
+                <span
+                  className={cn(
+                    'text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md flex-shrink-0 inline-flex items-center gap-1',
+                    claimed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                  )}
+                  title={claimed ? `Signed up ${r.claimed_at ? new Date(r.claimed_at).toLocaleDateString() : ''}` : 'Not yet signed up to Plexus'}
+                >
+                  {claimed
+                    ? <><CheckCircle2 className="h-2.5 w-2.5" />Signed up</>
+                    : <><Clock className="h-2.5 w-2.5" />Not yet</>}
                 </span>
-                {e.status === 'active' && (
+                {!claimed && (
                   <button
-                    onClick={() => withdrawEnrollment(e.id, e.user?.full_name ?? e.user?.email ?? 'user')}
+                    onClick={() => removeFromRoster(r.id, name ?? r.matriculation_number)}
                     className="text-[var(--text-tertiary)] hover:text-red-600"
-                    title="Withdraw"
+                    title="Remove from roster"
                   >
-                    <UserMinus className="h-3.5 w-3.5" />
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 )}
               </li>
-            ))}
+              )
+            })}
           </ul>
         )}
       </section>
