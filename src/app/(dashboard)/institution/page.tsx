@@ -139,18 +139,12 @@ export default function InstitutionOverviewPage() {
       </section>
 
       {/* Quick actions */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-8">
-        <QuickAction
-          href="/institution/roster"
-          icon={ClipboardList}
-          title="Upload roster"
-          subtitle="Pre-load matric numbers for instant verification"
-        />
+      <section className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
         <QuickAction
           href="/institution/programmes"
           icon={GraduationCap}
           title="Programmes & cohorts"
-          subtitle="Bachelors, Masters, PhD — and who's in each"
+          subtitle="Bachelors, Masters, PhD — and who's in each. Upload a roster here to auto-provision."
         />
         <QuickAction
           href="/institution/policy"

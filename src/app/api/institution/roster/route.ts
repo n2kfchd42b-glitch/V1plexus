@@ -6,12 +6,25 @@ import { getInstitutionAdminContext } from '@/lib/admin/institutionAdmin'
 import { writeAuditEntry } from '@/lib/audit/auditLogger'
 import { parseCsv, indexHeader } from '@/lib/csv'
 import { escapeLikePattern, postgrestQuote } from '@/lib/utils'
+import {
+  slugifyProgrammeName,
+  deriveDegreeLevel,
+  generateShortCode,
+  buildProgrammeLookup,
+  cohortKey,
+  type ExistingProgramme,
+} from '@/lib/institution/rosterResolution'
+import type { DegreeLevel } from '@/types/database'
 
 /**
  * Roster (the matriculation list).
  *
  * GET  — list entries with filters (status, programme_id, cohort_id, search).
- * POST — single insert; for CSV upload use POST /api/institution/roster/bulk.
+ * POST — three modes:
+ *   { matriculation_number: ... }       → single-row insert
+ *   { csv, mode: 'preview' }            → parse + resolve, return preview only
+ *   { csv, mode: 'commit' }             → parse + resolve + auto-provision +
+ *                                          insert. (Default if `mode` omitted.)
  */
 
 const INTENDED_ROLES = ['researcher', 'student', 'supervisor', 'admin', 'coordinator', 'viewer'] as const
@@ -51,7 +64,7 @@ export async function GET(request: NextRequest) {
       claimed_user:profiles!institution_roster_entries_claimed_by_fkey(id, full_name, email)
     `, { count: 'exact' })
     .eq('institution_id', ctx.institutionId)
-    .order('status', { ascending: true }) // unclaimed first
+    .order('status', { ascending: true })
     .order('created_at', { ascending: false })
     .limit(1000)
 
@@ -59,10 +72,6 @@ export async function GET(request: NextRequest) {
   if (programmeId) q = q.eq('programme_id', programmeId)
   if (cohortId) q = q.eq('cohort_id', cohortId)
   if (search) {
-    // Search across matric, full_name, email. Wildcards in user input are
-    // escaped so they're treated literally, and the pattern is wrapped in
-    // PostgREST quotes so `,` / `)` in the search term can't break out of
-    // the .or() expression.
     const pattern = postgrestQuote(`%${escapeLikePattern(search)}%`)
     q = q.or(
       `matriculation_number.ilike.${pattern},` +
@@ -82,16 +91,17 @@ export async function POST(request: NextRequest) {
   const ctx = await getInstitutionAdminContext(supabase)
   if (!ctx) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  // Two modes:
-  //   { csv: "..." }                  → bulk CSV upload
-  //   { matriculation_number: ... }   → single-row insert
   let body: unknown
   try { body = await request.json() } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
   if (typeof body === 'object' && body !== null && 'csv' in body) {
-    return handleCsvUpload(ctx, (body as { csv: unknown }).csv)
+    const csv = (body as { csv: unknown }).csv
+    const mode = (body as { mode?: unknown }).mode
+    const resolvedMode: 'preview' | 'commit' =
+      mode === 'preview' ? 'preview' : 'commit'
+    return handleCsvUpload(ctx, csv, resolvedMode)
   }
 
   const parsed = createSchema.safeParse(body)
@@ -100,7 +110,6 @@ export async function POST(request: NextRequest) {
   }
 
   const svc = createServiceClient()
-  // Belongs-to checks
   if (parsed.data.programme_id) {
     const { data: prog } = await svc.from('institution_programmes').select('id').eq('id', parsed.data.programme_id).eq('institution_id', ctx.institutionId).maybeSingle()
     if (!prog) return NextResponse.json({ error: 'Programme not in your institution' }, { status: 400 })
@@ -165,9 +174,24 @@ interface CsvOutcome {
   warnings?: string[]
 }
 
+interface ResolvedRow {
+  line: number
+  matric: string
+  matricKey: string
+  fullName: string | null
+  email: string | null
+  intendedRole: typeof INTENDED_ROLES[number]
+  notes: string | null
+  programmeSlug: string | null
+  cohortKey: string | null
+  departmentName: string | null
+  warnings: string[]
+}
+
 async function handleCsvUpload(
   ctx: { userId: string; institutionId: string },
   csvRaw: unknown,
+  mode: 'preview' | 'commit',
 ): Promise<NextResponse> {
   if (typeof csvRaw !== 'string') {
     return NextResponse.json({ error: 'csv must be a string' }, { status: 400 })
@@ -200,43 +224,63 @@ async function handleCsvUpload(
 
   const svc = createServiceClient()
 
-  // Pre-load institution programmes + cohorts + departments for lookup.
   const [progRes, cohortRes, deptRes, existingMatricRes] = await Promise.all([
-    svc.from('institution_programmes').select('id, name').eq('institution_id', ctx.institutionId),
+    svc.from('institution_programmes')
+      .select('id, name, short_code, degree_level')
+      .eq('institution_id', ctx.institutionId),
     svc.from('institution_cohorts').select(`
       id, year, label,
-      programme:institution_programmes!inner(id, institution_id, name)
+      programme:institution_programmes!inner(id, institution_id, name, short_code)
     `).eq('programme.institution_id', ctx.institutionId),
     svc.from('departments').select('id, name').eq('institution_id', ctx.institutionId),
     svc.from('institution_roster_entries').select('matriculation_number').eq('institution_id', ctx.institutionId),
   ])
 
-  const normalise = (s: string) => s.toLowerCase().trim()
-  const progByName = new Map<string, string>()
-  for (const p of progRes.data ?? []) progByName.set(normalise(p.name), p.id)
-  const deptByName = new Map<string, string>()
-  for (const d of deptRes.data ?? []) deptByName.set(normalise(d.name), d.id)
+  const existingProgrammes: ExistingProgramme[] = (progRes.data ?? []) as ExistingProgramme[]
+  const programmeBySlug = buildProgrammeLookup(existingProgrammes)
+  const programmeById = new Map<string, ExistingProgramme>(
+    existingProgrammes.map((p) => [p.id, p])
+  )
 
-  // Cohort lookup keyed by (programme_id|year|label-normalised)
-  const cohortKey = (pid: string, year: number, label: string | null) =>
-    `${pid}|${year}|${label ? normalise(label) : ''}`
-  const cohortByKey = new Map<string, string>()
+  // Existing cohort lookup keyed by slug|year|label
+  const existingCohortByKey = new Map<string, { id: string; programmeSlug: string; year: number; label: string | null }>()
   for (const c of cohortRes.data ?? []) {
-    const prog = c.programme as { id?: string } | null
-    if (!prog?.id) continue
-    cohortByKey.set(cohortKey(prog.id, c.year, c.label), c.id)
+    const prog = c.programme as { id?: string; name?: string; short_code?: string | null } | null
+    if (!prog?.id || !prog.name) continue
+    const slug = slugifyProgrammeName(prog.name)
+    if (!slug) continue
+    const k = cohortKey(slug, c.year, c.label)
+    existingCohortByKey.set(k, { id: c.id, programmeSlug: slug, year: c.year, label: c.label })
+  }
+
+  const departmentByName = new Map<string, string>()
+  for (const d of deptRes.data ?? []) {
+    departmentByName.set(d.name.toLowerCase().trim(), d.id)
   }
 
   const existingMatric = new Set<string>(
-    (existingMatricRes.data ?? []).map((r) => normalise(r.matriculation_number))
+    (existingMatricRes.data ?? []).map((r) => r.matriculation_number.toLowerCase().trim())
   )
 
+  // ── Pass 1: per-row resolution (no writes) ──────────────────────────────
+
   const outcomes: CsvOutcome[] = []
-  const toInsert: Record<string, unknown>[] = []
+  const resolved: ResolvedRow[] = []
   const seenInBatch = new Set<string>()
 
+  // Programmes/cohorts we'll need to create. Keyed by slug / cohort key.
+  const newProgrammesBySlug = new Map<string, {
+    slug: string
+    chosenName: string
+    sourceVariants: Set<string>
+    degree_level: DegreeLevel
+    department_name: string | null
+  }>()
+  const newCohortsByKey = new Map<string, { programmeSlug: string; year: number; label: string | null }>()
+  const ambiguousProgrammes = new Map<string, Set<string>>() // slug → raw source strings (>1)
+
   for (let r = 1; r < rows.length; r++) {
-    const line = r + 1 // header is line 1
+    const line = r + 1
     const cells = rows[r]
     if (cells.every((c) => c.trim() === '')) continue
 
@@ -245,7 +289,7 @@ async function handleCsvUpload(
       outcomes.push({ line, status: 'error', reason: 'matriculation_number is required' })
       continue
     }
-    const matricKey = normalise(matricRaw)
+    const matricKey = matricRaw.toLowerCase().trim()
 
     if (existingMatric.has(matricKey)) {
       outcomes.push({ line, matric: matricRaw, status: 'skipped', reason: 'already in roster' })
@@ -258,19 +302,54 @@ async function handleCsvUpload(
 
     const rowWarnings: string[] = []
 
-    // Programme lookup — unknown programme is a soft warning, not a fatal error
-    let programmeId: string | null = null
+    // Programme resolution — match by slug; if not, plan a new one.
+    let programmeSlug: string | null = null
     if (idx.programme >= 0) {
-      const v = (cells[idx.programme] ?? '').trim()
-      if (v) {
-        programmeId = progByName.get(normalise(v)) ?? null
-        if (!programmeId) rowWarnings.push(`programme '${v}' not found — left unassigned`)
+      const rawProg = (cells[idx.programme] ?? '').trim()
+      if (rawProg) {
+        const slug = slugifyProgrammeName(rawProg)
+        if (!slug) {
+          rowWarnings.push(`programme '${rawProg}' could not be normalised — left unassigned`)
+        } else {
+          programmeSlug = slug
+          if (!programmeBySlug.has(slug)) {
+            // Plan a new programme
+            const planned = newProgrammesBySlug.get(slug)
+            const deptCellRaw = idx.department >= 0 ? (cells[idx.department] ?? '').trim() : ''
+            if (planned) {
+              planned.sourceVariants.add(rawProg)
+              if (!planned.department_name && deptCellRaw) {
+                planned.department_name = deptCellRaw
+              }
+            } else {
+              newProgrammesBySlug.set(slug, {
+                slug,
+                chosenName: rawProg,
+                sourceVariants: new Set([rawProg]),
+                degree_level: deriveDegreeLevel(rawProg),
+                department_name: deptCellRaw || null,
+              })
+            }
+          } else {
+            // Track ambiguity: existing programme name (or matched short_code)
+            // differs from the source string we just saw.
+            const existing = programmeBySlug.get(slug)!
+            if (
+              existing.name.toLowerCase() !== rawProg.toLowerCase() &&
+              (existing.short_code ?? '').toLowerCase() !== rawProg.toLowerCase()
+            ) {
+              const set = ambiguousProgrammes.get(slug) ?? new Set([existing.name])
+              set.add(rawProg)
+              ambiguousProgrammes.set(slug, set)
+            }
+          }
+        }
       }
     }
 
-    // Cohort lookup — only attempted if programme resolved
-    let cohortId: string | null = null
-    if (programmeId && idx.cohortYear >= 0) {
+    // Cohort resolution — only if we have a programme.
+    let resolvedCohortKey: string | null = null
+    if (programmeSlug && idx.cohortYear >= 0) {
       const yearRaw = (cells[idx.cohortYear] ?? '').trim()
       const labelRaw = idx.cohortLabel >= 0 ? (cells[idx.cohortLabel] ?? '').trim() : ''
       if (yearRaw) {
@@ -279,25 +358,29 @@ async function handleCsvUpload(
           outcomes.push({ line, matric: matricRaw, status: 'error', reason: `invalid cohort_year: ${yearRaw}` })
           continue
         }
-        const key = cohortKey(programmeId, yearN, labelRaw || null)
-        cohortId = cohortByKey.get(key) ?? null
-        if (!cohortId) {
-          rowWarnings.push(`cohort ${yearN}${labelRaw ? ` (${labelRaw})` : ''} not found — left unassigned`)
+        const label = labelRaw || null
+        const k = cohortKey(programmeSlug, yearN, label)
+        resolvedCohortKey = k
+        if (!existingCohortByKey.has(k) && !newCohortsByKey.has(k)) {
+          newCohortsByKey.set(k, { programmeSlug, year: yearN, label })
         }
       }
     }
 
-    // Department lookup — unknown department is a soft warning, not a fatal error
-    let departmentId: string | null = null
+    // Department — looked up against existing departments only (we don't
+    // auto-create departments; mirrors prior behaviour).
+    let departmentName: string | null = null
     if (idx.department >= 0) {
       const v = (cells[idx.department] ?? '').trim()
       if (v) {
-        departmentId = deptByName.get(normalise(v)) ?? null
-        if (!departmentId) rowWarnings.push(`department '${v}' not found — left unassigned`)
+        departmentName = v
+        if (!departmentByName.has(v.toLowerCase().trim())) {
+          rowWarnings.push(`department '${v}' not found — left unassigned`)
+        }
       }
     }
 
-    // Role — unknown role is still a hard error (it's a known enum)
+    // Role — hard error if unknown enum value.
     let intendedRole: typeof INTENDED_ROLES[number] = 'researcher'
     if (idx.role >= 0) {
       const v = (cells[idx.role] ?? '').trim().toLowerCase()
@@ -314,30 +397,216 @@ async function handleCsvUpload(
     const email = idx.email >= 0 ? (cells[idx.email] ?? '').trim() : ''
     const notes = idx.notes >= 0 ? (cells[idx.notes] ?? '').trim() : ''
 
-    toInsert.push({
-      institution_id: ctx.institutionId,
-      matriculation_number: matricRaw,
-      full_name_hint: fullName || null,
-      email_hint: email || null,
-      programme_id: programmeId,
-      cohort_id: cohortId,
-      department_id: departmentId,
-      intended_role: intendedRole,
+    resolved.push({
+      line,
+      matric: matricRaw,
+      matricKey,
+      fullName: fullName || null,
+      email: email || null,
+      intendedRole,
       notes: notes || null,
-      uploaded_by: ctx.userId,
+      programmeSlug,
+      cohortKey: resolvedCohortKey,
+      departmentName,
+      warnings: rowWarnings,
     })
     seenInBatch.add(matricKey)
     outcomes.push({ line, matric: matricRaw, status: 'inserted', ...(rowWarnings.length > 0 && { warnings: rowWarnings }) })
   }
 
-  if (toInsert.length === 0) {
+  // ── Build preview structures ────────────────────────────────────────────
+
+  // Generate short codes against the union of existing short_codes + ones
+  // already minted this batch.
+  const takenShortCodes = new Set<string>()
+  for (const p of existingProgrammes) {
+    if (p.short_code) takenShortCodes.add(p.short_code.toUpperCase())
+  }
+  const newProgrammesPlan = [...newProgrammesBySlug.values()].map((p) => {
+    const code = generateShortCode(p.chosenName, takenShortCodes)
+    takenShortCodes.add(code.toUpperCase())
+    return {
+      slug: p.slug,
+      name: p.chosenName,
+      short_code: code,
+      degree_level: p.degree_level,
+      department_name: p.department_name,
+      source_variants: [...p.sourceVariants].sort(),
+    }
+  })
+
+  const newCohortsPlan = [...newCohortsByKey.values()]
+  const supervisorList = resolved
+    .filter((r) => r.intendedRole === 'supervisor')
+    .map((r) => ({ matric: r.matric, full_name: r.fullName, email: r.email }))
+
+  const generalWarnings: string[] = []
+  for (const [slug, variants] of ambiguousProgrammes.entries()) {
+    generalWarnings.push(
+      `Programme '${slug}' matched multiple source strings: ${[...variants].join(' / ')} — treating them as the same programme.`
+    )
+  }
+
+  const inserted = outcomes.filter((o) => o.status === 'inserted').length
+  const skipped = outcomes.filter((o) => o.status === 'skipped').length
+  const errors = outcomes.filter((o) => o.status === 'error').length
+
+  if (mode === 'preview') {
+    const existingProgrammesUsed = new Set<string>()
+    for (const r of resolved) {
+      if (r.programmeSlug && programmeBySlug.has(r.programmeSlug)) {
+        existingProgrammesUsed.add(programmeBySlug.get(r.programmeSlug)!.id)
+      }
+    }
     return NextResponse.json({
-      summary: { total_rows: rows.length - 1, inserted: 0, skipped: outcomes.filter(o => o.status === 'skipped').length, errors: outcomes.filter(o => o.status === 'error').length },
+      mode: 'preview',
+      summary: {
+        total_rows: rows.length - 1,
+        students: resolved.filter((r) => r.intendedRole !== 'supervisor').length,
+        supervisors: supervisorList.length,
+        will_insert: inserted,
+        will_skip: skipped,
+        errors,
+      },
+      new_programmes: newProgrammesPlan,
+      new_cohorts: newCohortsPlan,
+      existing_programmes: [...existingProgrammesUsed]
+        .map((id) => programmeById.get(id))
+        .filter((p): p is ExistingProgramme => !!p)
+        .map((p) => ({ id: p.id, name: p.name, short_code: p.short_code, degree_level: p.degree_level })),
+      supervisors: supervisorList,
+      warnings: generalWarnings,
       outcomes,
     })
   }
 
-  const { error: insertErr } = await svc.from('institution_roster_entries').insert(toInsert)
+  // ── Commit phase ────────────────────────────────────────────────────────
+
+  if (resolved.length === 0) {
+    return NextResponse.json({
+      mode: 'commit',
+      summary: { total_rows: rows.length - 1, inserted: 0, skipped, errors },
+      new_programmes: [],
+      new_cohorts: [],
+      warnings: generalWarnings,
+      outcomes,
+    })
+  }
+
+  // 1) Provision new programmes
+  const createdProgrammeIdBySlug = new Map<string, string>()
+  const createdProgrammeRecords: { id: string; name: string; slug: string; short_code: string; degree_level: DegreeLevel }[] = []
+  if (newProgrammesPlan.length > 0) {
+    const insertRows = newProgrammesPlan.map((p) => {
+      const deptId = p.department_name
+        ? departmentByName.get(p.department_name.toLowerCase().trim()) ?? null
+        : null
+      return {
+        institution_id: ctx.institutionId,
+        name: p.name,
+        short_code: p.short_code,
+        degree_level: p.degree_level,
+        department_id: deptId,
+      }
+    })
+    const { data: progInserted, error: progErr } = await svc
+      .from('institution_programmes')
+      .insert(insertRows)
+      .select('id, name, short_code, degree_level')
+    if (progErr) {
+      return NextResponse.json({ error: `Could not create programmes: ${progErr.message}` }, { status: 500 })
+    }
+    for (const row of progInserted ?? []) {
+      const slug = slugifyProgrammeName(row.name)
+      createdProgrammeIdBySlug.set(slug, row.id)
+      createdProgrammeRecords.push({
+        id: row.id,
+        name: row.name,
+        slug,
+        short_code: row.short_code,
+        degree_level: row.degree_level as DegreeLevel,
+      })
+    }
+  }
+
+  // Combined slug→id resolver
+  const resolveProgrammeId = (slug: string | null): string | null => {
+    if (!slug) return null
+    if (programmeBySlug.has(slug)) return programmeBySlug.get(slug)!.id
+    return createdProgrammeIdBySlug.get(slug) ?? null
+  }
+
+  // 2) Provision new cohorts
+  const createdCohortIdByKey = new Map<string, string>()
+  const cohortInsertPayloads: { programme_id: string; year: number; label: string | null; key: string }[] = []
+  for (const c of newCohortsPlan) {
+    const pid = resolveProgrammeId(c.programmeSlug)
+    if (!pid) continue
+    cohortInsertPayloads.push({
+      programme_id: pid,
+      year: c.year,
+      label: c.label,
+      key: cohortKey(c.programmeSlug, c.year, c.label),
+    })
+  }
+  if (cohortInsertPayloads.length > 0) {
+    const { data: cohortInserted, error: cohortErr } = await svc
+      .from('institution_cohorts')
+      .insert(cohortInsertPayloads.map((c) => ({
+        programme_id: c.programme_id,
+        year: c.year,
+        label: c.label,
+      })))
+      .select('id, programme_id, year, label')
+    if (cohortErr) {
+      return NextResponse.json({ error: `Could not create cohorts: ${cohortErr.message}` }, { status: 500 })
+    }
+    // Reverse map: programme_id → slug, across both pre-existing and just-
+    // created programmes. We re-key by content rather than relying on insert
+    // order to stay safe.
+    const slugByProgrammeId = new Map<string, string>()
+    for (const [slug, id] of createdProgrammeIdBySlug.entries()) {
+      slugByProgrammeId.set(id, slug)
+    }
+    for (const p of existingProgrammes) {
+      slugByProgrammeId.set(p.id, slugifyProgrammeName(p.name))
+    }
+    for (const row of cohortInserted ?? []) {
+      const slug = slugByProgrammeId.get(row.programme_id)
+      if (!slug) continue
+      createdCohortIdByKey.set(cohortKey(slug, row.year, row.label), row.id)
+    }
+  }
+
+  const resolveCohortId = (key: string | null): string | null => {
+    if (!key) return null
+    if (existingCohortByKey.has(key)) return existingCohortByKey.get(key)!.id
+    return createdCohortIdByKey.get(key) ?? null
+  }
+
+  // 3) Insert roster entries
+  const insertPayload = resolved.map((r) => {
+    const programmeId = resolveProgrammeId(r.programmeSlug)
+    // Supervisors are not pinned to a single cohort.
+    const cohortId = r.intendedRole === 'supervisor' ? null : resolveCohortId(r.cohortKey)
+    const departmentId = r.departmentName
+      ? departmentByName.get(r.departmentName.toLowerCase().trim()) ?? null
+      : null
+    return {
+      institution_id: ctx.institutionId,
+      matriculation_number: r.matric,
+      full_name_hint: r.fullName,
+      email_hint: r.email,
+      programme_id: programmeId,
+      cohort_id: cohortId,
+      department_id: departmentId,
+      intended_role: r.intendedRole,
+      notes: r.notes,
+      uploaded_by: ctx.userId,
+    }
+  })
+
+  const { error: insertErr } = await svc.from('institution_roster_entries').insert(insertPayload)
   if (insertErr) {
     return NextResponse.json({ error: insertErr.message, outcomes }, { status: 500 })
   }
@@ -349,21 +618,57 @@ async function handleCsvUpload(
     resource_id: ctx.institutionId,
     institution_id: ctx.institutionId,
     details: {
-      summary: `Uploaded roster: ${toInsert.length} inserted, ${outcomes.filter(o => o.status === 'skipped').length} skipped, ${outcomes.filter(o => o.status === 'error').length} errors`,
-      inserted: toInsert.length,
-      skipped: outcomes.filter(o => o.status === 'skipped').length,
-      errors: outcomes.filter(o => o.status === 'error').length,
+      summary: `Uploaded roster: ${insertPayload.length} inserted, ${skipped} skipped, ${errors} errors, ${createdProgrammeRecords.length} new programmes, ${cohortInsertPayloads.length} new cohorts`,
+      inserted: insertPayload.length,
+      skipped,
+      errors,
+      new_programmes: createdProgrammeRecords.length,
+      new_cohorts: cohortInsertPayloads.length,
+      supervisors: supervisorList.length,
       mode: 'csv',
     },
   })
 
+  // Best-effort: log a creation event per auto-provisioned programme so the
+  // audit trail names them.
+  for (const p of createdProgrammeRecords) {
+    void writeAuditEntry({
+      actor_id: ctx.userId,
+      action: 'institution.programme.created',
+      resource_type: 'institution_programme',
+      resource_id: p.id,
+      institution_id: ctx.institutionId,
+      details: {
+        summary: `Auto-created programme ${p.name} (${p.degree_level}) from roster upload`,
+        degree_level: p.degree_level,
+        short_code: p.short_code,
+        via: 'roster_upload',
+      },
+    })
+  }
+
   return NextResponse.json({
+    mode: 'commit',
     summary: {
       total_rows: rows.length - 1,
-      inserted: toInsert.length,
-      skipped: outcomes.filter(o => o.status === 'skipped').length,
-      errors: outcomes.filter(o => o.status === 'error').length,
+      inserted: insertPayload.length,
+      skipped,
+      errors,
+      new_programmes: createdProgrammeRecords.length,
+      new_cohorts: cohortInsertPayloads.length,
+      supervisors: supervisorList.length,
     },
+    new_programmes: createdProgrammeRecords.map((p) => ({
+      id: p.id, name: p.name, short_code: p.short_code, degree_level: p.degree_level,
+    })),
+    new_cohorts: cohortInsertPayloads.map((c) => ({
+      id: createdCohortIdByKey.get(c.key) ?? null,
+      programme_id: c.programme_id,
+      year: c.year,
+      label: c.label,
+    })),
+    warnings: generalWarnings,
     outcomes,
   })
 }
+

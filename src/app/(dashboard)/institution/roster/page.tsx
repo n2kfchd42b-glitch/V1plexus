@@ -1,14 +1,14 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import {
-  Upload, FileSpreadsheet, Loader2, Search, X, Trash2, Ban,
-  CheckCircle2, AlertCircle, ClipboardList, Plus,
+  Upload, FileSpreadsheet, Loader2, Search, X, Trash2,
+  ClipboardList, Plus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { RosterEntryStatus, RosterIntendedRole, InstitutionProgramme, InstitutionCohort, Department } from '@/types/database'
+import { RosterUploadDialog } from '@/components/institution/RosterUploadDialog'
 
 interface RosterEntry {
   id: string
@@ -24,14 +24,6 @@ interface RosterEntry {
   cohort: { id: string; year: number; label: string | null } | null
   department: { id: string; name: string } | null
   claimed_user: { id: string; full_name: string | null; email: string } | null
-}
-
-interface CsvOutcome {
-  line: number
-  matric?: string
-  status: 'inserted' | 'skipped' | 'error'
-  reason?: string
-  warnings?: string[]
 }
 
 const STATUS_TONE: Record<RosterEntryStatus, string> = {
@@ -52,7 +44,6 @@ export default function RosterPage() {
   const [departments, setDepartments] = useState<Department[]>([])
   const [cohorts, setCohorts] = useState<InstitutionCohort[]>([])
   const [uploading, setUploading] = useState(false)
-  const [uploadResult, setUploadResult] = useState<{ inserted: number; skipped: number; errors: number; outcomes: CsvOutcome[] } | null>(null)
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<RosterEntry | null>(null)
 
@@ -125,67 +116,15 @@ export default function RosterPage() {
             <Plus className="h-3.5 w-3.5" />
             Add row
           </button>
-          <CsvUploadButton
-            disabled={uploading}
-            onUpload={async (csv) => {
-              setUploading(true)
-              setUploadResult(null)
-              const res = await fetch('/api/institution/roster', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ csv }),
-              })
-              setUploading(false)
-              if (!res.ok) {
-                const body = await res.json().catch(() => ({}))
-                toast.error(body.error ?? 'Upload failed')
-                return
-              }
-              const { summary, outcomes } = await res.json() as { summary: { inserted: number; skipped: number; errors: number }; outcomes: CsvOutcome[] }
-              setUploadResult({ ...summary, outcomes })
-              toast.success(`Uploaded: ${summary.inserted} inserted, ${summary.skipped} skipped, ${summary.errors} errors`)
-              await load()
-            }}
-          />
+          <button
+            onClick={() => setUploading(true)}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-hover)]"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            Upload CSV / Excel
+          </button>
         </div>
       </header>
-
-      {uploadResult && (
-        <div className="mb-6 bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-[var(--border-default)] flex items-center justify-between">
-            <div className="flex items-center gap-3 text-sm">
-              <span className="inline-flex items-center gap-1 text-emerald-700">
-                <CheckCircle2 className="h-3.5 w-3.5" /> <strong>{uploadResult.inserted}</strong> inserted
-              </span>
-              <span className="inline-flex items-center gap-1 text-amber-700">
-                <AlertCircle className="h-3.5 w-3.5" /> <strong>{uploadResult.skipped}</strong> skipped
-              </span>
-              <span className="inline-flex items-center gap-1 text-red-600">
-                <Ban className="h-3.5 w-3.5" /> <strong>{uploadResult.errors}</strong> errors
-              </span>
-            </div>
-            <button onClick={() => setUploadResult(null)} className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"><X className="h-4 w-4" /></button>
-          </div>
-          {uploadResult.outcomes.some((o) => o.status !== 'inserted' || (o.warnings && o.warnings.length > 0)) && (
-            <ul className="max-h-48 overflow-y-auto divide-y divide-[var(--border-default)]">
-              {uploadResult.outcomes
-                .filter((o) => o.status !== 'inserted' || (o.warnings && o.warnings.length > 0))
-                .map((o, i) => (
-                  <li key={i} className={cn(
-                    'px-4 py-1.5 text-xs flex items-start gap-3',
-                    o.status === 'error' ? 'text-red-700 bg-red-50/30' : o.status === 'skipped' ? 'text-amber-700 bg-amber-50/30' : 'text-amber-600 bg-amber-50/20'
-                  )}>
-                    <span className="font-mono text-[10px] w-12 flex-shrink-0 pt-0.5">line {o.line}</span>
-                    {o.matric && <span className="font-mono text-[11px] flex-shrink-0 pt-0.5">{o.matric}</span>}
-                    <span className="truncate">
-                      {o.status !== 'inserted' ? o.reason : o.warnings?.join('; ')}
-                    </span>
-                  </li>
-                ))}
-            </ul>
-          )}
-        </div>
-      )}
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -220,21 +159,17 @@ export default function RosterPage() {
           <FileSpreadsheet className="h-8 w-8 mx-auto text-[var(--text-tertiary)] mb-3" />
           <p className="text-sm font-semibold text-[var(--text-primary)]">No roster entries yet</p>
           <p className="text-xs text-[var(--text-tertiary)] mt-1 max-w-md mx-auto">
-            Upload a CSV or Excel file (.csv, .xlsx, .xls) with matric numbers (and optionally programme, cohort, department).
-            Students typing one of these matric numbers on the link page get verified instantly.
+            Upload a CSV or Excel file (.csv, .xlsx, .xls) with matric numbers.
+            Programmes and cohorts you reference are auto-created &mdash; students typing
+            a matching matric on the link page get verified instantly.
           </p>
-          <details className="mt-4 text-left max-w-md mx-auto">
-            <summary className="text-xs font-semibold text-[var(--accent-blue)] cursor-pointer">CSV / Excel format</summary>
-            <pre className="mt-2 p-3 bg-[var(--bg-app)] border border-[var(--border-default)] rounded-md text-[10px] font-mono overflow-x-auto whitespace-pre">
-{`matriculation_number,full_name,email,programme,cohort_year,cohort_label,department,intended_role
-UG-2024-001,Jane Doe,jane@ug.edu,MSc Computer Science,2024,Fall,Engineering,student
-UG-2024-002,John Roe,john@ug.edu,MSc Computer Science,2024,Fall,Engineering,student
-SUP-001,Dr. Smith,smith@ug.edu,,,,Computer Science,supervisor`}
-            </pre>
-            <p className="text-[11px] text-[var(--text-tertiary)] mt-2">
-              Only <code>matriculation_number</code> is required. Other columns are looked up by name (case-insensitive); rows referencing unknown programmes/departments are reported as errors and not inserted.
-            </p>
-          </details>
+          <button
+            onClick={() => setUploading(true)}
+            className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-lg bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-hover)]"
+          >
+            <Upload className="h-4 w-4" />
+            Upload roster
+          </button>
         </div>
       ) : (
         <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-md overflow-hidden">
@@ -314,65 +249,14 @@ SUP-001,Dr. Smith,smith@ug.edu,,,,Computer Science,supervisor`}
           onSaved={async () => { setCreating(false); setEditing(null); await load() }}
         />
       )}
+
+      {uploading && (
+        <RosterUploadDialog
+          onClose={() => setUploading(false)}
+          onCommitted={async () => { await load(); await loadMeta() }}
+        />
+      )}
     </div>
-  )
-}
-
-// ── CSV upload button ──────────────────────────────────────────────────────
-
-function CsvUploadButton({ onUpload, disabled }: { onUpload: (csv: string) => Promise<void>; disabled?: boolean }) {
-  const fileRef = useRef<HTMLInputElement>(null)
-  return (
-    <>
-      <input
-        ref={fileRef}
-        type="file"
-        accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-        className="hidden"
-        onChange={async (e) => {
-          const file = e.target.files?.[0]
-          if (!file) return
-          e.target.value = ''
-
-          const isExcel = /\.(xlsx|xls)$/i.test(file.name)
-
-          if (!isExcel && file.size > 2_000_000) {
-            toast.error('CSV is too large (max 2 MB)')
-            return
-          }
-          if (isExcel && file.size > 10_000_000) {
-            toast.error('Excel file is too large (max 10 MB)')
-            return
-          }
-
-          try {
-            let csvText: string
-            if (isExcel) {
-              const XLSX = await import('xlsx')
-              const buffer = await file.arrayBuffer()
-              const workbook = XLSX.read(buffer, { type: 'array' })
-              const sheetName = workbook.SheetNames[0]
-              if (!sheetName) throw new Error('Workbook has no sheets')
-              const sheet = workbook.Sheets[sheetName]
-              csvText = XLSX.utils.sheet_to_csv(sheet)
-            } else {
-              csvText = await file.text()
-            }
-            await onUpload(csvText)
-          } catch (err) {
-            toast.error(err instanceof Error ? err.message : 'Could not read file')
-          }
-        }}
-      />
-      <button
-        onClick={() => fileRef.current?.click()}
-        disabled={disabled}
-        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-hover)] disabled:opacity-60"
-      >
-        {disabled ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-        {disabled ? 'Uploading…' : 'Upload CSV / Excel'}
-      </button>
-    </>
   )
 }
 

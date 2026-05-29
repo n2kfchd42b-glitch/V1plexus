@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { GraduationCap, Plus, Loader2, Users, Layers, ArrowRight, X } from 'lucide-react'
+import { GraduationCap, Plus, Loader2, Users, Layers, ArrowRight, X, Upload } from 'lucide-react'
 import type { DegreeLevel, Department } from '@/types/database'
+import { RosterUploadDialog } from '@/components/institution/RosterUploadDialog'
 
 interface ProgrammeRow {
   id: string
@@ -43,6 +44,7 @@ export default function ProgrammesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [uploadingRoster, setUploadingRoster] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -97,13 +99,22 @@ export default function ProgrammesPage() {
             </p>
           </div>
         </div>
-        <button
-          onClick={() => setCreating(true)}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-hover)]"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          New programme
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setUploadingRoster(true)}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-default)] hover:border-[var(--accent-blue)]/40 text-[var(--text-secondary)] hover:text-[var(--accent-blue)]"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            Upload roster
+          </button>
+          <button
+            onClick={() => setCreating(true)}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-hover)]"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            New programme
+          </button>
+        </div>
       </header>
 
       {error && (
@@ -115,16 +126,28 @@ export default function ProgrammesPage() {
           <Layers className="h-8 w-8 mx-auto text-[var(--text-tertiary)] mb-3" />
           <p className="text-sm font-semibold text-[var(--text-primary)]">No programmes yet</p>
           <p className="text-xs text-[var(--text-tertiary)] mt-1 max-w-md mx-auto">
-            Create a programme (e.g. &ldquo;MSc Computer Science&rdquo;) to start grouping students by degree level and cohort.
-            Programmes are the prerequisite for the roster upload to know where to put each student.
+            Programmes group students by degree level and cohort. Either create one by hand, or upload a roster &mdash;
+            any programmes and cohorts referenced in the file will be auto-created.
           </p>
-          <button
-            onClick={() => setCreating(true)}
-            className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-lg bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-hover)]"
-          >
-            <Plus className="h-4 w-4" />
-            Create your first programme
-          </button>
+          <div className="mt-5 flex items-center justify-center gap-2 flex-wrap">
+            <button
+              onClick={() => setCreating(true)}
+              className="inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-lg bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-hover)]"
+            >
+              <Plus className="h-4 w-4" />
+              Create your first programme
+            </button>
+            <button
+              onClick={() => setUploadingRoster(true)}
+              className="inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--accent-blue)]/40 hover:text-[var(--accent-blue)]"
+            >
+              <Upload className="h-4 w-4" />
+              Upload a roster
+            </button>
+          </div>
+          <p className="mt-3 text-[11px] text-[var(--text-tertiary)]">
+            A roster upload auto-creates any programmes and cohorts it references.
+          </p>
         </div>
       ) : (
         <div className="space-y-8">
@@ -178,6 +201,13 @@ export default function ProgrammesPage() {
           departments={departments}
           onClose={() => setCreating(false)}
           onCreated={async () => { setCreating(false); await load(); toast.success('Programme created') }}
+        />
+      )}
+
+      {uploadingRoster && (
+        <RosterUploadDialog
+          onClose={() => setUploadingRoster(false)}
+          onCommitted={async () => { await load() }}
         />
       )}
     </div>
