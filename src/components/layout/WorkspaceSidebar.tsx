@@ -444,6 +444,8 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
 
           <button
             onClick={() => setCollapsed(c => !c)}
+            aria-label={collapsed ? t('nav.expand', 'Expand sidebar') : t('nav.collapse', 'Collapse sidebar')}
+            aria-expanded={!collapsed}
             title={collapsed ? `${t('nav.expand', 'Expand')} (⌘\\)` : `${t('nav.collapse', 'Collapse')} (⌘\\)`}
             className="flex items-center justify-center h-7 w-7 rounded-md text-[var(--text-sidebar-icon)] hover:text-white hover:bg-[var(--bg-sidebar-hover)] transition-colors duration-150 flex-shrink-0"
           >

@@ -59,7 +59,9 @@ export const viewport: Viewport = {
   themeColor: "#003d9b",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  // No maximumScale / userScalable lock — disabling zoom fails WCAG 2.1 AA
+  // (1.4.4 Resize Text), which matters for low-vision researchers and small
+  // screens. Users must be able to pinch-zoom.
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
