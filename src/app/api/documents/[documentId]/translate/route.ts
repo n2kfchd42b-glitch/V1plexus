@@ -42,7 +42,7 @@ export async function POST(
 ) {
   if (!AI_ENABLED) return NextResponse.json({ error: 'AI features are not available on your plan.' }, { status: 503 })
 
-  const rateLimitResponse = checkRateLimit(req, { limit: 15, windowMs: 60 * 60 * 1000 })
+  const rateLimitResponse = await checkRateLimit(req, { limit: 15, windowMs: 60 * 60 * 1000 })
   if (rateLimitResponse) return rateLimitResponse
 
   const { documentId } = await params

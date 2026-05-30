@@ -31,6 +31,12 @@ fly deploy            # builds Dockerfile, deploys to the "plexus-analytics" app
 - App name: `plexus-analytics`, region `cdg`. See `fly.toml`.
 - Health check: `GET /analytics/health`.
 - After deploying, set the web app's `ANALYTICS_API_URL` to the Fly service URL.
+- Required env vars on the analytics service:
+  - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — DB/storage access.
+  - `SUPABASE_JWT_SECRET` — enables local HS256 token verification (no network
+    round-trip per request). Found in Supabase → Settings → API → JWT Secret.
+    If omitted, the service falls back to validating every token over the network.
+  - `ALLOWED_ORIGINS` — comma-separated web origins for CORS.
 
 > **Note:** Railway was an earlier host for the analytics service and has been
 > superseded by Fly.io (commit `cbd26bc`). The `railway.toml` config was removed to

@@ -96,7 +96,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   // Modest rate-limit to deter spam; legitimate users submit one request.
-  const rl = checkRateLimit(request, { limit: 10, windowMs: 60 * 60 * 1000 })
+  const rl = await checkRateLimit(request, { limit: 10, windowMs: 60 * 60 * 1000 })
   if (rl) return rl
 
   const supabase = await createClient()

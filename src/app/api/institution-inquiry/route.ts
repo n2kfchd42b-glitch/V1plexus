@@ -18,7 +18,7 @@ const inquirySchema = z.object({
 
 export async function POST(request: NextRequest) {
   // 5 inquiries per hour per IP — institutions don't submit many.
-  const rateLimitResponse = checkRateLimit(request, { limit: 5, windowMs: 60 * 60 * 1000 })
+  const rateLimitResponse = await checkRateLimit(request, { limit: 5, windowMs: 60 * 60 * 1000 })
   if (rateLimitResponse) return rateLimitResponse
 
   let body: unknown

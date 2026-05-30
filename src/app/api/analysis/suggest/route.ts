@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const rateLimitResponse = checkRateLimit(req, { limit: 20, windowMs: 60 * 60 * 1000 })
+  const rateLimitResponse = await checkRateLimit(req, { limit: 20, windowMs: 60 * 60 * 1000 })
   if (rateLimitResponse) return rateLimitResponse
 
   if (!process.env.ANTHROPIC_API_KEY) {

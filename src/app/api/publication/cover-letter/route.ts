@@ -20,7 +20,7 @@ Guidelines:
 export async function POST(req: NextRequest) {
   if (!AI_ENABLED) return NextResponse.json({ error: 'AI features are not available on your plan.' }, { status: 503 })
 
-  const rateLimitResponse = checkRateLimit(req, { limit: 10, windowMs: 60 * 60 * 1000 })
+  const rateLimitResponse = await checkRateLimit(req, { limit: 10, windowMs: 60 * 60 * 1000 })
   if (rateLimitResponse) return rateLimitResponse
 
   if (!process.env.ANTHROPIC_API_KEY) {

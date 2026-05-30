@@ -10,7 +10,7 @@ const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-
 
 export async function POST(request: NextRequest) {
   // 10 invitations per 15 minutes per IP
-  const rateLimitResponse = checkRateLimit(request, { limit: 10, windowMs: 15 * 60 * 1000 })
+  const rateLimitResponse = await checkRateLimit(request, { limit: 10, windowMs: 15 * 60 * 1000 })
   if (rateLimitResponse) return rateLimitResponse
 
   // Debug: Check if API key is loaded

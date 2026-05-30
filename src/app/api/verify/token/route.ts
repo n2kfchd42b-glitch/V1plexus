@@ -11,7 +11,7 @@ import { checkRateLimit } from '@/lib/rateLimit'
  */
 export async function POST(request: NextRequest) {
   // 20 tokens per hour per IP
-  const rateLimitResponse = checkRateLimit(request, { limit: 20, windowMs: 60 * 60 * 1000 })
+  const rateLimitResponse = await checkRateLimit(request, { limit: 20, windowMs: 60 * 60 * 1000 })
   if (rateLimitResponse) return rateLimitResponse
 
   try {
