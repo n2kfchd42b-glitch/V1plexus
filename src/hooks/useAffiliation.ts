@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useCallback } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 export interface AffiliationData {
   profile: {
@@ -46,39 +47,46 @@ export interface AffiliationData {
   }>
 }
 
+async function fetchAffiliation(): Promise<AffiliationData> {
+  const res = await fetch('/api/me/institution-link', { cache: 'no-store' })
+  if (!res.ok) throw new Error('Could not load affiliation')
+  return res.json()
+}
+
 /**
  * Single source of truth for the user's institution affiliation.
  * Used by:
  *  - Header (AffiliationBadge — shows the institution + programme at a glance)
  *  - /settings (AffiliationPanel — richer detail)
  *  - LinkInstitutionCard (linked / pending / unlinked decisioning)
+ *
+ * Backed by React Query under a shared key, so the three consumers above
+ * deduplicate to a single network request and share one cache entry instead
+ * of each fetching /api/me/institution-link independently.
  */
 export function useAffiliation() {
-  const [data, setData] = useState<AffiliationData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
-  const refresh = useCallback(async () => {
-    try {
-      const res = await fetch('/api/me/institution-link', { cache: 'no-store' })
-      if (!res.ok) {
-        setError('Could not load affiliation')
-        setLoading(false)
-        return
-      }
-      setData(await res.json())
-      setError(null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Network error')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['affiliation'],
+    queryFn: fetchAffiliation,
+  })
 
-  useEffect(() => { void refresh() }, [refresh])
+  // Preserve the previous async refresh() contract — callers may await it.
+  const refresh = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: ['affiliation'] }),
+    [queryClient],
+  )
 
   const activeEnrollment = data?.enrollments.find((e) => e.status === 'active') ?? null
   const linked = !!data?.profile?.institution_id
 
-  return { data, loading, error, refresh, activeEnrollment, linked }
+  return {
+    data: data ?? null,
+    loading: isLoading,
+    error: error ? (error instanceof Error ? error.message : 'Network error') : null,
+    refresh,
+    activeEnrollment,
+    linked,
+  }
 }

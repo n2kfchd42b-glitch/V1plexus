@@ -7,6 +7,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next'
 import { KeepaliveProvider } from '@/components/layout/KeepaliveProvider'
 import { ConnectionGuard } from '@/components/layout/ConnectionGuard'
 import { AuthProvider } from '@/components/auth/AuthProvider'
+import { QueryProvider } from '@/components/layout/QueryProvider'
 import { LocaleProvider } from '@/i18n/LocaleProvider'
 import { SupabaseLockSuppressor } from '@/components/SupabaseLockSuppressor'
 import { ServiceWorkerCleanup } from '@/components/ServiceWorkerCleanup'
@@ -81,15 +82,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SyncStatusIndicator />
         <PendingJobsIndicator />
         <LocaleProvider>
-          <AuthProvider>
-            <SyncProvider>
-              <KeepaliveProvider>
-                <ConnectionGuard>
-                  {children}
-                </ConnectionGuard>
-              </KeepaliveProvider>
-            </SyncProvider>
-          </AuthProvider>
+          <QueryProvider>
+            <AuthProvider>
+              <SyncProvider>
+                <KeepaliveProvider>
+                  <ConnectionGuard>
+                    {children}
+                  </ConnectionGuard>
+                </KeepaliveProvider>
+              </SyncProvider>
+            </AuthProvider>
+          </QueryProvider>
         </LocaleProvider>
         <SupabaseLockSuppressor />
         <ServiceWorkerCleanup />
