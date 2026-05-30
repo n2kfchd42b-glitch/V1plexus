@@ -1,5 +1,6 @@
 import Papa from 'papaparse'
-import * as XLSX from 'xlsx'
+// xlsx (~1 MB) is loaded lazily inside parseExcel() so it never ships in the
+// bundle of callers that only parse CSV/TSV — important on low-bandwidth links.
 import type { ColumnSchema, ColumnType, DataRow, ParsedDataset } from '@/types/database'
 
 // ─── Type detection ──────────────────────────────────────────────────────────
@@ -144,6 +145,7 @@ export async function parseCSV(file: File): Promise<ParsedDataset> {
 // ─── Excel parsing ────────────────────────────────────────────────────────────
 
 export async function parseExcel(file: File): Promise<ParsedDataset> {
+  const XLSX = await import('xlsx')
   const buffer = await file.arrayBuffer()
   const workbook = XLSX.read(buffer, { type: 'array', cellDates: true })
   const sheetName = workbook.SheetNames[0]
