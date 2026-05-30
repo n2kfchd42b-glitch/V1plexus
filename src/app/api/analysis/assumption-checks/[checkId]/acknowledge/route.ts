@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getAnalyticsBaseUrl } from '@/lib/analyticsService'
 import { createClient, getAccessTokenFromRequest } from '@/lib/supabase/server'
 import { hasProjectAccess } from '@/lib/supabase/projectAccess'
 import { writeAuditEntry } from '@/lib/audit/auditLogger'
@@ -43,8 +44,7 @@ export async function POST(
     }
 
     // Call FastAPI endpoint
-    let analyticsUrl = process.env.ANALYTICS_API_URL || 'http://localhost:8000'
-    if (analyticsUrl && !analyticsUrl.startsWith('http')) analyticsUrl = `https://${analyticsUrl}`
+    const analyticsUrl = getAnalyticsBaseUrl()
     const accessToken = getAccessTokenFromRequest(request)
     if (!accessToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

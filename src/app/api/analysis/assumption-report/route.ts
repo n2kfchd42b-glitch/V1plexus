@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getAnalyticsBaseUrl } from '@/lib/analyticsService'
 import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
@@ -16,8 +17,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ unavailable: true })
     }
 
-    let analyticsUrl = process.env.ANALYTICS_API_URL
-    if (!analyticsUrl.startsWith('http')) analyticsUrl = `https://${analyticsUrl}`
+    const analyticsUrl = getAnalyticsBaseUrl()
 
     const fetchPromise = fetch(`${analyticsUrl}/analytics/integrity/assumption-report`, {
       method: 'POST',

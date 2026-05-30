@@ -51,9 +51,6 @@ export function ProjectScrollHeader({
   const isDocEditor  = pathname.startsWith(`/projects/${projectId}/documents/`)
   const collapsed    = !isOverview
 
-  // Doc editor needs full screen — everything else keeps the project nav.
-  if (isDocEditor) return null
-
   const tabs = [
     { slug: 'overview',  label: 'Overview',  count: null as number | null },
     ...(isThesis ? [
@@ -82,6 +79,10 @@ export function ProjectScrollHeader({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [tabs, projectId, router])
+
+  // Doc editor needs full screen — everything else keeps the project nav.
+  // (Placed after hooks so hook order stays stable across renders.)
+  if (isDocEditor) return null
 
   async function handleUnarchive() {
     const supabase = createClient()

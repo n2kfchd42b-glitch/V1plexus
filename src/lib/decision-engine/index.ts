@@ -305,7 +305,7 @@ export function getRecommendation(
 // ─── DEV TESTING HELPER ───────────────────────────────────────────────────────
 
 if (process.env.NODE_ENV === 'development') {
-  // @ts-ignore — dev-only smoke test for all 15 types
+  // dev-only smoke test for all 15 types
   if (typeof window !== 'undefined') {
     ;(window as typeof window & { __decisionEngine?: unknown }).__decisionEngine = {
       getRecommendation,

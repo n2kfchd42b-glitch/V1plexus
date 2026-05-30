@@ -18,6 +18,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { getAnalyticsBaseUrl } from '@/lib/analyticsService'
 import { createClient, getAccessTokenFromRequest } from '@/lib/supabase/server'
 import { scryptSync } from 'crypto'
 import nacl from 'tweetnacl'
@@ -115,8 +116,7 @@ export async function POST(request: NextRequest) {
     const sessionKeyHex = Buffer.from(privateKeyBytes).toString('hex')
 
     // 4. Forward to Python for in-memory signing (private key used once, discarded)
-    let analyticsUrl = process.env.ANALYTICS_API_URL || 'http://localhost:8000'
-    if (analyticsUrl && !analyticsUrl.startsWith('http')) analyticsUrl = `https://${analyticsUrl}`
+    const analyticsUrl = getAnalyticsBaseUrl()
 
     const response = await fetch(`${analyticsUrl}/api/ledger/event`, {
       method: 'POST',

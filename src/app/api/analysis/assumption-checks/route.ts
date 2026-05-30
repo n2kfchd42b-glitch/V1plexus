@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getAnalyticsBaseUrl } from '@/lib/analyticsService'
 import { createClient, getAccessTokenFromRequest } from '@/lib/supabase/server'
 import type { AssumptionCheckResult } from '@/types/analysisIntegrity'
 
@@ -44,8 +45,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    let analyticsUrl = process.env.ANALYTICS_API_URL
-    if (!analyticsUrl.startsWith('http')) analyticsUrl = `https://${analyticsUrl}`
+    const analyticsUrl = getAnalyticsBaseUrl()
 
     const fetchPromise = fetch(
       `${analyticsUrl}/analytics/integrity/assumption-checks`,

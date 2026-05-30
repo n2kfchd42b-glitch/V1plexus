@@ -202,7 +202,7 @@ export function createRegressionData(
   const predictorIndices = predictorColumns.map(p => encodingContext.originalColumns.indexOf(p))
   
   // Map encoded column names back to just predictors
-  let encodedPredictorNames: string[] = []
+  const encodedPredictorNames: string[] = []
   let colIdx = 0
   for (const classification of encodingContext.classifications) {
     if (!predictorColumns.includes(classification.name)) {

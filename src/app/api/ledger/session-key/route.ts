@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { getAnalyticsBaseUrl } from '@/lib/analyticsService'
 import { createClient, getAccessTokenFromRequest } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
@@ -26,8 +27,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
 
-    let analyticsUrl = process.env.ANALYTICS_API_URL || 'http://localhost:8000'
-    if (analyticsUrl && !analyticsUrl.startsWith('http')) analyticsUrl = `https://${analyticsUrl}`
+    const analyticsUrl = getAnalyticsBaseUrl()
 
     const response = await fetch(`${analyticsUrl}/api/ledger/session-key`, {
       method: 'POST',

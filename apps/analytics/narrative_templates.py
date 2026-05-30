@@ -86,7 +86,7 @@ def _cox_regression(r: dict) -> str:
             f"with {direction} hazard of {outcome} (HR = {_fmt(HR, 3)}{ci_str}, {_sig(p)}).")
 
 
-def _t_test(r: dict) -> str:
+def _t_test(r: dict, *, paired: bool = False) -> str:
     group_a = r.get("group_a", "Group A")
     group_b = r.get("group_b", "Group B")
     outcome = r.get("outcome", "the outcome")
@@ -102,11 +102,12 @@ def _t_test(r: dict) -> str:
     means_str = (f" Mean {outcome}: {_fmt(mean_a)} in {group_a} vs {_fmt(mean_b)} in {group_b}."
                  if mean_a is not None and mean_b is not None else "")
     sig = "significant" if p and p < 0.05 else "non-significant"
-    return (f"An independent samples t-test{t_str} revealed a {sig} difference in {outcome} "
+    test_name = "A paired samples t-test" if paired else "An independent samples t-test"
+    return (f"{test_name}{t_str} revealed a {sig} difference in {outcome} "
             f"between {group_a} and {group_b} (mean difference = {_fmt(diff)}{ci_str}, {_sig(p)}).{means_str}")
 
 
-def _anova(r: dict) -> str:
+def _anova(r: dict, *, two_way: bool = False) -> str:
     factor = r.get("factor", "the grouping variable")
     outcome = r.get("outcome", "the outcome")
     F_stat = r.get("F_statistic") or r.get("F")
@@ -120,11 +121,14 @@ def _anova(r: dict) -> str:
     eta_str = f" Effect size: η² = {_fmt(eta_sq, 3)}." if eta_sq is not None else ""
     n_str = f" (n = {n})" if n else ""
     sig = "statistically significant" if p and p < 0.05 else "non-significant"
-    return (f"One-way ANOVA{n_str} revealed a {sig} effect of {factor} on {outcome} "
+    test_name = "Two-way ANOVA" if two_way else "One-way ANOVA"
+    # For two-way designs `factor` names the specific term whose effect is reported.
+    term_label = f"the {factor} term" if two_way else factor
+    return (f"{test_name}{n_str} revealed a {sig} effect of {term_label} on {outcome} "
             f"({f_str}{_sig(p)}).{eta_str}")
 
 
-def _chi_square(r: dict) -> str:
+def _chi_square(r: dict, *, fishers: bool = False) -> str:
     var_a = r.get("variable_a", "the exposure")
     var_b = r.get("variable_b", "the outcome")
     chi2 = r.get("chi2_statistic") or r.get("chi2")
@@ -133,23 +137,32 @@ def _chi_square(r: dict) -> str:
     cramers_v = r.get("cramers_v")
     n = r.get("n")
 
-    chi_str = (f"χ²({int(df_val) if df_val else '?'}) = {_fmt(chi2, 3)}, "
-               if chi2 is not None else "")
     v_str = f" Cramér's V = {_fmt(cramers_v, 3)}." if cramers_v is not None else ""
     n_str = f" (n = {n})" if n else ""
     sig = "a statistically significant" if p and p < 0.05 else "no statistically significant"
+    if fishers:
+        # Fisher's exact test does not yield a chi-square statistic or degrees of freedom.
+        return (f"Fisher's exact test{n_str} revealed {sig} association between {var_a} and {var_b} "
+                f"({_sig(p)}).{v_str}")
+    chi_str = (f"χ²({int(df_val) if df_val else '?'}) = {_fmt(chi2, 3)}, "
+               if chi2 is not None else "")
     return (f"A chi-square test{n_str} revealed {sig} association between {var_a} and {var_b} "
             f"({chi_str}{_sig(p)}).{v_str}")
 
 
-def _correlation(r: dict) -> str:
+def _correlation(r: dict, *, method: str | None = None) -> str:
     var_a = r.get("variable_a", "Variable A")
     var_b = r.get("variable_b", "Variable B")
     rho = r.get("r") or r.get("rho") or r.get("correlation")
     p = r.get("p_value")
     ci_l, ci_u = r.get("ci_lower"), r.get("ci_upper")
     n = r.get("n")
-    method = "Pearson" if r.get("method", "pearson") == "pearson" else "Spearman"
+    # Prefer the explicit method from the analysis type; fall back to the result dict.
+    resolved = (method or r.get("method") or "pearson").lower()
+    is_spearman = resolved.startswith("spearman")
+    method_label = "Spearman" if is_spearman else "Pearson"
+    # Spearman measures monotonic association on ranks; Pearson measures linear association.
+    relationship = "monotonic relationship" if is_spearman else "linear relationship"
 
     magnitude = (
         "negligible" if abs(rho or 0) < 0.1 else
@@ -161,8 +174,9 @@ def _correlation(r: dict) -> str:
     direction = "positive" if (rho or 0) >= 0 else "negative"
     ci_str = f" (95% CI: {_fmt(ci_l)} to {_fmt(ci_u)})" if ci_l is not None and ci_u is not None else ""
     n_str = f" (n = {n})" if n else ""
-    return (f"{method} correlation{n_str} indicated a {magnitude} {direction} relationship "
-            f"between {var_a} and {var_b} (r = {_fmt(rho, 3)}{ci_str}, {_sig(p)}).")
+    coef = "ρ" if is_spearman else "r"
+    return (f"{method_label} correlation{n_str} indicated a {magnitude} {direction} {relationship} "
+            f"between {var_a} and {var_b} ({coef} = {_fmt(rho, 3)}{ci_str}, {_sig(p)}).")
 
 
 def _descriptive(r: dict) -> str:
@@ -191,15 +205,17 @@ TEMPLATE_MAP: dict[str, Any] = {
     "logistic_regression":          _logistic_regression,
     "cox_regression":               _cox_regression,
     "cox_ph":                       _cox_regression,
-    "independent_t_test":           _t_test,
-    "paired_t_test":                _t_test,
-    "one_way_anova":                _anova,
-    "two_way_anova":                _anova,
-    "anova":                        _anova,
-    "chi_square":                   _chi_square,
-    "fishers_exact":                _chi_square,
-    "pearson_correlation":          _correlation,
-    "spearman_correlation":         _correlation,
+    "independent_t_test":           lambda r: _t_test(r, paired=False),
+    "t_test":                       lambda r: _t_test(r, paired=False),
+    "paired_t_test":                lambda r: _t_test(r, paired=True),
+    "one_way_anova":                lambda r: _anova(r, two_way=False),
+    "two_way_anova":                lambda r: _anova(r, two_way=True),
+    "anova":                        lambda r: _anova(r, two_way=False),
+    "chi_square":                   lambda r: _chi_square(r, fishers=False),
+    "fishers_exact":                lambda r: _chi_square(r, fishers=True),
+    "pearson_correlation":          lambda r: _correlation(r, method="pearson"),
+    "spearman_correlation":         lambda r: _correlation(r, method="spearman"),
+    "correlation":                  _correlation,
     "descriptive":                  _descriptive,
     "descriptive_statistics":       _descriptive,
 }

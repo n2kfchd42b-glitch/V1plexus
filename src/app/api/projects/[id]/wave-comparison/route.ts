@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getAnalyticsBaseUrl } from '@/lib/analyticsService'
 import { createClient } from '@/lib/supabase/server'
 import { hasProjectAccess } from '@/lib/supabase/projectAccess'
 import type { WaveConsistencyReport } from '@/types/qualityIntelligence'
@@ -74,8 +75,7 @@ export async function POST(
     }
 
     // Call FastAPI backend to compute wave consistency
-    let analyticsUrl = process.env.ANALYTICS_API_URL || 'http://localhost:8000'
-    if (analyticsUrl && !analyticsUrl.startsWith('http')) analyticsUrl = `https://${analyticsUrl}`
+    const analyticsUrl = getAnalyticsBaseUrl()
     
     const session = await supabase.auth.getSession()
     const accessToken = session.data.session?.access_token

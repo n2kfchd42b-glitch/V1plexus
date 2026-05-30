@@ -1,5 +1,6 @@
+import { getAnalyticsBaseUrl } from '@/lib/analyticsService'
 export async function GET() {
-  const analyticsUrl = process.env.ANALYTICS_API_URL || 'http://localhost:8000'
+  const analyticsUrl = getAnalyticsBaseUrl()
   try {
     const res = await fetch(`${analyticsUrl}/analytics/health`, {
       signal: AbortSignal.timeout(5000),

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getAnalyticsBaseUrl } from '@/lib/analyticsService'
 import { createClient } from '@/lib/supabase/server'
 
 export async function POST(req: NextRequest) {
@@ -14,8 +15,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    let analyticsUrl = process.env.ANALYTICS_API_URL || 'http://localhost:8000'
-    if (analyticsUrl && !analyticsUrl.startsWith('http')) analyticsUrl = `https://${analyticsUrl}`
+    const analyticsUrl = getAnalyticsBaseUrl()
     const session = await supabase.auth.getSession()
     const token = session.data.session?.access_token
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
