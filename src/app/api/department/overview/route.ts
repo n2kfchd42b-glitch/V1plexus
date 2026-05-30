@@ -1,49 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
+import { getScope } from '@/lib/admin/scope'
 
 // GET /api/department/overview
-// Returns all supervisors + their students + milestone stats for the caller's workspace.
-// Accessible by workspace owners, admins, and supervisors.
+// Returns supervisors + their students + milestone stats within the caller's
+// scope. Institution admins see every department; department heads see only
+// their own; supervisors see only their own assignments.
 export async function GET(_req: NextRequest) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const scope = await getScope(supabase)
+  if (!scope) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  // Resolve caller's workspace
-  const { data: membership } = await supabase
-    .from('workspace_memberships')
-    .select('workspace_id, role')
-    .eq('user_id', user.id)
-    .eq('status', 'active')
-    .single()
+  const svc = createServiceClient()
 
-  if (!membership) return NextResponse.json({ error: 'No active workspace' }, { status: 403 })
-
-  const allowedRoles = ['owner', 'admin', 'department_head', 'supervisor']
-  if (!allowedRoles.includes(membership.role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  // Resolve the department set for this caller.
+  let allowedDeptIds: string[]
+  if (scope.departmentIds === 'all') {
+    const { data: depts } = await svc
+      .from('departments')
+      .select('id')
+      .eq('institution_id', scope.institutionId)
+    allowedDeptIds = (depts ?? []).map(d => d.id as string)
+  } else {
+    allowedDeptIds = scope.departmentIds
   }
 
-  const workspaceId = membership.workspace_id
+  if (allowedDeptIds.length === 0) {
+    return NextResponse.json({ institutionId: scope.institutionId, supervisors: [] })
+  }
 
-  // All active supervisor assignments in this workspace
-  const { data: assignments, error } = await supabase
+  let query = svc
     .from('supervisor_assignments')
     .select(`
       *,
       supervisor:profiles!supervisor_id(id, full_name, email, avatar_url, title),
       student:profiles!student_id(id, full_name, email, avatar_url, title)
     `)
-    .eq('workspace_id', workspaceId)
+    .in('department_id', allowedDeptIds)
     .eq('status', 'active')
     .order('assigned_at', { ascending: false })
 
+  // Supervisors without elevated roles only see their own assignments.
+  if (scope.isSupervisor && !scope.isInstitutionAdmin && !scope.isDepartmentHead) {
+    query = query.eq('supervisor_id', scope.userId)
+  }
+
+  const { data: assignments, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // Milestone stats per student
-  const studentIds = [...new Set(assignments.map(a => a.student_id))]
+  const studentIds = [...new Set((assignments ?? []).map(a => a.student_id))]
   const { data: milestones } = studentIds.length > 0
-    ? await supabase
+    ? await svc
         .from('student_milestones')
         .select('student_id, status')
         .in('student_id', studentIds)
@@ -70,7 +79,7 @@ export async function GET(_req: NextRequest) {
     }>
   }>()
 
-  for (const a of assignments) {
+  for (const a of (assignments ?? [])) {
     const supId = a.supervisor_id
     if (!supervisorMap.has(supId)) {
       supervisorMap.set(supId, { supervisor: a.supervisor, students: [] })
@@ -92,5 +101,5 @@ export async function GET(_req: NextRequest) {
     pending_review: entry.students.reduce((s, st) => s + st.milestone_summary.pending_review, 0),
   }))
 
-  return NextResponse.json({ workspaceId, supervisors: result })
+  return NextResponse.json({ institutionId: scope.institutionId, supervisors: result })
 }

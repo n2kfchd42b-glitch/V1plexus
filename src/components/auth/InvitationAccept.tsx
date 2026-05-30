@@ -147,7 +147,7 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
       // not from the pre-accept invitation join — RLS on `workspaces` only
       // allows SELECT once the user is a member.
       let isInstitutionalLead = false
-      if (workspaceInvite.role === 'admin') {
+      if (workspaceInvite.role === 'admin' || workspaceInvite.role === 'department_head') {
         const { data: ws } = await supabase
           .from('workspaces')
           .select('type, institution_id')
@@ -155,15 +155,20 @@ export function InvitationAccept({ token }: InvitationAcceptProps) {
           .maybeSingle()
 
         if (ws?.type === 'institutional' && ws.institution_id) {
-          isInstitutionalLead = true
+          isInstitutionalLead = workspaceInvite.role === 'admin'
+          const profileUpdate: Record<string, unknown> = {
+            institution_id: ws.institution_id,
+            workspace_setup_completed: true,
+            onboarding_completed: true,
+          }
+          if (workspaceInvite.role === 'admin') profileUpdate.role = 'admin'
+          // department_head invites keep the user's existing profile.role
+          // (typically 'researcher' or 'pi'); the department_head capability
+          // is granted by the workspace_memberships row alone.
+
           const { error: profileErr } = await supabase
             .from('profiles')
-            .update({
-              institution_id: ws.institution_id,
-              role: 'admin',
-              workspace_setup_completed: true,
-              onboarding_completed: true,
-            })
+            .update(profileUpdate)
             .eq('id', user.id)
           if (profileErr) {
             toast.error(profileErr.message)

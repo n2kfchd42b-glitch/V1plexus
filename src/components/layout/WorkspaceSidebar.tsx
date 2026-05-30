@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   FolderOpen, LogOut, ChevronLeft, ChevronRight, Command,
-  Users, GraduationCap, Inbox, UserCheck, Shield,
+  Users, GraduationCap, Inbox, UserCheck, Shield, Building2,
 } from 'lucide-react'
 import { INSTITUTION_NAV, isInstitutionNavActive } from '@/components/layout/institutionNav'
 import { createClient } from '@/lib/supabase/client'
@@ -30,6 +30,7 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
   const [isStudent, setIsStudent] = useState(false)
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
   const [isInstitutionAdmin, setIsInstitutionAdmin] = useState(false)
+  const [headDepartments, setHeadDepartments] = useState<Array<{ id: string; name: string }>>([])
   const [thesisProjectId, setThesisProjectId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -51,11 +52,13 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
           is_student: boolean
           is_platform_admin?: boolean
           is_institution_admin?: boolean
+          head_departments?: Array<{ id: string; name: string }>
         }
         setIsSupervisor(data.is_supervisor)
         setIsStudent(data.is_student)
         setIsPlatformAdmin(data.is_platform_admin === true)
         setIsInstitutionAdmin(data.is_institution_admin === true)
+        setHeadDepartments(data.head_departments ?? [])
       } catch {
         /* leave previous state */
       }
@@ -217,6 +220,35 @@ export function WorkspaceSidebar({ profile, onSignOut, onCommandPalette }: Works
                   {!collapsed && <span className="text-sm font-medium">Inbox</span>}
                 </div>
               </Link>
+
+              {/* Department head — link to the dept board. Hidden for institution
+                  admins, since they reach departments via the Institution group. */}
+              {!isInstitutionAdmin && headDepartments.map((dept) => {
+                const href = `/department/${dept.id}`
+                const active = pathname === href || pathname.startsWith(href + '/')
+                return (
+                  <Link key={dept.id} href={href} title={collapsed ? dept.name : undefined}>
+                    <div className={cn(
+                      'relative flex items-center gap-3 h-8 rounded-md transition-all duration-150 ease-out cursor-pointer select-none',
+                      collapsed ? 'justify-center px-0 w-8 mx-auto' : 'px-2.5',
+                      active
+                        ? 'bg-[var(--bg-sidebar-active)] text-[var(--text-sidebar-active)]'
+                        : 'text-[var(--text-sidebar)] hover:bg-[var(--bg-sidebar-hover)] hover:text-white/80'
+                    )}>
+                      {active && (
+                        <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-[var(--accent-primary)]" />
+                      )}
+                      <Building2 className={cn('flex-shrink-0 h-4 w-4', active ? 'text-white' : 'text-[var(--text-sidebar-icon)]')} />
+                      {!collapsed && (
+                        <span className="text-sm font-medium truncate">
+                          {headDepartments.length === 1 ? 'My Department' : dept.name}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                )
+              })}
+
               <div className="my-2 h-px bg-white/10" />
             </>
           )
