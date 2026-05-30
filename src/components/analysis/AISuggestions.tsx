@@ -150,12 +150,20 @@ export function AISuggestions({
                         <p className="text-xs text-[var(--text-secondary)] mt-0.5 leading-relaxed">{s.reason}</p>
                       </div>
                     </div>
-                    <span className={`flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded border capitalize ${CONFIDENCE_STYLES[s.confidence]}`}>
-                      {s.confidence}
+                    <span
+                      title="AI-assessed fit — not a statistical confidence level"
+                      className={`flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded border capitalize ${CONFIDENCE_STYLES[s.confidence]}`}
+                    >
+                      AI: {s.confidence}
                     </span>
                   </div>
                 </button>
               ))}
+              <p className="text-[11px] text-[var(--text-tertiary)] leading-relaxed pt-1">
+                AI-generated recommendations based on your project text. Verify the
+                methodological fit against your data and design before relying on them —
+                these are a starting point, not statistical advice.
+              </p>
             </div>
           )}
 

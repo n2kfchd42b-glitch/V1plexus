@@ -221,15 +221,40 @@ TEMPLATE_MAP: dict[str, Any] = {
 }
 
 
+# Analyses that produce an inferential p-value and therefore warrant the
+# estimate-over-p / multiple-comparisons caveat. Descriptive summaries do not.
+_INFERENTIAL_TYPES = {
+    "linear_regression", "multiple_linear_regression", "logistic_regression",
+    "cox_regression", "cox_ph", "independent_t_test", "t_test", "paired_t_test",
+    "one_way_anova", "two_way_anova", "anova", "chi_square", "fishers_exact",
+    "pearson_correlation", "spearman_correlation", "correlation",
+}
+
+
+def _inferential_caveat(analysis_type: str) -> str:
+    """
+    A standard methodological caveat appended to inferential narratives, nudging
+    the reader toward the effect estimate and its confidence interval rather than
+    a dichotomous p < 0.05 verdict, and flagging that the p-value is unadjusted
+    for multiple comparisons. Aligns with ASA / Cochrane reporting guidance.
+    """
+    if analysis_type in _INFERENTIAL_TYPES:
+        return (" Interpret the effect estimate and its 95% confidence interval "
+                "rather than the p-value alone; the p-value is not adjusted for "
+                "multiple comparisons.")
+    return ""
+
+
 def generate_deterministic_narrative(analysis_type: str, result: dict) -> str:
     fn = TEMPLATE_MAP.get(analysis_type)
     if fn:
         try:
-            return fn(result)
+            return fn(result) + _inferential_caveat(analysis_type)
         except Exception as e:
             logger.warning(f"Narrative template failed for {analysis_type}: {e}")
 
     key = result.get("key_result") or result.get("estimate")
     p = result.get("p_value")
     label = analysis_type.replace("_", " ")
-    return f"The {label} analysis yielded a key estimate of {_fmt(key)} ({_sig(p)})."
+    return (f"The {label} analysis yielded a key estimate of {_fmt(key)} ({_sig(p)})."
+            + _inferential_caveat(analysis_type))
