@@ -121,6 +121,11 @@ function ManageHeadsModal({
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteMsg, setInviteMsg] = useState('')
   const [inviting, setInviting] = useState(false)
+  // Plexus-aware lookup state (null = empty/unchecked, undefined = loading)
+  const [lookup, setLookup] = useState<null | undefined | {
+    profile: (ProfileLite & { institution_id: string | null }) | null
+    same_institution: boolean
+  }>(null)
 
   // Lazy-load members on open
   useEffect(() => {
@@ -130,6 +135,31 @@ function ManageHeadsModal({
       .then((data: { members: MemberRow[] } | null) => setMembers(data?.members ?? []))
       .catch(() => {})
   }, [open])
+
+  // Debounce-lookup the email against Plexus profiles, so we can offer direct
+  // promotion when the invitee already has an account (Fix 1 of PR 13).
+  useEffect(() => {
+    const email = inviteEmail.trim().toLowerCase()
+    if (!email || !email.includes('@') || !email.includes('.')) {
+      setLookup(null)
+      return
+    }
+    setLookup(undefined) // loading
+    const handle = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/institution/profiles/lookup?email=${encodeURIComponent(email)}`)
+        if (!res.ok) { setLookup({ profile: null, same_institution: false }); return }
+        const body = await res.json() as {
+          profile: (ProfileLite & { institution_id: string | null }) | null
+          same_institution: boolean
+        }
+        setLookup(body)
+      } catch {
+        setLookup({ profile: null, same_institution: false })
+      }
+    }, 350)
+    return () => clearTimeout(handle)
+  }, [inviteEmail])
 
   const headIds = useMemo(() => new Set((dept?.heads ?? []).map(h => h.id)), [dept])
   const candidates = useMemo(() => {
@@ -187,25 +217,49 @@ function ManageHeadsModal({
     e.preventDefault()
     if (!dept || !inviteEmail.trim()) return
     setInviting(true)
+
+    // Plexus-aware branching:
+    //   - profile exists, same institution → promote directly (no email)
+    //   - profile exists, unaffiliated     → link + promote directly (no email)
+    //   - profile exists, other institution OR no profile → invite by email
+    let body: Record<string, unknown>
+    let action: 'promote' | 'invite' = 'invite'
+    if (lookup && lookup.profile) {
+      const otherInstitution = !lookup.same_institution && lookup.profile.institution_id !== null
+      if (otherInstitution) {
+        body = { email: inviteEmail.trim(), message: inviteMsg.trim() || undefined }
+      } else {
+        body = { user_id: lookup.profile.id, link_to_institution: !lookup.same_institution }
+        action = 'promote'
+      }
+    } else {
+      body = { email: inviteEmail.trim(), message: inviteMsg.trim() || undefined }
+    }
+
     const res = await fetch(`/api/institution/departments/${dept.id}/heads`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email: inviteEmail.trim(), message: inviteMsg.trim() || undefined }),
+      body: JSON.stringify(body),
     })
     setInviting(false)
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      toast.error(body.error ?? 'Could not send invitation')
+      const resBody = await res.json().catch(() => ({}))
+      toast.error(resBody.error ?? 'Could not assign head')
       return
     }
-    const body = await res.json()
-    if (body.email_warning) {
-      toast.warning(`Invitation recorded, but email failed: ${body.email_warning}`)
+    const resBody = await res.json()
+    if (action === 'promote') {
+      toast.success(resBody.linked
+        ? `${lookup?.profile?.full_name ?? inviteEmail.trim()} added to institution and promoted to head`
+        : `${lookup?.profile?.full_name ?? inviteEmail.trim()} promoted to head`)
+    } else if (resBody.email_warning) {
+      toast.warning(`Invitation recorded, but email failed: ${resBody.email_warning}`)
     } else {
       toast.success(`Invitation sent to ${inviteEmail.trim()}`)
     }
     setInviteEmail('')
     setInviteMsg('')
+    setLookup(null)
     onChanged()
   }
 
@@ -283,7 +337,8 @@ function ManageHeadsModal({
           </ul>
         </div>
 
-        {/* Invite by email */}
+        {/* Invite by email — Plexus-aware: if the email matches an existing
+            profile we offer direct promotion instead of sending mail. */}
         <form onSubmit={invite} className="space-y-2 pt-2 border-t border-slate-100">
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Or invite by email</p>
           <input
@@ -294,20 +349,60 @@ function ManageHeadsModal({
             placeholder="head@university.edu"
             className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200"
           />
+
+          {/* Plexus-awareness hint */}
+          {(() => {
+            if (lookup === undefined) {
+              return (
+                <p className="text-[10px] text-slate-400 inline-flex items-center gap-1">
+                  <Loader2 className="h-2.5 w-2.5 animate-spin" /> Checking Plexus…
+                </p>
+              )
+            }
+            if (!lookup) return null
+            if (!lookup.profile) {
+              return (
+                <p className="text-[10px] text-slate-500">
+                  Not on Plexus — they&apos;ll receive an invitation email.
+                </p>
+              )
+            }
+            const p = lookup.profile
+            const name = p.full_name ?? p.email
+            const otherInstitution = !lookup.same_institution && p.institution_id !== null
+            const tone = otherInstitution
+              ? 'bg-amber-50 border-amber-200 text-amber-800'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            return (
+              <div className={cn('text-[11px] rounded-md border px-2 py-1.5', tone)}>
+                <strong>{name}</strong> is already on Plexus
+                {lookup.same_institution && ' and in your institution. They\'ll be promoted directly — no email.'}
+                {!lookup.same_institution && !otherInstitution && '. They\'ll be added to your institution and promoted directly — no email.'}
+                {otherInstitution && '. They\'re affiliated with another institution, so an invitation will be sent.'}
+              </div>
+            )
+          })()}
+
           <textarea
             value={inviteMsg}
             onChange={(e) => setInviteMsg(e.target.value)}
-            placeholder="Optional message…"
+            placeholder="Optional message (only sent if we email)…"
             rows={2}
             className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-md resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200"
           />
           <button
             type="submit"
-            disabled={inviting || !inviteEmail.trim()}
+            disabled={inviting || !inviteEmail.trim() || lookup === undefined}
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 px-3 py-1.5 rounded-md"
           >
-            {inviting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
-            Send invitation
+            {inviting
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : (lookup?.profile && (lookup.same_institution || lookup.profile.institution_id === null))
+                ? <UserPlus className="h-3.5 w-3.5" />
+                : <Mail className="h-3.5 w-3.5" />}
+            {lookup?.profile && (lookup.same_institution || lookup.profile.institution_id === null)
+              ? 'Promote directly'
+              : 'Send invitation'}
           </button>
         </form>
       </DialogContent>

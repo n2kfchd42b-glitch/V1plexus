@@ -22,7 +22,13 @@ import { EMAIL_REGEX, escapeHtml } from '@/lib/utils'
  */
 
 const promoteSchema = z.union([
-  z.object({ user_id: z.string().uuid() }),
+  z.object({
+    user_id: z.string().uuid(),
+    // Set when the caller wants to attach an existing Plexus user to this
+    // institution (they're on Plexus but profile.institution_id is null).
+    // Refused if the user is already affiliated with a DIFFERENT institution.
+    link_to_institution: z.boolean().optional(),
+  }),
   z.object({
     email: z.string().trim().toLowerCase().regex(EMAIL_REGEX, 'Invalid email'),
     message: z.string().trim().max(2000).optional(),
@@ -104,14 +110,32 @@ export async function POST(
 
   // Promote an existing member ─────────────────────────────────────────────
   if ('user_id' in parsed.data) {
-    const { user_id } = parsed.data
+    const { user_id, link_to_institution } = parsed.data
     const { data: target } = await svc
       .from('profiles')
       .select('id, full_name, email, institution_id')
       .eq('id', user_id)
       .maybeSingle()
-    if (!target || target.institution_id !== ctx.institutionId) {
-      return NextResponse.json({ error: 'User is not a member of your institution' }, { status: 400 })
+    if (!target) {
+      return NextResponse.json({ error: 'User not found' }, { status: 400 })
+    }
+
+    // Three cases:
+    //   - target.institution_id === ctx.institutionId → normal promotion
+    //   - target.institution_id === null and link_to_institution → link + promote
+    //   - target.institution_id is a different institution → must unlink first
+    const isSameInstitution = target.institution_id === ctx.institutionId
+    const isUnaffiliated   = target.institution_id === null
+
+    if (!isSameInstitution && !isUnaffiliated) {
+      return NextResponse.json({
+        error: 'User is affiliated with a different institution. Ask them to unlink first, or send an email invitation.',
+      }, { status: 409 })
+    }
+    if (!isSameInstitution && isUnaffiliated && !link_to_institution) {
+      return NextResponse.json({
+        error: 'User is on Plexus but not yet in your institution. Pass link_to_institution: true to attach them.',
+      }, { status: 409 })
     }
 
     // Block downgrading an institution admin / owner. Their existing role
@@ -127,6 +151,15 @@ export async function POST(
       return NextResponse.json({
         error: 'That user is already an institution admin and would lose scope if promoted to department head',
       }, { status: 409 })
+    }
+
+    // Link to institution if needed (case 2).
+    if (isUnaffiliated) {
+      const { error: linkErr } = await svc
+        .from('profiles')
+        .update({ institution_id: ctx.institutionId })
+        .eq('id', user_id)
+      if (linkErr) return NextResponse.json({ error: linkErr.message }, { status: 500 })
     }
 
     const { error: upsertErr } = await svc
@@ -149,13 +182,16 @@ export async function POST(
       resource_id: ctx.institutionId,
       institution_id: ctx.institutionId,
       details: {
-        summary: `Promoted ${target.full_name ?? target.email} to head of ${dept.name}`,
+        summary: isUnaffiliated
+          ? `Linked ${target.full_name ?? target.email} to institution and promoted to head of ${dept.name}`
+          : `Promoted ${target.full_name ?? target.email} to head of ${dept.name}`,
         department_id: id,
         target_user_id: user_id,
+        linked_to_institution: isUnaffiliated,
       },
     })
 
-    return NextResponse.json({ success: true, promoted: { id: user_id } })
+    return NextResponse.json({ success: true, promoted: { id: user_id }, linked: isUnaffiliated })
   }
 
   // Invite a non-member by email ───────────────────────────────────────────
