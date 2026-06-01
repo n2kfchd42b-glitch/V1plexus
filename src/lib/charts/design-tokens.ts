@@ -17,10 +17,19 @@ export const CHART_TOKENS = {
   // Ordered sequence for auto-assignment
   sequence: ['teal', 'gold', 'rose', 'violet', 'sage', 'amber', 'sky', 'slate'] as const,
 
-  // Solid colours in sequence order
+  // Solid colours in sequence order — for fills, strokes, and markers.
   solidSequence: [
     '#3fb8b0', '#d4a853', '#e05c7a', '#8b7cf8',
     '#6cb68c', '#e8944a', '#5ba4d4', '#8b949e',
+  ],
+
+  // Darkened, same-hue variants for COLOURED TEXT on white. The bright solids
+  // above sit at ~2–3.5:1 on white and fail WCAG AA (4.5:1) for small numbers;
+  // these all clear 4.6:1 while preserving the hue cue. Use for any palette-
+  // coloured statistic, p-value, or label — never use solidSequence as text.
+  textSequence: [
+    '#297f7a', '#966e22', '#c52146', '#2106df',
+    '#3d805a', '#b45e13', '#2979ad', '#68727d',
   ],
 
   // Mid (40% opacity) — used for fills & active pills
@@ -81,9 +90,14 @@ export const CHART_TOKENS = {
 
 export type PaletteName = keyof typeof CHART_TOKENS.palette
 
-// Helper: get solid colour at index (wraps)
+// Helper: get solid colour at index (wraps) — for fills/strokes/markers.
 export function chartColor(index: number): string {
   return CHART_TOKENS.solidSequence[index % CHART_TOKENS.solidSequence.length]
+}
+
+// Helper: get the WCAG-AA text colour at index (wraps) — for coloured numbers/labels.
+export function chartTextColor(index: number): string {
+  return CHART_TOKENS.textSequence[index % CHART_TOKENS.textSequence.length]
 }
 
 // Helper: get mid colour at index (wraps)

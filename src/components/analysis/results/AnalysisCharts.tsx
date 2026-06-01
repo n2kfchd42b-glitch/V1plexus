@@ -12,7 +12,7 @@ import { ChartEditor } from '@/components/analysis/ChartEditor'
 import { getDefaultConfig } from '@/lib/chartEditorConfig'
 import type { ChartEditorConfig } from '@/lib/chartEditorConfig'
 import type { AnalysisType } from '@/types/database'
-import { CHART_TOKENS, chartColor, chartColorMid, chartColorDim, AXIS_TICK_STYLE, GRID_STYLE } from '@/lib/charts/design-tokens'
+import { CHART_TOKENS, chartColor, chartColorMid, chartColorDim, chartTextColor, AXIS_TICK_STYLE, GRID_STYLE } from '@/lib/charts/design-tokens'
 
 type ChartSpec = {
   type: string
@@ -175,6 +175,31 @@ const SUPPORTED_CHART_TYPES = new Set([
   'qq_plot', 'violin', 'ridge', 'correlogram', 'dumbbell',
 ])
 
+// ── Accessible names ─────────────────────────────────────────
+// Human-readable chart kind for screen-reader labels.
+const CHART_TYPE_LABELS: Record<string, string> = {
+  histogram: 'Histogram', bar: 'Bar chart', grouped_bar: 'Grouped bar chart',
+  scatter_regression: 'Scatter plot with regression line', residual_plot: 'Residuals-vs-fitted plot',
+  coefficient_plot: 'Coefficient forest plot', forest_or: 'Forest plot of odds ratios',
+  forest_hr: 'Forest plot of hazard ratios', forest_irr: 'Forest plot of incidence-rate ratios',
+  forest_rrr: 'Forest plot of relative-risk ratios', forest_meta: 'Meta-analysis forest plot',
+  funnel_plot: 'Funnel plot', roc_curve: 'ROC curve', km_curve: 'Kaplan-Meier survival curve',
+  heatmap: 'Correlation heatmap', correlogram: 'Correlogram', time_series: 'Time-series plot',
+  scree_plot: 'Scree plot', cluster_scatter: 'Cluster scatter plot', power_curve: 'Statistical power curve',
+  epi_curve: 'Epidemic curve', acf_plot: 'Autocorrelation plot', biplot: 'PCA biplot',
+  boxplot_2group: 'Group comparison chart', boxplot_groups: 'Group comparison chart',
+  mosaic: 'Mosaic plot', paired_diff: 'Paired-difference histogram', silhouette_plot: 'Silhouette plot',
+  scatter_matrix: 'Scatter-plot matrix', qq_plot: 'Q-Q normality plot', violin: 'Violin plot',
+  ridge: 'Ridgeline density plot', dumbbell: 'Dumbbell comparison plot',
+}
+
+function chartAriaLabel(chart: ChartSpec): string {
+  const kind = CHART_TYPE_LABELS[chart.type] ?? chart.type.replace(/_/g, ' ')
+  const n = Array.isArray(chart.data) ? chart.data.length : 0
+  const series = n > 0 ? ` (${n} data point${n === 1 ? '' : 's'})` : ''
+  return `${kind}: ${chart.title}${series}. The exact values are listed in the results tables on this page.`
+}
+
 // ── Chart Wrapper ────────────────────────────────────────────
 function ChartRenderer({
   chart,
@@ -307,8 +332,14 @@ function ChartRenderer({
             </div>
           </div>
 
-          {/* Chart Body */}
-          <div className={`px-3 pb-3 pt-2 ${expanded ? 'min-h-[420px]' : ''}`} ref={chartAreaRef}>
+          {/* Chart Body — exposed to assistive tech as a labelled image; the
+              raw numbers live in the adjacent results tables. */}
+          <div
+            className={`px-3 pb-3 pt-2 ${expanded ? 'min-h-[420px]' : ''}`}
+            ref={chartAreaRef}
+            role="img"
+            aria-label={chartAriaLabel(chart)}
+          >
             <ChartRenderContext.Provider value={renderCfg}>
               {type === 'histogram'         && <HistogramChart      data={data as { x0: number; x1: number; count: number }[]} expanded={expanded} />}
               {type === 'bar'               && <FrequencyBarChart   data={data as { value: string; count: number; percent: number | string }[]} expanded={expanded} />}
@@ -414,7 +445,7 @@ function StatBadge({ label, value, colorIdx = 0 }: { label: string; value: strin
     >
       <span
         className="text-[9px] font-bold uppercase tracking-[0.14em]"
-        style={{ color: chartColor(colorIdx), fontFamily: 'Manrope, sans-serif' }}
+        style={{ color: chartTextColor(colorIdx), fontFamily: 'Manrope, sans-serif' }}
       >
         {label}
       </span>
@@ -1338,7 +1369,7 @@ function ForestRRR({ data, config }: { data: ForestRRRPoint[]; config: Record<st
           <div key={cat}>
             <div
               className="text-[10px] font-bold uppercase tracking-[0.12em] mb-3 pb-1.5"
-              style={{ color: chartColor(ci), borderBottom: `1px solid ${CHART_TOKENS.border}`, fontFamily: 'Manrope, sans-serif' }}
+              style={{ color: chartTextColor(ci), borderBottom: `1px solid ${CHART_TOKENS.border}`, fontFamily: 'Manrope, sans-serif' }}
             >
               {cat} vs {reference}
             </div>
@@ -1515,7 +1546,7 @@ function ScatterMatrix({ data, config, expanded }: { data: ScatterPair[]; config
       {data.map((pair, idx) => {
         const sample = pair.pairs.slice(0, 300)
         const rAbs = Math.abs(pair.r)
-        const rColor = pair.r >= 0 ? chartColor(0) : chartColor(4)
+        const rColor = pair.r >= 0 ? chartTextColor(0) : chartTextColor(4)
         const rLabel = `r = ${pair.r.toFixed(2)}`
         return (
           <div key={idx} className="rounded-xl overflow-hidden" style={{ border: `1px solid ${CHART_TOKENS.border}` }}>
@@ -1781,15 +1812,15 @@ function CorrelogramChart({ data, config }: { data: HeatmapData[]; config: Recor
 
               if (isUpper) {
                 const absR = Math.abs(r)
-                const textColor = r > 0 ? chartColor(0) : chartColor(4)
+                const textColor = r > 0 ? chartTextColor(0) : chartTextColor(4)
                 return (
                   <div key={v2} className="rounded-lg flex flex-col items-center justify-center gap-0.5"
                     style={{ width: cellSize, height: cellSize, background: '#fafafa', border: `1px solid ${CHART_TOKENS.border}` }}>
-                    <span className="text-[10px] font-bold tabular-nums" style={{ color: absR >= 0.3 ? textColor : CHART_TOKENS.text.muted, fontFamily: "'JetBrains Mono', monospace" }}>
+                    <span className="text-[10px] font-bold tabular-nums" style={{ color: absR >= 0.3 ? textColor : CHART_TOKENS.text.secondary, fontFamily: "'JetBrains Mono', monospace" }}>
                       {r.toFixed(2)}
                     </span>
                     {stars(p) && (
-                      <span className="text-[9px] font-bold leading-none" style={{ color: chartColor(4) }}>{stars(p)}</span>
+                      <span className="text-[9px] font-bold leading-none" style={{ color: chartTextColor(4) }}>{stars(p)}</span>
                     )}
                   </div>
                 )
@@ -1894,7 +1925,7 @@ function DumbbellChart({ data, config }: { data: DumbbellPoint[]; config: Record
               <line x1={sx1} y1={cy} x2={sx2} y2={cy} stroke={lineColor} strokeWidth={2.5} strokeOpacity={0.45} />
               <circle cx={sx1} cy={cy} r={7} fill={c1} fillOpacity={0.9} stroke="#fff" strokeWidth={2} />
               <circle cx={sx2} cy={cy} r={7} fill={c2} fillOpacity={0.9} stroke="#fff" strokeWidth={2} />
-              <text x={Math.max(sx1, sx2) + 12} y={cy + 4} fontSize={9} fill={lineColor} fontFamily="'JetBrains Mono', monospace" fontWeight={700}>
+              <text x={Math.max(sx1, sx2) + 12} y={cy + 4} fontSize={9} fill={diff >= 0 ? chartTextColor(1) : chartTextColor(0)} fontFamily="'JetBrains Mono', monospace" fontWeight={700}>
                 {diff >= 0 ? '+' : ''}{diff.toFixed(2)}
               </text>
             </g>
