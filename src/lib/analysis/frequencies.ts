@@ -17,10 +17,14 @@ export function runFrequency(data: DataRow[], config: FrequencyConfig): Analysis
     const vals = getCategoricalValues(data, rowVariable)
     const freq = countFrequencies(vals)
     const total = vals.length
-    const rows = [...freq.entries()]
+    // Cumulative % must accumulate in the SAME (descending) order the rows are
+    // displayed in — accumulating over Map insertion order gave a meaningless
+    // running total that didn't match the visible rows.
+    let cumulativeCount = 0
+    const rows: (string | number | null)[][] = [...freq.entries()]
       .sort((a, b) => b[1] - a[1])
-      .map(([value, count], i) => {
-        const cumulativeCount = [...freq.values()].slice(0, i + 1).reduce((a, b) => a + b, 0)
+      .map(([value, count]) => {
+        cumulativeCount += count
         return [value, count, fmt(count / total * 100, 1) + '%', fmt(cumulativeCount / total * 100, 1) + '%']
       })
     rows.push(['Total', total, '100.0%', '100.0%'])
@@ -46,19 +50,30 @@ export function runFrequency(data: DataRow[], config: FrequencyConfig): Analysis
     }
   }
 
-  // Cross-tabulation
-  const rowVals = getCategoricalValues(data, rowVariable)
-  const colVals = getCategoricalValues(data, colVariable)
-  const rowCats = [...new Set(rowVals)].sort()
-  const colCats = [...new Set(colVals)].sort()
-  const n = Math.min(rowVals.length, colVals.length)
+  // Cross-tabulation. Build the contingency table row-by-row, keeping only rows
+  // where BOTH variables are present — extracting each column separately and
+  // pairing by index would misalign the pairs whenever either column has missing
+  // values, corrupting the table and the chi-square test.
+  const pairs: [string, string][] = []
+  const rowCatsSet = new Set<string>()
+  const colCatsSet = new Set<string>()
+  for (const row of data) {
+    const rv = row[rowVariable]
+    const cv2 = row[colVariable]
+    if (rv === null || rv === undefined || rv === '' || cv2 === null || cv2 === undefined || cv2 === '') continue
+    const rs = String(rv)
+    const cs = String(cv2)
+    rowCatsSet.add(rs)
+    colCatsSet.add(cs)
+    pairs.push([rs, cs])
+  }
+  const rowCats = [...rowCatsSet].sort()
+  const colCats = [...colCatsSet].sort()
 
   // Build contingency table
   const table: number[][] = rowCats.map(() => new Array(colCats.length).fill(0))
-  for (let i = 0; i < n; i++) {
-    const ri = rowCats.indexOf(rowVals[i])
-    const ci = colCats.indexOf(colVals[i])
-    if (ri >= 0 && ci >= 0) table[ri][ci]++
+  for (const [rs, cs] of pairs) {
+    table[rowCats.indexOf(rs)][colCats.indexOf(cs)]++
   }
 
   const rowTotals = table.map(row => row.reduce((a, b) => a + b, 0))

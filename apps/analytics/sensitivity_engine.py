@@ -33,26 +33,30 @@ def _consistent(estimates: list[float | None]) -> bool:
 
 
 def _ols(df: pd.DataFrame, outcome: str, exposure: str, covariates: list[str]) -> dict | None:
-    from sklearn.linear_model import LinearRegression
+    """OLS via statsmodels so the standard error / p-value / CI for the exposure
+    coefficient come from the full design matrix (intercept included)."""
+    import statsmodels.api as sm
     cols = [c for c in [outcome, exposure] + covariates if c in df.columns]
     clean = df[cols].dropna()
     if len(clean) < 10:
         return None
-    X = clean[[exposure] + [c for c in covariates if c in clean.columns]]
+    X = clean[[exposure] + [c for c in covariates if c in clean.columns]].copy()
     for col in X.select_dtypes(["object", "category"]).columns:
-        X = X.copy()
         X[col] = pd.Categorical(X[col]).codes
+    X = X.apply(pd.to_numeric, errors="coerce")
     X = X.fillna(X.median(numeric_only=True))
-    y = clean[outcome].values
-    n = len(y)
-    model = LinearRegression().fit(X.values, y)
-    beta = float(model.coef_[0])
-    resid = y - model.predict(X.values)
-    denom = max(1e-10, np.sqrt(np.sum(resid ** 2) / (n - X.shape[1] - 1)) *
-                np.sqrt(max(1e-10, np.linalg.pinv(X.values.T @ X.values)[0, 0])))
-    t = beta / denom
-    p = float(2 * (1 - stats.t.cdf(abs(t), df=max(1, n - 2))))
-    se = abs(beta / t) if t != 0 else 0
+    y = pd.to_numeric(clean[outcome], errors="coerce")
+    mask = y.notna()
+    X, y = X[mask], y[mask]
+    n = int(len(y))
+    if n < 10:
+        return None
+    Xc = sm.add_constant(X, has_constant="add")
+    res = sm.OLS(y.values, Xc.values).fit()
+    # Exposure is the first predictor → index 1 (index 0 is the constant).
+    beta = float(res.params[1])
+    se = float(res.bse[1])
+    p = float(res.pvalues[1])
     return {
         "estimate": round(beta, 4),
         "ci_lower": round(beta - 1.96 * se, 4),
@@ -107,28 +111,32 @@ def _linear_sensitivity(df, outcome, exposure, covariates):
 
 
 def _logistic_sensitivity(df, outcome, exposure, covariates):
-    from sklearn.linear_model import LogisticRegression
-    from sklearn.preprocessing import StandardScaler
+    import statsmodels.api as sm
 
     def _logreg(data, cov_list):
+        """Maximum-likelihood logistic regression on the RAW (unstandardized)
+        exposure so the odds ratio is per-unit and comparable to the primary
+        analysis, with a real standard error from the model's information matrix.
+        (Previously this standardized predictors — giving a per-SD OR — and
+        fabricated the SE as |beta|/3, which forced p≈0.003 for every result.)"""
         cols = [c for c in [outcome, exposure] + cov_list if c in data.columns]
         clean = data[cols].dropna()
         if len(clean) < 20:
             return None
-        X = clean[[exposure] + [c for c in cov_list if c in clean.columns]]
+        X = clean[[exposure] + [c for c in cov_list if c in clean.columns]].copy()
         for col in X.select_dtypes(["object", "category"]).columns:
-            X = X.copy()
             X[col] = pd.Categorical(X[col]).codes
+        X = X.apply(pd.to_numeric, errors="coerce")
         X = X.fillna(X.median(numeric_only=True))
         y = pd.Categorical(clean[outcome]).codes
         if len(np.unique(y)) != 2:
             return None
-        Xs = StandardScaler().fit_transform(X.values)
-        model = LogisticRegression(max_iter=500, random_state=42).fit(Xs, y)
-        beta = float(model.coef_[0][0])
+        Xc = sm.add_constant(X, has_constant="add")
+        res = sm.Logit(np.asarray(y), Xc.values).fit(disp=0)
+        beta = float(res.params[1])  # exposure coefficient (index 0 is constant)
+        se = float(res.bse[1])
+        p = float(res.pvalues[1])
         OR = float(np.exp(beta))
-        se = abs(beta) / 3
-        p = float(2 * (1 - stats.norm.cdf(abs(beta / max(se, 1e-10)))))
         return {"estimate": round(OR, 4),
                 "ci_lower": round(float(np.exp(beta - 1.96 * se)), 4),
                 "ci_upper": round(float(np.exp(beta + 1.96 * se)), 4),

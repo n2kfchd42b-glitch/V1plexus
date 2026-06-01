@@ -53,18 +53,21 @@ def compute_evalue(
         ci_rr_null = rr_lo if abs(rr_lo - 1) < abs(rr_hi - 1) else rr_hi
         evalue_ci = _evalue_from_rr(ci_rr_null)
 
-    # Sensitivity curve: for each hypothetical confounder-exposure RR,
-    # compute the minimum confounder-outcome RR needed to explain away the effect
+    # Sensitivity curve: for each hypothetical confounder-exposure RR, compute the
+    # minimum confounder-outcome RR needed to explain away the effect. Inverting
+    # the VanderWeele bias factor RR = (rr_ue·rr_ud)/(rr_ue+rr_ud−1) for rr_ud gives
+    #   rr_ud = rr·(rr_ue − 1) / (rr_ue − rr)
+    # evaluated on the effect expressed as RR ≥ 1 (flip protective effects first).
+    rr_eff = rr if rr >= 1.0 else (1.0 / rr if rr > 0 else 1.0)
     max_axis = max(evalue_est * 1.5, 3.0)
     curve: list[dict] = []
     for rr_ue in np.linspace(1.01, max_axis, n_curve_points):
-        try:
-            num = rr * (rr_ue - 1)
-            den = rr_ue * (rr - 1) + 1
-            if den <= 0:
-                continue
-            rr_ud = max(1.0, num / den)
-        except ZeroDivisionError:
+        den = rr_ue - rr_eff
+        if den <= 0:
+            # No finite confounder-outcome RR at this rr_ue can reach the effect.
+            continue
+        rr_ud = rr_eff * (rr_ue - 1) / den
+        if not np.isfinite(rr_ud) or rr_ud < 1.0:
             continue
         curve.append({
             "rr_confounder_exposure": round(float(rr_ue), 3),

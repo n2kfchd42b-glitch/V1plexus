@@ -18,8 +18,16 @@ import {
   fmt, fmtCI, formatPValue, getSig,
   cramersV, cohensD,
   countFrequencies, encodeCategories,
-  qqNormalData,
+  qqNormalData, logGamma,
 } from './utils'
+
+// Parse a single cell to a number, or NaN if missing/non-numeric. Used to keep
+// paired/grouped observations row-aligned (extracting columns separately and
+// dropping missing per-column would misalign the rows).
+function toNum(v: unknown): number {
+  if (v === null || v === undefined || v === '') return NaN
+  return typeof v === 'number' ? v : parseFloat(String(v))
+}
 
 // ===================== CHI-SQUARE TEST =====================
 
@@ -33,18 +41,29 @@ export interface ChiSquareConfig {
 
 export function runChiSquare(data: DataRow[], config: ChiSquareConfig): AnalysisResult {
   const { variable1, variable2, yatesCorrection, forceFisher } = config
-  const vals1 = getCategoricalValues(data, variable1)
-  const vals2 = getCategoricalValues(data, variable2)
-  const cats1 = [...new Set(vals1)].sort()
-  const cats2 = [...new Set(vals2)].sort()
-  const n = Math.min(vals1.length, vals2.length)
+  // Pair the two variables row-by-row, keeping only rows where BOTH are present.
+  // Extracting each column separately and pairing by index would misalign the
+  // pairs whenever either variable has missing values, corrupting the table.
+  const pairs: [string, string][] = []
+  const cats1Set = new Set<string>()
+  const cats2Set = new Set<string>()
+  for (const row of data) {
+    const v1 = row[variable1]
+    const v2 = row[variable2]
+    if (v1 === null || v1 === undefined || v1 === '' || v2 === null || v2 === undefined || v2 === '') continue
+    const s1 = String(v1)
+    const s2 = String(v2)
+    cats1Set.add(s1)
+    cats2Set.add(s2)
+    pairs.push([s1, s2])
+  }
+  const cats1 = [...cats1Set].sort()
+  const cats2 = [...cats2Set].sort()
 
   // Build contingency table
   const observed: number[][] = cats1.map(() => new Array(cats2.length).fill(0))
-  for (let i = 0; i < n; i++) {
-    const r = cats1.indexOf(vals1[i])
-    const c = cats2.indexOf(vals2[i])
-    if (r >= 0 && c >= 0) observed[r][c]++
+  for (const [s1, s2] of pairs) {
+    observed[cats1.indexOf(s1)][cats2.indexOf(s2)]++
   }
   const rowTotals = observed.map(row => row.reduce((a, b) => a + b, 0))
   const colTotals = cats2.map((_, ci) => observed.reduce((sum, row) => sum + row[ci], 0))
@@ -189,15 +208,20 @@ export function runTTest(data: DataRow[], config: TTestConfig): AnalysisResult {
   }
 
   if (testType === 'independent' && groupVariable) {
-    const cats = getCategoricalValues(data, groupVariable)
-    const vals = data.map(row => {
-      const v = row[variable]
-      return v !== null && v !== undefined ? parseFloat(String(v)) : NaN
-    })
-    const groups = [...new Set(cats)].sort().slice(0, 2) // Only 2 groups for t-test
-
-    const g1Vals = vals.filter((_, i) => cats[i] === groups[0] && !isNaN(vals[i]))
-    const g2Vals = vals.filter((_, i) => cats[i] === groups[1] && !isNaN(vals[i]))
+    const groups = [...new Set(getCategoricalValues(data, groupVariable))].sort().slice(0, 2) // Only 2 groups for t-test
+    // Extract group values row-by-row so a missing value in either the grouping
+    // or the outcome column never shifts the alignment between the two columns.
+    const g1Vals: number[] = []
+    const g2Vals: number[] = []
+    for (const row of data) {
+      const g = row[groupVariable]
+      if (g === null || g === undefined || g === '') continue
+      const num = toNum(row[variable])
+      if (isNaN(num)) continue
+      const gStr = String(g)
+      if (gStr === groups[0]) g1Vals.push(num)
+      else if (gStr === groups[1]) g2Vals.push(num)
+    }
 
     const m1 = mean(g1Vals), m2 = mean(g2Vals)
     const s1 = sd(g1Vals), s2 = sd(g2Vals)
@@ -264,9 +288,18 @@ export function runTTest(data: DataRow[], config: TTestConfig): AnalysisResult {
       `${Math.round(confidenceLevel * 100)}% CI: [${fmtCI(ciLow, ciHigh)}]. Cohen's d = ${fmt(d, 2)}.`
 
   } else if (testType === 'paired' && pairedVariable) {
-    const x = getNumericValues(data, variable)
-    const y = getNumericValues(data, pairedVariable)
-    const pairs = x.map((xi, i) => xi - y[i]).filter((_, i) => !isNaN(x[i]) && !isNaN(y[i]))
+    // Build pairs row-by-row, keeping only rows where BOTH measurements exist —
+    // extracting each column separately would misalign the pairs.
+    const xPaired: number[] = []
+    const yPaired: number[] = []
+    for (const row of data) {
+      const a = toNum(row[variable])
+      const b = toNum(row[pairedVariable])
+      if (isNaN(a) || isNaN(b)) continue
+      xPaired.push(a)
+      yPaired.push(b)
+    }
+    const pairs = xPaired.map((xi, i) => xi - yPaired[i])
     const n = pairs.length
     const diffMean = mean(pairs)
     const diffSD = sd(pairs)
@@ -283,8 +316,8 @@ export function runTTest(data: DataRow[], config: TTestConfig): AnalysisResult {
       rows: [[`${variable} vs ${pairedVariable}`, fmt(diffMean), fmt(diffSD), fmt(se), fmt(t), df, formatPValue(pValue), fmtCI(diffMean - tCrit * se, diffMean + tCrit * se), fmt(d, 2)]]
     })
 
-    const xFiltered = x.filter((_, i) => !isNaN(x[i]) && !isNaN(y[i]))
-    const yFiltered = y.filter((_, i) => !isNaN(x[i]) && !isNaN(y[i]))
+    const xFiltered = xPaired
+    const yFiltered = yPaired
     chartData = [
       { type: 'paired_diff', data: pairs, mean: diffMean, pValue: formatPValue(pValue) },
       { type: 'dumbbell', title: `Pre vs Post: ${variable}`, data: [{ label: 'Mean', value1: mean(xFiltered), value2: mean(yFiltered) }], config: { label1: variable, label2: pairedVariable } },
@@ -459,20 +492,23 @@ export function runAnova(data: DataRow[], config: AnovaConfig): AnalysisResult {
   // Post-hoc tests
   const posthocRows: (string | number | null)[][] = []
   if (posthoc !== 'none' && pValue < 0.05) {
+    const nComparisons = k * (k - 1) / 2
     for (let i = 0; i < groups.length; i++) {
       for (let j = i + 1; j < groups.length; j++) {
         const g1 = groupData[groups[i]], g2 = groupData[groups[j]]
         const diff = mean(g1) - mean(g2)
+        // SE of the difference under the pooled within-group variance (MSW).
         const se = Math.sqrt(msWithin * (1 / g1.length + 1 / g2.length))
-        const q = Math.abs(diff) / se
+        const tStat = Math.abs(diff) / se
         let adjP: number
         if (posthoc === 'bonferroni') {
-          const nComparisons = k * (k - 1) / 2
-          const t = q / Math.sqrt(2)
-          adjP = Math.min(1, tToP(t, dfWithin) * nComparisons)
+          // Two-sample t against MSW, p multiplied by the number of comparisons.
+          adjP = Math.min(1, tToP(tStat, dfWithin) * nComparisons)
         } else {
-          // Tukey HSD approximation
-          adjP = Math.min(1, tToP(q / Math.sqrt(2), dfWithin) * (k - 1))
+          // Tukey–Kramer HSD: the studentized range statistic is q = √2 · t,
+          // evaluated against the studentized range distribution (k, dfWithin).
+          const qStat = tStat * Math.SQRT2
+          adjP = studentizedRangeP(qStat, k, dfWithin)
         }
         posthocRows.push([`${groups[i]} vs ${groups[j]}`, fmt(diff), fmt(se), getSig(adjP), formatPValue(adjP)])
       }
@@ -523,14 +559,19 @@ function rankWithTies(sorted: { v: number; group: number | string }[]): number[]
 }
 
 function runMannWhitney(data: DataRow[], variable: string, groupVariable: string): AnalysisResult {
-  const cats = getCategoricalValues(data, groupVariable)
-  const vals = data.map(row => {
-    const v = row[variable]
-    return v !== null && v !== undefined ? parseFloat(String(v)) : NaN
-  })
-  const groups = [...new Set(cats)].sort().slice(0, 2)
-  const g1Vals = vals.filter((_, i) => cats[i] === groups[0] && !isNaN(vals[i]))
-  const g2Vals = vals.filter((_, i) => cats[i] === groups[1] && !isNaN(vals[i]))
+  const groups = [...new Set(getCategoricalValues(data, groupVariable))].sort().slice(0, 2)
+  // Row-aligned extraction (see toNum) so missing cells don't shift alignment.
+  const g1Vals: number[] = []
+  const g2Vals: number[] = []
+  for (const row of data) {
+    const g = row[groupVariable]
+    if (g === null || g === undefined || g === '') continue
+    const num = toNum(row[variable])
+    if (isNaN(num)) continue
+    const gStr = String(g)
+    if (gStr === groups[0]) g1Vals.push(num)
+    else if (gStr === groups[1]) g2Vals.push(num)
+  }
   const n1 = g1Vals.length, n2 = g2Vals.length, N = n1 + n2
 
   const combined = [
@@ -811,4 +852,66 @@ export function runCorrelation(data: DataRow[], config: CorrelationConfig): Anal
       ? `Notable correlations: ${strongCorrs.slice(0, 3).join('; ')}.`
       : 'No strong correlations (|r| ≥ 0.3) were found among the selected variables.'
   }
+}
+
+// ===================== STUDENTIZED RANGE (Tukey HSD) =====================
+// Upper-tail probability P(Q > q) of the studentized range distribution with
+// k groups and `df` error degrees of freedom — used for Tukey-Kramer post-hoc
+// p-values. Implemented by numerical integration of the exact definition and
+// validated against published critical values (see scripts test harness).
+
+const SQRT_2PI = Math.sqrt(2 * Math.PI)
+function _phi(z: number): number {
+  return Math.exp(-0.5 * z * z) / SQRT_2PI
+}
+
+// P(range of k iid N(0,1) ≤ w) = k ∫ φ(z) [Φ(z) − Φ(z − w)]^{k−1} dz.
+function _rangeCDF(w: number, k: number): number {
+  if (w <= 0) return 0
+  const lo = -8, hi = 8
+  const steps = 240 // even, for Simpson's rule
+  const h = (hi - lo) / steps
+  let sum = 0
+  for (let i = 0; i <= steps; i++) {
+    const z = lo + i * h
+    const inner = Math.max(0, normalCDF(z) - normalCDF(z - w))
+    const f = _phi(z) * Math.pow(inner, k - 1)
+    const weight = i === 0 || i === steps ? 1 : i % 2 === 1 ? 4 : 2
+    sum += weight * f
+  }
+  return Math.min(1, k * (h / 3) * sum)
+}
+
+/**
+ * Upper-tail p-value of the studentized range distribution, P(Q > q).
+ * Integrates the range CDF against the density of the studentizing factor
+ * s = √(χ²_df / df). For very large df it converges to the range distribution.
+ */
+function studentizedRangeP(q: number, k: number, df: number): number {
+  if (!(q > 0) || k < 2 || df < 1) return 1
+  if (df > 2000) return Math.max(0, Math.min(1, 1 - _rangeCDF(q, k)))
+
+  // Density of s where df·s² ~ χ²_df:
+  //   log f(s) = log2 + (df/2)·log(df) − (df/2)·log2 − logΓ(df/2)
+  //              + (df−1)·log s − df·s²/2
+  const logConst =
+    Math.log(2) + (df / 2) * Math.log(df) - (df / 2) * Math.log(2) - logGamma(df / 2)
+
+  // s concentrates near 1 with spread ~1/√(2·df); integrate a generous range.
+  const sMax = Math.max(4, 1 + 8 / Math.sqrt(df))
+  const steps = 240 // even, for Simpson's rule
+  const h = sMax / steps
+  let integral = 0
+  for (let i = 0; i <= steps; i++) {
+    const s = i * h
+    let f = 0
+    if (s > 0) {
+      const logDensity = logConst + (df - 1) * Math.log(s) - (df * s * s) / 2
+      f = Math.exp(logDensity) * _rangeCDF(q * s, k)
+    }
+    const weight = i === 0 || i === steps ? 1 : i % 2 === 1 ? 4 : 2
+    integral += weight * f
+  }
+  const cdf = (h / 3) * integral
+  return Math.max(0, Math.min(1, 1 - cdf))
 }

@@ -358,14 +358,31 @@ function euclidean(a: number[], b: number[]): number {
   return Math.sqrt(a.reduce((sum, ai, i) => sum + (ai - b[i]) ** 2, 0))
 }
 
+// Deterministic PRNG (mulberry32) so k-means is reproducible: identical input
+// data always yields identical clusters. Research outputs must be reproducible —
+// an unseeded Math.random() would give different clusters on every re-run.
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
 function kMeans(X: number[][], k: number, maxIter = 100): { assignments: number[]; centers: number[][]; wcss: number } {
   const n = X.length, p = X[0].length
+  // Seed deterministically from the data shape + a checksum of the first row so
+  // the same dataset reproduces the same initialization (akin to a fixed random_state).
+  const seed = (n * 73856093) ^ (p * 19349663) ^ Math.round((X[0]?.reduce((s, v) => s + v, 0) ?? 0) * 1000)
+  const rng = mulberry32(seed)
   // K-means++ initialization
-  const centers: number[][] = [X[Math.floor(Math.random() * n)].slice()]
+  const centers: number[][] = [X[Math.floor(rng() * n)].slice()]
   while (centers.length < k) {
     const dists = X.map(row => Math.min(...centers.map(c => euclidean(row, c) ** 2)))
     const sum = dists.reduce((a, b) => a + b, 0)
-    let r = Math.random() * sum, idx = 0
+    let r = rng() * sum, idx = 0
     for (let i = 0; i < n; i++) { r -= dists[i]; if (r <= 0) { idx = i; break } }
     centers.push(X[idx].slice())
   }

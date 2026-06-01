@@ -335,12 +335,17 @@ def check_logistic_regression(
                 X_numeric = X[numeric_predictors].copy()
                 X_numeric = X_numeric.fillna(X_numeric.mean())
                 
+                # VIF requires an intercept in the design matrix. Without a
+                # constant column the auxiliary regressions are forced through
+                # the origin, inflating R² and reporting spuriously high VIFs
+                # (and false multicollinearity violations).
+                X_vif = sm.add_constant(X_numeric)
                 vif_values = []
-                for i in range(X_numeric.shape[1]):
+                for i in range(1, X_vif.shape[1]):  # skip the constant at index 0
                     try:
-                        vif = variance_inflation_factor(X_numeric.values, i)
-                        vif_values.append((numeric_predictors[i], vif))
-                    except:
+                        vif = variance_inflation_factor(X_vif.values, i)
+                        vif_values.append((numeric_predictors[i - 1], vif))
+                    except Exception:
                         pass
                 
                 high_vif = [v for v in vif_values if v[1] > 5]
@@ -570,12 +575,17 @@ def check_linear_regression(
                 X_numeric = X[numeric_predictors].copy()
                 X_numeric = X_numeric.fillna(X_numeric.mean())
                 
+                # VIF requires an intercept in the design matrix. Without a
+                # constant column the auxiliary regressions are forced through
+                # the origin, inflating R² and reporting spuriously high VIFs
+                # (and false multicollinearity violations).
+                X_vif = sm.add_constant(X_numeric)
                 vif_values = []
-                for i in range(X_numeric.shape[1]):
+                for i in range(1, X_vif.shape[1]):  # skip the constant at index 0
                     try:
-                        vif = variance_inflation_factor(X_numeric.values, i)
-                        vif_values.append((numeric_predictors[i], vif))
-                    except:
+                        vif = variance_inflation_factor(X_vif.values, i)
+                        vif_values.append((numeric_predictors[i - 1], vif))
+                    except Exception:
                         pass
                 
                 high_vif = [v for v in vif_values if v[1] > 5]

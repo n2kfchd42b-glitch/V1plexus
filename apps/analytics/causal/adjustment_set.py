@@ -35,9 +35,16 @@ def _is_backdoor_blocked(
     outcome: str,
     adjustment: set[str],
 ) -> bool:
-    """Test whether the adjustment set blocks all backdoor paths via d-separation."""
+    """Test whether the adjustment set blocks all backdoor paths via d-separation.
+
+    Supports both the modern networkx API (is_d_separator, networkx >= 3.3) and
+    the older d_separated, so the computation does not silently fail (and fall
+    back to "adjust for everything") on newer networkx versions.
+    """
     try:
-        return nx.d_separated(g, {exposure}, {outcome}, adjustment)
+        if hasattr(nx, "is_d_separator"):
+            return nx.is_d_separator(g, {exposure}, {outcome}, set(adjustment))
+        return nx.d_separated(g, {exposure}, {outcome}, set(adjustment))
     except Exception:
         return False
 
@@ -101,12 +108,16 @@ def compute_adjustment_set(
     except Exception:
         pass
 
-    # Colliders on backdoor paths: node where both neighbours point into it
+    # Colliders on backdoor paths: a node is a collider when BOTH of its path
+    # neighbours point INTO it (prev → curr ← next). The previous condition was
+    # inverted (it tested that neither edge pointed in), which mislabelled forks
+    # / common causes as colliders and excluded genuine confounders from the
+    # adjustment-set search — biasing the causal estimate.
     colliders: set[str] = set()
     for path in backdoor_paths:
         for i in range(1, len(path) - 1):
             prev_n, curr_n, next_n = path[i - 1], path[i], path[i + 1]
-            if not g.has_edge(prev_n, curr_n) and not g.has_edge(next_n, curr_n):
+            if g.has_edge(prev_n, curr_n) and g.has_edge(next_n, curr_n):
                 colliders.add(curr_n)
 
     # Candidate adjustment variables:

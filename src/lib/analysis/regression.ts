@@ -6,7 +6,7 @@ import {
   mean, sd, variance, pearsonR,
   matMul, transpose, matInverse, solveLin,
   sigmoid, normalCDF,
-  tToP, chiSqP, incompleteBeta,
+  tToP, chiSqP, incompleteBeta, logGamma,
   fmt, fmtCI, formatPValue, getSig,
   qqNormalData,
 } from './utils'
@@ -1110,14 +1110,22 @@ export interface PoissonConfig {
 }
 
 export function runPoissonRegression(data: DataRow[], config: PoissonConfig): AnalysisResult {
-  const { outcome, predictors, confidenceLevel = 0.95 } = config
+  const { outcome, predictors, confidenceLevel = 0.95, offsetVar } = config
 
   const completeCases = data.filter(row =>
     parseFloat(String(row[outcome] ?? '')) >= 0 &&
-    predictors.every(v => row[v] !== null && row[v] !== undefined)
+    predictors.every(v => row[v] !== null && row[v] !== undefined) &&
+    // When an exposure/person-time offset is specified, it must be present and positive.
+    (!offsetVar || parseFloat(String(row[offsetVar] ?? '')) > 0)
   )
   const n = completeCases.length
   const y = completeCases.map(row => parseFloat(String(row[outcome])))
+  // log-exposure offset: log(person-time). Zero vector when no offset is set, so
+  // the model reduces to ordinary Poisson. Without this an exposure column passed
+  // in the config would be silently ignored and the rate ratios would be wrong.
+  const logOffset = completeCases.map(row =>
+    offsetVar ? Math.log(parseFloat(String(row[offsetVar]))) : 0
+  )
 
   // Pre-compute categorical encodings using full dataset
   const poissonCatEncodings = new Map<string, ReturnType<typeof encodeCategories>>()
@@ -1153,7 +1161,9 @@ export function runPoissonRegression(data: DataRow[], config: PoissonConfig): An
   // IRLS for Poisson
   let beta = new Array(k + 1).fill(0)
   for (let iter = 0; iter < 100; iter++) {
-    const mu = X.map(xi => Math.exp(Math.max(-10, Math.min(10, xi.reduce((s, xij, j) => s + xij * beta[j], 0)))))
+    const mu = X.map((xi, i) => Math.exp(
+      Math.max(-30, Math.min(30, xi.reduce((s, xij, j) => s + xij * beta[j], 0) + logOffset[i])),
+    ))
     const W = mu
     const score = new Array(k + 1).fill(0)
     for (let j = 0; j <= k; j++)
@@ -1177,7 +1187,7 @@ export function runPoissonRegression(data: DataRow[], config: PoissonConfig): An
   }
 
   // SEs and statistics
-  const mu = X.map(xi => Math.exp(xi.reduce((s, xij, j) => s + xij * beta[j], 0)))
+  const mu = X.map((xi, i) => Math.exp(xi.reduce((s, xij, j) => s + xij * beta[j], 0) + logOffset[i]))
   const H: number[][] = Array.from({ length: k + 1 }, () => new Array(k + 1).fill(0))
   for (let j = 0; j <= k; j++)
     for (let l = 0; l <= k; l++)
@@ -1197,7 +1207,15 @@ export function runPoissonRegression(data: DataRow[], config: PoissonConfig): An
     const muNull = mean(y)
     return y.reduce((sum, yi) => sum + (yi > 0 ? yi * Math.log(yi / muNull) : 0) - (yi - muNull), 0)
   })()
-  const aic = deviance + 2 * (k + 1)
+  // Proper Poisson AIC = -2·logLik + 2·params, where the log-likelihood includes
+  // the -log(y!) term. (Previously this used `deviance + 2p`, which omits the
+  // saturated log-likelihood and the factorial constant, so it did not match the
+  // AIC reported by R/Stata.)
+  const logLik = y.reduce(
+    (s, yi, i) => s + (yi * Math.log(Math.max(mu[i], 1e-10)) - mu[i] - logGamma(yi + 1)),
+    0,
+  )
+  const aic = -2 * logLik + 2 * (k + 1)
 
   const predNames = ['(Intercept)', ...allPredNames]
   const coefRows: (string | number | null)[][] = beta.map((b, i) => {
