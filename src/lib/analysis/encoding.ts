@@ -1,8 +1,20 @@
 /**
  * Automatic Variable Type Detection and Categorical Encoding
- * 
+ *
  * Detects whether variables are continuous, binary, nominal, or ordinal
  * and automatically encodes them for analysis.
+ *
+ * ⚠️ NOT THE LIVE ANALYSIS ENCODING PATH. The statistical engines
+ * (regression.ts, tests.ts, survival.ts) encode categoricals via
+ * `encodeCategories` in utils.ts AFTER complete-case filtering. The helpers in
+ * this file (`autoEncodeDataset`, `encodeBinary`, `encodeNominal`) and
+ * `encodingHelpers.ts` are a separate utility surface used for variable-type
+ * inspection / UI summaries only — `classifyVariables` feeds inspectDataset().
+ *
+ * Before wiring these encoders into any analysis that produces results, note
+ * that they currently impute MISSING categorical values to the reference
+ * category and missing continuous values to 0; that must be replaced with
+ * proper complete-case handling first, or estimates will be biased.
  */
 
 import type { DataRow } from './types'

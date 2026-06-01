@@ -71,7 +71,10 @@ ANALYSIS_TYPE_MAP = {
 
 OPERATION_TYPE_MAP = {
     "drop_rows": "rows were excluded",
-    "impute": "missing values were imputed using multiple imputation by chained equations (MICE)",
+    # The cleaning tools perform single-value imputation (mean / median / mode /
+    # forward- or backward-fill) — NOT multiple imputation. Describe it accurately
+    # so the generated Methods text does not overclaim MICE.
+    "impute": "missing values were imputed using single-value imputation (mean, median, mode, or last-observation-carried-forward, per the data-cleaning log)",
     "resolve_duplicates": "duplicate records were identified and resolved",
     "recode": "variables were recoded",
     "rename": "variables were renamed for clarity",

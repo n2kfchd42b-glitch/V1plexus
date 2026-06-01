@@ -15,6 +15,8 @@ import pytest
 from ..narrative_templates import generate_deterministic_narrative
 from ..causal.evalue import _evalue_from_rr, compute_evalue
 from ..causal.adjustment_set import compute_adjustment_set
+from ..services.sensitivity_reporter import generate_methods_text
+from ..services.methods_generator import OPERATION_TYPE_MAP
 
 
 # ── narrative_templates ──────────────────────────────────────────────────────
@@ -104,3 +106,22 @@ def test_mediator_identified_not_adjusted():
     r = compute_adjustment_set(edges, "X", "Y")
     assert r["mediators"] == ["M"]
     assert r["adjustment_set"] == []
+
+
+# ── Methods-text integrity (must not claim methods the engine never runs) ─────
+
+def test_methods_text_does_not_falsely_claim_mice():
+    """The engine does complete-case analysis, not multiple imputation. The
+    generated Methods text must say so and never assert MICE was performed."""
+    txt = generate_methods_text(
+        study_design="cohort", analysis_type="logistic_regression", n=500,
+        missing_pct=20.0, outcome_var="y", exposure_var="x", scenarios=[],
+    )
+    assert "complete-case analysis" in txt
+    assert "handled using multiple imputation" not in txt
+    assert "imputed using multiple imputation" not in txt
+
+
+def test_impute_operation_text_is_not_mice():
+    assert "MICE" not in OPERATION_TYPE_MAP["impute"]
+    assert "chained equations" not in OPERATION_TYPE_MAP["impute"]

@@ -158,13 +158,15 @@ export function runPSM(data: DataRow[], config: PSMConfig): AnalysisResult {
   const treatedIdx = complete.map((_, i) => i).filter(i => T[i] === 1)
   const controlIdx = complete.map((_, i) => i).filter(i => T[i] === 0)
 
-  // Randomise treated order to avoid systematic bias in tie-breaking
-  const shuffledTreated = [...treatedIdx].sort((a, b) => logitPS[a] - logitPS[b])
+  // Match treated units in ascending propensity-score order. This is a
+  // deterministic ordering (greedy 1:1 matching is order-dependent), which keeps
+  // the matched set reproducible across runs on the same data.
+  const orderedTreated = [...treatedIdx].sort((a, b) => logitPS[a] - logitPS[b])
 
   const matchedPairs: { ti: number; ci: number }[] = []
   const usedControls = new Set<number>()
 
-  for (const ti of shuffledTreated) {
+  for (const ti of orderedTreated) {
     let bestCi = -1
     let bestDist = Infinity
     for (const ci of controlIdx) {

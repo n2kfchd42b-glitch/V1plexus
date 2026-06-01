@@ -207,13 +207,18 @@ def generate_methods_text(
     outcome  = f" of {outcome_var}" if outcome_var else ""
     exposure = f", with {exposure_var} as the primary predictor" if exposure_var else ""
 
-    # Missing data handling sentence
+    # Missing data handling sentence.
+    # IMPORTANT: the engine performs COMPLETE-CASE analysis; it does not run
+    # multiple imputation. The methods text must state what was actually done and
+    # only RECOMMEND imputation — never claim MICE was performed (that would
+    # misrepresent the methods in a manuscript).
     missing_text = ""
     if missing_pct > 5:
-        if missing_pct > 10:
-            handling = "multiple imputation with 20 datasets using chained equations (MICE)"
-        else:
-            handling = "complete case analysis"
+        recommend = (
+            " Given this level of missingness, multiple imputation (e.g. MICE) is"
+            " recommended as a robustness check and should be reported if performed."
+            if missing_pct > 10 else ""
+        )
 
         if len(scenarios) >= 5:
             lo_est  = scenarios[0]['estimate']
@@ -224,7 +229,7 @@ def generate_methods_text(
 
         robustness_word = "moderately " if 10 < missing_pct <= 25 else ("" if missing_pct <= 10 else "only moderately ")
         missing_text = (
-            f" Missing data ({missing_pct:.0f}%) was handled using {handling}."
+            f" Missing data ({missing_pct:.0f}%) was handled using complete-case analysis.{recommend}"
             f" Sensitivity analyses assuming data were missing not at random (MNAR)"
             f" showed results were {robustness_word}robust{range_t}."
         )

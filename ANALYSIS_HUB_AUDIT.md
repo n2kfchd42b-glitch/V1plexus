@@ -1,4 +1,4 @@
-# Analysis Hub statistical audit — findings
+s                                  e# Analysis Hub statistical audit — findings
 
 ## utils.ts (foundation) — VERIFIED CORRECT
 - studentTCDF, tToP, chiSqCDF/chiSqP, fCDF/fToP, incompleteBeta, betaCF,
@@ -85,3 +85,49 @@
 
 ## NOT deeply re-derived: decision-engine (feasibilityChecker/decisionTree) — this is
   analysis-recommendation logic, not statistical output; no p-values/estimates produced.
+
+# ── SECOND PASS: recommendation, encoding, PSM, Python wrappers ──────────────
+
+## decision-engine — VERIFIED CORRECT (no statistical bugs)
+- variableProfiler, feasibilityChecker, decisionTree, analysisRegistry,
+  workflowBuilder, index (config mapping): test selection logic is sound; every
+  variable-type/intent combination maps to an appropriate test; Fisher for small
+  samples, multinomial for 3+ categories, ANCOVA-via-regression for adjustment.
+- NOTE: estimateCompleteCases is an optimistic upper bound (per-column stats, no
+  row overlap); EPV uses a disclosed 30%-prevalence assumption. Both hedged.
+
+## psm.ts (TS PSM) — VERIFIED + comment fix
+- Correct: logistic PS (Newton-Raphson), logit caliper (Austin 0.2·SD), 1:1
+  greedy NN matching, SMD balance. No fabricated effect estimate (matching +
+  balance only; directs user to run outcome analysis on matched pairs).
+- FIX: comment claimed "Randomise treated order" but code sorts by PS
+  (deterministic/reproducible) — corrected the comment + variable name.
+
+## encoding cluster (encoding.ts, encodingHelpers.ts, encodingIntegration.ts)
+- DEAD/PARALLEL PATH: not used by any live analysis (the engines use
+  utils.encodeCategories after complete-case filtering). classifyVariables is
+  used only for UI variable-type display.
+- LATENT BUG (not in result path): autoEncodeDataset/encodeBinary/encodeNominal
+  impute missing categoricals to the reference category and missing continuous
+  to 0. Added a prominent header warning so it is fixed before any future wiring.
+
+## pc_algorithm.py — VERIFIED (advisory + human-confirmed)
+- causal-learn PC with Fisher-Z / G-square. Output is advisory; the DAG must be
+  researcher-confirmed (status=='confirmed') before adjustment-set/estimation.
+- NOTE: edge "confidence" is ~1.0 for all directed edges (not a real probability).
+
+## sensitivity_reporter.py — FIXED (research-integrity)
+- [CRITICAL] generate_methods_text emitted paste-ready Methods text claiming
+  "multiple imputation with 20 datasets (MICE)" when missing>10%, but the engine
+  performs COMPLETE-CASE analysis (no MICE exists). A researcher pasting this
+  would misrepresent their methods. Now states complete-case + RECOMMENDS MICE.
+- compute_e_value (ratio-only VanderWeele), MNAR delta scenarios, robustness
+  bounds (stability %, breaking point) — verified correct/hedged.
+
+## methods_generator.py — FIXED (research-integrity)
+- [HIGH] OPERATION_TYPE_MAP['impute'] asserted MICE, but the cleaning tools only
+  do single imputation (mean/median/mode/ffill/bfill). Reworded to describe
+  single-value imputation accurately.
+- Analysis-method descriptions (OR/HR/β, Fisher for low cells) match the engine.
+
+## Regression tests: 15 passing (added methods-text integrity tests).
