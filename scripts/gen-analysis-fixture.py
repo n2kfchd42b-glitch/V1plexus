@@ -17,6 +17,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 import statsmodels.api as sm
+from statsmodels.duration.hazard_regression import PHReg
+from statsmodels.duration.survfunc import survdiff
 
 rng = np.random.default_rng(7)
 n = 80
@@ -28,7 +30,23 @@ sbp = np.round(90 + 0.8 * age + np.where(grp == "B", 6, 0) + rng.normal(0, 8, n)
 lp = -6 + 0.10 * age
 event = (rng.random(n) < 1 / (1 + np.exp(-lp))).astype(int)
 
-df = pd.DataFrame(dict(age=age, sbp=sbp, grp=grp, sex=sex, region=region, event=event))
+# NOTE: append-only below so the columns above (and their references) stay
+# byte-identical — new rng draws must come AFTER the existing ones.
+# Survival: hazard rises with age; exponential times with administrative censoring.
+base_rate = 0.02 * np.exp(0.03 * (age - 45))
+true_time = rng.exponential(1.0 / base_rate)
+CENSOR = 60.0
+# Floor at 0.1 so the engine's `t > 0` complete-case filter and the reference
+# computation operate on exactly the same rows.
+survtime = np.round(np.clip(np.minimum(true_time, CENSOR), 0.1, None), 1)
+died = (true_time <= CENSOR).astype(int)
+# Count outcome (Poisson), rate rising with age.
+visits = rng.poisson(np.exp(0.5 + 0.02 * (age - 45))).astype(int)
+
+df = pd.DataFrame(dict(
+    age=age, sbp=sbp, grp=grp, sex=sex, region=region, event=event,
+    survtime=survtime, died=died, visits=visits,
+))
 
 ref = {}
 
@@ -68,6 +86,34 @@ ref["logit_event_age"] = {
     "OR_age": round(float(np.exp(ml.params["age"])), 4),
     "beta_age": round(float(ml.params["age"]), 4),
     "p_age": round(float(ml.pvalues["age"]), 5),
+}
+
+# Cox PH (Breslow ties, matches the engine) — HR for age
+cox = PHReg(df.survtime.values, df[["age"]].values, status=df.died.values, ties="breslow").fit()
+ref["cox_survtime_age"] = {
+    "HR_age": round(float(np.exp(cox.params[0])), 4),
+    "beta_age": round(float(cox.params[0]), 4),
+}
+
+# Kaplan-Meier log-rank test by grp
+chisq_lr, p_lr = survdiff(df.survtime.values, df.died.values, df.grp.values)
+ref["logrank_survtime_grp"] = {"chisq": round(float(chisq_lr), 4), "p": round(float(p_lr), 5)}
+
+# Poisson regression visits ~ age (MLE) — IRR for age
+pois = sm.GLM(df.visits, sm.add_constant(df[["age"]]), family=sm.families.Poisson()).fit()
+ref["poisson_visits_age"] = {
+    "IRR_age": round(float(np.exp(pois.params["age"])), 4),
+    "p_age": round(float(pois.pvalues["age"]), 5),
+}
+
+# Multinomial via one-vs-reference binary logits (the engine's approach).
+# Reference = sorted categories[0] = 'East'; primary category reported = 'North'.
+sub = df[df.region.isin(["North", "East"])]
+y_north = (sub.region == "North").astype(int)
+mlo = sm.Logit(y_north, sm.add_constant(sub[["age"]])).fit(disp=0)
+ref["multinomial_region_north_vs_east_age"] = {
+    "RRR_age": round(float(np.exp(mlo.params["age"])), 4),
+    "beta_age": round(float(mlo.params["age"]), 4),
 }
 
 out = {"data": df.to_dict(orient="records"), "ref": ref}

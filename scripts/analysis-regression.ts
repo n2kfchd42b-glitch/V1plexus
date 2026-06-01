@@ -17,7 +17,10 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 import { runCorrelation, runTTest, runAnova, runChiSquare } from '../src/lib/analysis/tests'
-import { runMultipleRegression, runLogisticRegression } from '../src/lib/analysis/regression'
+import {
+  runMultipleRegression, runLogisticRegression, runPoissonRegression, runMultinomialRegression,
+} from '../src/lib/analysis/regression'
+import { runKaplanMeier, runCoxRegression } from '../src/lib/analysis/survival'
 import type { AnalysisResult, DataRow } from '../src/lib/analysis/types'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -104,6 +107,34 @@ function cell(res: AnalysisResult, tableId: string, row: number, col: number): u
 {
   const r = runLogisticRegression(data, { outcome: 'event', predictors: ['age'], confidenceLevel: 0.95 })
   near('logit OR_age', num(r.summary.odds_ratio), ref.logit_event_age.OR_age, 0.02)
+}
+
+// ── 8. Cox proportional hazards (survtime, died ~ age) ───────────────────────
+{
+  const r = runCoxRegression(data, {
+    timeVariable: 'survtime', eventVariable: 'died', predictors: ['age'], confidenceLevel: 0.95,
+  })
+  near('cox HR_age', num(r.summary.hazard_ratio), ref.cox_survtime_age.HR_age, 0.02)
+}
+
+// ── 9. Kaplan-Meier log-rank test (survival by grp) ──────────────────────────
+{
+  const r = runKaplanMeier(data, {
+    timeVariable: 'survtime', eventVariable: 'died', groupVariable: 'grp', confidenceLevel: 0.95,
+  })
+  near('km log-rank p', num(r.summary.logRankP), ref.logrank_survtime_grp.p, 0.02)
+}
+
+// ── 10. Poisson regression (visits ~ age) ────────────────────────────────────
+{
+  const r = runPoissonRegression(data, { outcome: 'visits', predictors: ['age'], confidenceLevel: 0.95 })
+  near('poisson IRR_age', num(r.summary.estimate), ref.poisson_visits_age.IRR_age, 0.01)
+}
+
+// ── 11. Multinomial regression (region ~ age) — primary RRR (North vs East) ──
+{
+  const r = runMultinomialRegression(data, { outcome: 'region', predictors: ['age'], confidenceLevel: 0.95 })
+  near('multinomial RRR_age', num(r.summary.odds_ratio), ref.multinomial_region_north_vs_east_age.RRR_age, 0.05)
 }
 
 // ── report ────────────────────────────────────────────────────────────────────
