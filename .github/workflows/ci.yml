@@ -32,6 +32,11 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Numerical regression: runs the real statistical engine on a fixed dataset
+      # and asserts outputs match scipy/statsmodels reference values.
+      - name: Analysis numerical regression
+        run: npm run test:analysis
+
       # The build must succeed without secrets. src/lib/supabase/env.ts and
       # src/lib/analyticsService.ts are written to not throw at module load /
       # build time, so no real credentials are required here.

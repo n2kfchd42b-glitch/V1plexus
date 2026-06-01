@@ -1,0 +1,680 @@
+{
+"data": [
+{
+"age": 45.0,
+"sbp": 111.1,
+"grp": "B",
+"sex": "F",
+"region": "North",
+"event": 0
+},
+{
+"age": 48.6,
+"sbp": 136.9,
+"grp": "B",
+"sex": "F",
+"region": "North",
+"event": 0
+},
+{
+"age": 41.7,
+"sbp": 122.9,
+"grp": "A",
+"sex": "M",
+"region": "East",
+"event": 0
+},
+{
+"age": 34.3,
+"sbp": 124.1,
+"grp": "B",
+"sex": "F",
+"region": "South",
+"event": 0
+},
+{
+"age": 39.5,
+"sbp": 119.0,
+"grp": "B",
+"sex": "M",
+"region": "East",
+"event": 0
+},
+{
+"age": 33.1,
+"sbp": 120.3,
+"grp": "B",
+"sex": "F",
+"region": "South",
+"event": 0
+},
+{
+"age": 45.7,
+"sbp": 125.1,
+"grp": "A",
+"sex": "F",
+"region": "South",
+"event": 1
+},
+{
+"age": 61.1,
+"sbp": 148.4,
+"grp": "A",
+"sex": "M",
+"region": "North",
+"event": 1
+},
+{
+"age": 39.1,
+"sbp": 124.0,
+"grp": "A",
+"sex": "F",
+"region": "South",
+"event": 0
+},
+{
+"age": 37.6,
+"sbp": 120.0,
+"grp": "A",
+"sex": "M",
+"region": "South",
+"event": 0
+},
+{
+"age": 50.9,
+"sbp": 149.0,
+"grp": "B",
+"sex": "F",
+"region": "East",
+"event": 1
+},
+{
+"age": 49.3,
+"sbp": 125.0,
+"grp": "A",
+"sex": "F",
+"region": "North",
+"event": 0
+},
+{
+"age": 46.3,
+"sbp": 129.9,
+"grp": "B",
+"sex": "M",
+"region": "North",
+"event": 0
+},
+{
+"age": 33.8,
+"sbp": 102.5,
+"grp": "A",
+"sex": "M",
+"region": "South",
+"event": 0
+},
+{
+"age": 44.6,
+"sbp": 144.2,
+"grp": "B",
+"sex": "M",
+"region": "East",
+"event": 0
+},
+{
+"age": 53.3,
+"sbp": 140.4,
+"grp": "A",
+"sex": "F",
+"region": "East",
+"event": 0
+},
+{
+"age": 28.9,
+"sbp": 120.5,
+"grp": "A",
+"sex": "F",
+"region": "South",
+"event": 1
+},
+{
+"age": 39.5,
+"sbp": 127.0,
+"grp": "A",
+"sex": "F",
+"region": "South",
+"event": 0
+},
+{
+"age": 22.2,
+"sbp": 108.6,
+"grp": "A",
+"sex": "M",
+"region": "North",
+"event": 0
+},
+{
+"age": 29.5,
+"sbp": 121.3,
+"grp": "B",
+"sex": "F",
+"region": "South",
+"event": 0
+},
+{
+"age": 22.9,
+"sbp": 112.3,
+"grp": "B",
+"sex": "F",
+"region": "South",
+"event": 0
+},
+{
+"age": 42.2,
+"sbp": 122.1,
+"grp": "A",
+"sex": "F",
+"region": "South",
+"event": 0
+},
+{
+"age": 29.8,
+"sbp": 120.3,
+"grp": "B",
+"sex": "F",
+"region": "North",
+"event": 0
+},
+{
+"age": 48.3,
+"sbp": 146.7,
+"grp": "B",
+"sex": "F",
+"region": "North",
+"event": 0
+},
+{
+"age": 46.9,
+"sbp": 132.0,
+"grp": "A",
+"sex": "M",
+"region": "East",
+"event": 0
+},
+{
+"age": 42.8,
+"sbp": 129.8,
+"grp": "B",
+"sex": "M",
+"region": "North",
+"event": 0
+},
+{
+"age": 14.8,
+"sbp": 103.2,
+"grp": "B",
+"sex": "M",
+"region": "North",
+"event": 0
+},
+{
+"age": 38.5,
+"sbp": 115.7,
+"grp": "A",
+"sex": "M",
+"region": "North",
+"event": 0
+},
+{
+"age": 44.4,
+"sbp": 144.3,
+"grp": "B",
+"sex": "M",
+"region": "East",
+"event": 0
+},
+{
+"age": 46.4,
+"sbp": 137.2,
+"grp": "B",
+"sex": "M",
+"region": "South",
+"event": 0
+},
+{
+"age": 26.6,
+"sbp": 117.8,
+"grp": "B",
+"sex": "F",
+"region": "South",
+"event": 0
+},
+{
+"age": 39.3,
+"sbp": 118.7,
+"grp": "A",
+"sex": "M",
+"region": "North",
+"event": 0
+},
+{
+"age": 33.3,
+"sbp": 113.8,
+"grp": "B",
+"sex": "F",
+"region": "South",
+"event": 0
+},
+{
+"age": 35.3,
+"sbp": 117.7,
+"grp": "A",
+"sex": "M",
+"region": "East",
+"event": 0
+},
+{
+"age": 57.7,
+"sbp": 149.1,
+"grp": "B",
+"sex": "F",
+"region": "East",
+"event": 0
+},
+{
+"age": 35.3,
+"sbp": 121.1,
+"grp": "B",
+"sex": "M",
+"region": "South",
+"event": 0
+},
+{
+"age": 44.6,
+"sbp": 123.9,
+"grp": "A",
+"sex": "M",
+"region": "East",
+"event": 0
+},
+{
+"age": 55.6,
+"sbp": 132.7,
+"grp": "A",
+"sex": "F",
+"region": "North",
+"event": 0
+},
+{
+"age": 38.0,
+"sbp": 127.3,
+"grp": "B",
+"sex": "F",
+"region": "North",
+"event": 0
+},
+{
+"age": 43.7,
+"sbp": 112.2,
+"grp": "A",
+"sex": "F",
+"region": "North",
+"event": 0
+},
+{
+"age": 46.3,
+"sbp": 131.2,
+"grp": "B",
+"sex": "F",
+"region": "North",
+"event": 1
+},
+{
+"age": 45.8,
+"sbp": 125.8,
+"grp": "B",
+"sex": "F",
+"region": "East",
+"event": 0
+},
+{
+"age": 30.3,
+"sbp": 127.3,
+"grp": "B",
+"sex": "M",
+"region": "East",
+"event": 0
+},
+{
+"age": 45.9,
+"sbp": 126.6,
+"grp": "B",
+"sex": "F",
+"region": "North",
+"event": 0
+},
+{
+"age": 61.3,
+"sbp": 143.7,
+"grp": "A",
+"sex": "M",
+"region": "South",
+"event": 1
+},
+{
+"age": 26.4,
+"sbp": 123.3,
+"grp": "A",
+"sex": "F",
+"region": "North",
+"event": 0
+},
+{
+"age": 55.3,
+"sbp": 131.7,
+"grp": "A",
+"sex": "F",
+"region": "East",
+"event": 0
+},
+{
+"age": 46.4,
+"sbp": 122.3,
+"grp": "A",
+"sex": "F",
+"region": "North",
+"event": 0
+},
+{
+"age": 37.3,
+"sbp": 121.4,
+"grp": "A",
+"sex": "M",
+"region": "South",
+"event": 0
+},
+{
+"age": 69.0,
+"sbp": 151.2,
+"grp": "B",
+"sex": "M",
+"region": "North",
+"event": 1
+},
+{
+"age": 54.1,
+"sbp": 131.3,
+"grp": "B",
+"sex": "M",
+"region": "East",
+"event": 0
+},
+{
+"age": 30.6,
+"sbp": 118.2,
+"grp": "A",
+"sex": "M",
+"region": "East",
+"event": 0
+},
+{
+"age": 45.9,
+"sbp": 142.8,
+"grp": "A",
+"sex": "F",
+"region": "East",
+"event": 0
+},
+{
+"age": 51.9,
+"sbp": 135.5,
+"grp": "B",
+"sex": "F",
+"region": "North",
+"event": 0
+},
+{
+"age": 42.7,
+"sbp": 122.5,
+"grp": "A",
+"sex": "M",
+"region": "East",
+"event": 0
+},
+{
+"age": 53.2,
+"sbp": 130.2,
+"grp": "B",
+"sex": "F",
+"region": "North",
+"event": 1
+},
+{
+"age": 44.2,
+"sbp": 133.9,
+"grp": "B",
+"sex": "F",
+"region": "East",
+"event": 0
+},
+{
+"age": 53.0,
+"sbp": 128.4,
+"grp": "B",
+"sex": "M",
+"region": "East",
+"event": 0
+},
+{
+"age": 62.3,
+"sbp": 137.0,
+"grp": "B",
+"sex": "F",
+"region": "South",
+"event": 1
+},
+{
+"age": 36.9,
+"sbp": 135.8,
+"grp": "B",
+"sex": "F",
+"region": "South",
+"event": 0
+},
+{
+"age": 47.4,
+"sbp": 126.7,
+"grp": "B",
+"sex": "M",
+"region": "East",
+"event": 1
+},
+{
+"age": 39.4,
+"sbp": 130.2,
+"grp": "A",
+"sex": "F",
+"region": "North",
+"event": 0
+},
+{
+"age": 46.5,
+"sbp": 145.4,
+"grp": "B",
+"sex": "F",
+"region": "North",
+"event": 0
+},
+{
+"age": 30.8,
+"sbp": 116.7,
+"grp": "A",
+"sex": "F",
+"region": "South",
+"event": 0
+},
+{
+"age": 38.0,
+"sbp": 130.8,
+"grp": "B",
+"sex": "M",
+"region": "North",
+"event": 0
+},
+{
+"age": 42.6,
+"sbp": 139.7,
+"grp": "A",
+"sex": "F",
+"region": "East",
+"event": 0
+},
+{
+"age": 55.8,
+"sbp": 133.1,
+"grp": "A",
+"sex": "F",
+"region": "East",
+"event": 0
+},
+{
+"age": 58.7,
+"sbp": 138.2,
+"grp": "B",
+"sex": "F",
+"region": "South",
+"event": 1
+},
+{
+"age": 29.1,
+"sbp": 108.5,
+"grp": "B",
+"sex": "F",
+"region": "North",
+"event": 0
+},
+{
+"age": 35.5,
+"sbp": 118.7,
+"grp": "A",
+"sex": "M",
+"region": "East",
+"event": 0
+},
+{
+"age": 52.8,
+"sbp": 150.1,
+"grp": "B",
+"sex": "F",
+"region": "South",
+"event": 0
+},
+{
+"age": 21.1,
+"sbp": 120.6,
+"grp": "B",
+"sex": "F",
+"region": "North",
+"event": 0
+},
+{
+"age": 39.4,
+"sbp": 120.0,
+"grp": "B",
+"sex": "F",
+"region": "South",
+"event": 0
+},
+{
+"age": 43.8,
+"sbp": 124.2,
+"grp": "B",
+"sex": "M",
+"region": "East",
+"event": 0
+},
+{
+"age": 60.1,
+"sbp": 140.0,
+"grp": "B",
+"sex": "M",
+"region": "North",
+"event": 0
+},
+{
+"age": 53.3,
+"sbp": 135.0,
+"grp": "A",
+"sex": "F",
+"region": "East",
+"event": 1
+},
+{
+"age": 41.1,
+"sbp": 121.2,
+"grp": "A",
+"sex": "M",
+"region": "South",
+"event": 0
+},
+{
+"age": 40.6,
+"sbp": 124.2,
+"grp": "A",
+"sex": "F",
+"region": "East",
+"event": 0
+},
+{
+"age": 42.0,
+"sbp": 126.0,
+"grp": "A",
+"sex": "F",
+"region": "East",
+"event": 0
+},
+{
+"age": 63.3,
+"sbp": 138.2,
+"grp": "A",
+"sex": "M",
+"region": "East",
+"event": 0
+}
+],
+"ref": {
+"pearson_age_sbp": {
+"r": 0.7453,
+"p": 0.0
+},
+"welch_ttest_sbp_grp": {
+"t": -1.6706,
+"df": 77.944,
+"p": 0.09882,
+"mean_a": 125.6297,
+"mean_b": 129.707
+},
+"anova_sbp_region": {
+"F": 2.2323,
+"p": 0.11418
+},
+"chisq_sex_event": {
+"chi2": 0.3651,
+"df": 1,
+"p": 0.54569
+},
+"ols_sbp_age": {
+"beta_age": 0.7777,
+"r2": 0.5554,
+"p_age": 0.0
+},
+"logit_event_age": {
+"OR_age": 1.1467,
+"beta_age": 0.1369,
+"p_age": 0.00111
+},
+"spearman_age_sbp": {
+"rho": 0.771,
+"p": 0.0
+}
+}
+}
