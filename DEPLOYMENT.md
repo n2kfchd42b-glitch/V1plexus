@@ -43,6 +43,25 @@ fly deploy            # builds Dockerfile, deploys to the "plexus-analytics" app
 > avoid two competing configs for the same service. To re-host on Railway, point it
 > at the same `Dockerfile`.
 
+## Turning the analytics service off (to stop Fly.io billing)
+
+The analytics service is optional. To take it down without breaking the app:
+
+1. **Destroy the Fly app** (a machine runs continuously per `min_machines_running = 1`):
+   ```bash
+   fly apps destroy plexus-analytics
+   ```
+2. **In Vercel**, set `NEXT_PUBLIC_ANALYTICS_ENABLED=false` and remove (or blank)
+   `ANALYTICS_API_URL`, then redeploy.
+
+With the flag off, every analytics-dependent API route returns a clean `503
+{ unavailable: true }` and the dependent UI (causal inference, sensitivity,
+research-output packaging, verification) is hidden — no 500s, no hangs. The
+browser-based core statistical engine and the rest of the app keep working.
+
+To bring it back: `fly deploy` the `Dockerfile`, set `ANALYTICS_API_URL` to the
+Fly URL, and set `NEXT_PUBLIC_ANALYTICS_ENABLED=true`.
+
 ## CI
 
 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) gates every push and PR to `main`:

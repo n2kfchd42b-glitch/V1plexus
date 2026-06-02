@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { ANALYTICS_ENABLED } from '@/lib/flags'
 import { getAnalyticsBaseUrl } from '@/lib/analyticsService'
 import { createClient } from '@/lib/supabase/server'
 import { writeAuditEntry } from '@/lib/audit/auditLogger'
@@ -9,6 +10,9 @@ import { writeAuditEntry } from '@/lib/audit/auditLogger'
  * Returns combined confirmation + adjustment set result.
  */
 export async function POST(req: NextRequest) {
+  if (!ANALYTICS_ENABLED) {
+    return Response.json({ unavailable: true, error: 'Advanced analytics service is not enabled.' }, { status: 503 })
+  }
   try {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()

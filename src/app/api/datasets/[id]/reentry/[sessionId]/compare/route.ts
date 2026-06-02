@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { ANALYTICS_ENABLED } from '@/lib/flags'
 import { getAnalyticsBaseUrl } from '@/lib/analyticsService'
 import { createClient } from '@/lib/supabase/server'
 import { hasProjectAccess } from '@/lib/supabase/projectAccess'
@@ -11,6 +12,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; sessionId: string }> }
 ) {
+  if (!ANALYTICS_ENABLED) {
+    return Response.json({ unavailable: true, error: 'Advanced analytics service is not enabled.' }, { status: 503 })
+  }
   try {
     const { id: datasetId, sessionId } = await params
     const body = await request.json()

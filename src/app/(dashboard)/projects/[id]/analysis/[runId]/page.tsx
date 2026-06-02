@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { ANALYTICS_ENABLED } from '@/lib/flags'
 import {
   ArrowLeft, Calendar, Database, Loader2,
   AlertCircle, Download, FileText, Table2,
@@ -225,7 +226,7 @@ export default function AnalysisRunPage() {
               />
             </div>
 
-            {run.dataset_id && run.version_id &&
+            {ANALYTICS_ENABLED && run.dataset_id && run.version_id &&
              ['linear_regression', 'multiple_linear_regression', 'logistic_regression', 'kaplan_meier'].includes(run.analysis_type) &&
              !!(
                (run.config as Record<string, unknown>)?.outcome_variable ||

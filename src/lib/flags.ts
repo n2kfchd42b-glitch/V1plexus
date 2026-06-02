@@ -76,6 +76,21 @@ export const SUPERVISOR_ENABLED = false;
  */
 export const AI_ENABLED = false;
 
+/**
+ * ANALYTICS_ENABLED: the external PLEXUS Analytics (FastAPI / Fly.io) service.
+ *   Powers causal inference, sensitivity analysis, data portraits, assumption
+ *   checks, research-output packaging, the cryptographic ledger, verification,
+ *   and the journal portal. The CORE statistical engine (descriptive, t-test,
+ *   ANOVA, regression, survival, PCA, …) runs in the browser and is unaffected.
+ *
+ *   Controlled by NEXT_PUBLIC_ANALYTICS_ENABLED so it reads on both the server
+ *   (API routes return 503 immediately when off) and the client (UI hides the
+ *   dependent launchers). Defaults to enabled; set the env var to 'false' when
+ *   the analytics service is taken down so the app degrades cleanly instead of
+ *   throwing 500s or hanging on a dead host.
+ */
+export const ANALYTICS_ENABLED = process.env.NEXT_PUBLIC_ANALYTICS_ENABLED !== 'false';
+
 // ── Legacy flags (kept for backward compatibility) ────────────────────────
 
 /**

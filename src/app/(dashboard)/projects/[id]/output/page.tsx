@@ -10,6 +10,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { logAudit } from '@/lib/audit'
+import { ANALYTICS_ENABLED } from '@/lib/flags'
 import { toast } from 'sonner'
 import type {
   ReportingChecklist,
@@ -434,6 +435,24 @@ export default function OutputPage() {
   // ---------------------------------------------------------------------------
   // RENDER
   // ---------------------------------------------------------------------------
+  // Research-output packaging, methods text, and verification tokens are all
+  // produced by the external analytics service. When it is disabled, show a
+  // clean unavailable state instead of letting the page fire failing requests.
+  if (!ANALYTICS_ENABLED) {
+    return (
+      <div className="page-shell">
+        <div className="empty-state">
+          <p className="empty-state-title">Research output is unavailable</p>
+          <p className="empty-state-description max-w-[360px]">
+            Methods generation, reporting checklists, and verifiable output packages
+            require the analytics service, which is currently turned off. Your data,
+            analyses, and documents are unaffected.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   if (authLoading || loadingDatasets) {
     return (
       <div className="page-shell">

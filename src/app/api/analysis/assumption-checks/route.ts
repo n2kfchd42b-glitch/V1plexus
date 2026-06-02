@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { ANALYTICS_ENABLED } from '@/lib/flags'
 import { getAnalyticsBaseUrl } from '@/lib/analyticsService'
 import { createClient, getAccessTokenFromRequest } from '@/lib/supabase/server'
 import type { AssumptionCheckResult } from '@/types/analysisIntegrity'
@@ -9,6 +10,9 @@ import type { AssumptionCheckResult } from '@/types/analysisIntegrity'
  * Only proxies to the external service when ANALYTICS_API_URL is set.
  */
 export async function POST(request: NextRequest) {
+  if (!ANALYTICS_ENABLED) {
+    return Response.json({ unavailable: true, error: 'Advanced analytics service is not enabled.' }, { status: 503 })
+  }
   try {
     const body = await request.json()
     const { analysis_type } = body

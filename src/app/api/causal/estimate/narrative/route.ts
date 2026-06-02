@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { ANALYTICS_ENABLED } from '@/lib/flags'
 import { getAnalyticsBaseUrl } from '@/lib/analyticsService'
 import { createClient } from '@/lib/supabase/server'
 
@@ -8,6 +9,9 @@ import { createClient } from '@/lib/supabase/server'
  * Requires doubly_robust result to be complete.
  */
 export async function POST(req: NextRequest) {
+  if (!ANALYTICS_ENABLED) {
+    return Response.json({ unavailable: true, error: 'Advanced analytics service is not enabled.' }, { status: 503 })
+  }
   try {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -67,6 +71,9 @@ export async function POST(req: NextRequest) {
  * Push a narrative to the document editor.
  */
 export async function PUT(req: NextRequest) {
+  if (!ANALYTICS_ENABLED) {
+    return Response.json({ unavailable: true, error: 'Advanced analytics service is not enabled.' }, { status: 503 })
+  }
   try {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { ANALYTICS_ENABLED } from '@/lib/flags'
 import { getAnalyticsBaseUrl } from '@/lib/analyticsService'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
@@ -9,6 +10,9 @@ import { hasProjectAccess } from '@/lib/supabase/projectAccess'
  * List existing packages for a version (service client bypasses RLS for owners).
  */
 export async function GET(request: NextRequest) {
+  if (!ANALYTICS_ENABLED) {
+    return Response.json({ unavailable: true, error: 'Advanced analytics service is not enabled.' }, { status: 503 })
+  }
   try {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -45,6 +49,9 @@ export async function GET(request: NextRequest) {
  * Authenticated. Proxies to FastAPI POST /analytics/output/package/generate
  */
 export async function POST(request: NextRequest) {
+  if (!ANALYTICS_ENABLED) {
+    return Response.json({ unavailable: true, error: 'Advanced analytics service is not enabled.' }, { status: 503 })
+  }
   try {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
