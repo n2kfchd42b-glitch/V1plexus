@@ -248,30 +248,27 @@ function ChartRenderer({
     yLabel: editorConfig.y_axis_label,
   }
 
-  function handleDownload() {
-    const svgEl = chartAreaRef.current?.querySelector('svg')
-    if (!svgEl) return
-    const scale = editorConfig.export_dpi / 96
-    const w = svgEl.clientWidth || 800
-    const h = svgEl.clientHeight || 400
-    const svgData = new XMLSerializer().serializeToString(svgEl)
-    const canvas = document.createElement('canvas')
-    canvas.width = w * scale
-    canvas.height = h * scale
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    const img = new Image()
-    img.onload = () => {
-      ctx.scale(scale, scale)
-      ctx.fillStyle = '#ffffff'
-      ctx.fillRect(0, 0, w, h)
-      ctx.drawImage(img, 0, 0)
+  async function handleDownload() {
+    // Rasterise the WHOLE chart node (HTML + SVG), not just the first <svg>.
+    // The previous querySelector('svg') approach exported blank/partial images
+    // for the HTML-based charts (heatmap, correlogram, forest tables, scatter
+    // matrix) — only Recharts SVG charts worked.
+    const node = chartAreaRef.current
+    if (!node) return
+    const { toPng } = await import('html-to-image')
+    try {
+      const dataUrl = await toPng(node, {
+        pixelRatio: Math.max(1, editorConfig.export_dpi / 96),
+        backgroundColor: '#ffffff',
+        cacheBust: true,
+      })
       const link = document.createElement('a')
       link.download = `${title.replace(/[^a-z0-9]/gi, '_')}.png`
-      link.href = canvas.toDataURL('image/png')
+      link.href = dataUrl
       link.click()
+    } catch (err) {
+      console.error('[chart export] failed to rasterise chart', err)
     }
-    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgData)}`
   }
 
   if (!SUPPORTED_CHART_TYPES.has(type)) return null

@@ -70,6 +70,7 @@
     "dexie-react-hooks": "^4.4.0",
     "framer-motion": "^12.38.0",
     "geist": "^1.7.0",
+    "html-to-image": "^1.11.13",
     "idb-keyval": "^6.2.2",
     "jstat": "^1.9.6",
     "lib0": "^0.2.98",
