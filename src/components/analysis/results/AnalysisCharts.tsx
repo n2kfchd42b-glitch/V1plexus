@@ -908,7 +908,7 @@ function ROCCurve({ data, config, expanded }: { data: { fpr: number; tpr: number
 }
 
 // ── Kaplan-Meier ─────────────────────────────────────────────
-interface KMPoint { time: number; survival: number; ciLow: number; ciHigh: number; group: string }
+interface KMPoint { time: number; survival: number; ciLow: number; ciHigh: number; group: string; nRisk?: number }
 
 function KMCurve({ data, config, expanded }: { data: KMPoint[]; config: Record<string, unknown>; expanded: boolean }) {
   const cfg = useCfg()
@@ -916,15 +916,44 @@ function KMCurve({ data, config, expanded }: { data: KMPoint[]; config: Record<s
   const groups = (config.groups as string[]) ?? ['All']
   const logRankP = config.logRankP
   const la = legendAlign(cfg.legendPos)
+
+  // Number-at-risk: evenly spaced timepoints; n-at-risk(t) = nRisk of the first
+  // event point at or after t (the count entering that interval).
+  const maxT = data.reduce((m, d) => Math.max(m, d.time), 0)
+  const nCols = expanded ? 7 : 5
+  const timepoints = Array.from({ length: nCols }, (_, i) =>
+    Math.round((maxT * i) / (nCols - 1) * 10) / 10,
+  )
+  const nRiskAt = (group: string, t: number): number | string => {
+    const pts = data.filter(d => d.group === group).sort((a, b) => a.time - b.time)
+    const p = pts.find(d => d.time >= t)
+    return p?.nRisk ?? (t >= maxT ? 0 : '—')
+  }
+
   return (
     <div>
       <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 180)}>
-        <LineChart>
+        <ComposedChart>
           {cfg.showGrid && <CartesianGrid {...gridStyle} />}
-          <XAxis dataKey="time" type="number" tick={axisTick} {...axisLabelX(cfg, 'Time')} />
+          <XAxis dataKey="time" type="number" domain={[0, 'dataMax']} tick={axisTick} {...axisLabelX(cfg, 'Time')} />
           <YAxis domain={[0, 1]} tick={axisTick} {...axisLabelY(cfg, 'Survival Probability')} />
           <Tooltip content={<ChartTooltip />} cursor={{ stroke: CHART_TOKENS.borderActive, strokeWidth: 1 }} />
           {cfg.showLegend && <Legend wrapperStyle={legendStyle()} {...la} />}
+          {/* Greenwood 95% CI band per group (drawn under the step line) */}
+          {groups.map((group, i) => (
+            <Area
+              key={`ci-${group}`}
+              data={data.filter(d => d.group === group)}
+              type="stepAfter"
+              dataKey={(d: KMPoint) => [d.ciLow, d.ciHigh] as [number, number]}
+              fill={C[i % C.length] ?? chartColor(i)}
+              fillOpacity={0.12}
+              stroke="none"
+              legendType="none"
+              isAnimationActive={false}
+              activeDot={false}
+            />
+          ))}
           {groups.map((group, i) => (
             <Line
               key={group}
@@ -936,11 +965,49 @@ function KMCurve({ data, config, expanded }: { data: KMPoint[]; config: Record<s
               dot={false}
               strokeWidth={2.5}
               animationDuration={ANIM_MS}
-             
             />
           ))}
-        </LineChart>
+        </ComposedChart>
       </ResponsiveContainer>
+
+      {/* Number-at-risk table (standard in published survival figures) */}
+      {maxT > 0 && (
+        <div className="mt-3 overflow-x-auto">
+          <div className="text-[9px] font-bold uppercase tracking-[0.1em] mb-1.5" style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}>
+            Number at risk
+          </div>
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr>
+                <th className="pr-3" />
+                {timepoints.map((t, i) => (
+                  <th key={i} className="text-right text-[10px] font-medium tabular-nums pb-1" style={{ color: CHART_TOKENS.text.muted, fontFamily: "'JetBrains Mono', monospace" }}>
+                    {t}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {groups.map((group, gi) => (
+                <tr key={group}>
+                  <td className="pr-3 py-0.5">
+                    <span className="inline-flex items-center gap-1.5 text-[10px]" style={{ color: CHART_TOKENS.text.secondary, fontFamily: 'Manrope, sans-serif' }}>
+                      <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: C[gi % C.length] ?? chartColor(gi) }} />
+                      {group === 'All' ? 'Overall' : group}
+                    </span>
+                  </td>
+                  {timepoints.map((t, i) => (
+                    <td key={i} className="text-right text-[10px] py-0.5 tabular-nums" style={{ color: CHART_TOKENS.text.primary, fontFamily: "'JetBrains Mono', monospace" }}>
+                      {nRiskAt(group, t)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {!!logRankP && (
         <div className="mt-4 flex justify-center">
           <StatBadge label="Log-rank p" value={String(logRankP)} colorIdx={1} />
