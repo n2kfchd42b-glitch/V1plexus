@@ -21,6 +21,16 @@ type ChartSpec = {
   config: Record<string, unknown>
 }
 
+// Honour prefers-reduced-motion: disable chart entry animations for users who
+// request reduced motion (also lighter on low-power devices). Evaluated once on
+// the client; falls back to animated on the server.
+const ANIM_MS =
+  typeof window !== 'undefined' &&
+  typeof window.matchMedia === 'function' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ? 0
+    : 700
+
 // ── Chart Render Context (drives live editor updates) ─────────
 type RenderCfg = {
   colors: string[]
@@ -119,7 +129,7 @@ export function AnalysisCharts({ charts, runId, datasetId, versionId, analysisTy
 }
 
 // ── Chart Tooltip — matches global light-mode surfaces ───────
-function DarkTooltip({ active, payload, label }: {
+function ChartTooltip({ active, payload, label }: {
   active?: boolean
   payload?: Array<{ name: string; value: number; color: string }>
   label?: string
@@ -475,10 +485,10 @@ function HistogramChart({ data, expanded }: { data: { x0: number; x1: number; co
         {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="name" tick={axisTick} {...axisLabelX(cfg)} />
         <YAxis tick={axisTick} {...axisLabelY(cfg)} />
-        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-        <Bar dataKey="count" radius={[4, 4, 0, 0]} animationDuration={700}>
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        <Bar dataKey="count" radius={[4, 4, 0, 0]} animationDuration={ANIM_MS}>
           {d.map((_, i) => (
-            <Cell key={i} fill={C[0] ?? chartColor(0)} fillOpacity={0.55 + (i / d.length) * 0.35} />
+            <Cell key={i} fill={C[0] ?? chartColor(0)} fillOpacity={0.85} />
           ))}
         </Bar>
       </BarChart>
@@ -497,8 +507,8 @@ function FrequencyBarChart({ data, expanded }: { data: { value: string; count: n
         {cfg.showGrid && <CartesianGrid {...gridStyle} horizontal={false} />}
         <XAxis type="number" tick={axisTick} {...axisLabelX(cfg)} />
         <YAxis type="category" dataKey="value" tick={axisTick} width={130} {...axisLabelY(cfg)} />
-        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-        <Bar dataKey="count" radius={[0, 5, 5, 0]} animationDuration={700}>
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        <Bar dataKey="count" radius={[0, 5, 5, 0]} animationDuration={ANIM_MS}>
           {top.map((_, i) => (
             <Cell key={i} fill={C[i % C.length] ?? chartColor(i)} fillOpacity={0.8} />
           ))}
@@ -530,10 +540,10 @@ function GroupedBarChart({ data, config, expanded }: { data: Record<string, unkn
         {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="row" tick={axisTick} {...axisLabelX(cfg)} />
         <YAxis tick={axisTick} {...axisLabelY(cfg)} />
-        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
         {cfg.showLegend && <Legend wrapperStyle={legendStyle()} {...la} />}
         {cols.map((col, i) => (
-          <Bar key={col} dataKey={col} fill={C[i % C.length] ?? chartColor(i)} fillOpacity={0.8} radius={[4, 4, 0, 0]} animationDuration={700} />
+          <Bar key={col} dataKey={col} fill={C[i % C.length] ?? chartColor(i)} fillOpacity={0.8} radius={[4, 4, 0, 0]} animationDuration={ANIM_MS} />
         ))}
       </BarChart>
     </ResponsiveContainer>
@@ -553,10 +563,11 @@ function ScatterRegressionChart({ data, config, expanded }: { data: Record<strin
         {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="x" type="number" name="X" tick={axisTick} {...axisLabelX(cfg)} />
         <YAxis tick={axisTick} {...axisLabelY(cfg)} />
-        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-        <Area data={lineData} type="monotone" dataKey="y" fill={`url(#plexGrad2)`} stroke="none" />
-        <Scatter data={data as Record<string, unknown>[]} fill={C[0] ?? chartColor(0)} opacity={0.55} animationDuration={700} />
-        <Line data={lineData} type="monotone" dataKey="y" stroke={C[2] ?? chartColor(2)} dot={false} strokeWidth={2.5} strokeDasharray="6 3" animationDuration={700} />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        {/* (No area fill under the regression line — the area between 0 and ŷ
+            has no statistical meaning and reads like a confidence band.) */}
+        <Scatter data={data as Record<string, unknown>[]} fill={C[0] ?? chartColor(0)} opacity={0.55} animationDuration={ANIM_MS} />
+        <Line data={lineData} type="monotone" dataKey="y" stroke={C[2] ?? chartColor(2)} dot={false} strokeWidth={2.5} strokeDasharray="6 3" animationDuration={ANIM_MS} />
       </ComposedChart>
     </ResponsiveContainer>
   )
@@ -573,8 +584,8 @@ function ResidualChart({ data, expanded }: { data: Record<string, unknown>[]; ex
         <XAxis dataKey="fitted" name="Fitted" tick={axisTick} {...axisLabelX(cfg, 'Fitted Values')} />
         <YAxis dataKey="residual" name="Residual" tick={axisTick} {...axisLabelY(cfg, 'Residuals')} />
         <ReferenceLine y={0} stroke={CHART_TOKENS.borderActive} strokeDasharray="6 4" />
-        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-        <Scatter data={data} fill={C[0] ?? chartColor(0)} opacity={0.5} animationDuration={700} />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        <Scatter data={data} fill={C[0] ?? chartColor(0)} opacity={0.5} animationDuration={ANIM_MS} />
       </ScatterChart>
     </ResponsiveContainer>
   )
@@ -848,8 +859,8 @@ function FunnelPlot({ data, config, expanded }: { data: { es: number; se: number
         <XAxis dataKey="es" name="Effect Size" tick={axisTick} {...axisLabelX(cfg, 'Effect Size')} />
         <YAxis dataKey="se" name="SE" reversed tick={axisTick} {...axisLabelY(cfg, 'Standard Error')} />
         <ReferenceLine x={summaryES} stroke={C[1] ?? chartColor(1)} strokeDasharray="6 4" strokeWidth={1.5} />
-        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-        <Scatter data={data} fill={C[0] ?? chartColor(0)} opacity={0.7} animationDuration={700} />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        <Scatter data={data} fill={C[0] ?? chartColor(0)} opacity={0.7} animationDuration={ANIM_MS} />
       </ScatterChart>
     </ResponsiveContainer>
   )
@@ -874,16 +885,19 @@ function ROCCurve({ data, config, expanded }: { data: { fpr: number; tpr: number
             strokeDasharray="6 4"
             strokeWidth={1.5}
           />
-          <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+          <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+          {/* Empirical ROC: straight segments between threshold points (each
+              point changes TP or FP by one observation), never a smoothing
+              spline, which would distort the curve and the visual AUC. */}
           <Area
-            type="monotone"
+            type="linear"
             dataKey="tpr"
             fill="url(#plexGrad0)"
             stroke={C[0] ?? chartColor(0)}
             strokeWidth={2.5}
             dot={false}
             name={`AUC = ${auc}`}
-            animationDuration={700}
+            animationDuration={ANIM_MS}
           />
         </AreaChart>
       </ResponsiveContainer>
@@ -912,7 +926,7 @@ function KMCurve({ data, config, expanded }: { data: KMPoint[]; config: Record<s
           {cfg.showGrid && <CartesianGrid {...gridStyle} />}
           <XAxis dataKey="time" type="number" tick={axisTick} {...axisLabelX(cfg, 'Time')} />
           <YAxis domain={[0, 1]} tick={axisTick} {...axisLabelY(cfg, 'Survival Probability')} />
-          <Tooltip content={<DarkTooltip />} cursor={{ stroke: CHART_TOKENS.borderActive, strokeWidth: 1 }} />
+          <Tooltip content={<ChartTooltip />} cursor={{ stroke: CHART_TOKENS.borderActive, strokeWidth: 1 }} />
           {cfg.showLegend && <Legend wrapperStyle={legendStyle()} {...la} />}
           {groups.map((group, i) => (
             <Line
@@ -924,7 +938,7 @@ function KMCurve({ data, config, expanded }: { data: KMPoint[]; config: Record<s
               stroke={C[i % C.length] ?? chartColor(i)}
               dot={false}
               strokeWidth={2.5}
-              animationDuration={700}
+              animationDuration={ANIM_MS}
              
             />
           ))}
@@ -1034,10 +1048,10 @@ function TimeSeriesChart({ data, config, expanded }: { data: Record<string, unkn
         {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="date" tick={{ ...axisTick, fontSize: 10 }} interval="preserveStartEnd" {...axisLabelX(cfg)} />
         <YAxis tick={axisTick} {...axisLabelY(cfg)} />
-        <Tooltip content={<DarkTooltip />} cursor={{ stroke: CHART_TOKENS.borderActive, strokeWidth: 1 }} />
+        <Tooltip content={<ChartTooltip />} cursor={{ stroke: CHART_TOKENS.borderActive, strokeWidth: 1 }} />
         {cfg.showLegend && <Legend wrapperStyle={legendStyle()} {...la} />}
-        <Area type="monotone" dataKey="observed" fill="url(#plexGrad0)" stroke={C[0] ?? chartColor(0)} strokeWidth={2} dot={false} name="Observed" animationDuration={700} />
-        <Line type="monotone" dataKey="trend" stroke={C[1] ?? chartColor(1)} dot={false} strokeWidth={2.5} name="Trend" strokeDasharray="8 4" animationDuration={700} />
+        <Area type="monotone" dataKey="observed" fill="url(#plexGrad0)" stroke={C[0] ?? chartColor(0)} strokeWidth={2} dot={false} name="Observed" animationDuration={ANIM_MS} />
+        <Line type="monotone" dataKey="trend" stroke={C[1] ?? chartColor(1)} dot={false} strokeWidth={2.5} name="Trend" strokeDasharray="8 4" animationDuration={ANIM_MS} />
       </ComposedChart>
     </ResponsiveContainer>
   )
@@ -1054,10 +1068,10 @@ function ScreePlot({ data, expanded }: { data: { component: number; eigenvalue: 
         {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="component" tick={axisTick} {...axisLabelX(cfg, 'Component')} />
         <YAxis tick={axisTick} {...axisLabelY(cfg)} />
-        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
         {cfg.showLegend && <Legend wrapperStyle={legendStyle()} {...la} />}
-        <Bar dataKey="eigenvalue" fill={C[0] ?? chartColor(0)} fillOpacity={0.75} name="Eigenvalue" radius={[4, 4, 0, 0]} animationDuration={700} />
-        <Line type="monotone" dataKey="varExplained" stroke={C[1] ?? chartColor(1)} dot={{ r: 4, fill: C[1] ?? chartColor(1) }} name="% Variance" strokeWidth={2.5} animationDuration={700} />
+        <Bar dataKey="eigenvalue" fill={C[0] ?? chartColor(0)} fillOpacity={0.75} name="Eigenvalue" radius={[4, 4, 0, 0]} animationDuration={ANIM_MS} />
+        <Line type="monotone" dataKey="varExplained" stroke={C[1] ?? chartColor(1)} dot={{ r: 4, fill: C[1] ?? chartColor(1) }} name="% Variance" strokeWidth={2.5} animationDuration={ANIM_MS} />
       </ComposedChart>
     </ResponsiveContainer>
   )
@@ -1079,10 +1093,10 @@ function ClusterScatter({ data, config, expanded }: { data: { pc1: number; pc2: 
         {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis type="number" dataKey="pc1" name="PC1" tick={axisTick} {...axisLabelX(cfg, 'PC1')} />
         <YAxis type="number" dataKey="pc2" name="PC2" tick={axisTick} {...axisLabelY(cfg, 'PC2')} />
-        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
         {cfg.showLegend && <Legend wrapperStyle={legendStyle()} {...la} />}
         {clusterData.map((c, i) => (
-          <Scatter key={c.name} name={c.name} data={c.data} fill={C[i % C.length] ?? chartColor(i)} opacity={0.65} animationDuration={700} />
+          <Scatter key={c.name} name={c.name} data={c.data} fill={C[i % C.length] ?? chartColor(i)} opacity={0.65} animationDuration={ANIM_MS} />
         ))}
       </ScatterChart>
     </ResponsiveContainer>
@@ -1113,8 +1127,8 @@ function PowerCurve({ data, config, expanded }: { data: { n: number; power: numb
           {targetN && (
             <ReferenceLine x={targetN} stroke={C[2] ?? chartColor(2)} strokeDasharray="6 4" strokeWidth={1.5} />
           )}
-          <Tooltip content={<DarkTooltip />} cursor={{ stroke: CHART_TOKENS.borderActive, strokeWidth: 1 }} />
-          <Area type="monotone" dataKey="power" fill="url(#plexGrad0)" stroke={C[0] ?? chartColor(0)} strokeWidth={2.5} dot={false} animationDuration={700} />
+          <Tooltip content={<ChartTooltip />} cursor={{ stroke: CHART_TOKENS.borderActive, strokeWidth: 1 }} />
+          <Area type="monotone" dataKey="power" fill="url(#plexGrad0)" stroke={C[0] ?? chartColor(0)} strokeWidth={2.5} dot={false} animationDuration={ANIM_MS} />
         </AreaChart>
       </ResponsiveContainer>
       {targetN && (
@@ -1139,7 +1153,7 @@ function EpiCurve({ data, config, expanded }: { data: Record<string, unknown>[];
         {cfg.showGrid && <CartesianGrid {...gridStyle} />}
         <XAxis dataKey="date" tick={{ ...axisTick, fontSize: 10 }} interval="preserveStartEnd" {...axisLabelX(cfg)} />
         <YAxis tick={axisTick} {...axisLabelY(cfg)} />
-        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
         {cfg.showLegend && <Legend wrapperStyle={legendStyle()} {...la} />}
         {classifications.map((cls, i) => (
           <Bar
@@ -1150,7 +1164,7 @@ function EpiCurve({ data, config, expanded }: { data: Record<string, unknown>[];
             fillOpacity={0.8}
             name={cls}
             radius={i === classifications.length - 1 ? [4, 4, 0, 0] : undefined}
-            animationDuration={700}
+            animationDuration={ANIM_MS}
           />
         ))}
       </BarChart>
@@ -1173,8 +1187,8 @@ function ACFChart({ data, config, expanded }: { data: { lag: number; acf: number
         <ReferenceLine y={ci}  stroke={C[1] ?? chartColor(1)} strokeDasharray="6 4" strokeWidth={1.5} />
         <ReferenceLine y={-ci} stroke={C[1] ?? chartColor(1)} strokeDasharray="6 4" strokeWidth={1.5} />
         <ReferenceLine y={0}   stroke={CHART_TOKENS.borderActive} strokeWidth={1} />
-        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-        <Bar dataKey="acf" radius={[4, 4, 0, 0]} animationDuration={700}>
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        <Bar dataKey="acf" radius={[4, 4, 0, 0]} animationDuration={ANIM_MS}>
           {data.map((d, i) => (
             <Cell
               key={i}
@@ -1330,8 +1344,8 @@ function BoxPlot2Group({ data, config, expanded }: { data: Record<string, unknow
           {cfg.showGrid && <CartesianGrid {...gridStyle} />}
           <XAxis dataKey="name" tick={axisTick} {...axisLabelX(cfg)} />
           <YAxis tick={axisTick} {...axisLabelY(cfg)} />
-          <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-          <Bar dataKey="mean" radius={[5, 5, 0, 0]} animationDuration={700}>
+          <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+          <Bar dataKey="mean" radius={[5, 5, 0, 0]} animationDuration={ANIM_MS}>
             {plotData.map((_, i) => <Cell key={i} fill={C[i % C.length] ?? chartColor(i)} fillOpacity={0.78} />)}
             <ErrorBar dataKey="error" width={7} strokeWidth={2} stroke={CHART_TOKENS.borderActive} />
           </Bar>
@@ -1355,8 +1369,8 @@ function BoxPlotGroups({ data, config, expanded }: { data: Record<string, unknow
           {cfg.showGrid && <CartesianGrid {...gridStyle} />}
           <XAxis dataKey="group" tick={axisTick} {...axisLabelX(cfg)} />
           <YAxis tick={axisTick} {...axisLabelY(cfg)} />
-          <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-          <Bar dataKey="mean" radius={[5, 5, 0, 0]} animationDuration={700}>
+          <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+          <Bar dataKey="mean" radius={[5, 5, 0, 0]} animationDuration={ANIM_MS}>
             {groupData.map((_: unknown, i: number) => <Cell key={i} fill={C[i % C.length] ?? chartColor(i)} fillOpacity={0.78} />)}
             <ErrorBar dataKey="sd" width={7} strokeWidth={2} stroke={CHART_TOKENS.borderActive} />
           </Bar>
@@ -1438,9 +1452,9 @@ function PairedDiffChart({ data, expanded }: { data: number[]; expanded: boolean
           <XAxis dataKey="name" tick={axisTick} {...axisLabelX(cfg, 'Difference')} />
           <YAxis tick={axisTick} {...axisLabelY(cfg, 'Count')} />
           <ReferenceLine x={bins.reduce((best, b) => Math.abs(b.x0) < Math.abs(best.x0) ? b : best, bins[0])?.name} stroke={CHART_TOKENS.borderActive} strokeDasharray="6 4" strokeWidth={1.5} label={{ value: '0', fontSize: 10, fill: CHART_TOKENS.text.muted }} />
-          <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-          <Bar dataKey="count" radius={[4, 4, 0, 0]} animationDuration={700}>
-            {bins.map((_, i) => <Cell key={i} fill={C[0] ?? chartColor(0)} fillOpacity={0.55 + (i / bins.length) * 0.35} />)}
+          <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+          <Bar dataKey="count" radius={[4, 4, 0, 0]} animationDuration={ANIM_MS}>
+            {bins.map((_, i) => <Cell key={i} fill={C[0] ?? chartColor(0)} fillOpacity={0.85} />)}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -1476,8 +1490,8 @@ function SilhouettePlot({ data, expanded }: { data: SilhouettePoint[]; expanded:
           <YAxis domain={[-1, 1]} tick={axisTick} {...axisLabelY(cfg, 'Silhouette score')} />
           <ReferenceLine y={0} stroke={CHART_TOKENS.borderActive} strokeWidth={1.5} />
           <ReferenceLine y={0.5} stroke={C[1] ?? chartColor(1)} strokeDasharray="6 4" strokeWidth={1} label={{ value: '0.5', fontSize: 9, fill: C[1] ?? chartColor(1) }} />
-          <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-          <Bar dataKey="silhouette" animationDuration={700} radius={0}>
+          <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+          <Bar dataKey="silhouette" animationDuration={ANIM_MS} radius={0}>
             {plotData.map((d, i) => <Cell key={i} fill={d.fill} fillOpacity={0.78} />)}
           </Bar>
         </BarChart>
@@ -1543,7 +1557,7 @@ function QQPlot({ data, config, expanded }: { data: { theoretical: number; obser
             cursor={{ fill: 'rgba(255,255,255,0.04)' }}
           />
           <Line data={refLine} dataKey="ref" type="linear" stroke={CHART_TOKENS.borderActive} strokeDasharray="6 4" strokeWidth={1.5} dot={false} legendType="none" animationDuration={0} />
-          <Scatter data={merged} dataKey="observed" fill={C[0] ?? chartColor(0)} opacity={0.55} animationDuration={600} />
+          <Scatter data={merged} dataKey="observed" fill={C[0] ?? chartColor(0)} opacity={0.55} animationDuration={ANIM_MS} />
         </ComposedChart>
       </ResponsiveContainer>
       <p className="text-[10px] text-center mt-1" style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}>
@@ -1592,8 +1606,8 @@ function ScatterMatrix({ data, config, expanded }: { data: ScatterPair[]; config
                 {cfg.showGrid && <CartesianGrid {...gridStyle} />}
                 <XAxis type="number" dataKey="x" name={pair.var1} tick={axisTick} label={{ value: pair.var1, position: 'insideBottom', offset: -2, fontSize: 9, fill: CHART_TOKENS.text.muted }} />
                 <YAxis type="number" dataKey="y" name={pair.var2} tick={axisTick} label={{ value: pair.var2, angle: -90, position: 'insideLeft', offset: 8, fontSize: 9, fill: CHART_TOKENS.text.muted }} />
-                <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-                <Scatter data={sample} fill={C[idx % C.length] ?? chartColor(idx)} opacity={0.45} animationDuration={700} />
+                <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+                <Scatter data={sample} fill={C[idx % C.length] ?? chartColor(idx)} opacity={0.45} animationDuration={ANIM_MS} />
               </ScatterChart>
             </ResponsiveContainer>
           </div>
