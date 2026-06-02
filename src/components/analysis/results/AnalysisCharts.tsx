@@ -362,8 +362,8 @@ function ChartRenderer({
               {type === 'epi_curve'         && <EpiCurve           data={data as Record<string, unknown>[]} config={config} expanded={expanded} />}
               {type === 'acf_plot'          && <ACFChart           data={data as { lag: number; acf: number }[]} config={config} expanded={expanded} />}
               {type === 'biplot'            && <Biplot             data={data as unknown as BiplotData} config={config} expanded={expanded} />}
-              {type === 'boxplot_2group'    && <BoxPlot2Group      data={data as unknown as Record<string, unknown>} expanded={expanded} />}
-              {type === 'boxplot_groups'    && <BoxPlotGroups      data={data as unknown as Record<string, unknown>} expanded={expanded} />}
+              {type === 'boxplot_2group'    && <BoxPlot2Group      data={data as unknown as Record<string, unknown>} config={config} expanded={expanded} />}
+              {type === 'boxplot_groups'    && <BoxPlotGroups      data={data as unknown as Record<string, unknown>} config={config} expanded={expanded} />}
               {type === 'mosaic'            && <MosaicPlot         data={data as Record<string, unknown>[]} config={config} expanded={expanded} />}
               {type === 'forest_rrr'        && <ForestRRR          data={data as ForestRRRPoint[]} config={config ?? {}} expanded={expanded} />}
               {type === 'paired_diff'       && <PairedDiffChart    data={data as number[]} expanded={expanded} />}
@@ -1296,48 +1296,72 @@ function Biplot({ data, config, expanded }: { data: BiplotData; config: Record<s
   )
 }
 
-// ── Box Plot (2 groups) ──────────────────────────────────────
-function BoxPlot2Group({ data, expanded }: { data: Record<string, unknown>; expanded: boolean }) {
+// Honest caption for the mean/median ± spread bar charts. These render the
+// summary the engine actually computed (mean ± SD for parametric tests, median
+// for non-parametric), NOT a quartile box plot — the caption says which so the
+// chart is never mistaken for a true box-and-whisker plot.
+function StatBarCaption({ config }: { config: Record<string, unknown> }) {
+  const center = (config?.center as string) || 'Mean'
+  const spread = (config?.spread as string) || ''
+  const text = spread ? `Bars: ${center} · whiskers: ± ${spread}` : `Bars: ${center}`
+  return (
+    <p
+      className="text-[10px] text-center mt-1.5"
+      style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}
+    >
+      {text}. See the violin plot for the full distribution.
+    </p>
+  )
+}
+
+// ── Mean/Median ± spread bars (2 groups) ─────────────────────
+function BoxPlot2Group({ data, config, expanded }: { data: Record<string, unknown>; config: Record<string, unknown>; expanded: boolean }) {
   const cfg = useCfg()
   const C = cfg.colors
   const groups = (Array.isArray(data) ? data : (data.groups as { group: string; mean: number; sd: number }[])) ?? []
   if (!groups.length) return null
   const plotData = groups.map((g: { group: string; mean: number; sd: number }) => ({ name: g.group, mean: g.mean, error: g.sd }))
   return (
-    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 160)}>
-      <BarChart data={plotData} barCategoryGap="30%">
-        {cfg.showGrid && <CartesianGrid {...gridStyle} />}
-        <XAxis dataKey="name" tick={axisTick} {...axisLabelX(cfg)} />
-        <YAxis tick={axisTick} {...axisLabelY(cfg)} />
-        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-        <Bar dataKey="mean" radius={[5, 5, 0, 0]} animationDuration={700}>
-          {plotData.map((_, i) => <Cell key={i} fill={C[i % C.length] ?? chartColor(i)} fillOpacity={0.78} />)}
-          <ErrorBar dataKey="error" width={7} strokeWidth={2} stroke={CHART_TOKENS.borderActive} />
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <div>
+      <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 160)}>
+        <BarChart data={plotData} barCategoryGap="30%">
+          {cfg.showGrid && <CartesianGrid {...gridStyle} />}
+          <XAxis dataKey="name" tick={axisTick} {...axisLabelX(cfg)} />
+          <YAxis tick={axisTick} {...axisLabelY(cfg)} />
+          <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+          <Bar dataKey="mean" radius={[5, 5, 0, 0]} animationDuration={700}>
+            {plotData.map((_, i) => <Cell key={i} fill={C[i % C.length] ?? chartColor(i)} fillOpacity={0.78} />)}
+            <ErrorBar dataKey="error" width={7} strokeWidth={2} stroke={CHART_TOKENS.borderActive} />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+      <StatBarCaption config={config} />
+    </div>
   )
 }
 
-// ── Box Plot (multiple groups) ───────────────────────────────
-function BoxPlotGroups({ data, expanded }: { data: Record<string, unknown>; expanded: boolean }) {
+// ── Mean/Median ± spread bars (multiple groups) ──────────────
+function BoxPlotGroups({ data, config, expanded }: { data: Record<string, unknown>; config: Record<string, unknown>; expanded: boolean }) {
   const cfg = useCfg()
   const C = cfg.colors
   const groupData = (Array.isArray(data) ? data : (data.data as { group: string; mean: number; sd: number }[])) ?? []
   if (!groupData.length) return null
   return (
-    <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 160)}>
-      <BarChart data={groupData} barCategoryGap="20%">
-        {cfg.showGrid && <CartesianGrid {...gridStyle} />}
-        <XAxis dataKey="group" tick={axisTick} {...axisLabelX(cfg)} />
-        <YAxis tick={axisTick} {...axisLabelY(cfg)} />
-        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-        <Bar dataKey="mean" radius={[5, 5, 0, 0]} animationDuration={700}>
-          {groupData.map((_: unknown, i: number) => <Cell key={i} fill={C[i % C.length] ?? chartColor(i)} fillOpacity={0.78} />)}
-          <ErrorBar dataKey="sd" width={7} strokeWidth={2} stroke={CHART_TOKENS.borderActive} />
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <div>
+      <ResponsiveContainer width="100%" height={cfg.height ?? chartHeight(expanded, 160)}>
+        <BarChart data={groupData} barCategoryGap="20%">
+          {cfg.showGrid && <CartesianGrid {...gridStyle} />}
+          <XAxis dataKey="group" tick={axisTick} {...axisLabelX(cfg)} />
+          <YAxis tick={axisTick} {...axisLabelY(cfg)} />
+          <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+          <Bar dataKey="mean" radius={[5, 5, 0, 0]} animationDuration={700}>
+            {groupData.map((_: unknown, i: number) => <Cell key={i} fill={C[i % C.length] ?? chartColor(i)} fillOpacity={0.78} />)}
+            <ErrorBar dataKey="sd" width={7} strokeWidth={2} stroke={CHART_TOKENS.borderActive} />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+      <StatBarCaption config={config} />
+    </div>
   )
 }
 

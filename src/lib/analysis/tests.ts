@@ -275,7 +275,7 @@ export function runTTest(data: DataRow[], config: TTestConfig): AnalysisResult {
       { type: 'boxplot_2group', title: `${variable} by ${groupVariable}`, data: [
         { group: groups[0], mean: m1, sd: s1 },
         { group: groups[1], mean: m2, sd: s2 }
-      ], config: {} },
+      ], config: { center: 'Mean', spread: 'SD' } },
       { type: 'violin', title: `Distribution of ${variable} by ${groupVariable}`, data: violinData, config: {} },
       { type: 'ridge', title: `Density: ${variable} by ${groupVariable}`, data: violinData, config: {} },
       { type: 'qq_plot', title: `Q-Q Plot: ${variable}`, data: qqNormalData([...g1Vals, ...g2Vals]), config: { cohenD: d } },
@@ -525,7 +525,7 @@ export function runAnova(data: DataRow[], config: AnovaConfig): AnalysisResult {
 
   const anovaViolinData = groups.map(g => ({ group: g, values: groupData[g].slice(0, 500) }))
   const chartData = [
-    { type: 'boxplot_groups', title: `${dependent} by ${factor1}`, data: groupStats.map(g => ({ group: g.group, mean: g.mean, sd: g.sd })), config: {} },
+    { type: 'boxplot_groups', title: `${dependent} by ${factor1}`, data: groupStats.map(g => ({ group: g.group, mean: g.mean, sd: g.sd })), config: { center: 'Mean', spread: 'SD' } },
     { type: 'violin', title: `Distribution of ${dependent} by ${factor1}`, data: anovaViolinData, config: {} },
     { type: 'ridge', title: `Density: ${dependent} by ${factor1}`, data: anovaViolinData, config: {} },
     { type: 'qq_plot', title: 'Q-Q Plot of Residuals', data: qqNormalData(allResiduals), config: { etaSq } },
@@ -639,7 +639,7 @@ function runMannWhitney(data: DataRow[], variable: string, groupVariable: string
       { type: 'boxplot_2group', title: `${variable} by ${groupVariable}`, data: [
         { group: groups[0], mean: med1, sd: iqr(g1Vals) },
         { group: groups[1], mean: med2, sd: iqr(g2Vals) },
-      ], config: {} },
+      ], config: { center: 'Median', spread: 'IQR' } },
       { type: 'violin', title: `Distribution of ${variable} by ${groupVariable}`, data: [
         { group: groups[0], values: g1Vals.slice(0, 500) },
         { group: groups[1], values: g2Vals.slice(0, 500) },
@@ -737,7 +737,7 @@ function runKruskalWallis(data: DataRow[], dependent: string, factor1: string): 
     summary: { testType: 'kruskal_wallis', dependent, factor1, H: fmt(H, 3), df, pValue: formatPValue(pValue), n: N, etaSq: epsilonSq },
     tables,
     charts: [
-      { type: 'boxplot_groups', title: `${dependent} by ${factor1}`, data: groupStats.map(g => ({ group: g.group, mean: g.median, sd: 0 })), config: {} },
+      { type: 'boxplot_groups', title: `${dependent} by ${factor1}`, data: groupStats.map(g => ({ group: g.group, mean: g.median, sd: 0 })), config: { center: 'Median', spread: '' } },
       { type: 'violin', title: `Distribution of ${dependent} by ${factor1}`, data: groupLabels.map(g => ({ group: g, values: groupData[g].slice(0, 500) })), config: {} },
       { type: 'ridge', title: `Density: ${dependent} by ${factor1}`, data: groupLabels.map(g => ({ group: g, values: groupData[g].slice(0, 500) })), config: {} },
     ],
