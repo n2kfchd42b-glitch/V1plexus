@@ -692,7 +692,7 @@ function ForestPlotTable({ rows, nullLine = 0, effectLabel = 'Estimate', isRatio
                 <td className="py-3 pr-4">
                   <span
                     className={`text-[12px] leading-tight ${row.isSummary ? 'font-bold' : 'font-medium'}`}
-                    style={{ color: row.isSummary ? chartColor(3) : CHART_TOKENS.text.primary, fontFamily: 'Manrope, sans-serif' }}
+                    style={{ color: row.isSummary ? chartTextColor(3) : CHART_TOKENS.text.primary, fontFamily: 'Manrope, sans-serif' }}
                   >
                     {row.name}
                   </span>
@@ -743,14 +743,14 @@ function ForestPlotTable({ rows, nullLine = 0, effectLabel = 'Estimate', isRatio
                   <span
                     className={`text-[11px] ${row.isSummary ? 'font-bold' : 'font-normal'}`}
                     style={{
-                      color: row.isSummary ? chartColor(3) : CHART_TOKENS.text.secondary,
+                      color: row.isSummary ? chartTextColor(3) : CHART_TOKENS.text.secondary,
                       fontFamily: "'JetBrains Mono', monospace",
                     }}
                   >
                     {annotText}
                   </span>
                   {(isClippedLow || isClippedHigh) && (
-                    <span className="ml-1 text-[9px] font-bold" style={{ color: chartColor(5) }}>†</span>
+                    <span className="ml-1 text-[9px] font-bold" style={{ color: chartTextColor(5) }}>†</span>
                   )}
                 </td>
 
@@ -759,7 +759,7 @@ function ForestPlotTable({ rows, nullLine = 0, effectLabel = 'Estimate', isRatio
                   <span
                     className="text-[11px] font-bold"
                     style={{
-                      color: isSig ? chartColor(4) : CHART_TOKENS.text.muted,
+                      color: isSig ? chartTextColor(4) : CHART_TOKENS.text.muted,
                       fontFamily: "'JetBrains Mono', monospace",
                     }}
                   >
@@ -772,16 +772,18 @@ function ForestPlotTable({ rows, nullLine = 0, effectLabel = 'Estimate', isRatio
         </tbody>
       </table>
 
-      {/* Scale legend */}
+      {/* Scale legend — neutral direction, no clinical value judgement. The
+          meaning of "higher/lower" depends on the outcome, which the engine does
+          not know, so we never assert "protective"/"harmful" or "favours". */}
       <div
         className="flex justify-between text-[9px] font-bold uppercase tracking-widest mt-3 pt-2"
         style={{ borderTop: `1px solid ${CHART_TOKENS.border}`, color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}
       >
         {isRatio ? (
           <>
-            <span style={{ color: chartColor(4) }}>Favors Treatment</span>
-            <span>1.0 (Null)</span>
-            <span style={{ color: chartColor(2) }}>Favors Control</span>
+            <span style={{ color: chartTextColor(4) }}>← {effectLabel} &lt; 1 (lower)</span>
+            <span>1.0 (no effect)</span>
+            <span style={{ color: chartTextColor(2) }}>{effectLabel} &gt; 1 (higher) →</span>
           </>
         ) : (
           ticks.map((v, i) => <span key={i}>{v.toFixed(2)}</span>)
@@ -791,8 +793,8 @@ function ForestPlotTable({ rows, nullLine = 0, effectLabel = 'Estimate', isRatio
       {isRatio && (
         <div className="flex flex-wrap items-center gap-4 mt-3">
           {[
-            { color: chartColor(4), label: 'Protective (p<0.05)' },
-            { color: chartColor(2), label: 'Harmful (p<0.05)' },
+            { color: chartColor(4), label: `${effectLabel} < 1, significant` },
+            { color: chartColor(2), label: `${effectLabel} > 1, significant` },
             { color: CHART_TOKENS.text.muted, label: 'Non-significant' },
           ].map(({ color, label }) => (
             <div key={label} className="flex items-center gap-1.5">
@@ -801,7 +803,7 @@ function ForestPlotTable({ rows, nullLine = 0, effectLabel = 'Estimate', isRatio
             </div>
           ))}
           <div className="flex items-center gap-1.5 ml-auto">
-            <span className="text-[9px] font-bold" style={{ color: chartColor(5) }}>†</span>
+            <span className="text-[9px] font-bold" style={{ color: chartTextColor(5) }}>†</span>
             <span className="text-[10px]" style={{ color: CHART_TOKENS.text.muted, fontFamily: 'Manrope, sans-serif' }}>CI extends beyond axis</span>
           </div>
         </div>
