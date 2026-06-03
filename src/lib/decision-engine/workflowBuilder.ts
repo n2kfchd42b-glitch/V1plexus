@@ -251,6 +251,40 @@ export function buildWorkflow(
       },
     ],
 
+    paired_t_test: [
+      {
+        number: 1,
+        name: 'Paired differences summary',
+        description: `Distribution of ${outcome} − ${exposure} per subject — shown in results`,
+        badge: 'in results',
+        display_only: true,
+      },
+      {
+        number: 2,
+        name: 'Paired t-test',
+        description: `Mean difference between ${outcome} and ${exposure}`,
+        badge: 'primary analysis',
+        analysis_type: 'paired_t_test',
+      },
+    ],
+
+    wilcoxon_signed_rank: [
+      {
+        number: 1,
+        name: 'Paired differences summary',
+        description: `Median difference between ${outcome} and ${exposure} — shown in results`,
+        badge: 'in results',
+        display_only: true,
+      },
+      {
+        number: 2,
+        name: 'Wilcoxon signed-rank test',
+        description: 'Non-parametric paired comparison',
+        badge: 'primary analysis',
+        analysis_type: 'wilcoxon_signed_rank',
+      },
+    ],
+
     one_way_anova: [
       {
         number: 1,

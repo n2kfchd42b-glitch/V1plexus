@@ -27,6 +27,8 @@ export const ANALYSIS_TYPE_MAPPING: Record<AnalysisTypeId, AnalysisType> = {
   fisher_exact: 'chi_square',       // closest available backend type
   independent_t_test: 't_test',
   mann_whitney: 't_test',           // non-parametric via t_test handler
+  paired_t_test: 't_test',          // testType: 'paired'
+  wilcoxon_signed_rank: 't_test',   // testType: 'paired' + nonParametric
   one_way_anova: 'anova',
   kruskal_wallis: 'anova',
   kaplan_meier: 'kaplan_meier',
@@ -113,6 +115,26 @@ export function buildBackendConfig(config: AnalysisConfig): Record<string, unkno
         testType: 'independent',
         variable: outcome ?? '',
         groupVariable: exposure ?? group_variable ?? '',
+        confidenceLevel,
+        equalVariances: false,
+        nonParametric: true,
+      }
+
+    // Paired tests use two repeated-measurement columns. The outcome slot holds
+    // the first measurement; the exposure slot holds the second (paired) one.
+    case 'paired_t_test':
+      return {
+        testType: 'paired',
+        variable: outcome ?? '',
+        pairedVariable: exposure ?? '',
+        confidenceLevel,
+        equalVariances: false,
+      }
+    case 'wilcoxon_signed_rank':
+      return {
+        testType: 'paired',
+        variable: outcome ?? '',
+        pairedVariable: exposure ?? '',
         confidenceLevel,
         equalVariances: false,
         nonParametric: true,
@@ -239,6 +261,8 @@ export function getRecommendation(
   variables: VariableSelection,
   context: DatasetContext,
   confidenceLevel: 0.90 | 0.95 | 0.99 = 0.95,
+  /** Two repeated measurements of the same subjects → route to paired tests. */
+  paired = false,
 ): AnalysisRecommendation {
   const selected = [
     variables.outcome,
@@ -250,7 +274,7 @@ export function getRecommendation(
 
   const complete_cases = estimateCompleteCases(selected, context.row_count)
 
-  const { primary, alternatives } = decideAnalysisType(intent, variables, complete_cases)
+  const { primary, alternatives } = decideAnalysisType(intent, variables, complete_cases, paired)
 
   const feasibility = checkFeasibility(primary, variables, context)
   const registry_entry = ANALYSIS_REGISTRY[primary]

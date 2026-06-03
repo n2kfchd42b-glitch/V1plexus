@@ -28,6 +28,9 @@ export function decideAnalysisType(
   intent: ResearchIntent,
   variables: VariableSelection,
   complete_cases: number,
+  /** Two repeated measurements on the same subjects (e.g. before/after).
+   *  When set, comparison routes to paired tests instead of group tests. */
+  paired = false,
 ): {
   primary: AnalysisTypeId
   alternatives: { id: AnalysisTypeId; reason: string }[]
@@ -275,6 +278,25 @@ export function decideAnalysisType(
     }
 
     if (outcomeType === 'continuous') {
+      // Paired/repeated measurements → compare the two measurement columns
+      // directly, not as independent groups.
+      if (paired) {
+        const diffSkewed = prefersNonParametric(variables.outcome) || prefersNonParametric(variables.exposure)
+        if (diffSkewed) {
+          return {
+            primary: 'wilcoxon_signed_rank',
+            alternatives: [
+              { id: 'paired_t_test', reason: 'If the paired differences are approximately normally distributed' },
+            ],
+          }
+        }
+        return {
+          primary: 'paired_t_test',
+          alternatives: [
+            { id: 'wilcoxon_signed_rank', reason: 'If the paired differences are non-normally distributed' },
+          ],
+        }
+      }
       const groups = groupCount(variables.group_variable ?? variables.exposure)
       const skewed = prefersNonParametric(variables.outcome)
       const ancovaAlt = n_covariates > 0
@@ -420,6 +442,14 @@ export function generateReasoning(
 
     mann_whitney:
       `Non-parametric comparison of ${outcome} between two groups. Results reported as medians with IQR.` + skewNote,
+
+    paired_t_test:
+      `You are comparing two repeated measurements (${outcome} vs ${exposure}) on the same subjects. ` +
+      `The paired t-test assesses whether their mean difference differs from zero, reported with a 95% CI and Cohen's d.`,
+
+    wilcoxon_signed_rank:
+      `Non-parametric comparison of two repeated measurements (${outcome} vs ${exposure}) on the same subjects. ` +
+      `Reported as the median difference.` + skewNote,
 
     one_way_anova:
       `Comparing ${outcome} across multiple groups defined by ${exposure}. ` +

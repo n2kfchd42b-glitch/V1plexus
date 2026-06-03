@@ -49,6 +49,8 @@ const CASES: Record<AnalysisTypeId, Vars> = {
   fisher_exact:              { outcome_variable: 'sex', exposure_variable: 'event' },
   independent_t_test:        { outcome_variable: 'sbp', exposure_variable: 'grp' },
   mann_whitney:              { outcome_variable: 'sbp', exposure_variable: 'grp' },
+  paired_t_test:             { outcome_variable: 'sbp', exposure_variable: 'age' },
+  wilcoxon_signed_rank:      { outcome_variable: 'sbp', exposure_variable: 'age' },
   one_way_anova:             { outcome_variable: 'sbp', exposure_variable: 'region' },
   kruskal_wallis:            { outcome_variable: 'sbp', exposure_variable: 'region' },
   pearson_correlation:       { outcome_variable: 'age', exposure_variable: 'sbp' },

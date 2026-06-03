@@ -207,6 +207,10 @@ export function runTTest(data: DataRow[], config: TTestConfig): AnalysisResult {
     return runMannWhitney(data, variable, groupVariable)
   }
 
+  if (nonParametric && testType === 'paired' && pairedVariable) {
+    return runWilcoxonSignedRank(data, variable, pairedVariable)
+  }
+
   if (testType === 'independent' && groupVariable) {
     const groups = [...new Set(getCategoricalValues(data, groupVariable))].sort().slice(0, 2) // Only 2 groups for t-test
     // Extract group values row-by-row so a missing value in either the grouping
@@ -652,6 +656,97 @@ function runMannWhitney(data: DataRow[], variable: string, groupVariable: string
     ],
     interpretation: `Mann-Whitney U test comparing ${variable} between ${groups[0]} (Mdn=${fmt(med1, 2)}) and ${groups[1]} (Mdn=${fmt(med2, 2)}). ` +
       `U = ${fmt(U)}, Z = ${fmt(Z, 3)}, p ${formatPValue(pValue)} — ${sig}.`
+  }
+}
+
+// ===================== WILCOXON SIGNED-RANK TEST =====================
+// Non-parametric paired test: the rank-based counterpart to the paired t-test,
+// for repeated measurements of the same subjects when the differences are
+// non-normal. Uses the normal approximation with tie + zero handling.
+
+function runWilcoxonSignedRank(data: DataRow[], variable: string, pairedVariable: string): AnalysisResult {
+  // Row-aligned pairing so a missing cell in either column never misaligns pairs.
+  const diffs: number[] = []
+  for (const row of data) {
+    const a = toNum(row[variable])
+    const b = toNum(row[pairedVariable])
+    if (isNaN(a) || isNaN(b)) continue
+    const d = a - b
+    if (d !== 0) diffs.push(d) // drop zero differences (standard Wilcoxon)
+  }
+  const n = diffs.length
+
+  if (n < 1) {
+    return {
+      type: 't_test',
+      summary: { error: 'No non-zero paired differences to rank.' },
+      tables: [], charts: [],
+      interpretation: 'Wilcoxon signed-rank test needs paired observations with at least one non-zero difference.',
+    }
+  }
+
+  const sorted = diffs
+    .map(d => ({ v: Math.abs(d), group: d > 0 ? 'pos' : 'neg' }))
+    .sort((p, q) => p.v - q.v)
+  const ranks = rankWithTies(sorted)
+
+  let wPos = 0, wNeg = 0
+  for (let k = 0; k < n; k++) {
+    if (sorted[k].group === 'pos') wPos += ranks[k]
+    else wNeg += ranks[k]
+  }
+  const W = Math.min(wPos, wNeg)
+
+  // Tie correction for the variance of W.
+  let tieCorr = 0
+  let i = 0
+  while (i < n) {
+    let j = i
+    while (j < n && sorted[j].v === sorted[i].v) j++
+    const t = j - i
+    if (t > 1) tieCorr += t ** 3 - t
+    i = j
+  }
+  const meanW = n * (n + 1) / 4
+  const varW = n * (n + 1) * (2 * n + 1) / 24 - tieCorr / 48
+  const Z = varW > 0 ? (wPos - meanW) / Math.sqrt(varW) : 0
+  const pValue = 2 * normalCDF(-Math.abs(Z))
+
+  // Effect size: matched-pairs rank-biserial correlation.
+  const rankBiserial = n > 0 ? (wPos - wNeg) / (n * (n + 1) / 2) : 0
+
+  const medianDiff = median(diffs)
+  const sig = pValue < 0.05 ? 'significant' : 'not significant'
+
+  const tables: ResultTable[] = [
+    {
+      id: 'wilcoxon', title: 'Wilcoxon Signed-Rank Test',
+      headers: ['Statistic', 'Value'],
+      rows: [
+        ['W (min of W+, W−)', fmt(W)],
+        ['Sum of positive ranks (W+)', fmt(wPos)],
+        ['Sum of negative ranks (W−)', fmt(wNeg)],
+        ['Z (normal approx.)', fmt(Z, 3)],
+        ['p-value (two-tailed)', formatPValue(pValue)],
+        ['Median difference', fmt(medianDiff)],
+        ['Rank-biserial r', fmt(rankBiserial, 3)],
+        ['N pairs (non-zero)', n],
+      ],
+    },
+  ]
+
+  return {
+    type: 't_test',
+    summary: {
+      testType: 'wilcoxon_signed_rank', variable, pairedVariable,
+      W: fmt(W), Z: fmt(Z, 3), pValue: formatPValue(pValue), cohenD: Math.abs(rankBiserial), n,
+    },
+    tables,
+    charts: [
+      { type: 'paired_diff', title: `Paired differences: ${variable} − ${pairedVariable}`, data: diffs, config: { mean: medianDiff, pValue: formatPValue(pValue) } },
+    ],
+    interpretation: `Wilcoxon signed-rank test of ${variable} vs ${pairedVariable} (median difference = ${fmt(medianDiff, 2)}). ` +
+      `W = ${fmt(W)}, Z = ${fmt(Z, 3)}, p ${formatPValue(pValue)} — ${sig}.`,
   }
 }
 

@@ -343,6 +343,8 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
   const [engineStratVar, setEngineStratVar] = useState<EngineColumnSchema | null>(null)
   const [engineConfidenceLevel, setEngineConfidenceLevel] = useState<0.90 | 0.95 | 0.99>(0.95)
   const [engineDescriptiveVars, setEngineDescriptiveVars] = useState<string[]>([])
+  // Guided "compare" sub-mode: two repeated measurements of the same subjects.
+  const [enginePaired, setEnginePaired] = useState(false)
 
   // Lifted recommendation state (from GuidedFlow)
   const [engineRecommendation, setEngineRecommendation] = useState<AnalysisRecommendation | null>(null)
@@ -363,6 +365,7 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
     setEngineGroupVar(null)
     setEngineStratVar(null)
     setEngineDescriptiveVars([])
+    setEnginePaired(false)
     setEngineRecommendation(null)
   }
 
@@ -1013,13 +1016,16 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
   const engineIsCorr      = engineSelectedType === 'pearson_correlation' || engineSelectedType === 'spearman_correlation'
   const engineIsCat       = engineSelectedType === 'chi_square' || engineSelectedType === 'fisher_exact'
   const engineIsDesc      = engineSelectedType === 'descriptive_statistics'
+  // Paired tests use two repeated-measurement columns (outcome = measurement 1,
+  // exposure = measurement 2) rather than an outcome + grouping variable.
+  const engineIsPaired    = engineSelectedType === 'paired_t_test' || engineSelectedType === 'wilcoxon_signed_rank'
 
   const canEngineDirectRun = (() => {
     if (!engineSelectedType) return false
     if (engineIsDesc) return true
     if (engineSelectedType === 'prevalence_estimation') return !!engineOutcome
     if (engineIsSurvival) return !!engineTimeVar && !!engineEventVar
-    if (engineIsCorr || engineIsCat) return !!engineOutcome && !!engineExposure
+    if (engineIsPaired || engineIsCorr || engineIsCat) return !!engineOutcome && !!engineExposure
     if (engineMeta?.requires_grouping) return !!engineOutcome && !!(engineExposure ?? engineGroupVar)
     return !!engineOutcome
   })()
@@ -1029,6 +1035,8 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
     engineIntent === 'survive'
       // KM needs time + event; Cox needs time + event + at least one predictor
       ? (!!engineTimeVar && !!engineEventVar) :
+    // Paired comparison needs both measurement columns selected.
+    enginePaired ? (!!engineOutcome && !!engineExposure) :
     !!engineOutcome
   )
 
@@ -1466,7 +1474,15 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {engineIsSurvival ? (
+                      {engineIsPaired ? (
+                        <>
+                          <DecisionVariableSelector label="First measurement" required schema={engineSchema} allowedTypes={['continuous']} value={engineOutcome} onChange={setEngineOutcome} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineOutcome?.name)} />
+                          <DecisionVariableSelector label="Second measurement" required schema={engineSchema} allowedTypes={['continuous']} value={engineExposure} onChange={setEngineExposure} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineExposure?.name)} />
+                          <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+                            Two columns measured on the same subjects (e.g. before and after).
+                          </p>
+                        </>
+                      ) : engineIsSurvival ? (
                         <>
                           <DecisionVariableSelector label={t('analysis.varTimeVariable')} required schema={engineSchema} allowedTypes={['continuous', 'date']} value={engineTimeVar} onChange={setEngineTimeVar} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineTimeVar?.name)} />
                           <DecisionVariableSelector label={t('analysis.varEventIndicator')} required schema={engineSchema} allowedTypes={['binary', 'continuous']} value={engineEventVar} onChange={setEngineEventVar} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineEventVar?.name)} />
@@ -1592,21 +1608,65 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <DecisionVariableSelector label={t('analysis.varOutcome')} required schema={engineSchema} value={engineOutcome} onChange={setEngineOutcome} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineOutcome?.name)} />
-                      <DecisionVariableSelector
-                        label={engineIntent === 'compare' ? t('analysis.varGroupVariable') : t('analysis.varExposurePredictor')}
-                        schema={engineSchema} value={engineExposure} onChange={setEngineExposure} row_count={data.length}
-                        excludeNames={engineExcluded.filter(n => n !== engineExposure?.name)}
-                      />
-                      {(engineIntent === 'predict' || engineIntent === 'associate') && (
-                        <MultiDecisionVariableSelector
-                          label={t('analysis.varCovariates')}
-                          schema={engineSchema}
-                          value={engineCovariates}
-                          onChange={setEngineCovariates}
-                          row_count={data.length}
-                          excludeNames={engineExcluded.filter(n => !engineCovariates.some(c => c.name === n))}
-                        />
+                      {/* Compare design: independent groups vs paired/repeated measures */}
+                      {engineIntent === 'compare' && (
+                        <div>
+                          <p className="text-[11px] mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                            How are the two sets of values related?
+                          </p>
+                          <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: 'var(--bg-inset)' }}>
+                            {([
+                              { v: false, label: 'Independent groups' },
+                              { v: true, label: 'Paired / repeated' },
+                            ] as const).map(opt => {
+                              const active = enginePaired === opt.v
+                              return (
+                                <button
+                                  key={String(opt.v)}
+                                  type="button"
+                                  onClick={() => { setEnginePaired(opt.v); setEngineExposure(null); setEngineGroupVar(null); setEngineRecommendation(null) }}
+                                  className="flex-1 text-[11px] font-medium py-1.5 rounded-md transition-colors"
+                                  style={{
+                                    background: active ? 'var(--bg-surface)' : 'transparent',
+                                    color: active ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                                    boxShadow: active ? 'var(--shadow-xs)' : 'none',
+                                  }}
+                                >
+                                  {opt.label}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {engineIntent === 'compare' && enginePaired ? (
+                        <>
+                          <DecisionVariableSelector label="First measurement" required schema={engineSchema} allowedTypes={['continuous']} value={engineOutcome} onChange={setEngineOutcome} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineOutcome?.name)} />
+                          <DecisionVariableSelector label="Second measurement" required schema={engineSchema} allowedTypes={['continuous']} value={engineExposure} onChange={setEngineExposure} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineExposure?.name)} />
+                          <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+                            Two columns measured on the same subjects (e.g. before and after).
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <DecisionVariableSelector label={t('analysis.varOutcome')} required schema={engineSchema} value={engineOutcome} onChange={setEngineOutcome} row_count={data.length} excludeNames={engineExcluded.filter(n => n !== engineOutcome?.name)} />
+                          <DecisionVariableSelector
+                            label={engineIntent === 'compare' ? t('analysis.varGroupVariable') : t('analysis.varExposurePredictor')}
+                            schema={engineSchema} value={engineExposure} onChange={setEngineExposure} row_count={data.length}
+                            excludeNames={engineExcluded.filter(n => n !== engineExposure?.name)}
+                          />
+                          {(engineIntent === 'predict' || engineIntent === 'associate') && (
+                            <MultiDecisionVariableSelector
+                              label={t('analysis.varCovariates')}
+                              schema={engineSchema}
+                              value={engineCovariates}
+                              onChange={setEngineCovariates}
+                              row_count={data.length}
+                              excludeNames={engineExcluded.filter(n => !engineCovariates.some(c => c.name === n))}
+                            />
+                          )}
+                        </>
                       )}
                     </div>
                   )
@@ -1644,6 +1704,7 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
                   eventVar={engineEventVar}
                   groupVar={engineGroupVar}
                   stratVar={engineStratVar}
+                  paired={enginePaired}
                   confidenceLevel={engineConfidenceLevel}
                   canAnalyse={canEngineGuidedAnalyse}
                   recommendation={engineRecommendation}

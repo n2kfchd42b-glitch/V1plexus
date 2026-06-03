@@ -65,6 +65,8 @@ export type AnalysisTypeId =
   | 'fisher_exact'
   | 'independent_t_test'
   | 'mann_whitney'
+  | 'paired_t_test'
+  | 'wilcoxon_signed_rank'
   | 'one_way_anova'
   | 'kruskal_wallis'
   | 'kaplan_meier'

@@ -35,9 +35,9 @@ const failures: string[] = []
 
 function expectPrimary(
   label: string, intent: ResearchIntent, selection: VariableSelection,
-  primary: AnalysisTypeId, mustHaveAlt?: AnalysisTypeId,
+  primary: AnalysisTypeId, mustHaveAlt?: AnalysisTypeId, paired = false,
 ) {
-  const res = decideAnalysisType(intent, selection, N)
+  const res = decideAnalysisType(intent, selection, N, paired)
   if (res.primary !== primary) {
     failures.push(`${label}: expected primary ${primary}, got ${res.primary}`)
     return
@@ -89,6 +89,15 @@ expectPrimary('associate normal × normal', 'associate',
 expectPrimary('associate skewed × continuous', 'associate',
   vars({ outcome: skewedCont('income'), exposure: normalCont('age') }),
   'spearman_correlation', 'pearson_correlation')
+
+// ── compare: paired / repeated measurements ──────────────────────────────────
+expectPrimary('compare paired normal', 'compare',
+  vars({ outcome: normalCont('pre'), exposure: normalCont('post') }),
+  'paired_t_test', 'wilcoxon_signed_rank', /* paired */ true)
+
+expectPrimary('compare paired skewed', 'compare',
+  vars({ outcome: skewedCont('pre_cost'), exposure: normalCont('post_cost') }),
+  'wilcoxon_signed_rank', 'paired_t_test', /* paired */ true)
 
 // ── unknown skew falls back to parametric (no guessing) ───────────────────────
 expectPrimary('compare unknown-skew × 2-group falls back to t-test', 'compare',

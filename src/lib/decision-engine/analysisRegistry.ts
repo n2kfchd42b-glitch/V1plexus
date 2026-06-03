@@ -145,6 +145,38 @@ export const ANALYSIS_REGISTRY: Record<AnalysisTypeId, AnalysisTypeMetadata> = {
     reporting_guideline: 'STROBE',
   },
 
+  paired_t_test: {
+    id: 'paired_t_test',
+    name: 'Paired T-Test',
+    category: 'comparative',
+    icon: '🔗',
+    short_description: 'Compare two repeated measurements',
+    when_to_use:
+      'When comparing two repeated measurements on the same subjects (e.g. before vs after) and the paired differences are approximately normal.',
+    outcome_types: ['continuous'],
+    predictor_types: ['continuous'],
+    requires_grouping: false,
+    requires_time: false,
+    min_sample_size: 15,
+    reporting_guideline: 'STROBE',
+  },
+
+  wilcoxon_signed_rank: {
+    id: 'wilcoxon_signed_rank',
+    name: 'Wilcoxon Signed-Rank Test',
+    category: 'comparative',
+    icon: '🪢',
+    short_description: 'Non-parametric paired comparison',
+    when_to_use:
+      'Non-parametric alternative to the paired t-test: two repeated measurements on the same subjects when the paired differences are non-normal. Reports the median difference.',
+    outcome_types: ['continuous'],
+    predictor_types: ['continuous'],
+    requires_grouping: false,
+    requires_time: false,
+    min_sample_size: 10,
+    reporting_guideline: 'STROBE',
+  },
+
   one_way_anova: {
     id: 'one_way_anova',
     name: 'One-Way ANOVA',
