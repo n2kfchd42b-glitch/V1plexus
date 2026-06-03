@@ -62,6 +62,7 @@ interface DetailData {
     unassigned: number
     roster_unclaimed: number
     intake_pending: number
+    defenses_pending: number
   }
   viewer: { is_institution_admin: boolean; is_department_head: boolean }
 }
@@ -354,9 +355,9 @@ export default function DepartmentBoardPage({ params }: { params: Promise<{ id: 
           </TabsTrigger>
           <TabsTrigger value="intake">
             Intake
-            {data.counts.intake_pending > 0 && (
+            {data.counts.intake_pending + data.counts.defenses_pending > 0 && (
               <span className="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-[10px] font-bold rounded-full bg-indigo-100 text-indigo-700">
-                {data.counts.intake_pending}
+                {data.counts.intake_pending + data.counts.defenses_pending}
               </span>
             )}
           </TabsTrigger>

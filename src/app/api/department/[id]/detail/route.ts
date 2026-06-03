@@ -161,10 +161,11 @@ export async function GET(
       programme: e.programme,
     }))
 
-  // Intake badge: submitted theses awaiting defense scheduling, scoped to
-  // students supervised in this dept. Two-step lookup but each query is
-  // narrow (only the IDs needed).
+  // Intake badge: submitted theses awaiting defense scheduling PLUS scheduled
+  // defenses awaiting outcome — both are actions admin needs to take. Scoped
+  // to students supervised in this dept.
   let intakePending = 0
+  let defensesPending = 0
   const intakeStudentIds = [...new Set(((intakeStudentsRes.data ?? []) as Array<{ student_id: string }>).map(a => a.student_id))]
   if (intakeStudentIds.length > 0) {
     const { data: intakeProjects } = await svc
@@ -173,13 +174,22 @@ export async function GET(
       .in('owner_id', intakeStudentIds)
     const intakeProjectIds = (intakeProjects ?? []).map(p => p.id as string)
     if (intakeProjectIds.length > 0) {
-      const { count } = await svc
-        .from('thesis_metadata')
-        .select('id', { count: 'exact', head: true })
-        .in('project_id', intakeProjectIds)
-        .eq('lifecycle_state', 'submitted')
-        .eq('defense_status', 'not_scheduled')
-      intakePending = count ?? 0
+      const [submittedCount, scheduledCount] = await Promise.all([
+        svc
+          .from('thesis_metadata')
+          .select('id', { count: 'exact', head: true })
+          .in('project_id', intakeProjectIds)
+          .eq('lifecycle_state', 'submitted')
+          .eq('defense_status', 'not_scheduled'),
+        svc
+          .from('thesis_defenses')
+          .select('id', { count: 'exact', head: true })
+          .in('project_id', intakeProjectIds)
+          .eq('defense_type', 'final')
+          .is('outcome', null),
+      ])
+      intakePending = submittedCount.count ?? 0
+      defensesPending = scheduledCount.count ?? 0
     }
   }
 
@@ -199,6 +209,7 @@ export async function GET(
       unassigned: unassignedStudents.length,
       roster_unclaimed: (rosterCountRes as { count: number | null }).count ?? 0,
       intake_pending: intakePending,
+      defenses_pending: defensesPending,
     },
     viewer: {
       is_institution_admin: scope.isInstitutionAdmin,
