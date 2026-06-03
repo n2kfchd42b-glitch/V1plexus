@@ -5,6 +5,23 @@ function isUsable(type: VariableType | null | undefined): boolean {
   return type !== null && type !== undefined && type !== 'text' && type !== 'id'
 }
 
+// |Fisher's skewness| above this is treated as "substantially non-normal", so
+// the engine leads with a non-parametric test (a common rule-of-thumb cutoff).
+const SKEW_NONNORMAL_THRESHOLD = 1
+
+// True when a column's measured distribution is skewed enough that a
+// rank-based (non-parametric) test is the safer primary choice. Returns false
+// when skewness wasn't computed (small/unknown column) so we fall back to the
+// parametric default rather than guessing.
+function prefersNonParametric(col: { skewness?: number } | null | undefined): boolean {
+  return col != null && col.skewness != null && Math.abs(col.skewness) >= SKEW_NONNORMAL_THRESHOLD
+}
+
+// Distinct levels of a grouping variable; falls back to 2 when unknown.
+function groupCount(col: { unique_count?: number } | null | undefined): number {
+  return col?.unique_count && col.unique_count > 0 ? col.unique_count : 2
+}
+
 // ─── Core decision logic ──────────────────────────────────────────────────────
 
 export function decideAnalysisType(
@@ -159,6 +176,17 @@ export function decideAnalysisType(
           ],
         }
       }
+      // Skewed in either variable → lead with the rank-based correlation.
+      const eitherSkewed = prefersNonParametric(variables.outcome) || prefersNonParametric(variables.exposure)
+      if (eitherSkewed) {
+        return {
+          primary: 'spearman_correlation',
+          alternatives: [
+            { id: 'pearson_correlation', reason: 'If both variables are approximately normally distributed' },
+            { id: 'linear_regression', reason: 'If you want to adjust for covariates' },
+          ],
+        }
+      }
       return {
         primary: 'pearson_correlation',
         alternatives: [
@@ -182,8 +210,18 @@ export function decideAnalysisType(
           alternatives: [],
         }
       }
-      const groups = variables.exposure?.unique_count ?? 2
+      const groups = groupCount(variables.exposure)
+      const skewed = prefersNonParametric(variables.outcome)
       if (groups <= 2) {
+        if (skewed) {
+          return {
+            primary: 'mann_whitney',
+            alternatives: [
+              { id: 'independent_t_test', reason: 'If the outcome is approximately normally distributed' },
+              { id: 'linear_regression', reason: 'If you need to adjust for covariates' },
+            ],
+          }
+        }
         return {
           primary: 'independent_t_test',
           alternatives: [
@@ -192,6 +230,14 @@ export function decideAnalysisType(
               id: 'linear_regression',
               reason: 'If you need to adjust for covariates',
             },
+          ],
+        }
+      }
+      if (skewed) {
+        return {
+          primary: 'kruskal_wallis',
+          alternatives: [
+            { id: 'one_way_anova', reason: 'If the outcome is approximately normally distributed' },
           ],
         }
       }
@@ -229,18 +275,35 @@ export function decideAnalysisType(
     }
 
     if (outcomeType === 'continuous') {
-      const groups =
-        variables.group_variable?.unique_count ??
-        variables.exposure?.unique_count ??
-        2
+      const groups = groupCount(variables.group_variable ?? variables.exposure)
+      const skewed = prefersNonParametric(variables.outcome)
+      const ancovaAlt = n_covariates > 0
+        ? [{ id: 'linear_regression' as const, reason: 'Adjust for covariates via ANCOVA (linear regression with group as predictor)' }]
+        : []
       if (groups <= 2) {
+        if (skewed) {
+          return {
+            primary: 'mann_whitney',
+            alternatives: [
+              { id: 'independent_t_test', reason: 'If the outcome is approximately normally distributed' },
+              ...ancovaAlt,
+            ],
+          }
+        }
         return {
           primary: 'independent_t_test',
           alternatives: [
             { id: 'mann_whitney', reason: 'If outcome is non-normally distributed' },
-            ...(n_covariates > 0
-              ? [{ id: 'linear_regression' as const, reason: 'Adjust for covariates via ANCOVA (linear regression with group as predictor)' }]
-              : []),
+            ...ancovaAlt,
+          ],
+        }
+      }
+      if (skewed) {
+        return {
+          primary: 'kruskal_wallis',
+          alternatives: [
+            { id: 'one_way_anova', reason: 'If normality and equal-variance assumptions hold' },
+            ...ancovaAlt,
           ],
         }
       }
@@ -251,9 +314,7 @@ export function decideAnalysisType(
             id: 'kruskal_wallis',
             reason: 'If normality or equal variance assumption is violated',
           },
-          ...(n_covariates > 0
-            ? [{ id: 'linear_regression' as const, reason: 'Adjust for covariates via ANCOVA (linear regression with group as predictor)' }]
-            : []),
+          ...ancovaAlt,
         ],
       }
     }
@@ -311,6 +372,15 @@ export function generateReasoning(
   const n_cov = variables.covariates.length
   const n = complete_cases.toLocaleString()
 
+  // When the chosen test is non-parametric because the outcome is skewed, say so
+  // explicitly with the measured value — this is the "why" a student needs.
+  const outcomeSkew = variables.outcome?.skewness
+  const skewNote =
+    outcomeSkew != null && Math.abs(outcomeSkew) >= 1
+      ? ` Your data on ${outcome} is ${outcomeSkew > 0 ? 'right' : 'left'}-skewed ` +
+        `(skewness = ${outcomeSkew.toFixed(2)}), so a rank-based test is more robust than its parametric counterpart.`
+      : ''
+
   const REASONS: Partial<Record<AnalysisTypeId, string>> = {
     logistic_regression:
       `Your outcome (${outcome}) is ${outcomeType} and you have ` +
@@ -349,7 +419,7 @@ export function generateReasoning(
       `Independent t-test is appropriate if ${outcome} is approximately normally distributed.`,
 
     mann_whitney:
-      `Non-parametric comparison of ${outcome} between two groups. Results reported as medians with IQR.`,
+      `Non-parametric comparison of ${outcome} between two groups. Results reported as medians with IQR.` + skewNote,
 
     one_way_anova:
       `Comparing ${outcome} across multiple groups defined by ${exposure}. ` +
@@ -357,7 +427,7 @@ export function generateReasoning(
 
     kruskal_wallis:
       `Non-parametric comparison of ${outcome} across multiple groups. ` +
-      `Use when ANOVA assumptions are violated.`,
+      `Use when ANOVA assumptions are violated.` + skewNote,
 
     descriptive_statistics:
       `A descriptive analysis will characterise your study population of ${n} participants ` +
@@ -371,7 +441,7 @@ export function generateReasoning(
 
     spearman_correlation:
       `Non-parametric correlation between ${outcome} and ${exposure}. ` +
-      `Appropriate when normality cannot be assumed.`,
+      `Appropriate when normality cannot be assumed.` + skewNote,
 
     poisson_regression:
       `${outcome} is a count variable. ` +

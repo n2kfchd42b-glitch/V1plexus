@@ -1,5 +1,7 @@
 import type { EngineColumnSchema, VariableType } from './types'
 import type { ColumnSchema, DatasetColumn } from '@/types/database'
+import type { DataRow } from '@/lib/analysis/types'
+import { getNumericValues, skewness } from '@/lib/analysis/utils'
 
 // ─── Normalise raw ColumnType from database to engine VariableType ────────────
 
@@ -57,6 +59,27 @@ export function profileFromDatasetColumns(
     mean: undefined,
     sample_values: (col.sample_values ?? []).map(v => String(v)),
   }))
+}
+
+// ─── Distribution enrichment ──────────────────────────────────────────────────
+// The base schema only carries type + counts. To let the decision engine choose
+// parametric vs non-parametric tests, compute Fisher's skewness for each
+// continuous column from the actual in-memory dataset and attach it. Columns
+// that aren't numeric (or have too few values for skewness to be meaningful)
+// are returned unchanged with skewness left undefined.
+
+export function attachDistributionStats(
+  schema: EngineColumnSchema[],
+  data: DataRow[],
+): EngineColumnSchema[] {
+  if (data.length === 0) return schema
+  return schema.map(col => {
+    if (col.type !== 'continuous') return col
+    const values = getNumericValues(data, col.name)
+    if (values.length < 8) return col // too few to judge shape reliably
+    const sk = skewness(values)
+    return Number.isFinite(sk) ? { ...col, skewness: sk } : col
+  })
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

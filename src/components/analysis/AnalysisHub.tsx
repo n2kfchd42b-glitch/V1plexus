@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  BarChart2, CheckCircle2, ChevronRight, Clock, X, Database, Table2, Play, FlaskConical, Shield,
+  BarChart2, CheckCircle2, ChevronRight, Clock, X, Database, Table2, Play, FlaskConical, Shield, RotateCcw,
 } from 'lucide-react'
 import { AssumptionStatusBar } from './AssumptionStatusBar'
 import { ReasoningPrompt } from './ReasoningPrompt'
@@ -22,7 +22,7 @@ import type {
 import { ANALYSIS_TYPES } from './AnalysisTypePicker'
 import { ProjectDatasetSelector } from './ProjectDatasetSelector'
 import { AnalysisEntryPoint } from './AnalysisEntryPoint'
-import { profileFromDatasetColumns } from '@/lib/decision-engine/variableProfiler'
+import { profileFromDatasetColumns, attachDistributionStats } from '@/lib/decision-engine/variableProfiler'
 import { ANALYSIS_TYPE_MAPPING, buildBackendConfig, buildExecutableWorkflow, getRecommendation } from '@/lib/decision-engine/index'
 import { checkFeasibility, canRun as engineCanRun } from '@/lib/decision-engine/feasibilityChecker'
 import { ANALYSIS_REGISTRY } from '@/lib/decision-engine/analysisRegistry'
@@ -364,6 +364,24 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
     setEngineStratVar(null)
     setEngineDescriptiveVars([])
     setEngineRecommendation(null)
+  }
+
+  // ── Hard reset back to a clean "choose how to analyse" state ───────────────
+  // The escape hatch: clears EVERY blocking flag (running, workflow progress,
+  // assumption modal) so no failed/interrupted run can trap the user without a
+  // way to start a new analysis. Always reachable while a dataset is loaded.
+  const resetForNewAnalysis = () => {
+    resetEngineVars()
+    setResult(null)
+    setSavedRunId(null)
+    setResultIsStale(false)
+    setRunning(false)
+    setWorkflowProgress(null)
+    setAssumptionReport(null)
+    setAssumptionChecking(false)
+    setShowReportModal(false)
+    setPromptDismissed(false)
+    setDecisionMode('entry')
   }
 
   // ── Post-analysis assumption report (rich, non-blocking) ───────────────────
@@ -974,7 +992,7 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
 
   // ── Decision engine derived ──────────────────────────────
   const engineSchema = useMemo(
-    () => dataLoaded ? profileFromDatasetColumns(columns, data.length) : [],
+    () => dataLoaded ? attachDistributionStats(profileFromDatasetColumns(columns, data.length), data) : [],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dataLoaded, columns.length, data.length],
   )
@@ -1289,7 +1307,8 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
 
             {/* ── Breadcrumb stepper ── */}
             {dataLoaded && (
-              <div className="flex items-center gap-1 -mt-1">
+              <div className="flex items-center justify-between gap-2 -mt-1">
+              <div className="flex items-center gap-1">
                 {([
                   { key: 'dataset',  label: t('analysis.step.dataset'),   done: true,              active: !decisionMode && !result },
                   { key: 'mode',     label: t('analysis.step.mode'),      done: !!decisionMode || !!result, active: decisionMode === 'entry' },
@@ -1324,6 +1343,24 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
                   </div>
                 ))}
               </div>
+              {/* Escape hatch — covers exactly the states the primary Run / New
+                  Analysis buttons don't: mid-flow (guided/direct) or a run that's
+                  stuck "running". Guarantees a stuck/failed run can never trap the
+                  user with no way out. When a result is cleanly shown, the primary
+                  buttons handle it, so this stays hidden to avoid a duplicate CTA. */}
+              {(running || (decisionMode !== null && decisionMode !== 'entry')) && (
+                <button
+                  onClick={resetForNewAnalysis}
+                  className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0 transition-colors"
+                  style={{ color: 'var(--text-tertiary)' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-row-hover)'; e.currentTarget.style.color = 'var(--text-secondary)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'var(--text-tertiary)' }}
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  {t('analysis.newAnalysis')}
+                </button>
+              )}
+              </div>
             )}
 
             {/* Run Analysis button — when loaded, no decision mode, no result */}
@@ -1355,14 +1392,7 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
                   {t('analysis.adjust')}
                 </button>
                 <button
-                  onClick={() => {
-                    resetEngineVars()
-                    setResult(null)
-                    setSavedRunId(null)
-                    setResultIsStale(false)
-                    setAssumptionReport(null); setAssumptionChecking(false)
-                    setDecisionMode('entry')
-                  }}
+                  onClick={resetForNewAnalysis}
                   className="flex-1 py-2 rounded-lg text-xs font-bold text-white active:scale-[0.98] transition-all"
                   style={{ background: 'linear-gradient(135deg,var(--color-clinical-deep),var(--color-clinical-blue))' }}
                 >

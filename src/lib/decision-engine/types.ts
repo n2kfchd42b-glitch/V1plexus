@@ -26,6 +26,11 @@ export type EngineColumnSchema = {
   min?: number | string
   max?: number | string
   mean?: number
+  /** Fisher's skewness of the column's numeric values. Populated from the
+   *  in-memory dataset so the decision engine can pick parametric vs
+   *  non-parametric tests deterministically. Undefined when not computed
+   *  (non-numeric column, or too few values). */
+  skewness?: number
   sample_values?: string[]
 }
 

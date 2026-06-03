@@ -161,8 +161,10 @@ export function buildBackendConfig(config: AnalysisConfig): Record<string, unkno
       }
 
     case 'prevalence_estimation':
+      // runFrequency reads `rowVariable`, not `variables` — a simple frequency
+      // distribution of the binary outcome IS the prevalence (count + percent).
       return {
-        variables: [outcome].filter(Boolean) as string[],
+        rowVariable: outcome ?? '',
       }
 
     case 'propensity_score_matching':
