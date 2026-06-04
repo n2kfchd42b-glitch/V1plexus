@@ -26,7 +26,7 @@ import { profileFromDatasetColumns, attachDistributionStats } from '@/lib/decisi
 import { ANALYSIS_TYPE_MAPPING, buildBackendConfig, buildExecutableWorkflow, getRecommendation } from '@/lib/decision-engine/index'
 import { checkFeasibility, canRun as engineCanRun } from '@/lib/decision-engine/feasibilityChecker'
 import { ANALYSIS_REGISTRY } from '@/lib/decision-engine/analysisRegistry'
-import type { DatasetContext, AnalysisTypeId, EngineColumnSchema, AnalysisConfig, ResearchIntent, AnalysisRecommendation } from '@/lib/decision-engine/types'
+import type { DatasetContext, AnalysisTypeId, EngineColumnSchema, AnalysisConfig, ResearchIntent } from '@/lib/decision-engine/types'
 import type { ExecutableWorkflowStep } from '@/lib/decision-engine/index'
 import { createClient } from '@/lib/supabase/client'
 import { loadVersionData } from '@/lib/data/storage'
@@ -351,10 +351,6 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
   // Guided "compare" sub-mode: two repeated measurements of the same subjects.
   const [enginePaired, setEnginePaired] = useState(false)
 
-  // Lifted recommendation state (from GuidedFlow)
-  const [engineRecommendation, setEngineRecommendation] = useState<AnalysisRecommendation | null>(null)
-
-
   // Stale result state — result exists but user is reconfiguring
   const [resultIsStale, setResultIsStale] = useState(false)
   const [lastDecisionMode, setLastDecisionMode] = useState<'guided' | 'direct' | null>(null)
@@ -371,7 +367,6 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
     setEngineStratVar(null)
     setEngineDescriptiveVars([])
     setEnginePaired(false)
-    setEngineRecommendation(null)
   }
 
   // ── Hard reset back to a clean "choose how to analyse" state ───────────────
@@ -1660,7 +1655,7 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
                                 <button
                                   key={String(opt.v)}
                                   type="button"
-                                  onClick={() => { setEnginePaired(opt.v); setEngineExposure(null); setEngineGroupVar(null); setEngineRecommendation(null) }}
+                                  onClick={() => { setEnginePaired(opt.v); setEngineExposure(null); setEngineGroupVar(null) }}
                                   className="flex-1 text-[11px] font-medium py-1.5 rounded-md transition-colors"
                                   style={{
                                     background: active ? 'var(--bg-surface)' : 'transparent',
@@ -1789,8 +1784,6 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
                   paired={enginePaired}
                   confidenceLevel={engineConfidenceLevel}
                   canAnalyse={canEngineGuidedAnalyse}
-                  recommendation={engineRecommendation}
-                  onRecommendation={setEngineRecommendation}
                   onRunWorkflow={runWorkflowSequentially}
                   onRunAlternative={handleRunAlternative}
                   onSwitchToDirect={preselected => {

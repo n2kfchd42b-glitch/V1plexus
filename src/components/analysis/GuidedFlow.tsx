@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useMemo } from 'react'
 import { useLocale } from '@/i18n/LocaleProvider'
 import { IntentSelector } from './IntentSelector'
 import { RecommendationCard } from './RecommendationCard'
@@ -29,8 +29,6 @@ interface Props {
   paired: boolean
   confidenceLevel: 0.90 | 0.95 | 0.99
   canAnalyse: boolean
-  recommendation: AnalysisRecommendation | null
-  onRecommendation: (rec: AnalysisRecommendation | null) => void
   onRunWorkflow: (steps: ExecutableWorkflowStep[]) => void
   onRunAlternative: (id: AnalysisTypeId) => void
   onSwitchToDirect: (preselectedType?: AnalysisTypeId) => void
@@ -44,14 +42,15 @@ export function GuidedFlow({
   paired,
   confidenceLevel,
   canAnalyse,
-  recommendation, onRecommendation,
   onRunWorkflow, onRunAlternative, onSwitchToDirect,
 }: Props) {
   const { t } = useLocale()
-  const [thinking, setThinking] = useState(false)
 
-  const handleFindApproach = async () => {
-    if (!intent || !canAnalyse) return
+  // Live recommendation — recomputed automatically as the research question and
+  // variable selections change. No "find approach" button, no artificial delay:
+  // the engine is deterministic and instant, so guidance is always in sync.
+  const recommendation = useMemo<AnalysisRecommendation | null>(() => {
+    if (!intent || !canAnalyse) return null
     const variables: VariableSelection = {
       outcome, exposure, covariates,
       time_variable: timeVar,
@@ -59,12 +58,8 @@ export function GuidedFlow({
       group_variable: groupVar,
       strat_variable: stratVar,
     }
-    setThinking(true)
-    await new Promise(r => setTimeout(r, 800))
-    const rec = getRecommendation(intent, variables, dataset, confidenceLevel, paired)
-    onRecommendation(rec)
-    setThinking(false)
-  }
+    return getRecommendation(intent, variables, dataset, confidenceLevel, paired)
+  }, [intent, canAnalyse, outcome, exposure, covariates, timeVar, eventVar, groupVar, stratVar, dataset, confidenceLevel, paired])
 
   const handleRun = () => {
     if (!recommendation) return
@@ -77,65 +72,31 @@ export function GuidedFlow({
       {/* Body — the unified studio's compose header (Assist/Pick/Code) is owned by the parent */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
 
-        {!recommendation ? (
-          <>
-            <div>
-              <p className="subsection-label mb-2">{t('guidedFlow.researchQuestion')}</p>
-              <IntentSelector
-                value={intent}
-                onChange={v => { onIntentChange(v); onRecommendation(null) }}
-              />
-            </div>
+        <div>
+          <p className="subsection-label mb-2">{t('guidedFlow.researchQuestion')}</p>
+          <IntentSelector value={intent} onChange={onIntentChange} />
+        </div>
 
-            {intent && (
-              <>
-                <div
-                  className="flex items-start gap-2 px-3 py-2.5 rounded-lg text-xs"
-                  style={{ background: 'var(--accent-blue-subtle)', border: '1px solid var(--border-status-info)', color: 'var(--text-secondary)' }}
-                >
-                  <span className="flex-shrink-0 mt-0.5">←</span>
-                  <span>{t('guidedFlow.selectVarsHint')}</span>
-                </div>
+        {intent && !canAnalyse && (
+          <div
+            className="flex items-start gap-2 px-3 py-2.5 rounded-lg text-xs"
+            style={{ background: 'var(--accent-blue-subtle)', border: '1px solid var(--border-status-info)', color: 'var(--text-secondary)' }}
+          >
+            <span className="flex-shrink-0 mt-0.5">←</span>
+            <span>{t('guidedFlow.selectVarsHint')}</span>
+          </div>
+        )}
 
-                <button
-                  onClick={handleFindApproach}
-                  disabled={!canAnalyse || thinking}
-                  className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{ background: 'linear-gradient(135deg,var(--color-clinical-deep),var(--color-clinical-blue))' }}
-                >
-                  {thinking ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="h-3.5 w-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                      {t('guidedFlow.findingApproach')}
-                    </span>
-                  ) : (
-                    t('guidedFlow.findApproach')
-                  )}
-                </button>
-              </>
-            )}
-          </>
-        ) : (
-          <>
-            <div>
-              <p className="subsection-label mb-3">{t('guidedFlow.recommendation')}</p>
-              <RecommendationCard
-                recommendation={recommendation}
-                onRun={handleRun}
-                onConfigureManually={() => onSwitchToDirect(recommendation.primary)}
-                onRunAlternative={onRunAlternative}
-              />
-            </div>
-            <button
-              onClick={() => onRecommendation(null)}
-              className="text-xs transition-colors"
-              style={{ color: 'var(--text-tertiary)' }}
-              onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-blue)' }}
-              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)' }}
-            >
-              {t('guidedFlow.changeSelections')}
-            </button>
-          </>
+        {recommendation && (
+          <div>
+            <p className="subsection-label mb-3">{t('guidedFlow.recommendation')}</p>
+            <RecommendationCard
+              recommendation={recommendation}
+              onRun={handleRun}
+              onConfigureManually={() => onSwitchToDirect(recommendation.primary)}
+              onRunAlternative={onRunAlternative}
+            />
+          </div>
         )}
       </div>
     </div>
