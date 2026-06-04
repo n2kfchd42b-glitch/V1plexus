@@ -1713,9 +1713,14 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
         {/* ── RIGHT: Results / Engine panel ─────────────── */}
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
 
-          {/* ── Decision engine — takes over right panel ── */}
+          {/* ── Compose zone — co-visible with the results canvas below. Caps its
+                height once results exist so the canvas stays on screen while you
+                keep composing (the studio worktable model). ── */}
           {decisionMode !== null && dataLoaded && (
-            <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--bg-surface)' }}>
+            <div
+              className={`flex flex-col overflow-hidden ${(resultBlocks.length > 0 || running) ? 'flex-shrink-0' : 'h-full'}`}
+              style={{ background: 'var(--bg-surface)', maxHeight: (resultBlocks.length > 0 || running) ? '55%' : undefined }}
+            >
               {/* Unified compose header — one surface, three affordances. No more two-door entry. */}
               <div className="flex items-center justify-between gap-2 px-4 py-3 border-b flex-shrink-0" style={{ borderColor: 'var(--border-row)' }}>
                 <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: 'var(--bg-inset)' }}>
@@ -1808,7 +1813,11 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
             </div>
           )}
 
-          {decisionMode === null && (viewingRunId && viewingRun ? (
+          {/* ── Results zone — always present below the compose zone (when there's
+                anything to show), so the canvas stays visible while composing. ── */}
+          {(decisionMode === null || resultBlocks.length > 0 || running || (viewingRunId && viewingRun)) && (
+            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+            {viewingRunId && viewingRun ? (
             /* ── Viewing a historical run ── */
             <div className="flex flex-col h-full">
               <div className="flex items-center justify-between px-6 py-3 border-b border-[var(--border-row)] flex-shrink-0">
@@ -1959,7 +1968,9 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
                 </button>
               )}
             </div>
-          ))}
+          )}
+              </div>
+          )}
         </div>
 
       </div>
