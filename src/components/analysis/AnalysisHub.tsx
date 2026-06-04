@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   BarChart2, CheckCircle2, ChevronRight, Clock, X, Database, Table2, Play, FlaskConical, Shield, RotateCcw,
+  Compass, Zap, Code2,
 } from 'lucide-react'
 import { AssumptionStatusBar } from './AssumptionStatusBar'
 import { ReasoningPrompt } from './ReasoningPrompt'
@@ -21,7 +22,6 @@ import type {
 } from '@/types/analysisIntegrity'
 import { ANALYSIS_TYPES } from './AnalysisTypePicker'
 import { ProjectDatasetSelector } from './ProjectDatasetSelector'
-import { AnalysisEntryPoint } from './AnalysisEntryPoint'
 import { profileFromDatasetColumns, attachDistributionStats } from '@/lib/decision-engine/variableProfiler'
 import { ANALYSIS_TYPE_MAPPING, buildBackendConfig, buildExecutableWorkflow, getRecommendation } from '@/lib/decision-engine/index'
 import { checkFeasibility, canRun as engineCanRun } from '@/lib/decision-engine/feasibilityChecker'
@@ -330,8 +330,9 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
   // Config panel collapse — kept for assumption modal path
   const [configCollapsed, setConfigCollapsed] = useState(false)
 
-  // Decision engine mode
-  type DecisionMode = 'entry' | 'guided' | 'direct' | null
+  // Compose mode — which affordance of the unified studio is active.
+  // 'guided' = Assist, 'direct' = Pick, 'code' = custom R (Phase 3). null = not composing (showing canvas/empty).
+  type DecisionMode = 'guided' | 'direct' | 'code' | null
   const [decisionMode, setDecisionMode] = useState<DecisionMode>(null)
   const [decisionPreselect, setDecisionPreselect] = useState<AnalysisTypeId | null>(null)
 
@@ -389,7 +390,7 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
     setAssumptionChecking(false)
     setShowReportModal(false)
     setPromptDismissed(false)
-    setDecisionMode('entry')
+    setDecisionMode(null)
   }
 
   // Append a produced result (success or error) as a new canvas block, newest
@@ -645,7 +646,7 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
     setApprovalBlock(null)
     setAssumptionReport(null); setAssumptionChecking(false); setShowReportModal(false)
     resetEngineVars()
-    setDecisionMode('entry')
+    setDecisionMode(null)
 
     // Restore persisted research context for this dataset, or prompt first time
     if (dsId) {
@@ -1354,7 +1355,7 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
               <div className="flex items-center gap-1">
                 {([
                   { key: 'dataset',  label: t('analysis.step.dataset'),   done: true,              active: !decisionMode && !result },
-                  { key: 'mode',     label: t('analysis.step.mode'),      done: !!decisionMode || !!result, active: decisionMode === 'entry' },
+                  { key: 'mode',     label: t('analysis.step.mode'),      done: !!decisionMode || !!result, active: false },
                   { key: 'vars',     label: t('analysis.step.variables'), done: (decisionMode === 'guided' || decisionMode === 'direct') || !!result, active: decisionMode === 'guided' || decisionMode === 'direct' },
                   { key: 'result',   label: t('analysis.step.result'),    done: !!result && !resultIsStale, active: !!result && !decisionMode },
                 ] as { key: string; label: string; done: boolean; active: boolean }[]).map((step, idx) => (
@@ -1391,7 +1392,7 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
                   stuck "running". Guarantees a stuck/failed run can never trap the
                   user with no way out. When a result is cleanly shown, the primary
                   buttons handle it, so this stays hidden to avoid a duplicate CTA. */}
-              {(running || (decisionMode !== null && decisionMode !== 'entry')) && (
+              {(running || decisionMode !== null) && (
                 <button
                   onClick={resetForNewAnalysis}
                   className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0 transition-colors"
@@ -1409,7 +1410,7 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
             {/* Run Analysis button — when loaded, no decision mode, no result */}
             {dataLoaded && !decisionMode && !result && (
               <button
-                onClick={() => setDecisionMode('entry')}
+                onClick={() => setDecisionMode('guided')}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold text-white active:scale-[0.98] transition-all"
                 style={{ background: 'linear-gradient(135deg,var(--color-clinical-deep),var(--color-clinical-blue))' }}
               >
@@ -1425,7 +1426,7 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
                   onClick={() => {
                     setResultIsStale(true)
                     setAssumptionReport(null); setAssumptionChecking(false)
-                    setDecisionMode(lastDecisionMode ?? 'entry')
+                    setDecisionMode(lastDecisionMode ?? 'guided')
                   }}
                   className="flex-1 py-2 rounded-lg text-xs font-semibold border transition-colors"
                   style={{ border: '1px solid var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-surface)' }}
@@ -1720,12 +1721,58 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
           {/* ── Decision engine — takes over right panel ── */}
           {decisionMode !== null && dataLoaded && (
             <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--bg-surface)' }}>
-              {decisionMode === 'entry' && (
-                <AnalysisEntryPoint
-                  dataset={{ id: datasetId ?? '', name: fileName, source: '', row_count: data.length, version_id: versionId ?? '' }}
-                  onGuided={() => setDecisionMode('guided')}
-                  onDirect={() => setDecisionMode('direct')}
-                />
+              {/* Unified compose header — one surface, three affordances. No more two-door entry. */}
+              <div className="flex items-center justify-between gap-2 px-4 py-3 border-b flex-shrink-0" style={{ borderColor: 'var(--border-row)' }}>
+                <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: 'var(--bg-inset)' }}>
+                  {([
+                    { mode: 'guided', label: 'Assist', icon: Compass },
+                    { mode: 'direct', label: 'Pick a test', icon: Zap },
+                    { mode: 'code', label: 'Code', icon: Code2 },
+                  ] as const).map(opt => {
+                    const active = decisionMode === opt.mode
+                    const Icon = opt.icon
+                    return (
+                      <button
+                        key={opt.mode}
+                        type="button"
+                        onClick={() => setDecisionMode(opt.mode)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+                        style={{
+                          background: active ? 'var(--bg-surface)' : 'transparent',
+                          color: active ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                          boxShadow: active ? 'var(--shadow-xs)' : 'none',
+                        }}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                        {opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
+                {(resultBlocks.length > 0 || running) && (
+                  <button
+                    onClick={() => setDecisionMode(null)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors"
+                    style={{ color: 'var(--text-secondary)' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-row-hover)' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = '' }}
+                  >
+                    <BarChart2 className="h-3.5 w-3.5" />
+                    View results
+                  </button>
+                )}
+              </div>
+
+              {decisionMode === 'code' && (
+                <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
+                  <div className="w-14 h-14 rounded-xl flex items-center justify-center mb-4" style={{ background: 'var(--bg-inset)', border: '1px solid var(--border-default)' }}>
+                    <Code2 className="h-7 w-7" style={{ color: 'var(--text-tertiary)' }} />
+                  </div>
+                  <p className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Custom R code</p>
+                  <p className="text-xs max-w-[280px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+                    Write R against your dataset, with output landing on the results canvas. Arriving in the next phase.
+                  </p>
+                </div>
               )}
               {decisionMode === 'guided' && (
                 <GuidedFlow
@@ -1751,7 +1798,7 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
                     setDecisionPreselect(preselected ?? null)
                     setDecisionMode('direct')
                   }}
-                  onBack={() => setDecisionMode('entry')}
+                  onBack={() => setDecisionMode(null)}
                 />
               )}
               {decisionMode === 'direct' && (
@@ -1762,7 +1809,7 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
                   canRun={canEngineDirectRun}
                   onRun={handleEngineDirectRun}
                   onSwitchToGuided={() => setDecisionMode('guided')}
-                  onBack={() => setDecisionMode('entry')}
+                  onBack={() => setDecisionMode(null)}
                 />
               )}
             </div>

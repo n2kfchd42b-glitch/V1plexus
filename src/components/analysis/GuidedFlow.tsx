@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from 'react'
-import { ArrowLeft, Zap } from 'lucide-react'
 import { useLocale } from '@/i18n/LocaleProvider'
 import { IntentSelector } from './IntentSelector'
 import { RecommendationCard } from './RecommendationCard'
@@ -46,7 +45,7 @@ export function GuidedFlow({
   confidenceLevel,
   canAnalyse,
   recommendation, onRecommendation,
-  onRunWorkflow, onRunAlternative, onSwitchToDirect, onBack,
+  onRunWorkflow, onRunAlternative, onSwitchToDirect,
 }: Props) {
   const { t } = useLocale()
   const [thinking, setThinking] = useState(false)
@@ -75,36 +74,7 @@ export function GuidedFlow({
   return (
     <div className="flex flex-col h-full overflow-hidden">
 
-      {/* Header */}
-      <div
-        className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0"
-        style={{ borderColor: 'var(--border-row)', background: 'var(--bg-surface)' }}
-      >
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onBack}
-            className="h-7 w-7 flex items-center justify-center rounded-md transition-colors"
-            style={{ color: 'var(--text-tertiary)' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-row-hover)'; e.currentTarget.style.color = 'var(--text-primary)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'var(--text-tertiary)' }}
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-          </button>
-          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{t('guidedFlow.title')}</span>
-        </div>
-        <button
-          onClick={() => onSwitchToDirect()}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors"
-          style={{ color: 'var(--text-secondary)' }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-row-hover)' }}
-          onMouseLeave={e => { e.currentTarget.style.background = '' }}
-        >
-          <Zap className="h-3.5 w-3.5" />
-          {t('guidedFlow.chooseDirect')}
-        </button>
-      </div>
-
-      {/* Body */}
+      {/* Body — the unified studio's compose header (Assist/Pick/Code) is owned by the parent */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
 
         {!recommendation ? (

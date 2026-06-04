@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, Compass, Play } from 'lucide-react'
+import { Play } from 'lucide-react'
 import { useLocale } from '@/i18n/LocaleProvider'
 import { AnalysisTypeGrid } from './AnalysisTypeGrid'
 import { ANALYSIS_REGISTRY } from '@/lib/decision-engine/analysisRegistry'
@@ -16,43 +16,14 @@ interface Props {
   onBack: () => void
 }
 
-export function DirectFlow({ dataset, selectedType, onSelectType, canRun, onRun, onSwitchToGuided, onBack }: Props) {
+export function DirectFlow({ dataset, selectedType, onSelectType, canRun, onRun }: Props) {
   const { t } = useLocale()
   const meta = selectedType ? ANALYSIS_REGISTRY[selectedType] : null
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
 
-      {/* Header */}
-      <div
-        className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0"
-        style={{ borderColor: 'var(--border-row)', background: 'var(--bg-surface)' }}
-      >
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onBack}
-            className="h-7 w-7 flex items-center justify-center rounded-md transition-colors"
-            style={{ color: 'var(--text-tertiary)' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-row-hover)'; e.currentTarget.style.color = 'var(--text-primary)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'var(--text-tertiary)' }}
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-          </button>
-          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{t('directFlow.title')}</span>
-        </div>
-        <button
-          onClick={onSwitchToGuided}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors"
-          style={{ color: 'var(--text-secondary)' }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-row-hover)' }}
-          onMouseLeave={e => { e.currentTarget.style.background = '' }}
-        >
-          <Compass className="h-3.5 w-3.5" />
-          {t('directFlow.guideMe')}
-        </button>
-      </div>
-
-      {/* Type grid */}
+      {/* Type grid — the unified studio's compose header is owned by the parent */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
         <p className="subsection-label mb-2">{t('directFlow.analysisType')}</p>
         <AnalysisTypeGrid selectedType={selectedType} onSelect={onSelectType} />
