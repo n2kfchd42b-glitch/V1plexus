@@ -45,6 +45,7 @@ import { useLedgerKey } from '@/hooks/useLedgerKey'
 import { LedgerKeyModal } from '@/components/ledger/LedgerKeyModal'
 import type { AnalysisRun, AnalysisType, DatasetColumn } from '@/types/database'
 import type { DataRow, AnalysisResult } from '@/lib/analysis/types'
+import type { CanvasBlock } from './results/ResultBlock'
 import { useLocale } from '@/i18n/LocaleProvider'
 
 // Heavy components and engines — lazy-loaded to split the initial bundle
@@ -58,7 +59,7 @@ const DirectFlow              = dynamic(() => import('./DirectFlow').then(m => (
 const DecisionVariableSelector     = dynamic(() => import('./DecisionVariableSelector').then(m => ({ default: m.DecisionVariableSelector })))
 const MultiDecisionVariableSelector = dynamic(() => import('./MultiDecisionVariableSelector').then(m => ({ default: m.MultiDecisionVariableSelector })))
 const HubResultsPreview       = dynamic(() => import('./HubResultsPreview').then(m => ({ default: m.HubResultsPreview })))
-const AnalysisCharts          = dynamic(() => import('./results/AnalysisCharts').then(m => ({ default: m.AnalysisCharts })))
+const ResultBlock             = dynamic(() => import('./results/ResultBlock').then(m => ({ default: m.ResultBlock })))
 
 const DescriptiveConfig       = dynamic(() => import('./configs/DescriptiveConfig').then(m => ({ default: m.DescriptiveConfig })))
 const FrequencyConfig         = dynamic(() => import('./configs/FrequencyConfig').then(m => ({ default: m.FrequencyConfig })))
@@ -237,6 +238,9 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
   // Run state
   const [running, setRunning]   = useState(false)
   const [result, setResult]     = useState<AnalysisResult | null>(null)
+  // Append-only results canvas — every run stacks a removable block here while
+  // `result` continues to track the latest run for assumption/save logic.
+  const [resultBlocks, setResultBlocks] = useState<CanvasBlock[]>([])
   const [savedRunId, setSavedRunId] = useState<string | null>(null)
   const [resultTab, setResultTab] = useState<'results' | 'tables'>('results')
   const [promptDismissed, setPromptDismissed] = useState(false)
@@ -376,6 +380,7 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
   const resetForNewAnalysis = () => {
     resetEngineVars()
     setResult(null)
+    setResultBlocks([])
     setSavedRunId(null)
     setResultIsStale(false)
     setRunning(false)
@@ -385,6 +390,27 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
     setShowReportModal(false)
     setPromptDismissed(false)
     setDecisionMode('entry')
+  }
+
+  // Append a produced result (success or error) as a new canvas block, newest
+  // first. Title is resolved once here so the block stays stable if the active
+  // dataset/type later changes.
+  const pushResultBlock = (analysisType: AnalysisType, res: AnalysisResult) => {
+    const label = ANALYSIS_TYPES.find(at => at.type === analysisType)?.label ?? 'Results'
+    const title = fileName ? `${label} — ${fileName}` : label
+    setResultBlocks(prev => [
+      { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, analysisType, title, result: res, createdAt: Date.now() },
+      ...prev,
+    ])
+  }
+
+  const removeResultBlock = (id: string) => {
+    setResultBlocks(prev => {
+      const next = prev.filter(b => b.id !== id)
+      // Keep `result` (latest, drives assumption/save UI) in sync with the stack.
+      if (next.length === 0) setResult(null)
+      return next
+    })
   }
 
   // ── Post-analysis assumption report (rich, non-blocking) ───────────────────
@@ -615,7 +641,7 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
 
   const handleData = async (rows: DataRow[], cols: DatasetColumn[], name: string, dsId?: string, vsId?: string) => {
     setData(rows); setColumns(cols); setFileName(name)
-    setDatasetId(dsId); setVersionId(vsId); setResult(null); setSavedRunId(null); setPromptDismissed(false)
+    setDatasetId(dsId); setVersionId(vsId); setResult(null); setResultBlocks([]); setSavedRunId(null); setPromptDismissed(false)
     setApprovalBlock(null)
     setAssumptionReport(null); setAssumptionChecking(false); setShowReportModal(false)
     resetEngineVars()
@@ -695,6 +721,7 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
       try {
         const r = await runAnalysis(t, data, backendConfig)
         setResult(r)
+        pushResultBlock(t, r)
         setResultTab('results')
         if (profile?.id) {
           trySign('analysis_run_completed', { analysis_type: t, dataset_id: datasetId ?? null, success: true }, profile.id)
@@ -704,13 +731,15 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
         if (profile?.id) {
           trySign('analysis_run_completed', { analysis_type: t, dataset_id: datasetId ?? null, success: false }, profile.id)
         }
-        setResult({
+        const errResult: AnalysisResult = {
           type: t,
           summary: { error: err instanceof Error ? err.message : 'Analysis failed' },
           tables: [],
           charts: [],
           interpretation: 'Analysis failed.',
-        })
+        }
+        setResult(errResult)
+        pushResultBlock(t, errResult)
       } finally {
         setRunning(false)
       }
@@ -755,15 +784,18 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
             setSelectedType(backendType as AnalysisType)
             setConfig(stepConfig)
             setResult(analysisResult)
+            pushResultBlock(backendType as AnalysisType, analysisResult)
             setResultTab('results')
             setPromptDismissed(false)
             return analysisResult
           } catch {
-            setResult({
+            const errResult: AnalysisResult = {
               type: backendType as AnalysisType,
               summary: { error: 'Final analysis step failed. Check variable selections.' },
               tables: [], charts: [], interpretation: 'Analysis failed.',
-            })
+            }
+            setResult(errResult)
+            pushResultBlock(backendType as AnalysisType, errResult)
           } finally {
             setRunning(false)
             setWorkflowProgress(null)
@@ -819,11 +851,13 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Unknown error'
         if (step.is_final) {
-          setResult({
+          const errResult: AnalysisResult = {
             type: backendType as AnalysisType,
             summary: { error: 'Final analysis step failed. Check variable selections.' },
             tables: [], charts: [], interpretation: 'Analysis failed.',
-          })
+          }
+          setResult(errResult)
+          pushResultBlock(backendType as AnalysisType, errResult)
         } else {
           toast.warning(`Step ${step.number} (${step.name}) failed and was skipped: ${msg}`)
         }
@@ -905,10 +939,11 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
       setConfigCollapsed(true)
       try {
         const r = await runAnalysis(selectedType, data, config)
-        setResult(r); setResultTab('results')
+        setResult(r); pushResultBlock(selectedType, r); setResultTab('results')
         return r
       } catch (err) {
-        setResult({ type: selectedType, summary: { error: err instanceof Error ? err.message : 'Analysis failed' }, tables: [], charts: [], interpretation: 'Analysis failed.' })
+        const errResult: AnalysisResult = { type: selectedType, summary: { error: err instanceof Error ? err.message : 'Analysis failed' }, tables: [], charts: [], interpretation: 'Analysis failed.' }
+        setResult(errResult); pushResultBlock(selectedType, errResult)
       } finally {
         setRunning(false)
       }
@@ -1804,36 +1839,21 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
               )}
             </div>
 
-          ) : decisionMode === null && result && !result.summary?.error ? (
-            /* ── Fresh result ── */
-            <div className="flex flex-col h-full" style={{ opacity: resultIsStale ? 0.55 : 1, transition: 'opacity 0.2s' }}>
-              {/* Stale banner */}
-              {resultIsStale && (
-                <div
-                  className="flex items-center justify-between px-4 py-2 flex-shrink-0 text-xs"
-                  style={{ background: 'var(--status-warning-bg)', borderBottom: '1px solid var(--border-status-warning)', color: 'var(--status-warning-text)' }}
-                >
-                  <span>{t('analysis.staleResult')}</span>
+          ) : decisionMode === null && resultBlocks.length > 0 ? (
+            /* ── Results canvas — append-only stack of result blocks ── */
+            <div className="flex flex-col h-full" style={{ opacity: resultIsStale ? 0.6 : 1, transition: 'opacity 0.2s' }}>
+              {/* Canvas header + latest-run reasoning prompt */}
+              <div className="px-5 pt-4 pb-3 flex-shrink-0" style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-row)' }}>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-bold leading-snug" style={{ color: 'var(--text-primary)' }}>
+                    {t('analysis.resultsTab')}
+                  </p>
+                  <p className="data-mono-xs" style={{ color: 'var(--text-tertiary)' }}>
+                    {data.length > 0 ? `${data.length.toLocaleString()} ${t('analysis.observations')}` : ''}
+                    {` · ${resultBlocks.length} on canvas`}
+                    {savedRunId && ` · ${t('analysis.savedToLedger')}`}
+                  </p>
                 </div>
-              )}
-              {/* Result header */}
-              <div className="px-5 pt-4 pb-0 flex-shrink-0" style={{ background: 'var(--bg-surface)' }}>
-                {/* Title row */}
-                <div className="flex items-start gap-3 mb-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold leading-snug" style={{ color: 'var(--text-primary)' }}>
-                      {ANALYSIS_TYPES.find(t => t.type === selectedType)?.label ?? 'Results'}
-                      {fileName ? ` — ${fileName}` : ''}
-                    </p>
-                    <p className="data-mono-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                      {data.length > 0 ? `${data.length.toLocaleString()} ${t('analysis.observations')}` : ''}
-                      {result && ` · ${t('analysis.completedJustNow')}`}
-                      {savedRunId && ` · ${t('analysis.savedToLedger')}`}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Reasoning prompt — shown inline after a fresh run, gated by reason to commit */}
                 <AnimatePresence>
                   {!savedRunId && !promptDismissed && !resultIsStale && (
                     <ReasoningPrompt
@@ -1845,135 +1865,25 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
                     />
                   )}
                 </AnimatePresence>
-                {/* Tabs */}
-                <div className="flex items-center gap-0">
-                  {(['results', 'tables'] as const).map(tab => (
-                    <button
-                      key={tab}
-                      onClick={() => setResultTab(tab)}
-                      className="relative px-3 py-2 text-xs font-medium transition-colors"
-                      style={{ color: resultTab === tab ? 'var(--accent-blue)' : 'var(--text-tertiary)' }}
-                    >
-                      {tab === 'results' ? t('analysis.resultsTab') : t('analysis.tablesTab')}
-                      {resultTab === tab && (
-                        <span className="absolute bottom-0 left-3 right-3 h-[2px] rounded-t-sm" style={{ background: 'var(--accent-blue)' }} />
-                      )}
-                    </button>
-                  ))}
-                </div>
-                <div className="h-px" style={{ background: 'var(--border-row)' }} />
               </div>
 
-              {/* Post-analysis assumption status bar */}
+              {/* Post-analysis assumption status bar — applies to the latest run */}
               <AssumptionStatusBar
                 report={assumptionReport}
                 checking={assumptionChecking}
                 onOpen={() => setShowReportModal(true)}
               />
 
-              {/* Tab content */}
-              <div className="flex-1 overflow-y-auto">
-                {resultTab === 'results' ? (
-                  <div className="px-6 py-5 space-y-5">
-                    {/* Charts — hero */}
-                    {(result.charts ?? []).length > 0 && (
-                      <AnalysisCharts
-                        charts={result.charts as never}
-                        analysisType={selectedType ?? 'descriptive'}
-                      />
-                    )}
-
-                    {/* Summary chips */}
-                    {(() => {
-                      const findings = getKeyFindings(result, selectedType ?? '')
-                      if (findings.length === 0) return null
-                      return (
-                        <div className="flex flex-wrap gap-2 pb-3 border-b border-[var(--border-row)]">
-                          {findings.map((f, i) => {
-                            // Colour-code: last chip (complete %) teal, second-to-last (missing %) amber, rest plain
-                            const isComplete = i === findings.length - 1 && f.label.toLowerCase().includes('complet')
-                            const isMissing  = f.label.toLowerCase().includes('miss')
-                            const chipStyle = isComplete
-                              ? { background: 'var(--accent-blue-subtle)', border: '1px solid var(--border-status-info)', color: 'var(--status-info-text)' }
-                              : isMissing
-                              ? { background: 'var(--status-warning-bg)', border: '1px solid var(--border-status-warning)', color: 'var(--status-warning-text)' }
-                              : { background: 'var(--bg-surface)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }
-                            return (
-                              <div key={f.label} className="flex flex-col px-3 py-2 rounded-lg" style={chipStyle}>
-                                <span className="text-[9px] uppercase tracking-[0.08em] mb-0.5" style={{ opacity: 0.7 }}>{f.label}</span>
-                                <span className="text-sm font-bold" style={{ fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{f.value}</span>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )
-                    })()}
-
-                    {/* Interpretation */}
-                    {result.interpretation && (
-                      <div className="px-4 py-3 rounded-lg bg-[var(--bg-row-hover)] border border-[var(--border-row)]">
-                        <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider mb-1.5 font-semibold">{t('analysis.interpretation')}</p>
-                        <p className="text-sm text-[var(--text-primary)] leading-relaxed">{result.interpretation}</p>
-                      </div>
-                    )}
-
-                    {/* Plain language */}
-                    {(result as { plainLanguage?: string }).plainLanguage && (
-                      <div className="px-4 py-3 rounded-lg border border-[var(--accent-blue)]/15 bg-blue-50/40">
-                        <p className="text-[10px] text-[var(--accent-blue)] uppercase tracking-wider mb-1.5 font-semibold">{t('analysis.plainLanguage')}</p>
-                        <p className="text-sm text-[var(--text-primary)] leading-relaxed">{(result as { plainLanguage?: string }).plainLanguage}</p>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  /* Tables tab */
-                  <div className="px-6 py-5 space-y-6">
-                    {(result.tables ?? []).length === 0 ? (
-                      <p className="text-xs text-[var(--text-tertiary)] text-center py-8">{t('analysis.noTables')}</p>
-                    ) : (result.tables ?? []).map((table, i) => (
-                      <div key={i}>
-                        <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">{table.title}</p>
-                        <div className="overflow-x-auto rounded-lg border border-[var(--border-row)]">
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="bg-[var(--bg-row-hover)]">
-                                {table.headers.map((h, j) => (
-                                  <th key={j} className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)] whitespace-nowrap border-b border-[var(--border-row)]">{h}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {table.rows.map((row, j) => {
-                                // A continuation row in the categorical table has an empty string in col 0
-                                const isContinuation = (table.id === 'categorical_summary' || table.id === 'table1_categorical') && row[0] === ''
-                                return (
-                                <tr key={j} className={`border-b border-[var(--border-row)] last:border-0 transition-colors ${isContinuation ? '' : 'hover:bg-[var(--bg-row-hover)]'}`}
-                                  style={isContinuation ? { background: 'var(--bg-app)' } : undefined}
-                                >
-                                  {row.map((cell, k) => (
-                                    <td key={k} className={`px-3 py-2 whitespace-nowrap font-mono ${isContinuation && k === 0 ? '' : 'text-[var(--text-primary)]'} ${isContinuation && k === 1 ? 'text-[var(--text-secondary)]' : ''}`}>
-                                      {cell === null ? <span className="text-[var(--text-tertiary)]">—</span> : cell === '' ? '' : String(cell)}
-                                    </td>
-                                  ))}
-                                </tr>
-                                )
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-          ) : decisionMode === null && result?.summary?.error ? (
-            /* ── Error ── */
-            <div className="flex flex-col items-center justify-center h-full text-center px-8">
-              <div className="rounded-lg border border-[var(--timeline-flagged)]/20 bg-red-50 px-6 py-5 max-w-md">
-                <p className="text-sm font-semibold text-[var(--timeline-flagged)] mb-1">{t('analysis.analysisError')}</p>
-                <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{String(result.summary.error)}</p>
+              {/* The stack — newest first */}
+              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+                {resultBlocks.map((b, i) => (
+                  <ResultBlock
+                    key={b.id}
+                    block={b}
+                    onRemove={removeResultBlock}
+                    defaultExpanded={i === 0}
+                  />
+                ))}
               </div>
             </div>
 
@@ -3251,141 +3161,4 @@ function checkResultToReport(
   }
 }
 
-// ── Key findings per analysis type ──────────────────────
-type Finding = { label: string; value: string }
-
-function getKeyFindings(result: AnalysisResult, analysisType: string): Finding[] {
-  const s = result.summary as Record<string, unknown>
-  const tables = result.tables ?? []
-
-  const get = (key: string): string | null =>
-    s[key] !== undefined && s[key] !== null && s[key] !== '' ? String(s[key]) : null
-
-  const fromTable = (tableId: string, headerKw: string, rowIdx = 0): string | null => {
-    const t = tables.find(t => t.id === tableId || t.title?.toLowerCase().includes(tableId))
-    if (!t || !t.rows[rowIdx]) return null
-    const colIdx = t.headers.findIndex(h => h.toLowerCase().includes(headerKw.toLowerCase()))
-    if (colIdx < 0) return null
-    const v = t.rows[rowIdx][colIdx]
-    return v !== null && v !== undefined ? String(v) : null
-  }
-
-  const findings: Finding[] = []
-  const add = (label: string, value: string | null) => {
-    if (value !== null && findings.length < 6) findings.push({ label, value })
-  }
-
-  switch (analysisType) {
-    case 'descriptive': {
-      add('N', get('n'))
-      const nv = get('numericVars'); const cv = get('catVars')
-      if (nv !== null) add('Numeric Vars', nv)
-      if (cv !== null) add('Cat Vars', cv)
-      const nt = tables.find(t => t.id === 'numeric_summary')
-      if (nt && nt.rows.length > 0) {
-        const r = nt.rows[0]
-        if (r[3] !== null) add('Mean', String(r[3]))
-        if (r[4] !== null) add('SD', String(r[4]))
-      }
-      break
-    }
-    case 'frequency': {
-      add('N', get('n')); add('Variable', get('variable')); add('Categories', get('categories'))
-      const ft = tables[0]
-      if (ft && ft.rows.length > 0) {
-        const topRow = ft.rows.reduce((best, row) => Number(row[1]) > Number(best[1] ?? 0) ? row : best, ft.rows[0])
-        if (topRow[0] !== null) add('Mode', String(topRow[0]))
-      }
-      break
-    }
-    case 'chi_square':
-      add('N', get('n')); add('χ²', get('chiSq') ?? get('chi2'))
-      add('p-value', get('pValue')); add("Cramér's V", get('cramersV') ?? get('v'))
-      break
-    case 't_test': {
-      const tt = tables[0]
-      if (tt) {
-        const hi = (kw: string) => tt.headers.findIndex(h => h.toLowerCase().includes(kw))
-        const r = tt.rows[0]
-        if (r) {
-          const nIdx = hi('n'); const meanIdx = hi('mean'); const tIdx = hi('t'); const pIdx = hi('p'); const dIdx = hi('cohen')
-          if (nIdx >= 0) add('N', String(r[nIdx]))
-          if (meanIdx >= 0) add('Mean', String(r[meanIdx]))
-          if (tIdx >= 0) add('t', String(r[tIdx]))
-          if (pIdx >= 0) add('p-value', String(r[pIdx]))
-          if (dIdx >= 0) add("Cohen's d", String(r[dIdx]))
-        }
-      }
-      if (findings.length === 0) { add('Test', get('testType')); add('Variable', get('variable')) }
-      break
-    }
-    case 'anova':
-      add('N', get('n')); add('F', get('fStat')); add('p-value', get('pValue')); add('η²', get('etaSq') ?? get('etaSquared'))
-      break
-    case 'correlation': {
-      add('Variables', get('variables')); add('Method', get('method'))
-      const ct = tables[0]
-      if (ct && ct.rows.length > 0 && ct.rows[0].length >= 2) {
-        const rVal = ct.rows[0][1]
-        if (rVal !== null) add('r', String(rVal))
-        const pRow = ct.rows.find(row => String(row[0]).toLowerCase().includes('p-val'))
-        if (pRow && pRow[1] !== null) add('p-value', String(pRow[1]))
-      }
-      break
-    }
-    case 'simple_regression':
-      add('N', get('n')); add('R²', get('r2') ?? get('rSquared')); add('p-value', get('pValue'))
-      add('β', fromTable('coefficients', 'estimate', 1) ?? fromTable('coeff', 'b', 1))
-      break
-    case 'multiple_regression':
-      add('N', get('n')); add('R²', get('r2') ?? get('rSquared')); add('Adj R²', get('adjR2') ?? get('adjustedR2')); add('p-value', get('pValue'))
-      break
-    case 'logistic_regression':
-      add('N', get('n')); add('Events', get('events')); add('AUC', get('auc')); add('Nagelkerke R²', get('nagelkerkeR2'))
-      break
-    case 'multinomial_regression':
-      add('N', get('n')); add('Categories', get('categories')); add('Reference', get('reference'))
-      break
-    case 'ordinal_regression':
-      add('N', get('n')); add('AIC', get('aic')); add('p-value', get('pValue')); add('Pseudo R²', get('pseudoR2') ?? get('mcfadden'))
-      break
-    case 'poisson_regression':
-    case 'negbinomial_regression':
-      add('N', get('n')); add('AIC', get('aic')); add('Deviance', get('deviance')); add('p-value', get('pValue'))
-      break
-    case 'kaplan_meier':
-      add('N Total', get('n')); add('Events', get('events')); add('Groups', get('groups')); add('Log-rank p', get('logRankP'))
-      break
-    case 'cox_regression':
-      add('N', get('n')); add('Events', get('events')); add('C-statistic', get('concordance')); add('LR p-value', get('lrP'))
-      break
-    case 'time_series':
-      add('N', get('n')); add('Time Points', get('timePoints')); add('Classifications', get('classifications'))
-      break
-    case 'pca':
-      add('N', get('n')); add('Components', get('nComp') ?? get('p')); add('PC1 Var %', get('varExplained1')); add('PC2 Var %', get('varExplained2'))
-      break
-    case 'factor_analysis':
-      add('N', get('n')); add('Factors', get('nFactors') ?? get('factors')); add('KMO', get('kmo')); add('Total Var %', get('variance') ?? get('totalVariance'))
-      break
-    case 'cluster_analysis':
-      add('N', get('n')); add('Clusters', get('nClusters') ?? get('k')); add('Silhouette', get('avgSilhouette') ?? get('silhouette')); add('WCSS', get('wcss'))
-      break
-    case 'meta_analysis':
-      add('Studies', get('k')); add('Effect Size', get('summaryES')); add('I²', get('I2') ?? get('i2')); add('p-value', get('pValue'))
-      break
-    case 'sample_size':
-      add('Design', get('design')); add('N per Group', get('nPerGroup')); add('Total N', get('totalN') ?? get('finalN')); add('Power', get('power'))
-      break
-    default: {
-      const keys = Object.keys(s).filter(k => k !== 'error').slice(0, 6)
-      for (const k of keys) add(formatKey(k), get(k))
-    }
-  }
-
-  return findings
-}
-
-function formatKey(key: string): string {
-  return key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').trim().replace(/^./, c => c.toUpperCase())
-}
+// getKeyFindings / formatKey moved to ./results/keyFindings (shared with ResultBlock).
