@@ -72,6 +72,20 @@ const nextConfig: NextConfig = {
           { key: 'Cache-Control', value: 'public, max-age=3600' },
         ],
       },
+      {
+        // Cross-origin isolation for the analysis route only, so the WebR code
+        // lane gets SharedArrayBuffer (the fast channel) instead of the
+        // PostMessage fallback, which stalls. COEP 'credentialless' is used (not
+        // 'require-corp') so cross-origin no-cors subresources still load
+        // without needing CORP headers; Supabase API uses CORS and WebSockets
+        // are exempt, so data/realtime are unaffected. Scoped to this route to
+        // avoid imposing isolation on the rest of the app.
+        source: '/projects/:id/analysis',
+        headers: [
+          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+          { key: 'Cross-Origin-Embedder-Policy', value: 'credentialless' },
+        ],
+      },
     ]
   },
 }
