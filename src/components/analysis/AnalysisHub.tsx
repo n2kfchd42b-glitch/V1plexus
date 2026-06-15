@@ -46,6 +46,7 @@ import { LedgerKeyModal } from '@/components/ledger/LedgerKeyModal'
 import type { AnalysisRun, AnalysisType, DatasetColumn } from '@/types/database'
 import type { DataRow, AnalysisResult } from '@/lib/analysis/types'
 import type { CanvasBlock } from './results/ResultBlock'
+import type { RRunResult } from '@/lib/analysis/webRuntime'
 import { useLocale } from '@/i18n/LocaleProvider'
 
 // Heavy components and engines — lazy-loaded to split the initial bundle
@@ -60,6 +61,7 @@ const DecisionVariableSelector     = dynamic(() => import('./DecisionVariableSel
 const MultiDecisionVariableSelector = dynamic(() => import('./MultiDecisionVariableSelector').then(m => ({ default: m.MultiDecisionVariableSelector })))
 const HubResultsPreview       = dynamic(() => import('./HubResultsPreview').then(m => ({ default: m.HubResultsPreview })))
 const ResultBlock             = dynamic(() => import('./results/ResultBlock').then(m => ({ default: m.ResultBlock })))
+const CodeLane                = dynamic(() => import('./results/CodeLane').then(m => ({ default: m.CodeLane })))
 
 const DescriptiveConfig       = dynamic(() => import('./configs/DescriptiveConfig').then(m => ({ default: m.DescriptiveConfig })))
 const FrequencyConfig         = dynamic(() => import('./configs/FrequencyConfig').then(m => ({ default: m.FrequencyConfig })))
@@ -391,11 +393,25 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
   // Append a produced result (success or error) as a new canvas block, newest
   // first. Title is resolved once here so the block stays stable if the active
   // dataset/type later changes.
+  const blockId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+
   const pushResultBlock = (analysisType: AnalysisType, res: AnalysisResult) => {
     const label = ANALYSIS_TYPES.find(at => at.type === analysisType)?.label ?? 'Results'
     const title = fileName ? `${label} — ${fileName}` : label
     setResultBlocks(prev => [
-      { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, analysisType, title, result: res, createdAt: Date.now() },
+      { kind: 'analysis', id: blockId(), analysisType, title, result: res, createdAt: Date.now() },
+      ...prev,
+    ])
+  }
+
+  // Append the output of a custom R run from the code lane.
+  const pushCodeBlock = (source: string, res: RRunResult) => {
+    setResultBlocks(prev => [
+      {
+        kind: 'code', id: blockId(), createdAt: Date.now(),
+        title: fileName ? `R script — ${fileName}` : 'R script',
+        source, output: res.output, images: res.images, error: res.error,
+      },
       ...prev,
     ])
   }
@@ -1764,15 +1780,7 @@ export function AnalysisHub({ projectId, hideNav = false }: Props) {
               </div>
 
               {decisionMode === 'code' && (
-                <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
-                  <div className="w-14 h-14 rounded-xl flex items-center justify-center mb-4" style={{ background: 'var(--bg-inset)', border: '1px solid var(--border-default)' }}>
-                    <Code2 className="h-7 w-7" style={{ color: 'var(--text-tertiary)' }} />
-                  </div>
-                  <p className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Custom R code</p>
-                  <p className="text-xs max-w-[280px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
-                    Write R against your dataset, with output landing on the results canvas. Arriving in the next phase.
-                  </p>
-                </div>
+                <CodeLane data={data} onComplete={pushCodeBlock} />
               )}
               {decisionMode === 'guided' && (
                 <GuidedFlow
