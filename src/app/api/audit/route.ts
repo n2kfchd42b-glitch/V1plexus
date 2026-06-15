@@ -158,7 +158,10 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('audit_logs')
-      .select('*, actor:actor_id(full_name)', { count: 'exact' })
+      // No PostgREST embed on actor_id — there's no FK relationship from
+      // audit_logs.actor_id in the schema cache, so `actor:actor_id(full_name)`
+      // 500s (PGRST200). Actor names are resolved via a profiles lookup below.
+      .select('*', { count: 'exact' })
       .order('timestamp', { ascending: false })
 
     if (projectId)              query = query.eq('project_id', projectId)
@@ -186,8 +189,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'query_failed' }, { status: 500 })
     }
 
+    // Resolve actor display names in one follow-up query (no FK embed available).
+    const actorIds = [...new Set((data || []).map(e => (e as { actor_id?: string }).actor_id).filter(Boolean) as string[])]
+    const actorNames = new Map<string, string>()
+    if (actorIds.length > 0) {
+      const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', actorIds)
+      for (const p of profs ?? []) actorNames.set(p.id, p.full_name ?? '')
+    }
+
     const entries: AuditEntry[] = (data || []).map((entry: Record<string, unknown>) => {
-      const fullName = (entry.actor as { full_name?: string } | null)?.full_name ?? 'Unknown'
+      const fullName = actorNames.get(entry.actor_id as string) || 'Unknown'
       const initials = fullName === 'Unknown' ? 'U'
         : fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
       return {
