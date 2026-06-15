@@ -43,8 +43,13 @@ export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
   const [enrollmentDate, setEnrollmentDate] = useState("");
   const [expectedCompletion, setExpectedCompletion] = useState("");
 
-  // Step 3: Chapters
-  const [chapters, setChapters] = useState<ChapterDraft[]>([]);
+  // Step 3: Chapters — seed from the default degree so they populate even when
+  // the user accepts the pre-selected degree without clicking it (clicking a
+  // degree re-seeds via handleDegreeChange). Previously started empty, so a user
+  // who left the default MSc selected reached the Chapters step with none.
+  const [chapters, setChapters] = useState<ChapterDraft[]>(
+    () => DEFAULT_CHAPTERS_BY_DEGREE[degreeType].map((t, i) => ({ title: t, tempId: `ch-${i}` })),
+  );
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
   // Step 4: Committee
