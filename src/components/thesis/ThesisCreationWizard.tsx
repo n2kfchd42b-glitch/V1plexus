@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, ChevronLeft, GripVertical, Trash2, Plus, GraduationCap, Info } from "lucide-react";
+import { ChevronRight, ChevronLeft, GripVertical, Trash2, Plus, GraduationCap, Info, UserCheck, CheckCircle2 } from "lucide-react";
+import { FindSupervisorModal } from "@/components/supervisor-student/FindSupervisorModal";
 import { DegreeType, DEGREE_LABELS, DEFAULT_CHAPTERS_BY_DEGREE } from "@/lib/types/thesis";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,7 +25,7 @@ const PROGRAMS = [
   "Maternal & Child Health", "Health Systems", "Other",
 ];
 
-const STEPS = ["Basic Info", "Thesis Details", "Chapter Structure", "Committee"] as const;
+const STEPS = ["Basic Info", "Thesis Details", "Chapter Structure", "Supervisor & Committee"] as const;
 
 export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
   const router = useRouter();
@@ -56,6 +57,12 @@ export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
   const [committeeMembers, setCommitteeMembers] = useState<
     { name: string; email: string; role: string; institution: string }[]
   >([]);
+
+  // Step 4: Supervisor — request/invite during creation (account-level, so it
+  // works before the project exists), closing the student↔supervisor loop in
+  // one flow instead of a separate trip to the Setup tab afterwards.
+  const [supervisorModalOpen, setSupervisorModalOpen] = useState(false);
+  const [supervisorRequested, setSupervisorRequested] = useState(false);
 
   function initChapters(degree: DegreeType) {
     const defaults = DEFAULT_CHAPTERS_BY_DEGREE[degree];
@@ -293,7 +300,7 @@ export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
           <div className="flex items-start gap-2.5 rounded-lg border border-[var(--border-status-info)] bg-[var(--accent-blue-subtle)] px-3.5 py-3">
             <Info className="h-3.5 w-3.5 text-[var(--accent-blue)] mt-0.5 shrink-0" />
             <p className="text-xs text-[var(--accent-blue-hover)] leading-relaxed">
-              You can invite your supervisor from the <span className="font-semibold">Setup</span> tab once the project is created.
+              You&apos;ll add your supervisor in the final step (<span className="font-semibold">Supervisor &amp; Committee</span>).
             </p>
           </div>
         </div>
@@ -344,9 +351,38 @@ export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
         </div>
       )}
 
-      {/* Step 3: Committee */}
+      {/* Step 3: Supervisor & Committee */}
       {step === 3 && (
-        <div className="space-y-3">
+        <div className="space-y-5">
+          {/* Main supervisor — close the loop here instead of a later Setup-tab trip */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-[0.06em]">Main supervisor</p>
+            {supervisorRequested ? (
+              <div className="flex items-center gap-2 rounded-lg border border-[var(--border-status-success)] bg-[var(--status-success-bg)] px-3 py-2.5">
+                <CheckCircle2 className="h-4 w-4 text-[var(--status-success-text)] flex-shrink-0" />
+                <p className="text-xs text-[var(--status-success-text)]">
+                  Supervision request sent. You can manage supervisors anytime from the project&apos;s Setup tab.
+                </p>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setSupervisorModalOpen(true)}
+                className="w-full flex items-center gap-3 rounded-lg border border-dashed border-[var(--border-strong)] bg-[var(--bg-surface)] px-3 py-2.5 text-left transition-colors hover:bg-[var(--bg-surface-hover)]"
+              >
+                <span className="w-8 h-8 rounded-lg bg-[var(--accent-blue-subtle)] flex items-center justify-center flex-shrink-0">
+                  <UserCheck className="h-4 w-4 text-[var(--accent-blue)]" />
+                </span>
+                <span>
+                  <span className="block text-sm font-semibold text-[var(--text-primary)]">Add your supervisor</span>
+                  <span className="block text-xs text-[var(--text-tertiary)]">Search Plexus or invite by email — they&apos;ll get a request to accept</span>
+                </span>
+              </button>
+            )}
+          </div>
+
+          <div className="h-px" style={{ background: "var(--border-row)" }} />
+
           <p className="text-xs text-[var(--text-tertiary)]">
             Optionally add committee members now. You can also do this later from the Committee tab.
           </p>
@@ -446,6 +482,13 @@ export function ThesisCreationWizard({ onCancel }: ThesisCreationWizardProps) {
           )}
         </div>
       </div>
+
+      {supervisorModalOpen && (
+        <FindSupervisorModal
+          onClose={() => setSupervisorModalOpen(false)}
+          onRequested={() => { setSupervisorRequested(true); setSupervisorModalOpen(false); }}
+        />
+      )}
     </div>
   );
 }

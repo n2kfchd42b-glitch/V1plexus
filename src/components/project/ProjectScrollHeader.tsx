@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { MoreHorizontal, Settings, Clock, FileSearch, ArchiveRestore, Package } from 'lucide-react'
+import { MoreHorizontal, Settings, Clock, FileSearch, ArchiveRestore, Package, GraduationCap, SlidersHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -59,10 +59,9 @@ export function ProjectScrollHeader({
     { slug: 'data',      label: 'Data',       count: datasetCount          },
     { slug: 'analysis',  label: 'Analysis',   count: runCount > 0 ? runCount : null },
     { slug: 'documents', label: 'Writing',    count: null                  },
-    ...(isThesis ? [
-      { slug: 'defense', label: 'Defense', count: null as number | null },
-      { slug: 'setup',   label: 'Setup',   count: null as number | null },
-    ] : []),
+    // Defense & Setup are end-stage / occasional thesis surfaces — they live in
+    // the overflow menu below to keep the primary row focused on the working
+    // surfaces (Overview · Chapters · Data · Analysis · Writing).
   ]
 
   // Alt+1-9 jumps to the matching tab. Skips when focus is in a text input.
@@ -233,6 +232,19 @@ export function ProjectScrollHeader({
               <MoreHorizontal className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
+              {isThesis && (
+                <>
+                  <DropdownMenuItem onSelect={() => router.push(`/projects/${projectId}/setup`)}>
+                    <SlidersHorizontal className="h-4 w-4" />
+                    Supervisor & committee
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => router.push(`/projects/${projectId}/defense`)}>
+                    <GraduationCap className="h-4 w-4" />
+                    Defense
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuItem onSelect={() => router.push(`/projects/${projectId}/settings`)}>
                 <Settings className="h-4 w-4" />
                 Project settings
