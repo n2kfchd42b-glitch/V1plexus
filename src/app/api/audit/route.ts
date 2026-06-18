@@ -23,13 +23,13 @@ export async function POST(request: NextRequest) {
     const body: AuditPostBody = await request.json()
 
     const supabase = await createClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (!user) {
       return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
     }
 
-    if (body.actor_id !== session.user.id) {
+    if (body.actor_id !== user.id) {
       return NextResponse.json({ error: 'forbidden' }, { status: 403 })
     }
 
@@ -137,8 +137,8 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
       return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
     }
 
